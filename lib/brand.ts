@@ -1,0 +1,138 @@
+/**
+ * Everything that makes a shop look like one customer's shop.
+ * Values come from the environment (see `.env.example`), so every customer
+ * runs the same code and only differs in `.env`, `public/brand/` and `brand/`.
+ * Server-only: these env vars are read at request time, not inlined in client code.
+ */
+
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+const env = (key: string) => process.env[key]?.trim() || undefined;
+
+// Only plain color/length values may be injected into the page's <style> tag.
+const SAFE_CSS_VALUE = /^[#\w\s.,%()/-]+$/;
+
+// Matches the variables defined in assets/styles/globals.css.
+const COLOR_TOKENS = [
+  'background',
+  'foreground',
+  'card',
+  'card-foreground',
+  'popover',
+  'popover-foreground',
+  'primary',
+  'primary-foreground',
+  'secondary',
+  'secondary-foreground',
+  'muted',
+  'muted-foreground',
+  'accent',
+  'accent-foreground',
+  'destructive',
+  'destructive-foreground',
+  'border',
+  'input',
+  'ring',
+  'chart-1',
+  'chart-2',
+  'chart-3',
+  'chart-4',
+  'chart-5',
+] as const;
+
+type ColorToken = (typeof COLOR_TOKENS)[number];
+
+const DEFAULT_PRIMARY = '#4F46E5';
+
+function readColors(prefix: string) {
+  const colors: Partial<Record<ColorToken, string>> = {};
+  for (const token of COLOR_TOKENS) {
+    const value = env(`${prefix}${token.toUpperCase().replace(/-/g, '_')}`);
+    if (value && SAFE_CSS_VALUE.test(value)) colors[token] = value;
+  }
+  return colors;
+}
+
+function readTheme(): ThemeMode {
+  const theme = env('BRAND_THEME');
+  return theme === 'dark' || theme === 'system' ? theme : 'light';
+}
+
+function socialUrl(base: string, account?: string) {
+  return account ? `${base}${account.replace(/^@/, '')}` : undefined;
+}
+
+const instagram = env('INSTAGRAM_ACCOUNT');
+const whatsapp = env('WHATSAPP_NUMBER')?.replace(/\D/g, '');
+
+export const BRAND = {
+  name: env('APP_NAME') ?? env('NEXT_PUBLIC_APP_NAME') ?? 'My Shop',
+  description:
+    env('APP_DESCRIPTION') ??
+    env('NEXT_PUBLIC_APP_DESCRIPTION') ??
+    'An online shop built on the custom shop template.',
+
+  logo: env('BRAND_LOGO') ?? '/brand/logo.svg',
+  icon: env('BRAND_ICON') ?? '/brand/icon.svg',
+  ogImage: env('BRAND_OG_IMAGE'),
+  heroImage: env('BRAND_HERO_IMAGE'),
+  showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',
+
+  theme: readTheme(),
+  colors: readColors('BRAND_COLOR_'),
+  darkColors: readColors('BRAND_DARK_COLOR_'),
+  radius: env('BRAND_RADIUS'),
+  displayFontUrl: env('BRAND_FONT_DISPLAY_URL'),
+
+  contact: {
+    email: env('CONTACT_EMAIL'),
+    phone: env('CONTACT_PHONE'),
+    whatsappUrl: whatsapp ? `https://wa.me/${whatsapp}` : undefined,
+    instagram,
+    instagramUrl: socialUrl('https://www.instagram.com/', instagram),
+  },
+};
+
+export const hasContactInfo = Boolean(
+  BRAND.contact.email || BRAND.contact.phone || BRAND.contact.instagram
+);
+
+/** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
+export const EMAIL_COLORS = {
+  primary: BRAND.colors.primary ?? DEFAULT_PRIMARY,
+  primaryForeground: BRAND.colors['primary-foreground'] ?? '#FFFFFF',
+  // Same background as the site header, so the logo sits on the color it was made for.
+  header: BRAND.colors.background ?? (BRAND.theme === 'dark' ? '#0B0B0F' : '#FFFFFF'),
+};
+
+/** Relative asset paths need the site URL in emails and Open Graph tags. */
+export function absoluteUrl(path: string, serverUrl: string) {
+  return /^https?:\/\//.test(path) ? path : `${serverUrl}${path}`;
+}
+
+function cssVars(colors: Partial<Record<ColorToken, string>>) {
+  return Object.entries(colors)
+    .map(([token, value]) => `--${token}: ${value};`)
+    .join(' ');
+}
+
+/** CSS that layers the customer's env settings over the defaults in globals.css. */
+export function getBrandCss() {
+  const rules: string[] = [];
+  const radius = BRAND.radius && SAFE_CSS_VALUE.test(BRAND.radius) ? `--radius: ${BRAND.radius};` : '';
+
+  // Unlayered, so it wins over globals.css; `.dark` comes last to override `:root` in dark mode.
+  const rootVars = `${cssVars(BRAND.colors)} ${radius}`.trim();
+  if (rootVars) rules.push(`:root, .dark { ${rootVars} }`);
+  const darkVars = cssVars(BRAND.darkColors);
+  if (darkVars) rules.push(`.dark { ${darkVars} }`);
+
+  if (BRAND.displayFontUrl && !/["'()\\]/.test(BRAND.displayFontUrl)) {
+    rules.push(
+      `@font-face { font-family: 'BrandDisplay'; src: url('${BRAND.displayFontUrl}'); font-display: swap; }`,
+      `:root { --brand-font-display: 'BrandDisplay'; }`
+    );
+  }
+
+  return rules.join('\n');
+}
