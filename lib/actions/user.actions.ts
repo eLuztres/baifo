@@ -20,6 +20,7 @@ import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
 import { sendWelcomeEmail } from '@/email';
 import { getLocale } from '@/lib/i18n-server';
+import { isAdmin } from '@/lib/auth-guard';
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -214,6 +215,7 @@ export async function getAllUsers({
   page: number;
   query: string;
 }) {
+  if (!(await isAdmin())) throw new Error('Only admins can do this');
   const queryFilter: Prisma.UserWhereInput =
     query && query !== 'all'
       ? {
@@ -283,6 +285,9 @@ export async function deleteUser(id: string) {
 // Update a user
 export async function updateUser(user: z.infer<typeof updateUserSchema>) {
   try {
+    if (!(await isAdmin())) {
+      return { success: false, message: 'Only admins can do this' };
+    }
     await prisma.user.update({
       where: { id: user.id },
       data: {

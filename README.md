@@ -1,67 +1,251 @@
 # Custom Shop Template
 
-A white-label e-commerce shop (Next.js 15, Prisma/PostgreSQL, next-auth, Stripe/PayPal).
-It has products, cart, checkout, orders, user accounts and an admin panel. Every customer shop runs **the same code**.
-The name, logo, colors, contact details, languages, currency and pricing rules all come from configuration.
+A white-label online shop: products, cart, checkout (Stripe, PayPal, cash on delivery), orders, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and next-auth.
 
-## Quick start
+**Every customer shop runs the same code.** Name, logo, colors, texts, contact details, languages, currency and shop rules are configuration. So you can create a new shop in minutes and update all of them from one place.
+
+- [1. Create a customer shop](#1-create-a-customer-shop)
+- [2. Customize everything](#2-customize-everything)
+- [3. Put it online](#3-put-it-online)
+- [4. Update customer shops](#4-update-customer-shops)
+- [5. Commands](#5-commands)
+- [6. Working on the template itself](#6-working-on-the-template-itself)
+
+---
+
+## 1. Create a customer shop
+
+### The easiest way: Claude Code
+
+In Claude Code (in this folder or the workspace), type:
+
+```
+/new-shop
+```
+
+It asks for the name and, optionally, the customer's **Instagram page**. It reads the logo, colors and description from Instagram using the Claude in Chrome extension, and you confirm them. It then creates the shop and walks you step by step through GitHub, Vercel, the database, Google login, Stripe, PayPal, emails and the domain.
+
+### The wizard in the terminal
 
 ```shell
+npm run create-shop
+```
+
+It asks for:
+- the name
+- the logo, whose colors are used when you don't give one
+- the theme and main color
+- contact details, languages and currency
+- the GitHub repo
+
+Then it:
+1. creates `../shop-<name>` as a copy of this template, connected to it for updates
+2. copies the logo into `public/brand/`
+3. writes a complete `.env`, including generated secrets and a full color palette
+4. commits
+5. pushes to GitHub, if you gave a repo
+
+For repeatable setups, put the answers in a file: `npm run create-shop -- --config shop.json`. The fields are listed in `.claude/skills/new-shop/SKILL.md`.
+
+### Try it locally
+
+```shell
+cd ../shop-<name>
 npm install
-cp .env.example .env          # then fill in DATABASE_URL, AUTH_SECRET, ENCRYPTION_KEY, …
+# put a DATABASE_URL into .env (see docs/SETUP.md, step 3)
 npx prisma migrate deploy
-npx tsx db/seed.ts            # sample products + admin@example.com / 123456 (fresh databases only: it wipes them)
-npm run dev
+npm run dev                       # http://localhost:3000
 ```
 
-Change the seeded admin password right away, or create your own admin user.
+For a playground with sample products: `npx tsx db/seed.ts`. It **wipes the database** and creates `admin@example.com` / `123456`, so never run it on a real shop.
 
-## What makes a shop "one customer's shop"
+---
 
-A customer shop only ever changes these three places. The template never touches them after creating them, so updates merge cleanly.
+## 2. Customize everything
 
-| Where | What |
+A shop is customized in **three places only**. The template never changes them after creating them, so updates always merge cleanly.
+
+| Place | What goes there | Committed? |
+| :--- | :--- | :--- |
+| `.env` (and Vercel's environment variables) | all settings below | no, it has secrets |
+| `public/brand/` | logo, icon, hero image, social preview image, font | yes |
+| `brand/messages/<lang>.json` | your own wording, per language | yes |
+
+Settings are read when a page is requested. Locally, restart `npm run dev`; on Vercel, redeploy. Settings starting with `NEXT_PUBLIC_` are built into the code and always need a rebuild or redeploy.
+
+> In `.env`, put colors in quotes, e.g. `"#14B8A6"`: an unquoted `#` starts a comment. Writing them without the `#` (`14B8A6`) works too.
+
+### Name and description
+
+```env
+APP_NAME=Ocean Surf Co.
+APP_DESCRIPTION=Boards, wetsuits and gear for every wave.
+```
+
+The name appears in the header, footer, browser tab, emails and the home page title. The description goes to search engines and the home page. For a different description per language, set `BRAND_DESCRIPTION` in `brand/messages/<lang>.json`.
+
+### Logo and images
+
+Put the files into `public/brand/` and point to them, or use full URLs:
+
+```env
+BRAND_LOGO=/brand/logo.png          # header, footer, sign-in, emails (SVG, PNG, JPG)
+BRAND_ICON=/brand/icon.png          # browser tab icon
+BRAND_HERO_IMAGE=/brand/hero.jpg    # big picture on the home page (default: logo on a color gradient)
+BRAND_OG_IMAGE=/brand/og.jpg        # preview image when the shop link is shared (default: logo)
+BRAND_SHOW_NAME=false               # hide the name next to the logo when the logo already contains it
+```
+
+### Theme and colors
+
+```env
+BRAND_THEME=dark                    # light | dark | system (system = visitors get a light/dark switch)
+BRAND_COLOR_PRIMARY="#14B8A6"       # buttons, links, highlights
+```
+
+The theme alone gives a complete, neutral look, and one main color is usually enough. For full control, every color token can be set as `BRAND_COLOR_<TOKEN>`:
+
+| Token | Used for |
 | :--- | :--- |
-| `.env` | Name, description, theme, colors, radius, contact info, languages, currency, tax/shipping, payment methods, API keys. See `.env.example` for every option. |
-| `public/brand/` | `logo.svg`, `icon.svg`, and optional hero/og images and a display font. |
-| `brand/messages/<lang>.json` | Wording overrides per language, any key from `resources/en.json`, e.g. `{ "HERO_TITLE": "Ride every wave", "FOOTER_TAGLINE": "…" }`. |
+| `PRIMARY` / `PRIMARY_FOREGROUND` | main buttons / their text |
+| `ACCENT` / `ACCENT_FOREGROUND` | highlights, small labels / text on them |
+| `BACKGROUND` / `FOREGROUND` | page background / normal text |
+| `CARD` / `CARD_FOREGROUND` | product cards, boxes |
+| `MUTED` / `MUTED_FOREGROUND` | subtle backgrounds / secondary text |
+| `SECONDARY` / `SECONDARY_FOREGROUND` | secondary buttons |
+| `BORDER`, `INPUT`, `RING` | lines, form fields, focus outline |
+| `POPOVER` / `POPOVER_FOREGROUND` | menus, dropdowns |
+| `DESTRUCTIVE` / `DESTRUCTIVE_FOREGROUND` | delete buttons, errors |
+| `CHART_1` … `CHART_5` | admin dashboard charts |
 
-Brand settings are read at request time. Restart the server to apply them; only `NEXT_PUBLIC_*` values need a rebuild.
+- `BRAND_COLOR_*` applies in both light and dark mode. `BRAND_DARK_COLOR_*` overrides a color in dark mode only, which matters with `BRAND_THEME=system`.
+- The wizard fills in a matching full palette from one main color. To get suggestions from any image: `npm run brand-colors -- path/to/logo.png`.
 
-## Customer repos and updates
-
-Every customer gets its own repo, created from this template and kept connected to it:
-
-```shell
-# Create a customer shop
-git clone <custom-repo-url> shop-acme
-cd shop-acme
-git remote rename origin upstream              # the template
-git remote add origin <acme-repo-url>          # the customer's own repo
-cp .env.example .env                           # configure the brand
-# replace public/brand/*, add wording to brand/messages/*.json
-git add public/brand brand && git commit -m "Acme branding"
-git push -u origin main
+```env
+BRAND_RADIUS=0.25rem                # corner roundness: 0 = square, 0.75rem = default, 1.5rem = very round
+BRAND_FONT_DISPLAY_URL=/brand/display.woff2   # font for headings (body text stays Inter)
 ```
 
+### Texts
+
+All texts come from `resources/<lang>.json`. To change one for a shop, put the same key into `brand/messages/<lang>.json`. Only the keys you want to change are needed:
+
+```json
+{
+  "HERO_TITLE": "Ride every wave",
+  "HERO_EYEBROW": "Since 1998",
+  "FOOTER_TAGLINE": "Handmade boards from Fuerteventura.",
+  "VALUE_SHIPPING_TITLE": "Free shipping over 100 €"
+}
+```
+
+Where the main texts appear:
+
+| Keys | Where |
+| :--- | :--- |
+| `HERO_EYEBROW`, `HERO_TITLE`, `HERO_CTA`, `BRAND_DESCRIPTION` | top of the home page |
+| `VALUE_*_TITLE`, `VALUE_*_DESCRIPTION` | the four boxes on the home page (shipping, payment, returns, support) |
+| `PRODUCT_PERK_*` | the three lines under the product description |
+| `STORE_TITLE`, `STORE_DESCRIPTION`, `STORE_EMPTY` | shop page |
+| `CONTACT_HEADING`, `CONTACT_INTRO` | contact page |
+| `FOOTER_TAGLINE` | footer |
+| `WELCOME_*` | welcome email |
+
+- `{shop}` in a text is replaced by the shop name, e.g. `"Welcome to {shop}"`.
+- Translate your overrides into each language the shop offers. A language without the override shows the default text.
+
+### Contact details
+
+Each one is optional. Empty ones are hidden, and without any the contact page and its menu link disappear.
+
+```env
+CONTACT_EMAIL=hello@oceansurf.com   # also the reply-to address of all emails
+CONTACT_PHONE=+34 600 000 000
+WHATSAPP_NUMBER=34600000000         # turns the phone into a WhatsApp link
+INSTAGRAM_ACCOUNT=oceansurf
+```
+
+### Languages
+
+```env
+LOCALES=es,en                       # any of en, es, de, fr, it (default: all)
+DEFAULT_LOCALE=es                   # when the visitor's browser language isn't offered
+```
+
+With one language, the language switcher disappears.
+
+### Money and shop rules
+
+```env
+NEXT_PUBLIC_CURRENCY=EUR            # for prices, Stripe and PayPal (rebuild needed)
+NEXT_PUBLIC_NUMBER_LOCALE=de-DE     # number format: de-DE → 1.234,50 €, en-US → €1,234.50
+TAX_RATE=0.21                       # 21 % added at checkout (0 = prices include tax)
+SHIPPING_PRICE=10
+FREE_SHIPPING_THRESHOLD=100         # free shipping above this order value
+PAYMENT_METHODS=Stripe, PayPal      # any of PayPal, Stripe, CashOnDelivery
+DEFAULT_PAYMENT_METHOD=Stripe
+PAGE_SIZE=12                        # products per page
+LATEST_PRODUCTS_LIMIT=4             # products on the home page
+```
+
+### Features that switch on by themselves
+
+| Feature | Appears when |
+| :--- | :--- |
+| Google login button | `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set |
+| Contact page | at least one contact detail is set |
+| Language switcher | more than one language is enabled |
+| Light/dark switch | `BRAND_THEME=system` |
+| Featured-products carousel | a product is marked *featured* and has a banner image (admin panel) |
+
+### Products and content
+
+Products, prices, stock, categories, banners and users are managed in the shop's **admin panel** (`/admin`), not in code. See `docs/SETUP.md` step 4 for the first admin account.
+
+---
+
+## 3. Put it online
+
+**[docs/SETUP.md](docs/SETUP.md)** is the step-by-step guide: GitHub, Vercel, database, first admin, Google login, Stripe, PayPal, emails, image uploads, own domain and a final checklist. `/new-shop` in Claude Code guides you through the same steps.
+
+---
+
+## 4. Update customer shops
+
+Every customer shop is its own repo with this template as `upstream`. Fixes and features are made **here**, then merged into each shop:
+
 ```shell
-# Pull template updates (bug fixes, features) into a customer shop
+cd ../shop-acme
 git fetch upstream
 git merge upstream/main
-npm install && npx prisma migrate deploy
+npm install
+git push                           # Vercel deploys, and migrations run on their own
 ```
 
-Because customers only differ in the brand files and `.env`, merges don't conflict. If a customer needed a real code change, an AI agent can resolve the merge. See `AGENTS.md` for the rules it follows.
+Customers only differ in `.env`, `public/brand/` and `brand/messages/`, so this merges without conflicts. If a shop got a code change of its own, Claude can resolve the merge using the rules in `AGENTS.md`.
 
-Put fixes and features in **this template** first, then merge them into the customer repos. Don't fix them in one customer repo.
+To make a shop's feature available to all shops, build it into the template as a setting and merge it down. Don't fork the code.
 
-## Commands
+---
 
-```shell
-npm run dev        # dev server
-npm run build      # production build
-npm run lint       # ESLint
-npm run test       # Jest (the PayPal tests need sandbox credentials)
-npm run storybook  # Storybook on :6006
-npm run email      # email preview on :3001
-```
+## 5. Commands
+
+| Command | What it does |
+| :--- | :--- |
+| `npm run create-shop` | wizard: create a new customer shop |
+| `npm run brand-colors -- <image>` | suggest shop colors from a logo or photo |
+| `npm run make-admin -- <email>` | make an existing account an admin |
+| `npm run push-env` | copy `.env` values to the linked Vercel project (`--only KEY1,KEY2` for some) |
+| `npm run dev` / `build` / `start` | develop / build / run |
+| `npm run lint` / `test` / `test:e2e` | lint / unit tests / end-to-end tests |
+| `npm run storybook` | component explorer on :6006 |
+| `npm run email` | email preview on :3001 |
+
+---
+
+## 6. Working on the template itself
+
+- Keep everything customer-specific out of the code. A new customizable thing becomes an env var in `lib/brand.ts` (look) or `lib/constants` (rules), documented in `.env.example` and in this README.
+- Use theme colors only (`bg-primary`, `text-muted-foreground`, `border-border`, …), never fixed colors. Otherwise light or dark shops break.
+- New texts go into **all** `resources/*.json` files.
+- `AGENTS.md` has the full rules for AI agents working on the template and the customer repos.

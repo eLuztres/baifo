@@ -23,6 +23,11 @@ The workspace guidelines in `../AGENTS.md` apply. This file adds the rules that 
 - User-facing text goes through `getT()` / `useI18n()`. A new key must be added to **all** `resources/*.json` files.
 - Use `{shop}` in a text for the shop name, and pass `{ shop: APP_NAME }` when translating.
 
+## Creating shops
+
+- `npm run create-shop` (`scripts/create-shop.mjs`) creates customer repos, and the `/new-shop` skill (`.claude/skills/new-shop/`) guides through it and the online setup in `docs/SETUP.md`.
+- A new setting also belongs in the wizard when it's part of a shop's identity. Keep the README's "Customize everything" section and `docs/SETUP.md` in sync.
+
 ## Working in a customer repo (updates)
 
 - Pull updates with `git fetch upstream && git merge upstream/main`. Then run `npm install` and `npx prisma migrate deploy`.

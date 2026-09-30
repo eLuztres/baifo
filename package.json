@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "DATABASE_URL=${DATABASE_URL_UNPOOLED:-$DATABASE_URL} prisma migrate deploy && next build",
+    "create-shop": "node scripts/create-shop.mjs",
+    "brand-colors": "node scripts/brand-colors.mjs",
+    "make-admin": "node scripts/make-admin.mjs",
+    "push-env": "node scripts/push-env-to-vercel.mjs",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
@@ -12,7 +17,8 @@
     "test:watch": "jest --watch",
     "email": "cp .env ./node_modules/react-email && email dev --dir email --port 3001",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
@@ -71,6 +77,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.0.1",
+    "@playwright/test": "^1.53.1",
     "@prisma/client": "^6.9.0",
     "@storybook/addon-a11y": "^9.0.12",
     "@storybook/addon-docs": "^9.0.12",
@@ -78,6 +85,10 @@
     "@storybook/addon-vitest": "^9.0.12",
     "@storybook/nextjs-vite": "^9.0.12",
     "@tailwindcss/postcss": "^4.0.14",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^20.17.46",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -88,6 +99,7 @@
     "eslint": "^8",
     "eslint-config-next": "15.0.3",
     "eslint-plugin-storybook": "^9.0.12",
+    "jest-environment-jsdom": "^29.7.0",
     "playwright": "^1.53.1",
     "postcss": "^8",
     "prisma": "^6.9.0",

@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: 'utfs.io',
         port: '',
       },
+      // UploadThing's newer file URLs (`ufsUrl`)
+      {
+        protocol: 'https',
+        hostname: '*.ufs.sh',
+      },
     ],
   },
 };

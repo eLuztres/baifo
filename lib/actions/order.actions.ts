@@ -7,12 +7,13 @@ import { getMyCart } from './cart.actions';
 import { getUserById } from './user.actions';
 import { insertOrderSchema } from '../validators';
 import { prisma } from '@/db/prisma';
-import { CartItem, PaymentResult, ShippingAddress } from '@/types';
+import { CartItem, PaymentResult } from '@/types';
 import { paypal } from '../paypal';
 import { revalidatePath } from 'next/cache';
 import { PAGE_SIZE } from '../constants';
 import { Prisma } from '@prisma/client';
-import { sendPurchaseReceipt } from '@/email';
+import { updateOrderToPaid } from '../order-payment';
+import { isAdmin } from '@/lib/auth-guard';
 
 // Create order and create the order items
 export async function createOrder() {
@@ -214,69 +215,6 @@ export async function approvePayPalOrder(
   }
 }
 
-// Update order to paid
-export async function updateOrderToPaid({
-  orderId,
-  paymentResult,
-}: {
-  orderId: string;
-  paymentResult?: PaymentResult;
-}) {
-  // Get order from database
-  const order = await prisma.order.findFirst({
-    where: {
-      id: orderId,
-    },
-    include: {
-      orderitems: true,
-    },
-  });
-
-  if (!order) throw new Error('Order not found');
-
-  if (order.isPaid) throw new Error('Order is already paid');
-
-  // Transaction to update order and account for product stock
-  await prisma.$transaction(async (tx) => {
-    // Iterate over products and update stock
-    for (const item of order.orderitems) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: -item.qty } },
-      });
-    }
-
-    // Set the order to paid
-    await tx.order.update({
-      where: { id: orderId },
-      data: {
-        isPaid: true,
-        paidAt: new Date(),
-        paymentResult,
-      },
-    });
-  });
-
-  // Get updated order after transaction
-  const updatedOrder = await prisma.order.findFirst({
-    where: { id: orderId },
-    include: {
-      orderitems: true,
-      user: { select: { name: true, email: true } },
-    },
-  });
-
-  if (!updatedOrder) throw new Error('Order not found');
-
-  sendPurchaseReceipt({
-    order: {
-      ...updatedOrder,
-      shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
-      paymentResult: updatedOrder.paymentResult as PaymentResult,
-    },
-  });
-}
-
 // Get user's orders
 export async function getMyOrders({
   limit = PAGE_SIZE,
@@ -312,6 +250,7 @@ type SalesDataType = {
 
 // Get sales data and order summary
 export async function getOrderSummary() {
+  if (!(await isAdmin())) throw new Error('Only admins can do this');
   // Get counts for each resource
   const ordersCount = await prisma.order.count();
   const productsCount = await prisma.product.count();
@@ -361,6 +300,7 @@ export async function getAllOrders({
   page: number;
   query: string;
 }) {
+  if (!(await isAdmin())) throw new Error('Only admins can do this');
   const queryFilter: Prisma.OrderWhereInput =
     query && query !== 'all'
       ? {
@@ -394,6 +334,9 @@ export async function getAllOrders({
 // Delete an order
 export async function deleteOrder(id: string) {
   try {
+    if (!(await isAdmin())) {
+      return { success: false, message: 'Only admins can do this' };
+    }
     await prisma.order.delete({ where: { id } });
 
     revalidatePath('/admin/orders');
@@ -410,6 +353,9 @@ export async function deleteOrder(id: string) {
 // Update COD order to paid
 export async function updateOrderToPaidCOD(orderId: string) {
   try {
+    if (!(await isAdmin())) {
+      return { success: false, message: 'Only admins can do this' };
+    }
     await updateOrderToPaid({ orderId });
 
     revalidatePath(`/order/${orderId}`);
@@ -423,6 +369,9 @@ export async function updateOrderToPaidCOD(orderId: string) {
 // Update COD order to delivered
 export async function deliverOrder(orderId: string) {
   try {
+    if (!(await isAdmin())) {
+      return { success: false, message: 'Only admins can do this' };
+    }
     const order = await prisma.order.findFirst({
       where: {
         id: orderId,

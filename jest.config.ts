@@ -91,6 +91,8 @@ const config: Config = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
+    // Before the alias, so '@/assets/x.png' also resolves to the mock
+    '\\.(css|png|jpe?g|svg)$': '<rootDir>/tests/mocks/file-mock.ts',
     '^@/(.*)$': '<rootDir>/$1',
   },
 
@@ -108,6 +110,7 @@ const config: Config = {
   // tsconfig keeps JSX as-is for Next.js; tests need it compiled (email templates).
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: { jsx: 'react-jsx' } }],
+    '^.+\\.js$': ['ts-jest', { tsconfig: { allowJs: true } }],
   },
 
   // Run tests from one or more projects
@@ -143,7 +146,7 @@ const config: Config = {
   setupFiles: ['<rootDir>/jest.setup.ts'],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: [],
+  setupFilesAfterEnv: ['@testing-library/jest-dom', '<rootDir>/tests/mocks/jsdom-polyfills.ts'],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,
@@ -167,9 +170,8 @@ const config: Config = {
   // ],
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
-  // testPathIgnorePatterns: [
-  //   "/node_modules/"
-  // ],
+  // Playwright specs in e2e/ run with `npm run test:e2e`, not Jest
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],
@@ -184,10 +186,10 @@ const config: Config = {
   // transform: undefined,
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
-  // transformIgnorePatterns: [
-  //   "/node_modules/",
-  //   "\\.pnp\\.[^\\/]+$"
-  // ],
+  // query-string and its dependencies ship ESM only, so they must be transformed
+  transformIgnorePatterns: [
+    '/node_modules/(?!(query-string|decode-uri-component|filter-obj|split-on-first)/)',
+  ],
 
   // An array of regexp pattern strings that are matched against all modules before the module loader will automatically return a mock for them
   // unmockedModulePathPatterns: undefined,

@@ -53,6 +53,9 @@ export async function addItemToCart(data: CartItem) {
       return { success: false, message: 'Product not found' };
     }
 
+    // The client sends a price too, but it can be forged: charge the database price
+    item.price = round2(product.price.toString()).toFixed(2);
+
     if (!cart) {
       // Create new cart object
       const newCart = insertCartSchema.parse({
@@ -90,6 +93,7 @@ export async function addItemToCart(data: CartItem) {
         (cart.items as CartItem[]).find(
           (x) => x.productId === item.productId
         )!.qty = existItem.qty + 1;
+        existItem.price = item.price;
       } else {
         // If item does not exist in cart
         // Check stock

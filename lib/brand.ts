@@ -44,10 +44,13 @@ type ColorToken = (typeof COLOR_TOKENS)[number];
 
 const DEFAULT_PRIMARY = '#4F46E5';
 
+// .env treats an unquoted `#` as a comment, so bare hex like 4F46E5 is accepted too.
+const withHash = (value?: string) => (value && /^[0-9a-f]{3,8}$/i.test(value) ? `#${value}` : value);
+
 function readColors(prefix: string) {
   const colors: Partial<Record<ColorToken, string>> = {};
   for (const token of COLOR_TOKENS) {
-    const value = env(`${prefix}${token.toUpperCase().replace(/-/g, '_')}`);
+    const value = withHash(env(`${prefix}${token.toUpperCase().replace(/-/g, '_')}`));
     if (value && SAFE_CSS_VALUE.test(value)) colors[token] = value;
   }
   return colors;
