@@ -3,6 +3,7 @@ import {
   insertReviewSchema,
   paymentMethodSchema,
   shippingAddressSchema,
+  signInFormSchema,
   signUpFormSchema,
 } from '@/lib/validators';
 import { DEFAULT_PAYMENT_METHOD, PAYMENT_METHODS } from '@/lib/constants';
@@ -49,6 +50,18 @@ describe('signUpFormSchema', () => {
 
   it('rejects an invalid email', () => {
     expect(signUpFormSchema.safeParse({ ...user, email: 'nope' }).success).toBe(false);
+  });
+
+  it('trims spaces around a pasted email', () => {
+    const result = signUpFormSchema.safeParse({ ...user, email: ' ana@example.com ' });
+    expect(result.data?.email).toBe('ana@example.com');
+  });
+});
+
+describe('signInFormSchema', () => {
+  it('trims spaces around a pasted email', () => {
+    const result = signInFormSchema.safeParse({ email: ' ana@example.com', password: 'secret1' });
+    expect(result.data?.email).toBe('ana@example.com');
   });
 });
 
