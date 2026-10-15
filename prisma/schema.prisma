@@ -25,16 +25,15 @@ model Product {
   createdAt   DateTime    @default(now()) @db.Timestamp(6)
   OrderItem   OrderItem[]
   Review      Review[]
-  imageIndex Int @default(0)
+  imageIndex  Int         @default(0)
 }
 
 model User {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String    @default("NO_NAME")
+  name          String
   email         String    @unique(map: "user_email_idx")
-  emailVerified DateTime? @db.Timestamp(6)
+  emailVerified Boolean   @default(false)
   image         String?
-  password      String?
   role          String    @default("user")
   address       Json?     @db.Json
   paymentMethod String?
@@ -47,43 +46,47 @@ model User {
   Review        Review[]
 }
 
+// Better Auth tables. Email/password logins are accounts with providerId "credential".
 model Account {
-  userId            String  @db.Uuid
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-  updatedAt DateTime @updatedAt
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([provider, providerAccountId])
+  @@unique([providerId, accountId])
 }
 
 model Session {
-  sessionToken String   @id
-  userId       String   @db.Uuid
-  expires      DateTime @db.Timestamp(6)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @updatedAt
 }
 
-model VerificationToken {
+model Verification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   identifier String
-  token      String
-  expires    DateTime
-
-  @@id([identifier, token])
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime @updatedAt
 }
 
 model Cart {

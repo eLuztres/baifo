@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+import { requireUser } from '@/lib/auth-guard';
 import { getMyCart } from '@/lib/actions/cart.actions';
 import { getUserById } from '@/lib/actions/user.actions';
 import { ShippingAddress } from '@/types';
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 const PlaceOrderPage = async () => {
   const cart = await getMyCart();
-  const session = await auth();
+  const session = await requireUser();
   const userId = session?.user?.id;
 
   if (!userId) throw new Error('User not found');

@@ -2,12 +2,15 @@ import BrandLogo from '@/components/shared/brand-logo';
 import Link from 'next/link';
 import Menu from '@/components/shared/header/menu';
 import MainNav from './main-nav';
+import { requireUser } from '@/lib/auth-guard';
 
-export default function UserLayout({
+export default async function UserLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await requireUser();
+
   return (
     <>
       <div className='flex flex-col'>

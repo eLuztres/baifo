@@ -14,19 +14,6 @@ import { redirect } from 'next/navigation';
 import GoogleSignInButton from '@/components/shared/google-sign-in-button';
 import { getT } from '@/lib/i18n-server';
 
-// NextAuth error codes that come from the Google login flow
-// (anything else, e.g. MissingCSRF, means the session simply needs a fresh sign-in).
-const GOOGLE_ERRORS = new Set([
-  'OAuthSignin',
-  'OAuthCallback',
-  'OAuthCallbackError',
-  'OAuthAccountNotLinked',
-  'OAuthCreateAccount',
-  'AccessDenied',
-  'Configuration',
-  'Callback',
-]);
-
 export const metadata: Metadata = {
   title: 'Sign In',
 };
@@ -59,10 +46,10 @@ const SignInPage = async (props: {
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          {/* NextAuth sends failed OAuth logins back here with ?error=... */}
+          {/* Better Auth sends failed Google logins back here with ?error=... */}
           {error && (
             <p className='rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-center text-sm text-destructive'>
-              {GOOGLE_ERRORS.has(error) ? t('AUTH_GOOGLE_ERROR') : t('AUTH_SIGN_IN_AGAIN')}
+              {t('AUTH_GOOGLE_ERROR')}
             </p>
           )}
           <GoogleSignInButton callbackUrl={callbackUrl} />

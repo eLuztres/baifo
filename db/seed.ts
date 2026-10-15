@@ -7,22 +7,17 @@ async function main() {
   await prisma.product.deleteMany();
   await prisma.account.deleteMany();
   await prisma.session.deleteMany();
-  await prisma.verificationToken.deleteMany();
+  await prisma.verification.deleteMany();
   await prisma.user.deleteMany();
 
   await prisma.product.createMany({ data: sampleData.products });
-  const users:any = [];
-  for (let i = 0; i < sampleData.users.length; i++) {
-    users.push({
-      ...sampleData.users[i],
-      password: await hash(sampleData.users[i].password),
+  // Better Auth keeps passwords on a "credential" account, not on the user.
+  for (const { password, ...user } of sampleData.users) {
+    const created = await prisma.user.create({ data: user });
+    await prisma.account.create({
+      data: { userId: created.id, accountId: created.id, providerId: 'credential', password: await hash(password) },
     });
-    console.log(
-      sampleData.users[i].password,
-      await hash(sampleData.users[i].password)
-    );
   }
-  await prisma.user.createMany({ data: users });
 
   console.log('Database seeded successfully!');
 }

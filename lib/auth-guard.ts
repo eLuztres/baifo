@@ -8,6 +8,18 @@ export async function isAdmin() {
   return session?.user?.role === 'admin';
 }
 
+// The middleware only sees that a session cookie exists; this checks the session
+// is still valid (e.g. the user wasn't deleted) before a page shows user data.
+export async function requireUser() {
+  const session = await auth()
+
+  if (!session) {
+    redirect('/sign-in')
+  }
+
+  return session
+}
+
 export async function requireAdmin() {
   const session = await auth()
 

@@ -12,18 +12,23 @@ import { useToast } from '@/hooks/use-toast';
 import { updateProfile } from '@/lib/actions/user.actions';
 import { updateProfileSchema } from '@/lib/validators';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-const ProfileForm = () => {
-  const { data: session, update } = useSession();
+interface ProfileFormProps {
+  name: string;
+  email: string;
+}
+
+const ProfileForm = ({ name, email }: ProfileFormProps) => {
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof updateProfileSchema>>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
-      name: session?.user?.name ?? '',
-      email: session?.user?.email ?? '',
+      name,
+      email,
     },
   });
 
@@ -39,15 +44,8 @@ const ProfileForm = () => {
       });
     }
 
-    const newSession = {
-      ...session,
-      user: {
-        ...session?.user,
-        name: values.name,
-      },
-    };
-
-    await update(newSession);
+    // Re-renders the header with the new name.
+    router.refresh();
 
     toast({
       description: res.message,

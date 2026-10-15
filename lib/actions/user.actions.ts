@@ -7,9 +7,10 @@ import {
   paymentMethodSchema,
   updateUserSchema,
 } from '../validators';
-import { auth, signIn, signOut } from '@/auth';
+import { auth, authServer } from '@/auth';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
-import {hash} from '../encrypt';
 import { prisma } from '@/db/prisma';
 import { formatError } from '../utils';
 import { ShippingAddress } from '@/types';
@@ -18,9 +19,13 @@ import { PAGE_SIZE } from '../constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
-import { sendWelcomeEmail } from '@/email';
-import { getLocale } from '@/lib/i18n-server';
 import { isAdmin } from '@/lib/auth-guard';
+
+// Only same-site paths are allowed as the target after signing in.
+function safeCallbackUrl(formData: FormData) {
+  const callbackUrl = (formData.get('callbackUrl') as string) || '/';
+  return callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/';
+}
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -32,9 +37,8 @@ export async function signInWithCredentials(
       email: formData.get('email'),
       password: formData.get('password'),
     });
-    await signIn('credentials', user);
-
-    return { success: true, message: 'Signed in successfully' };
+    await authServer.api.signInEmail({ body: user, headers: await headers() });
+    redirect(safeCallbackUrl(formData));
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
@@ -45,10 +49,16 @@ export async function signInWithCredentials(
 
 // Sign in (or sign up) with Google, then return to where the user came from
 export async function signInWithGoogle(formData: FormData) {
-  const callbackUrl = (formData.get('callbackUrl') as string) || '/';
-  // Only allow same-site paths as the redirect target
-  const redirectTo = callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/';
-  await signIn('google', { redirectTo });
+  const redirectTo = safeCallbackUrl(formData);
+  const { url } = await authServer.api.signInSocial({
+    body: {
+      provider: 'google',
+      callbackURL: redirectTo,
+      errorCallbackURL: `/sign-in?callbackUrl=${encodeURIComponent(redirectTo)}`,
+    },
+    headers: await headers(),
+  });
+  if (url) redirect(url);
 }
 
 // Sign user out
@@ -61,7 +71,8 @@ export async function signOutUser() {
   } else {
     console.warn('No cart found for deletion.');
   }
-  await signOut();
+  await authServer.api.signOut({ headers: await headers() });
+  redirect('/');
 }
 
 // Sign up user
@@ -74,28 +85,12 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
       confirmPassword: formData.get('confirmPassword'),
     });
 
-    const plainPassword = user.password;
-
-    user.password = await hash(user.password);
-
-    await prisma.user.create({
-      data: {
-        name: user.name,
-        email: user.email,
-        password: user.password,
-      },
+    // Creates the user and signs them in; the welcome email is sent from the user-create hook in auth.ts.
+    await authServer.api.signUpEmail({
+      body: { name: user.name, email: user.email, password: user.password },
+      headers: await headers(),
     });
-
-    // Awaited (capped at 5 s) rather than deferred with after(), so it reliably
-    // goes out before signIn() below redirects.
-    await sendWelcomeEmail({ email: user.email, name: user.name }, await getLocale());
-
-    await signIn('credentials', {
-      email: user.email,
-      password: plainPassword,
-    });
-
-    return { success: true, message: 'User registered successfully' };
+    redirect(safeCallbackUrl(formData));
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
@@ -187,14 +182,8 @@ export async function updateProfile(user: { name: string; email: string }) {
       return { success: false, message: 'User not found' };
     }
 
-    await prisma.user.update({
-      where: {
-        id: currentUser.id,
-      },
-      data: {
-        name: user.name,
-      },
-    });
+    // Through Better Auth so the cached session (and the header) picks up the new name at once.
+    await authServer.api.updateUser({ body: { name: user.name }, headers: await headers() });
 
     return {
       success: true,

@@ -1,6 +1,6 @@
 # Custom Shop Template
 
-A white-label online shop: products, cart, checkout (Stripe, PayPal, cash on delivery), orders, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and next-auth.
+A white-label online shop: products, cart, checkout (Stripe, PayPal, cash on delivery), orders, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and Better Auth.
 
 **Every customer shop runs the same code.** Name, logo, colors, texts, contact details, languages, currency and shop rules are configuration. So you can create a new shop in minutes and update all of them from one place.
 

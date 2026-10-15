@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+import { requireUser } from '@/lib/auth-guard';
 import { getMyCart } from '@/lib/actions/cart.actions';
 import { getUserById } from '@/lib/actions/user.actions';
 import { Metadata } from 'next';
@@ -16,7 +16,7 @@ const ShippingAddressPage = async () => {
 
   if (!cart || cart.items.length === 0) redirect('/cart');
 
-  const session = await auth();
+  const session = await requireUser();
 
   const userId = session?.user?.id;
 
