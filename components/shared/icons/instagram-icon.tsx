@@ -1,19 +1,29 @@
 import type { ComponentProps } from 'react';
-import { faInstagram } from '@fortawesome/free-brands-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { cn } from '@/lib/utils';
 
-type InstagramIconProps = Omit<ComponentProps<typeof FontAwesomeIcon>, 'icon'>;
+type InstagramIconProps = ComponentProps<'svg'>;
 
+/** Instagram glyph in the same outline style as the lucide icons next to it. */
 export default function InstagramIcon({
   className,
   ...props
 }: InstagramIconProps) {
   return (
-    <FontAwesomeIcon
-      icon={faInstagram}
+    <svg
+      xmlns='http://www.w3.org/2000/svg'
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth={2}
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
       className={cn('h-5 w-5', className)}
       {...props}
-    />
+    >
+      <rect width='20' height='20' x='2' y='2' rx='5' ry='5' />
+      <path d='M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z' />
+      <line x1='17.5' x2='17.51' y1='6.5' y2='6.5' />
+    </svg>
   );
 }

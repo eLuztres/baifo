@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import '@fortawesome/fontawesome-svg-core/styles.css';
-import { config } from '@fortawesome/fontawesome-svg-core';
 import '@/assets/styles/globals.css';
 import { SERVER_URL } from '@/lib/constants';
 import { BRAND, absoluteUrl, getBrandCss } from '@/lib/brand';
@@ -10,8 +8,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { I18nProvider } from '@/components/i18n-provider';
 import { getDictionary } from '@/lib/i18n';
 import { getEnabledLocales, getLocale } from '@/lib/i18n-server';
-
-config.autoAddCss = false;
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 

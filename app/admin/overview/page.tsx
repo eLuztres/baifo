@@ -36,7 +36,6 @@ const AdminOverviewPage = async () => {
           <CardContent>
             <div className='text-2xl font-bold'>
                 {formatCurrency(
-                    // @ts-expect-error new neon version
                 summary?.totalSales?._sum?.totalPrice?.toString() || 0
               )}
             </div>

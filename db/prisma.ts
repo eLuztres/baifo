@@ -1,26 +1,7 @@
-import {  neonConfig } from '@neondatabase/serverless';
-// import { Pool, neonConfig } from '@neondatabase/serverless';
-// import { PrismaNeon } from '@prisma/adapter-neon';
-import { PrismaClient } from '@prisma/client';
-import { withAccelerate } from '@prisma/extension-accelerate';
-import ws from 'ws';
+import { Prisma, PrismaClient } from '@prisma/client';
 
-// Setup WebSocket for Neon
-neonConfig.webSocketConstructor = ws;
-// const connectionString = `${process.env.DATABASE_URL}`;
-// const pool = new Pool({ connectionString });
-
-// Prisma adapter using Neon pool
-// const adapter = new PrismaNeon(pool);
-
-// Step 1: Create Prisma client with adapter
-const baseClient = new PrismaClient();
-
-// Step 2: Add `withAccelerate` extension
-const acceleratedClient = baseClient.$extends(withAccelerate());
-
-// Step 3: Add custom result transformers (chaining $extends)
-export const prisma = acceleratedClient.$extends({
+// Decimal columns come back as strings, so they can be passed to client components.
+const decimalsAsStrings = Prisma.defineExtension({
   result: {
     product: {
       price: {
@@ -95,3 +76,14 @@ export const prisma = acceleratedClient.$extends({
     },
   },
 });
+
+function createPrismaClient() {
+  return new PrismaClient().$extends(decimalsAsStrings);
+}
+
+// Dev hot reloads re-run this module: reuse one client instead of opening a new connection pool each time.
+const globalForPrisma = globalThis as unknown as { prisma?: ReturnType<typeof createPrismaClient> };
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
