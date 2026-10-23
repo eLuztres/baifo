@@ -5,7 +5,7 @@ const SWITCHER_ITEMS = '[role="menuitem"][lang]';
 
 test.describe('language', () => {
   test('switching language updates the page and is remembered', async ({ page, context }) => {
-    await page.goto('/store');
+    await page.goto('/cart');
     const switcher = page.getByRole('button', { name: new RegExp(`^${t('LANGUAGE_LABEL')}:`) });
     test.skip((await switcher.count()) === 0, 'The shop has a single language');
 
@@ -13,16 +13,16 @@ test.describe('language', () => {
     const [locale] = await otherEnabledLocales(page, SWITCHER_ITEMS);
     await page.locator(`${SWITCHER_ITEMS}[lang="${locale}"]`).click();
 
-    await expect(page.getByRole('heading', { name: tIn(locale)('STORE_TITLE') })).toBeVisible();
+    await expect(page.getByText(tIn(locale)('CART_EMPTY_TITLE'))).toBeVisible();
     const cookies = await context.cookies();
     expect(cookies.find((c) => c.name === 'NEXT_LOCALE')?.value).toBe(locale);
 
-    await page.goto('/cart');
-    await expect(page.getByText(tIn(locale)('CART_EMPTY_TITLE'))).toBeVisible();
+    await page.goto('/sign-in');
+    await expect(page.getByRole('button', { name: tIn(locale)('SIGN_IN') })).toBeVisible();
   });
 
   test('follows the browser language on the first visit', async ({ page, browser }) => {
-    await page.goto('/store');
+    await page.goto('/cart');
     const switcher = page.getByRole('button', { name: new RegExp(`^${t('LANGUAGE_LABEL')}:`) });
     test.skip((await switcher.count()) === 0, 'The shop has a single language');
     await switcher.click();
@@ -30,9 +30,9 @@ test.describe('language', () => {
 
     const context = await browser.newContext({ locale });
     const localized = await context.newPage();
-    await localized.goto('/store');
+    await localized.goto('/cart');
 
-    await expect(localized.getByRole('heading', { name: tIn(locale)('STORE_TITLE') })).toBeVisible();
+    await expect(localized.getByText(tIn(locale)('CART_EMPTY_TITLE'))).toBeVisible();
     await context.close();
   });
 });

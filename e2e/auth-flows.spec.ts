@@ -23,11 +23,11 @@ const newEmail = () => `e2e-auth-${RUN_ID}-${++userCount}@example.test`;
 
 async function signUp(page: Page, name: string, email: string, callbackUrl = '/') {
   await page.goto(`/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-  await page.getByLabel('Name').fill(name);
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByLabel('Confirm Password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Sign Up' }).click();
+  await page.getByLabel(t('FIELD_NAME')).fill(name);
+  await page.getByLabel(t('FIELD_EMAIL')).fill(email);
+  await page.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill(PASSWORD);
+  await page.getByLabel(t('FIELD_CONFIRM_PASSWORD')).fill(PASSWORD);
+  await page.getByRole('button', { name: t('AUTH_SIGN_UP') }).click();
   await page.waitForURL((url) => !url.pathname.startsWith('/sign-up'));
 }
 
@@ -36,7 +36,7 @@ const signInLink = (page: Page) => page.getByRole('link', { name: t('SIGN_IN') }
 
 async function signOut(page: Page) {
   await accountMenu(page).click();
-  await page.getByRole('button', { name: t('SIGN_OUT') }).click();
+  await page.getByRole('menuitem', { name: t('SIGN_OUT') }).click();
   await expect(signInLink(page)).toBeVisible();
 }
 
@@ -50,7 +50,7 @@ test.describe('sign up, sign in, sign out', () => {
     await signUp(page, 'Ada Ring', email, '/user/profile');
 
     await expect(page).toHaveURL('/user/profile');
-    await expect(page.getByPlaceholder('Name')).toHaveValue('Ada Ring');
+    await expect(page.getByPlaceholder(t('FIELD_NAME'))).toHaveValue('Ada Ring');
 
     await accountMenu(page).click();
     await expect(page.getByText(email)).toBeVisible();
@@ -60,9 +60,9 @@ test.describe('sign up, sign in, sign out', () => {
     await page.goto('/user/profile');
     await expect(page).toHaveURL(/\/sign-in\?callbackUrl=%2Fuser%2Fprofile/);
 
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByLabel(t('FIELD_EMAIL')).fill(email);
+    await page.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: t('SIGN_IN'), exact: true }).click();
     await expect(page).toHaveURL('/user/profile');
   });
 
@@ -83,9 +83,9 @@ test.describe('sign up, sign in, sign out', () => {
     await signOut(page);
 
     await page.goto('/sign-in');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('not-the-password');
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByLabel(t('FIELD_EMAIL')).fill(email);
+    await page.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill('not-the-password');
+    await page.getByRole('button', { name: t('SIGN_IN'), exact: true }).click();
 
     await expect(page.getByText('Invalid email or password')).toBeVisible();
     await expect(page).toHaveURL(/\/sign-in/);
@@ -98,11 +98,11 @@ test.describe('sign up, sign in, sign out', () => {
 
     const guest = await browser.newPage();
     await guest.goto('/sign-up');
-    await guest.getByLabel('Name').fill('Dora Copy');
-    await guest.getByLabel('Email').fill(email);
-    await guest.getByLabel('Password', { exact: true }).fill(PASSWORD);
-    await guest.getByLabel('Confirm Password').fill(PASSWORD);
-    await guest.getByRole('button', { name: 'Sign Up' }).click();
+    await guest.getByLabel(t('FIELD_NAME')).fill('Dora Copy');
+    await guest.getByLabel(t('FIELD_EMAIL')).fill(email);
+    await guest.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill(PASSWORD);
+    await guest.getByLabel(t('FIELD_CONFIRM_PASSWORD')).fill(PASSWORD);
+    await guest.getByRole('button', { name: t('AUTH_SIGN_UP') }).click();
 
     await expect(guest.getByText(/already exists/i)).toBeVisible();
     await expect(guest).toHaveURL(/\/sign-up/);
@@ -116,9 +116,9 @@ test.describe('sign up, sign in, sign out', () => {
     await signOut(page);
 
     await page.goto('/sign-in?callbackUrl=https://evil.example/steal');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByLabel(t('FIELD_EMAIL')).fill(email);
+    await page.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: t('SIGN_IN'), exact: true }).click();
 
     await expect(page).toHaveURL('/');
   });
@@ -128,8 +128,8 @@ test.describe('profile', () => {
   test('a new name shows in the header at once', async ({ page }) => {
     await signUp(page, 'Finn Facet', newEmail(), '/user/profile');
 
-    await page.getByPlaceholder('Name').fill('Gala Gem');
-    await page.getByRole('button', { name: 'Update Profile' }).click();
+    await page.getByPlaceholder(t('FIELD_NAME')).fill('Gala Gem');
+    await page.getByRole('button', { name: t('PROFILE_UPDATE') }).click();
 
     await expect(accountMenu(page)).toHaveText('G');
     await accountMenu(page).click();
@@ -142,7 +142,7 @@ test.describe('admin and non-admin', () => {
     await signUp(page, 'Hugo Hoop', newEmail());
 
     await accountMenu(page).click();
-    await expect(page.getByRole('link', { name: t('ADMIN') })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: t('ADMIN') })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await page.goto('/admin/overview');
@@ -159,7 +159,7 @@ test.describe('admin and non-admin', () => {
 
     await page.goto('/');
     await accountMenu(page).click();
-    await expect(page.getByRole('link', { name: t('ADMIN') })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: t('ADMIN') })).toBeVisible();
     await page.keyboard.press('Escape');
 
     await setRole(email, 'user');
@@ -202,9 +202,9 @@ test.describe('deleted users', () => {
     await prisma.user.delete({ where: { email } });
 
     await page.goto('/sign-in');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByLabel(t('FIELD_EMAIL')).fill(email);
+    await page.getByLabel(t('FIELD_PASSWORD'), { exact: true }).fill(PASSWORD);
+    await page.getByRole('button', { name: t('SIGN_IN'), exact: true }).click();
 
     await expect(page.getByText('Invalid email or password')).toBeVisible();
   });

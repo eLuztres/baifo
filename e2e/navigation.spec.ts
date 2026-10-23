@@ -36,7 +36,7 @@ test.describe('storefront navigation', () => {
 
     expect(response?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: t('NOT_FOUND_TITLE') })).toBeVisible();
-    await expect(page.getByRole('link', { name: t('NOT_FOUND_SHOP') })).toHaveAttribute('href', '/#shop');
+    await expect(page.getByRole('link', { name: t('NOT_FOUND_SHOP') })).toHaveAttribute('href', '/#showroom');
   });
 
   // Content only: app/loading.tsx streams first, so the status is a soft-404 200

@@ -6,7 +6,7 @@ test('a new visitor sees an empty cart', async ({ page }) => {
 
   await expect(page.getByText(t('CART_EMPTY_TITLE'))).toBeVisible();
   await page.getByRole('link', { name: t('CART_EMPTY_CTA') }).click();
-  await expect(page).toHaveURL('/#shop');
+  await expect(page).toHaveURL('/#showroom');
 });
 
 test.describe('cart (writes to the database)', () => {
