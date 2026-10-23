@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
+import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
 import { SECTION_IDS, sectionHref } from './one-page';
@@ -29,7 +30,7 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
         <div className={styles.body}>
           <p className={cn(room.display, styles.facts)}>
             <span>{t('HOME_HERO_FACT_1')}</span>
-            <span>{t('HOME_HERO_FACT_2')}</span>
+            <span>{t('HOME_HERO_FACT_2', { shop: APP_NAME })}</span>
           </p>
           <p className={styles.sentence}>{t('HOME_HERO_TEXT')}</p>
         </div>

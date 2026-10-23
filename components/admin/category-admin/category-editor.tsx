@@ -164,7 +164,7 @@ const CategoryEditor = ({ locales, category, onClose, onSaved }: CategoryEditorP
                   <FormItem>
                     <FormLabel>{t('CATEGORY_FORM_KEYWORDS')}</FormLabel>
                     <FormControl>
-                      <Input placeholder='madera, olivo, boj' {...field} />
+                      <Input placeholder={t('CATEGORY_FORM_KEYWORDS_PLACEHOLDER')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

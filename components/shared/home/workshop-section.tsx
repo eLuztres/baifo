@@ -1,5 +1,6 @@
 import PageHeader from '@/components/shared/page-header';
 import type { TranslationKey } from '@/lib/i18n';
+import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { WORKSHOP, hasWorkshop } from '@/lib/brand';
 import { cn } from '@/lib/utils';
@@ -33,7 +34,7 @@ export default async function WorkshopSection() {
         className='shrink-0'
         eyebrow={t('WORKSHOP_EYEBROW')}
         title={t('WORKSHOP_TITLE')}
-        description={t('WORKSHOP_INTRO')}
+        description={t('WORKSHOP_INTRO', { shop: APP_NAME })}
       />
 
       {/* Phones swipe through the steps sideways, so the workshop stays one screen tall. */}

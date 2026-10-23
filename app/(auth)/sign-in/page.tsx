@@ -46,7 +46,7 @@ const SignInPage = async (props: {
           </Link>
           <CardTitle className='text-center'>{SHOWCASE_MODE ? t('JOIN_TITLE', { shop: APP_NAME }) : t('SIGN_IN')}</CardTitle>
           <CardDescription className='text-center'>
-            {t(SHOWCASE_MODE ? 'JOIN_DESCRIPTION' : 'AUTH_SIGN_IN_DESCRIPTION')}
+            {SHOWCASE_MODE ? t('JOIN_DESCRIPTION', { shop: APP_NAME }) : t('AUTH_SIGN_IN_DESCRIPTION')}
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
