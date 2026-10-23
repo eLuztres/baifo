@@ -94,6 +94,7 @@ Write the answers to a JSON file in your scratchpad and run the wizard from the 
   "locales": ["es", "en"],
   "currency": "EUR",
   "paymentMethods": ["Stripe", "PayPal"],
+  "showcase": false,
   "texts": { "es": { "HERO_TITLE": "…" } },
   "githubRepo": "",
   "install": true

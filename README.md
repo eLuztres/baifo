@@ -70,6 +70,7 @@ A shop is customized in **three places only**. The template never changes them a
 | `.env` (and Vercel's environment variables) | all settings below | no, it has secrets |
 | `public/brand/` | logo, icon, hero image, social preview image, font | yes |
 | `brand/messages/<lang>.json` | your own wording, per language | yes |
+| `brand/*.json`, `brand/studio.mjs` | home page pictures and AI studio prompts (see *Home page* below) | yes |
 
 Settings are read when a page is requested. Locally, restart `npm run dev`; on Vercel, redeploy. Settings starting with `NEXT_PUBLIC_` are built into the code and always need a rebuild or redeploy.
 
@@ -149,6 +150,7 @@ Where the main texts appear:
 | `STORE_TITLE`, `STORE_DESCRIPTION`, `STORE_EMPTY` | shop page |
 | `CONTACT_HEADING`, `CONTACT_INTRO` | contact page |
 | `FOOTER_TAGLINE` | footer |
+| `PRIVACY_TEXT`, `IMPRINT_TEXT` | `/privacy` and `/impressum`, linked in the footer. The legal notice has placeholders in `[brackets]`: every shop must set its own. Blank lines separate paragraphs, `## ` starts a heading |
 | `WELCOME_*` | welcome email |
 
 - `{shop}` in a text is replaced by the shop name, e.g. `"Welcome to {shop}"`.
@@ -161,8 +163,9 @@ Each one is optional. Empty ones are hidden, and without any the contact page an
 ```env
 CONTACT_EMAIL=hello@oceansurf.com   # also the reply-to address of all emails
 CONTACT_PHONE=+34 600 000 000
-WHATSAPP_NUMBER=34600000000         # turns the phone into a WhatsApp link
+WHATSAPP_NUMBER=34600000000         # turns the phone into a WhatsApp link (shown itself without CONTACT_PHONE)
 INSTAGRAM_ACCOUNT=oceansurf
+SHOW_CONTACT_EMAIL=false            # hides one on the website without unsetting it (also _PHONE, _INSTAGRAM)
 ```
 
 ### Languages
@@ -185,7 +188,24 @@ FREE_SHIPPING_THRESHOLD=100         # free shipping above this order value
 PAYMENT_METHODS=Stripe, PayPal      # any of PayPal, Stripe, CashOnDelivery
 DEFAULT_PAYMENT_METHOD=Stripe
 PAGE_SIZE=12                        # products per page
-LATEST_PRODUCTS_LIMIT=4             # products on the home page
+RESERVATION_HOURS=48                # how long "Show interest" reserves a product
+PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in a class takes its price
+```
+
+### Home page
+
+The home page is one scrolling page: an opening scene, the **showroom** (a ring of store categories you turn by swiping, with their products in front), the workshop and the contact details. Store categories are managed right on the showroom by admins.
+
+| File | What it does |
+| :--- | :--- |
+| `brand/workshop.json` | `{ "steps": [up to 3 pictures], "gallery": [pictures] }` for the workshop section. Empty: the section and its menu link are hidden. Its texts are `WORKSHOP_*` |
+| `brand/cutouts.json` | product slugs with a cut-out picture at `public/brand/products/cutout/<slug>.webp`. With at least 4, those products float in the opening scene instead of the hero picture |
+| `brand/rings3d.json` | optional 3D recipes per product slug for the opening scene (three.js, loaded only then) |
+| `brand/studio.mjs` | your own AI studio prompts: export any prompt of `lib/studio/prompts.mjs` under its name to replace the neutral one |
+
+```env
+BRAND_DECORATION=goldleaf           # dark background with a gold lamp breathing out smoke
+SHOWCASE_MODE=true                  # no prices, no cart: visitors send "I'm interested" instead
 ```
 
 ### Features that switch on by themselves
@@ -196,7 +216,8 @@ LATEST_PRODUCTS_LIMIT=4             # products on the home page
 | Contact page | at least one contact detail is set |
 | Language switcher | more than one language is enabled |
 | Light/dark switch | `BRAND_THEME=system` |
-| Featured-products carousel | a product is marked *featured* and has a banner image (admin panel) |
+| AI product studio (`/admin/studio`) | `OPENAI_API_KEY` is set |
+| Workshop section | `brand/workshop.json` has pictures |
 
 ### Products and content
 

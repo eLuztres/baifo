@@ -159,6 +159,8 @@ Needed to upload product images in the admin panel.
 1. <https://uploadthing.com> → **Create app** (one per shop keeps files apart).
 2. **API Keys** → copy the token into `UPLOADTHING_TOKEN`.
 
+Optional: the **AI product studio** (`/admin/studio`) turns one product photo into shop pictures and texts. Create a key at <https://platform.openai.com/api-keys> and set `OPENAI_API_KEY` (each picture costs a few cents). Without it, "New product" opens the plain product form.
+
 ## 10. Own domain
 
 1. Vercel project → **Settings → Domains → Add** → follow the DNS instructions.

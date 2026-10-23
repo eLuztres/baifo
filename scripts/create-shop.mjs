@@ -105,6 +105,7 @@ async function interview() {
   config.locales = (await ask(rl, `Languages (${LOCALES.join(',')})`, 'en')).split(',').map((l) => l.trim());
   config.defaultLocale = config.locales[0];
   config.currency = (await ask(rl, 'Currency', 'EUR')).toUpperCase();
+  config.showcase = await askYesNo(rl, 'Showcase only (no prices or cart, visitors send "I\'m interested")?', false);
 
   console.log(bold('\nRepository'));
   const gh = hasCommand('gh');
@@ -266,6 +267,7 @@ async function createShop(config) {
     SHIPPING_PRICE: config.shippingPrice,
     FREE_SHIPPING_THRESHOLD: config.freeShippingThreshold,
     PAYMENT_METHODS: config.paymentMethods?.join(', '),
+    SHOWCASE_MODE: config.showcase ? 'true' : undefined,
     NEXT_PUBLIC_SERVER_URL: config.serverUrl,
     AUTH_SECRET: randomBytes(32).toString('base64'),
     ENCRYPTION_KEY: randomBytes(32).toString('hex'),
