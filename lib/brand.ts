@@ -97,6 +97,7 @@ export const BRAND = {
   showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
+  loaderImage: env('BRAND_LOADER_IMAGE'),
   /** A picture (e.g. the logo) instead of the drawn genie lamp; its bottom edge must be the lamp's foot. */
   lampImage: env('BRAND_LAMP_IMAGE'),
   lampSpout: readPoint('BRAND_LAMP_SPOUT'),
