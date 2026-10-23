@@ -126,3 +126,46 @@
         animation: none;
     }
 }
+
+/* BRAND_LOADER_IMAGE: the shop's picture hops in place, its shadow shrinking while it is in the air. */
+.hopStage {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    width: 140px;
+}
+
+.hopper {
+    width: 112px;
+    height: auto;
+    transform-origin: 50% 100%;
+    animation: hop 1.1s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+}
+
+.hopShadow {
+    width: 70px;
+    height: 8px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+    animation: hop-shadow 1.1s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+}
+
+@keyframes hop {
+    0%, 100% { transform: translateY(0) scale(1.06, 0.94); }
+    15% { transform: translateY(0) scale(1, 1); }
+    45% { transform: translateY(-34px) rotate(-6deg); }
+    70% { transform: translateY(0) rotate(0deg); }
+    80% { transform: translateY(0) scale(1.06, 0.94); }
+}
+
+@keyframes hop-shadow {
+    0%, 15%, 70%, 100% { transform: scale(1); opacity: 1; }
+    45% { transform: scale(0.55); opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hopper,
+    .hopShadow {
+        animation: none;
+    }
+}

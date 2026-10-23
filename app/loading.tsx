@@ -1,4 +1,5 @@
 import LoaderImage from "@/components/shared/LoaderImage";
+import { BRAND } from "@/lib/brand";
 
 const LoadingPage = () => {
   return (
@@ -11,7 +12,7 @@ const LoadingPage = () => {
         width: '100vw',
       }}
     >
-      <LoaderImage />
+      <LoaderImage image={BRAND.loaderImage} />
     </div>
   );
 };

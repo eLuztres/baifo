@@ -64,9 +64,23 @@ function RingLayer({ kind, depth }: { kind: LayerKind; depth: number }) {
     );
 }
 
+interface LoaderImageProps {
+    /** The shop's own loader picture (BRAND_LOADER_IMAGE): it hops instead of the turning ring. */
+    image?: string;
+}
+
 // useTranslateMessage instead of useI18n: it also renders outside <I18nProvider> (Storybook).
-const LoaderImage = () => {
+const LoaderImage = ({ image }: LoaderImageProps) => {
     const translate = useTranslateMessage();
+    if (image) {
+        return (
+            <div role='status' aria-label={translate('LOADING')} className={styles.hopStage}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- any size or format from .env, no optimization needed */}
+                <img src={image} alt='' className={styles.hopper} />
+                <span className={styles.hopShadow} aria-hidden='true' />
+            </div>
+        );
+    }
     return (
         <div role='status' aria-label={translate('LOADING')} className={styles.stage}>
             <svg width='0' height='0' className={styles.defs} aria-hidden='true'>
