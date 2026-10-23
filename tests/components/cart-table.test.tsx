@@ -34,7 +34,7 @@ describe('CartTable', () => {
     renderWithI18n(<CartTable cart={cart} />);
 
     expect(screen.getByText(t('CART_EMPTY_TITLE'))).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: t('CART_EMPTY_CTA') })).toHaveAttribute('href', '/store');
+    expect(screen.getByRole('link', { name: t('CART_EMPTY_CTA') })).toHaveAttribute('href', '/#showroom');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -64,12 +64,13 @@ describe('CartTable', () => {
     await userEvent.click(screen.getByRole('button', { name: t('ADD_ONE') }));
     await userEvent.click(screen.getByRole('button', { name: t('REMOVE_ONE') }));
 
-    expect(mockAdd).toHaveBeenCalledWith(CART_ITEM);
+    expect(mockAdd).toHaveBeenCalledWith({ productId: CART_ITEM.productId });
     expect(mockRemove).toHaveBeenCalledWith(CART_ITEM.productId);
   });
 
-  it('shows a translated toast when stock runs out', async () => {
-    mockAdd.mockResolvedValue({ success: false, message: 'Not enough stock' });
+  // The server already translates its messages
+  it('shows the server message as an error toast when stock runs out', async () => {
+    mockAdd.mockResolvedValue({ success: false, message: t('TOAST_NO_STOCK') });
     renderWithI18n(<CartTable cart={CART} />);
 
     await userEvent.click(screen.getByRole('button', { name: t('ADD_ONE') }));

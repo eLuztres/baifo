@@ -5,6 +5,7 @@ import { nextCookies } from 'better-auth/next-js';
 import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
 import { compare, hash } from '@/lib/encrypt';
+import { claimUnverifiedUser, rehashLegacyPassword } from '@/lib/auth-account';
 import { sendWelcomeEmail } from '@/email';
 import { getLocale } from '@/lib/i18n-server';
 import { GOOGLE_AUTH_ENABLED, SERVER_URL } from '@/lib/constants';
@@ -38,7 +39,8 @@ export const authServer = betterAuth({
     ? { google: { clientId: process.env.AUTH_GOOGLE_ID!, clientSecret: process.env.AUTH_GOOGLE_SECRET! } }
     : {},
   // Google only returns verified emails, so an existing password account with the same email is linked.
-  account: { accountLinking: { enabled: true, trustedProviders: ['google'] } },
+  // Linking an unverified account is safe because the account is claimed right after (see claimUnverifiedUser).
+  account: { accountLinking: { enabled: true, trustedProviders: ['google'], requireLocalEmailVerified: false } },
   user: {
     additionalFields: { role: { type: 'string', defaultValue: 'user', input: false } },
   },
@@ -55,12 +57,20 @@ export const authServer = betterAuth({
         },
       },
     },
+    account: {
+      create: {
+        after: async (account) => {
+          if (account.providerId === 'google') await claimUnverifiedUser(account.userId, account.id);
+        },
+      },
+    },
   },
   hooks: {
     after: createAuthMiddleware(async (ctx) => {
       const newSession = ctx.context.newSession;
       if (!newSession || !SIGN_IN_PATHS.some((path) => ctx.path.startsWith(path))) return;
       await moveGuestCartToUser(ctx.getCookie('sessionCartId'), newSession.user.id);
+      if (ctx.path === '/sign-in/email') await rehashLegacyPassword(newSession.user.id, ctx.body?.password);
     }),
   },
   plugins: [nextCookies()],

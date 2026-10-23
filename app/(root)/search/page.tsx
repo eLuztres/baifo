@@ -1,13 +1,12 @@
-import ProductCard from '@/components/shared/product/product-card';
+import ProductCard, { type ProductCardData } from '@/components/shared/product/product-card';
+import Pagination from '@/components/shared/pagination';
 import { Button } from '@/components/ui/button';
-import {
-  getAllProducts,
-  // getAllCategories,
-} from '@/lib/actions/product.actions';
+import { getAllCategories, getAllProducts } from '@/lib/actions/product.actions';
 import Link from 'next/link';
-import { cn, convertToPlainObject, formatCurrency } from '@/lib/utils';
-import type { TranslationKey } from '@/lib/i18n';
+import { cn, formatCurrency, round2 } from '@/lib/utils';
+import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
+import { searchParamsSchema, type SearchParams } from '@/lib/validators';
 
 const prices = [
   [1, 50],
@@ -19,7 +18,7 @@ const prices = [
 
 const ratings = [4, 3, 2, 1];
 
-const sortOrders: { id: string; labelKey: TranslationKey }[] = [
+const sortOrders: { id: SearchParams['sort']; labelKey: TranslationKey }[] = [
   { id: 'newest', labelKey: 'SORT_NEWEST' },
   { id: 'lowest', labelKey: 'SORT_LOWEST' },
   { id: 'highest', labelKey: 'SORT_HIGHEST' },
@@ -32,27 +31,26 @@ const filterLinkClass = (active: boolean) =>
     active && 'font-semibold text-foreground'
   );
 
-export async function generateMetadata(props: {
-  searchParams: Promise<{
-    q: string;
-    category: string;
-    price: string;
-    rating: string;
-  }>;
-}) {
-  const {
-    q = 'all',
-    category = 'all',
-    price = 'all',
-    rating = 'all',
-  } = await props.searchParams;
-  const { t } = await getT();
+interface SearchPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-  const isQuerySet = q && q !== 'all' && q.trim() !== '';
-  const isCategorySet =
-    category && category !== 'all' && category.trim() !== '';
-  const isPriceSet = price && price !== 'all' && price.trim() !== '';
-  const isRatingSet = rating && rating !== 'all' && rating.trim() !== '';
+type FilterChanges = Partial<Pick<SearchParams, 'category' | 'price' | 'rating' | 'sort'>>;
+
+// Links are shared and edited by hand: invalid values fall back to their defaults.
+const readSearchParams = async (props: SearchPageProps) =>
+  searchParamsSchema.parse(await props.searchParams);
+
+export async function generateMetadata(props: SearchPageProps) {
+  const [{ q, category, price, rating }, { t }] = await Promise.all([
+    readSearchParams(props),
+    getT(),
+  ]);
+
+  const isQuerySet = q !== 'all' && q !== '';
+  const isCategorySet = category !== 'all' && category !== '';
+  const isPriceSet = price !== 'all';
+  const isRatingSet = rating !== 'all';
 
   if (isQuerySet || isCategorySet || isPriceSet || isRatingSet) {
     return {
@@ -69,89 +67,30 @@ export async function generateMetadata(props: {
   return { title: t('SEARCH_TITLE') };
 }
 
+const SearchPage = async (props: SearchPageProps) => {
+  const { q, category, price, rating, sort, page } = await readSearchParams(props);
 
-const SearchPage = async (props: {
-  searchParams: Promise<{
-    q?: string;
-    category?: string;
-    price?: string;
-    rating?: string;
-    sort?: string;
-    page?: string;
-  }>;
-}) => {
-  const {
-    q = 'all',
-    category = 'all',
-    price = 'all',
-    rating = 'all',
-    sort = 'newest',
-    page = '1',
-  } = await props.searchParams;
+  const [products, categories, { t }] = await Promise.all([
+    getAllProducts({ query: q, category, price, rating, sort, page }),
+    getAllCategories(),
+    getT(),
+  ]);
 
-  const { t } = await getT();
+  // No page param: a new filter or sort order starts again on page 1.
+  const getFilterUrl = (changes: FilterChanges) =>
+    `/search?${new URLSearchParams({ q, category, price, rating, sort, ...changes }).toString()}`;
 
-  // Construct filter url
-  const getFilterUrl = ({
-    c,
-    p,
-    s,
-    r,
-    pg,
-  }: {
-    c?: string;
-    p?: string;
-    s?: string;
-    r?: string;
-    pg?: string;
-  }) => {
-    const params = { q, category, price, rating, sort, page };
-
-    if (c) params.category = c;
-    if (p) params.price = p;
-    if (s) params.sort = s;
-    if (r) params.rating = r;
-    if (pg) params.page = pg;
-
-    return `/search?${new URLSearchParams(params).toString()}`;
-  };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  const products = await getAllProducts({
-    query: q,
-    category,
-    price,
-    rating,
-    sort,
-    page: Number(page),
-  });
-
-  // const categories = await getAllCategories();
+  // Only what a card shows goes to the browser.
+  const cards: ProductCardData[] = products.data.map((product) => ({
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    category: product.category,
+    price: round2(product.price).toFixed(2),
+    images: product.images,
+    stock: product.stock,
+    reservedUntil: product.reservedUntil,
+  }));
 
   const hasFilters =
     (q !== 'all' && q !== '') ||
@@ -170,11 +109,21 @@ const SearchPage = async (props: {
             <li>
               <Link
                 className={filterLinkClass(category === 'all' || category === '')}
-                href={getFilterUrl({ c: 'all' })}
+                href={getFilterUrl({ category: 'all' })}
               >
                 {t('SEARCH_ANY')}
               </Link>
             </li>
+            {categories.map((x) => (
+              <li key={x.category}>
+                <Link
+                  className={filterLinkClass(category === x.category)}
+                  href={getFilterUrl({ category: x.category })}
+                >
+                  {x.category}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -184,7 +133,7 @@ const SearchPage = async (props: {
           </h2>
           <ul className='space-y-2'>
             <li>
-              <Link className={filterLinkClass(price === 'all')} href={getFilterUrl({ p: 'all' })}>
+              <Link className={filterLinkClass(price === 'all')} href={getFilterUrl({ price: 'all' })}>
                 {t('SEARCH_ANY')}
               </Link>
             </li>
@@ -192,7 +141,7 @@ const SearchPage = async (props: {
               <li key={p.value}>
                 <Link
                   className={filterLinkClass(price === p.value)}
-                  href={getFilterUrl({ p: p.value })}
+                  href={getFilterUrl({ price: p.value })}
                 >
                   {t('SEARCH_PRICE_RANGE', { from: formatCurrency(p.from), to: formatCurrency(p.to) })}
                 </Link>
@@ -207,7 +156,7 @@ const SearchPage = async (props: {
           </h2>
           <ul className='space-y-2'>
             <li>
-              <Link className={filterLinkClass(rating === 'all')} href={getFilterUrl({ r: 'all' })}>
+              <Link className={filterLinkClass(rating === 'all')} href={getFilterUrl({ rating: 'all' })}>
                 {t('SEARCH_ANY')}
               </Link>
             </li>
@@ -215,7 +164,7 @@ const SearchPage = async (props: {
               <li key={r}>
                 <Link
                   className={filterLinkClass(rating === r.toString())}
-                  href={getFilterUrl({ r: `${r}` })}
+                  href={getFilterUrl({ rating: `${r}` })}
                 >
                   {t('SEARCH_STARS_UP', { n: r })}
                 </Link>
@@ -255,23 +204,26 @@ const SearchPage = async (props: {
                   'rounded-full px-3 py-1 transition hover:bg-muted',
                   sort === s.id ? 'bg-muted text-foreground' : 'text-muted-foreground'
                 )}
-                href={getFilterUrl({ s: s.id })}
+                href={getFilterUrl({ sort: s.id })}
               >
                 {t(s.labelKey)}
               </Link>
             ))}
           </div>
         </div>
-        {products.data.length === 0 ? (
+        {cards.length === 0 ? (
           <div className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
             {t('NO_PRODUCTS')}
           </div>
         ) : (
           <div className='grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3'>
-            {convertToPlainObject(products.data).map((product) => (
+            {cards.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        )}
+        {products.totalPages > 1 && (
+          <Pagination page={page} totalPages={products.totalPages} />
         )}
       </div>
     </div>

@@ -1,44 +1,40 @@
 'use server';
 
 import { z } from 'zod';
-import { insertReviewSchema } from '../validators';
-import { formatError } from '../utils';
-import { auth } from '@/auth';
+import { insertReviewSchema } from '@/lib/validators';
+import { formatError } from '@/lib/utils';
 import { prisma } from '@/db/prisma';
 import { revalidatePath } from 'next/cache';
+import { getSessionUserId } from '@/lib/auth-guard';
+import type { TranslationKey } from '@/lib/i18n-core';
 
 // Create & Update Reviews
 export async function createUpdateReview(
   data: z.infer<typeof insertReviewSchema>
 ) {
   try {
-    const session = await auth();
-    if (!session) {
-      return { success: false, message: 'User is not authenticated' };
+    const userId = await getSessionUserId();
+    if (!userId) {
+      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
     }
 
     // Validate and store the review
-    const review = insertReviewSchema.parse({
-      ...data,
-      userId: session?.user?.id,
-    });
+    const review = insertReviewSchema.parse({ ...data, userId });
 
-    // Get product that is being reviewed
-    const product = await prisma.product.findFirst({
-      where: { id: review.productId },
-    });
+    const [product, reviewExists] = await Promise.all([
+      prisma.product.findUnique({
+        where: { id: review.productId },
+        select: { slug: true },
+      }),
+      prisma.review.findFirst({
+        where: { productId: review.productId, userId },
+        select: { id: true },
+      }),
+    ]);
 
     if (!product) {
-      return { success: false, message: 'Product not found' };
+      return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
     }
-
-    // Check if user already reviewed
-    const reviewExists = await prisma.review.findFirst({
-      where: {
-        productId: review.productId,
-        userId: review.userId,
-      },
-    });
 
     await prisma.$transaction(async (tx) => {
       if (reviewExists) {
@@ -57,7 +53,7 @@ export async function createUpdateReview(
       }
 
       // Get avg rating
-      const averageRating:any = await tx.review.aggregate({
+      const averageRating = await tx.review.aggregate({
         _avg: { rating: true },
         where: { productId: review.productId },
       });
@@ -71,7 +67,7 @@ export async function createUpdateReview(
       await tx.product.update({
         where: { id: review.productId },
         data: {
-          rating: averageRating?._avg?.rating || 0,
+          rating: averageRating._avg.rating ?? 0,
           numReviews,
         },
       });
@@ -79,10 +75,7 @@ export async function createUpdateReview(
 
     revalidatePath(`/product/${product.slug}`);
 
-    return {
-      success: true,
-      message: 'Review Updated Successfully',
-    };
+    return { success: true, message: 'REVIEW_SAVED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }
@@ -110,20 +103,16 @@ export async function getReviews({ productId }: { productId: string }) {
   return { data };
 }
 
-// Get a review written by the current user
+// Get a review written by the current user (null for guests)
 export async function getReviewByProductId({
   productId,
 }: {
   productId: string;
 }) {
-  const session = await auth();
-
-  if (!session) throw new Error('User is not authenticated');
+  const userId = await getSessionUserId();
+  if (!userId) return null;
 
   return await prisma.review.findFirst({
-    where: {
-      productId,
-      userId: session?.user?.id,
-    },
+    where: { productId, userId },
   });
 }

@@ -1,10 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
 import { useTransition } from 'react';
-import { addItemToCart, removeItemFromCart } from '@/lib/actions/cart.actions';
 import { ArrowRight, Loader, Minus, Plus, ShoppingBag } from 'lucide-react';
-import { Cart, CartItem } from '@/types';
+import { Cart } from '@/types';
 import Link from 'next/link';
 import ProductMedia from '@/components/ProductMedia';
 import {
@@ -18,16 +16,22 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
+import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { useI18n } from '@/components/i18n-provider';
+import { useCartActions } from '@/hooks/useCartActions';
 
-// NOTE: The code here has changed from the original course code so that the
-// Buttons no longer share the same state and show the loader independently from
-// other items in the cart
+interface QuantityButtonProps {
+  productId: string;
+  action: 'add' | 'remove';
+}
 
-function AddButton({ item }: { item: CartItem }) {
-  const { toast } = useToast();
+// One hook per button, so only the clicked button shows the loader.
+function QuantityButton({ productId, action }: QuantityButtonProps) {
   const { t } = useI18n();
-  const [isPending, startTransition] = useTransition();
+  const { isPending, addToCart, removeFromCart } = useCartActions({ shouldToastSuccess: false });
+  const isAdd = action === 'add';
+  const Icon = isAdd ? Plus : Minus;
+
   return (
     <Button
       disabled={isPending}
@@ -35,66 +39,23 @@ function AddButton({ item }: { item: CartItem }) {
       size='icon'
       className='h-8 w-8 rounded-full'
       type='button'
-      aria-label={t('ADD_ONE')}
-      onClick={() =>
-        startTransition(async () => {
-          const res = await addItemToCart(item);
-
-          if (!res.success) {
-            toast({
-              variant: 'destructive',
-              description:
-                res.message === 'Not enough stock' ? t('TOAST_NO_STOCK') : res.message,
-            });
-          }
-        })
-      }
+      aria-label={t(isAdd ? 'ADD_ONE' : 'REMOVE_ONE')}
+      onClick={() => (isAdd ? addToCart(productId) : removeFromCart(productId))}
     >
       {isPending ? (
         <Loader className='w-4 h-4 animate-spin' />
       ) : (
-        <Plus className='w-4 h-4' />
+        <Icon className='w-4 h-4' />
       )}
     </Button>
   );
 }
 
-function RemoveButton({ item }: { item: CartItem }) {
-  const { toast } = useToast();
-  const { t } = useI18n();
-  const [isPending, startTransition] = useTransition();
-  return (
-    <Button
-      disabled={isPending}
-      variant='outline'
-      size='icon'
-      className='h-8 w-8 rounded-full'
-      type='button'
-      aria-label={t('REMOVE_ONE')}
-      onClick={() =>
-        startTransition(async () => {
-          const res = await removeItemFromCart(item.productId);
-
-          if (!res.success) {
-            toast({
-              variant: 'destructive',
-              description:
-                res.message === 'Not enough stock' ? t('TOAST_NO_STOCK') : res.message,
-            });
-          }
-        })
-      }
-    >
-      {isPending ? (
-        <Loader className='w-4 h-4 animate-spin' />
-      ) : (
-        <Minus className='w-4 h-4' />
-      )}
-    </Button>
-  );
+interface CartTableProps {
+  cart?: Cart;
 }
 
-const CartTable = ({ cart }: { cart?: Cart }) => {
+const CartTable = ({ cart }: CartTableProps) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const { t } = useI18n();
@@ -112,7 +73,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
             </p>
           </div>
           <Button asChild className='rounded-full px-7'>
-            <Link href='/store'>{t('CART_EMPTY_CTA')}</Link>
+            <Link href={sectionHref(SECTION_IDS.showroom)}>{t('CART_EMPTY_CTA')}</Link>
           </Button>
         </div>
       ) : (
@@ -142,9 +103,9 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                     </TableCell>
                     <TableCell>
                       <div className='flex items-center justify-center gap-2'>
-                        <RemoveButton item={item} />
+                        <QuantityButton productId={item.productId} action='remove' />
                         <span className='w-6 text-center tabular-nums'>{item.qty}</span>
-                        <AddButton item={item} />
+                        <QuantityButton productId={item.productId} action='add' />
                       </div>
                     </TableCell>
                     <TableCell className='text-right tabular-nums'>

@@ -1,0 +1,35 @@
+/* Every photo stays mounted so a swipe cross-fades like the product card: the old one fades into the dark,
+   then the new one rises with a barely noticeable settle. Never both at once: differently framed photos would overlap. */
+.photo {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+}
+
+.photoActive {
+    opacity: 1;
+}
+
+/* Only after the first turn: the photo the viewer opens with shows at once. */
+.photoFade {
+    transition: opacity 450ms ease-in;
+}
+
+.photoFade.photoActive {
+    transition: opacity 700ms ease-out 350ms;
+    animation: settle 6s ease-out both;
+}
+
+@keyframes settle {
+    from {
+        transform: scale(1.03);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .photoFade,
+    .photoFade.photoActive {
+        transition: none;
+        animation: none;
+    }
+}

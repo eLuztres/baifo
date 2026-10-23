@@ -16,6 +16,7 @@ import {
 import { Calendar, User } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 import Rating from '@/components/shared/product/rating';
+import { useI18n } from '@/components/i18n-provider';
 
 const ReviewList = ({
   userId,
@@ -27,6 +28,7 @@ const ReviewList = ({
   productSlug: string;
 }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
+  const { locale } = useI18n();
 
   useEffect(() => {
     const loadReviews = async () => {
@@ -56,7 +58,7 @@ const ReviewList = ({
         <div>
           Please
           <Link
-            className='text-blue-700 px-2'
+            className='text-primary px-2'
             href={`/sign-in?callbackUrl=/product/${productSlug}`}
           >
             sign in
@@ -82,7 +84,7 @@ const ReviewList = ({
                 </div>
                 <div className='flex items-center'>
                   <Calendar className='mr-1 h-3 w-3' />
-                  {formatDateTime(review.createdAt).dateTime}
+                  {formatDateTime(review.createdAt, locale).dateTime}
                 </div>
               </div>
             </CardContent>

@@ -12,9 +12,10 @@ export const ourFileRouter = {
   })
 
     .middleware(async () => {
+      // Only the admin product tools upload; customers could otherwise fill the shop's storage.
       const session = await auth();
-      if (!session) throw new UploadThingError('Unauthorized');
-      return { userId: session?.user?.id };
+      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
+      return { userId: session.user.id };
     })
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };

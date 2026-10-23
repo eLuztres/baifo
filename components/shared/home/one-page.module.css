@@ -1,0 +1,115 @@
+/* No rubber-band bounce: on iOS it pulls the page off a part's edge. The window itself never scrolls here. */
+:global(html):has(.onePage) {
+  overflow: hidden;
+  overscroll-behavior-y: none;
+}
+
+/* The page turns part by part with the browser's own snapping: a swipe follows the finger and always lands on a
+   whole part. The layout scrolls instead of the window, so Safari's toolbars never shrink and grow the screen. */
+:global(div):has(> :global(main) .onePage) {
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: none;
+  scroll-snap-type: y mandatory;
+}
+
+/* A flick turns exactly one part, never past one. */
+.onePage > section {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+/* The footer below contact is the last stop. */
+:global(main):has(.onePage) + :global(footer) {
+  scroll-snap-align: end;
+}
+
+/* Keeps parts clear of the sticky header when they snap or a link jumps to them; the phone tab row floats over the page.
+   A margin on the parts, not scroll-padding on the page: that would count the header itself as hidden, so
+   focusing a header control (closing the menu sheet) scrolled the page up and the scroller turned back a part. */
+.onePage > section {
+  scroll-margin-top: 4rem;
+}
+
+@media (min-width: 640px) {
+  .onePage > section {
+    scroll-margin-top: 5rem;
+  }
+}
+
+/* Each part fills at least one screen, so it reads as its own page. */
+.section {
+  min-height: calc(100svh - 4rem);
+  padding-block: 2rem 4rem;
+}
+
+@media (min-width: 640px) {
+  .section {
+    min-height: calc(100svh - 5rem);
+  }
+}
+
+/* The opening ends where the screen ends, so one swipe turns straight to the store. */
+.onePage > .home {
+  padding-bottom: 0;
+}
+
+/* A nav link moves the focus to its part for keyboard and screen-reader users; the part itself needs no ring. */
+.onePage > section:focus {
+  outline: none;
+}
+
+/* The store with its category selector is exactly one screen, with nothing to scroll inside it. */
+.fitScreen {
+  display: flex;
+  flex-direction: column;
+  height: calc(100svh - 4rem);
+  padding-block: 1rem;
+}
+
+@media (min-width: 640px) {
+  .fitScreen {
+    height: calc(100svh - 5rem);
+  }
+}
+
+/* The part's flexible area (the workshop steps); it takes the room the fixed rows leave. */
+.fill {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Too short for one screen (a phone held sideways): the part grows past the screen and scrolls freely inside
+   (snapping allows that in a part taller than the screen), instead of squeezing its flexible area to nothing. */
+@media (max-height: 500px) {
+  .fitScreen {
+    height: auto;
+  }
+
+  .fill {
+    flex: none;
+    height: 14rem;
+  }
+}
+
+/* Contact holds more text than the other parts: on small phones (iPhone SE) it grows and scrolls
+   instead of cutting off the shop rules. */
+@media (max-height: 640px) {
+  .fitScreen.growWhenShort {
+    height: auto;
+    min-height: calc(100svh - 4rem);
+  }
+}
+
+/* The store is exactly one screen: touches there only move sideways (ring and banner), never the page up or down.
+   Held sideways the store is taller than the screen, so there it scrolls again. */
+.noVerticalPan {
+  touch-action: pan-x;
+}
+
+@media (max-height: 500px) {
+  .noVerticalPan {
+    touch-action: auto;
+  }
+}

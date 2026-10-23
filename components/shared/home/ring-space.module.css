@@ -1,0 +1,342 @@
+.space {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: calc(100svh - var(--header-h));
+  overflow: hidden;
+  isolation: isolate;
+  /* Warm sand gold with only a hint of lava, mixed from the shop's own colors. */
+  --ember: color-mix(in srgb, var(--primary), var(--destructive) 15%);
+  /* Lava glowing behind the horizon, over a low sunrise that lights the palms from behind but stays under the gold lamp. */
+  background:
+    radial-gradient(ellipse 45% 22% at 50% 104%, color-mix(in srgb, var(--primary) 30%, transparent), transparent 70%),
+    radial-gradient(ellipse 95% 48% at 50% 112%, color-mix(in srgb, var(--ember) 34%, transparent), transparent 72%),
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--ember) 55%, var(--background)) 8%,
+      color-mix(in srgb, var(--ember) 30%, var(--background)) 22%,
+      transparent 40%
+    );
+}
+
+/* Set by the stage while another part is on screen: nobody sees the embers then, but they'd still be redrawn. */
+.space[data-offscreen] *,
+.space[data-offscreen] *::before,
+.space[data-offscreen] *::after {
+  animation-play-state: paused;
+}
+
+/* Embers rise from the glow and burn out on the way up. */
+.embers {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  mask-image: linear-gradient(to top, black 15%, transparent 88%);
+}
+
+/* Two layers at different speeds; each is one tile taller than the scene, so the loop has no seam. */
+.embers::before,
+.embers::after {
+  --tile-h: 17rem;
+  content: '';
+  position: absolute;
+  inset: 0 0 calc(var(--tile-h) * -1) 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, var(--ember), transparent),
+    radial-gradient(1px 1px at 37% 71%, var(--primary), transparent),
+    radial-gradient(2px 2px at 58% 33%, var(--ember), transparent),
+    radial-gradient(1px 1px at 81% 57%, var(--ember), transparent),
+    radial-gradient(1.5px 1.5px at 93% 12%, var(--primary), transparent),
+    radial-gradient(1px 1px at 24% 90%, var(--ember), transparent),
+    radial-gradient(1.5px 1.5px at 69% 86%, var(--ember), transparent);
+  background-size: 19rem var(--tile-h);
+  opacity: 0.7;
+  animation: ember-rise 46s linear infinite;
+}
+
+.embers::after {
+  --tile-h: 27rem;
+  background-size: 31rem var(--tile-h);
+  animation:
+    ember-rise 34s linear infinite,
+    ember-flicker 5s ease-in-out infinite;
+}
+
+/* In front of the volcano (its foot is wider than the crater) and behind the floating rings, which come later in the page. */
+.lamp {
+  z-index: -1;
+}
+
+/* On every screen the lamp's foot stands in the crater's dip. The landscape scales to fill the width, so the dip
+   (264 of the drawing's 400 units up) sits at 18.33vw, or higher when the landscape box is taller (phones).
+   The lamp sinks by the gap between its foot and its bottom edge (--lamp-foot). */
+.space .lamp {
+  bottom: calc(max(18.333vw, min(44%, 25rem) * 0.66) - var(--lamp-w) * var(--lamp-foot) - 0.25rem);
+}
+
+/* The landscape under the rings: volcano far away, a ridge, then palms as dark shapes against the glow. */
+.land {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: -2;
+  width: 100%;
+  height: min(44%, 25rem);
+  /* "slice" scaling crops the top of the drawing on wide screens; the crater glow must fade out instead of being cut. */
+  overflow: visible;
+}
+
+.crater {
+  animation: crater-glow 6s ease-in-out infinite;
+}
+
+.craterCore {
+  stop-color: color-mix(in srgb, var(--ember) 40%, transparent);
+}
+
+.craterEdge {
+  stop-color: color-mix(in srgb, var(--ember) 0%, transparent);
+}
+
+.volcano {
+  fill: color-mix(in srgb, var(--ember) 10%, var(--background));
+}
+
+.ridge {
+  fill: color-mix(in srgb, var(--ember) 5%, var(--background));
+}
+
+/* The nearest ground and its palms are the page's own dark, so the scene ends where the page begins. */
+.trees {
+  fill: var(--background);
+  stroke: var(--background);
+}
+
+@keyframes crater-glow {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.field {
+  --px: 0;
+  --py: 0;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  perspective: 1100px;
+}
+
+.ring {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: max(var(--size), 5rem);
+  aspect-ratio: 1;
+  margin: calc(max(var(--size), 5rem) / -2);
+  /* The pointer pushes near rings further than far ones. */
+  translate: calc(var(--px) * var(--shift) * -1) calc(var(--py) * var(--shift) * -1);
+  transform: translateZ(var(--depth));
+  transform-style: preserve-3d;
+  transition: translate 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The cut-out photos step aside once the real 3D rings are drawn. */
+/* The photos dissolve like mist while the 3D rings condense out of it, so the swap never flashes. */
+.fallback {
+  transition:
+    opacity 1600ms cubic-bezier(0.4, 0, 0.2, 1) 200ms,
+    filter 1600ms cubic-bezier(0.4, 0, 0.2, 1) 200ms,
+    scale 1600ms cubic-bezier(0.4, 0, 0.2, 1) 200ms,
+    visibility 0s;
+}
+
+/* Hiding waits for the fade to end; showing (no WebGL) becomes visible at once and fades in. */
+.fallback[data-hidden] {
+  transition-property: opacity, filter, scale, visibility;
+  transition-delay: 200ms, 200ms, 200ms, 1800ms;
+  opacity: 0;
+  filter: blur(10px);
+  scale: 1.04;
+  visibility: hidden;
+}
+
+/* Hidden until the first frame is drawn: fading in on mount only faded in an empty canvas. */
+.canvas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  filter: blur(12px);
+  scale: 0.97;
+  transition:
+    opacity 1800ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 1800ms cubic-bezier(0.22, 1, 0.36, 1),
+    scale 2400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.canvas[data-ready] {
+  opacity: 1;
+  filter: none;
+  scale: 1;
+}
+
+/* The ring itself: sways around its own axis like something weightless. */
+.body {
+  position: absolute;
+  inset: 0;
+  filter: blur(var(--blur)) brightness(var(--dim))
+    drop-shadow(0 0 1.5rem color-mix(in srgb, var(--primary) 30%, transparent));
+  animation: ring-drift var(--drift-s) ease-in-out var(--delay-s) infinite;
+  transition: filter 500ms ease, scale 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.body img {
+  object-fit: contain;
+}
+
+.ring:hover,
+.ring:focus-visible {
+  z-index: 1;
+  outline: none;
+}
+
+.ring:hover .body,
+.ring:focus-visible .body {
+  scale: 1.18;
+  filter: drop-shadow(0 0 2.2rem color-mix(in srgb, var(--primary) 65%, transparent));
+  animation-play-state: paused;
+}
+
+.label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: max-content;
+  max-width: 16rem;
+  translate: -50% 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 300ms ease, translate 300ms ease;
+  pointer-events: none;
+}
+
+.ring:hover .label,
+.ring:focus-visible .label {
+  opacity: 1;
+  translate: -50% 0.9rem;
+}
+
+/* Same label, but placed by the 3D scene under the ring the pointer is on. */
+.label3d {
+  top: 0;
+  translate: -50% 4.5rem;
+}
+
+.label3d[data-visible] {
+  opacity: 1;
+}
+
+.labelPrice {
+  display: block;
+  color: var(--primary);
+}
+
+/* Keyboard path to the 3D rings: hidden like sr-only until one is focused, which then shows at the top of the scene. */
+.ringLinks {
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ringLink {
+  display: block;
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.ringLink:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1.25rem, 3vh, 2.25rem);
+  max-width: min(92vw, 44rem);
+  padding: 2rem var(--gutter);
+  /* Sits low on the landscape, under the lamp, like a path into the store below. */
+  align-self: end;
+  padding-bottom: clamp(2.5rem, 9svh, 6rem);
+  text-align: center;
+  /* Rings pass behind the text; it must not block the ones around it. */
+  pointer-events: none;
+}
+
+.center a {
+  pointer-events: auto;
+}
+
+@keyframes ring-drift {
+  0%,
+  100% {
+    transform: translateY(-0.6rem) rotateY(calc(var(--turn) * -1)) rotateX(8deg) rotateZ(-4deg);
+  }
+  50% {
+    transform: translateY(0.6rem) rotateY(var(--turn)) rotateX(-8deg) rotateZ(4deg);
+  }
+}
+
+@keyframes ember-rise {
+  to {
+    transform: translateY(calc(var(--tile-h) * -1));
+  }
+}
+
+@keyframes ember-flicker {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .embers::before,
+  .embers::after,
+  .crater,
+  .body {
+    animation: none;
+  }
+
+  .ring {
+    translate: none;
+  }
+
+  .fallback,
+  .canvas {
+    filter: none;
+    scale: none;
+    transition-duration: 400ms, 0s, 0s, 0s;
+  }
+}

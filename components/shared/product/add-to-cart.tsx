@@ -6,8 +6,13 @@ import { Cart, CartItem } from '@/types';
 import { useCartActions } from '@/hooks/useCartActions';
 import { useI18n } from '@/components/i18n-provider';
 
-const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
-  const { isPending, handleAddToCart, handleRemoveFromCart } = useCartActions();
+interface AddToCartProps {
+  cart?: Cart;
+  item: CartItem;
+}
+
+const AddToCart = ({ cart, item }: AddToCartProps) => {
+  const { isPending, addToCart, removeFromCart } = useCartActions();
   const { t } = useI18n();
 
   const existItem =
@@ -23,7 +28,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
             className='rounded-full'
             aria-label={t('REMOVE_ONE')}
             disabled={isPending}
-            onClick={() => handleRemoveFromCart(item)}
+            onClick={() => removeFromCart(item.productId)}
           >
             <Minus className='w-4 h-4' />
           </Button>
@@ -37,7 +42,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
             className='rounded-full'
             aria-label={t('ADD_ONE')}
             disabled={isPending}
-            onClick={() => handleAddToCart(item)}
+            onClick={() => addToCart(item.productId)}
           >
             <Plus className='w-4 h-4' />
           </Button>
@@ -54,7 +59,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
         className='w-full rounded-full'
         type='button'
         disabled={isPending}
-        onClick={() => handleAddToCart(item)}
+        onClick={() => addToCart(item.productId)}
       >
         {isPending ? (
             <Loader className='w-4 h-4 animate-spin' />

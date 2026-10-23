@@ -9,6 +9,17 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 
 const env = (key: string) => process.env[key]?.trim() || undefined;
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+// "x,y" as shares of a picture's width and height, e.g. "0.9,0.7".
+function readPoint(key: string): Point | undefined {
+  const [x, y] = (env(key) ?? '').split(',').map(Number);
+  return Number.isFinite(x) && Number.isFinite(y) && env(key) ? { x, y } : undefined;
+}
+
 // Only plain color/length values may be injected into the page's <style> tag.
 const SAFE_CSS_VALUE = /^[#\w\s.,%()/-]+$/;
 
@@ -38,6 +49,8 @@ const COLOR_TOKENS = [
   'chart-3',
   'chart-4',
   'chart-5',
+  'inlay',
+  'inlay-top',
 ] as const;
 
 type ColorToken = (typeof COLOR_TOKENS)[number];
@@ -80,6 +93,10 @@ export const BRAND = {
   ogImage: env('BRAND_OG_IMAGE'),
   heroImage: env('BRAND_HERO_IMAGE'),
   showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',
+  hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
+  /** A picture (e.g. the logo) instead of the drawn genie lamp; its bottom edge must be the lamp's foot. */
+  lampImage: env('BRAND_LAMP_IMAGE'),
+  lampSpout: readPoint('BRAND_LAMP_SPOUT'),
 
   theme: readTheme(),
   colors: readColors('BRAND_COLOR_'),
@@ -89,10 +106,15 @@ export const BRAND = {
 
   contact: {
     email: env('CONTACT_EMAIL'),
-    phone: env('CONTACT_PHONE'),
+    // Without CONTACT_PHONE the WhatsApp number itself is shown.
+    phone: env('CONTACT_PHONE') ?? (whatsapp ? `+${whatsapp}` : undefined),
     whatsappUrl: whatsapp ? `https://wa.me/${whatsapp}` : undefined,
     instagram,
     instagramUrl: socialUrl('https://www.instagram.com/', instagram),
+    // Whether the website shows each one; the email still sends and receives the shop's mail when hidden.
+    showEmail: env('SHOW_CONTACT_EMAIL') !== 'false',
+    showPhone: env('SHOW_CONTACT_PHONE') !== 'false',
+    showInstagram: env('SHOW_CONTACT_INSTAGRAM') !== 'false',
   },
 };
 
@@ -113,6 +135,17 @@ export function absoluteUrl(path: string, serverUrl: string) {
   return /^https?:\/\//.test(path) ? path : `${serverUrl}${path}`;
 }
 
+// The URL lands inside url('') in a <style> tag, so only a site path or a clean https URL is allowed.
+function isSafeFontUrl(url: string) {
+  if (/^\/(?!\/)[\w./-]+$/.test(url)) return true;
+  if (/[\s<>"'()\\;]/.test(url)) return false;
+  try {
+    return new URL(url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function cssVars(colors: Partial<Record<ColorToken, string>>) {
   return Object.entries(colors)
     .map(([token, value]) => `--${token}: ${value};`)
@@ -130,7 +163,7 @@ export function getBrandCss() {
   const darkVars = cssVars(BRAND.darkColors);
   if (darkVars) rules.push(`.dark { ${darkVars} }`);
 
-  if (BRAND.displayFontUrl && !/["'()\\]/.test(BRAND.displayFontUrl)) {
+  if (BRAND.displayFontUrl && isSafeFontUrl(BRAND.displayFontUrl)) {
     rules.push(
       `@font-face { font-family: 'BrandDisplay'; src: url('${BRAND.displayFontUrl}'); font-display: swap; }`,
       `:root { --brand-font-display: 'BrandDisplay'; }`

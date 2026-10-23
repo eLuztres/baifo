@@ -1,12 +1,11 @@
 /** @jest-environment jsdom */
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CredentialsSignInForm from '@/app/(auth)/sign-in/credentials-signin-form';
 import SignUpForm from '@/app/(auth)/sign-up/sign-up-form';
 import { signInWithCredentials, signUpUser } from '@/lib/actions/user.actions';
+import { renderWithI18n, t } from '../utils/render-with-i18n';
 
-let mockSearchParams = new URLSearchParams();
-jest.mock('next/navigation', () => ({ useSearchParams: () => mockSearchParams }));
 jest.mock('@/lib/actions/user.actions', () => ({
   signInWithCredentials: jest.fn(),
   signUpUser: jest.fn(),
@@ -15,10 +14,6 @@ jest.mock('@/lib/actions/user.actions', () => ({
 const mockSignIn = signInWithCredentials as jest.Mock;
 const mockSignUp = signUpUser as jest.Mock;
 
-beforeEach(() => {
-  mockSearchParams = new URLSearchParams();
-});
-
 function submittedData(mock: jest.Mock) {
   const formData = mock.mock.calls[0][1] as FormData;
   return Object.fromEntries(formData.entries());
@@ -26,21 +21,20 @@ function submittedData(mock: jest.Mock) {
 
 describe('CredentialsSignInForm', () => {
   it('renders required email and password fields', () => {
-    render(<CredentialsSignInForm />);
+    renderWithI18n(<CredentialsSignInForm callbackUrl='' />);
 
-    expect(screen.getByLabelText('Email')).toBeRequired();
-    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password');
-    expect(screen.getByRole('link', { name: 'Sign Up' })).toHaveAttribute('href', '/sign-up');
+    expect(screen.getByLabelText(t('FIELD_EMAIL'))).toBeRequired();
+    expect(screen.getByLabelText(t('FIELD_PASSWORD'))).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('link', { name: t('AUTH_SIGN_UP') })).toHaveAttribute('href', '/sign-up');
   });
 
   it('submits the credentials and the callback URL', async () => {
-    mockSearchParams = new URLSearchParams('callbackUrl=/cart');
     mockSignIn.mockResolvedValue({ success: true, message: '' });
-    render(<CredentialsSignInForm />);
+    renderWithI18n(<CredentialsSignInForm callbackUrl='/cart' />);
 
-    await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret123');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await userEvent.type(screen.getByLabelText(t('FIELD_EMAIL')), 'ana@example.com');
+    await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'secret123');
+    await userEvent.click(screen.getByRole('button', { name: t('SIGN_IN') }));
 
     await waitFor(() => expect(mockSignIn).toHaveBeenCalled());
     expect(submittedData(mockSignIn)).toEqual({
@@ -51,27 +45,27 @@ describe('CredentialsSignInForm', () => {
   });
 
   it('shows the error returned by the server', async () => {
-    mockSignIn.mockResolvedValue({ success: false, message: 'Invalid email or password' });
-    render(<CredentialsSignInForm />);
+    mockSignIn.mockResolvedValue({ success: false, message: 'AUTH_INVALID_CREDENTIALS' });
+    renderWithI18n(<CredentialsSignInForm callbackUrl='' />);
 
-    await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'wrong-pass');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    await userEvent.type(screen.getByLabelText(t('FIELD_EMAIL')), 'ana@example.com');
+    await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'wrong-pass');
+    await userEvent.click(screen.getByRole('button', { name: t('SIGN_IN') }));
 
-    expect(await screen.findByText('Invalid email or password')).toBeInTheDocument();
+    expect(await screen.findByText(t('AUTH_INVALID_CREDENTIALS'))).toBeInTheDocument();
   });
 });
 
 describe('SignUpForm', () => {
   it('submits all four fields', async () => {
     mockSignUp.mockResolvedValue({ success: true, message: '' });
-    render(<SignUpForm />);
+    renderWithI18n(<SignUpForm callbackUrl='/' />);
 
-    await userEvent.type(screen.getByLabelText('Name'), 'Ana');
-    await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret123');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'secret123');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
+    await userEvent.type(screen.getByLabelText(t('FIELD_NAME')), 'Ana');
+    await userEvent.type(screen.getByLabelText(t('FIELD_EMAIL')), 'ana@example.com');
+    await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'secret123');
+    await userEvent.type(screen.getByLabelText(t('FIELD_CONFIRM_PASSWORD')), 'secret123');
+    await userEvent.click(screen.getByRole('button', { name: t('AUTH_SIGN_UP') }));
 
     await waitFor(() => expect(mockSignUp).toHaveBeenCalled());
     expect(submittedData(mockSignUp)).toEqual({
@@ -84,13 +78,13 @@ describe('SignUpForm', () => {
   });
 
   it('shows validation messages from the server', async () => {
-    mockSignUp.mockResolvedValue({ success: false, message: "Passwords don't match" });
-    render(<SignUpForm />);
+    mockSignUp.mockResolvedValue({ success: false, message: 'VALIDATION_PASSWORDS_MISMATCH' });
+    renderWithI18n(<SignUpForm callbackUrl='' />);
 
-    await userEvent.type(screen.getByLabelText('Password'), 'secret123');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'other123');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign Up' }));
+    await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'secret123');
+    await userEvent.type(screen.getByLabelText(t('FIELD_CONFIRM_PASSWORD')), 'other123');
+    await userEvent.click(screen.getByRole('button', { name: t('AUTH_SIGN_UP') }));
 
-    expect(await screen.findByText("Passwords don't match")).toBeInTheDocument();
+    expect(await screen.findByText(t('VALIDATION_PASSWORDS_MISMATCH'))).toBeInTheDocument();
   });
 });

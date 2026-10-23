@@ -47,24 +47,6 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
-  }
-}
-
 @utility wrapper {
   @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10;
 }
@@ -135,6 +117,10 @@
     --chart-4: #10B981;
     --chart-5: #EC4899;
 
+    /* The lines set into the gold band of the category ring: a wood red at the top, a stone at the bottom. */
+    --inlay-top: #B3192F;
+    --inlay: #2BB3B1;
+
     color-scheme: light;
   }
 
@@ -172,8 +158,16 @@
 }
 
 @layer base {
-  * {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
     @apply border-border;
+  }
+  /* No double-tap zoom on phones (it also removes the tap delay); pinch zoom is stopped in no-pinch-zoom.tsx. */
+  html {
+    touch-action: manipulation;
   }
   body {
     @apply bg-background font-sans text-foreground;
@@ -186,6 +180,14 @@
   ::selection {
     @apply bg-primary text-primary-foreground;
   }
+  /* Everything still scrolls (wheel, touch, keys), just without visible scrollbars.
+     The ::-webkit-scrollbar rule is for Safari before 18.2 (iPhone/iPad), which ignores scrollbar-width. */
+  * {
+    scrollbar-width: none;
+  }
+  ::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @utility eyebrow {
@@ -196,11 +198,7 @@
   @apply font-display text-3xl leading-tight sm:text-4xl;
 }
 
-/* Uploadthing button text override */
-html.dark .upload-field .text-white {
-  color: #FFFFFF !important;
-}
-
+/* UploadThing renders its button text white; follow the theme instead */
 .upload-field .text-white {
-  color: #000000 !important;
+  color: var(--foreground) !important;
 }

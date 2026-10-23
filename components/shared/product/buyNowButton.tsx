@@ -5,53 +5,44 @@ import {Loader,ShoppingBasket} from 'lucide-react';
 import {Product} from '@/types';
 import {useCartActions} from '@/hooks/useCartActions';
 import {useRouter} from "next/navigation";
-import clsx from "clsx";
 import {useI18n} from "@/components/i18n-provider";
 
-const BuyNowButton =  ({ product, className }: { product: Product; className?: string }) => {
-    const {isPending, handleAddToCart} = useCartActions();
+interface BuyNowButtonProps {
+    product: Pick<Product, 'id' | 'stock'>;
+    className?: string;
+}
+
+const BuyNowButton =  ({ product, className }: BuyNowButtonProps) => {
+    const {isPending, addToCart} = useCartActions();
     const router = useRouter();
     const {t} = useI18n();
 
-    // Decompose product into CartItem format
-    const cartItem = {
-        productId: product.id,
-        name: product.name,
-        slug: product.slug,
-        price: product.price,
-        qty: 1,
-        image: product.images[0],
-    };
+    // Checkout opens only once the product is really in the cart.
+    const handleOnBuyNow = () =>
+        addToCart(product.id, { onInCart: () => router.push('/shipping-address') });
 
-    const handleOnBuyNow = async ()=>{
-        await handleAddToCart(cartItem)
-        router.push('/shipping-address')
+    if (product.stock < 1) {
+        return (
+            <Button variant='secondary' className={className} disabled>
+                {t('SOLD_OUT')}
+            </Button>
+        );
     }
-    const defaultClass = '';
 
     return (
-        <>
-            {product.stock > 0 ? (
-                    <Button
-                        className={clsx(defaultClass, className)}
-                        type='button' onClick={handleOnBuyNow}>
-                        {isPending ? (
-                            <Loader className='w-4 h-4 animate-spin'/>
-                        ) : (
-                            <ShoppingBasket className='w-4 h-4'/>
-                        )}{' '}
-                        {t('BUY_NOW')}
-                    </Button>
-                )
-                :
-                (
-                    <Button variant='secondary' className={clsx(defaultClass, className)} disabled>
-                        {t('SOLD_OUT')}
-                    </Button>
-                )}
-        </>
+        <Button
+            className={className}
+            type='button'
+            disabled={isPending}
+            onClick={handleOnBuyNow}>
+            {isPending ? (
+                <Loader className='w-4 h-4 animate-spin'/>
+            ) : (
+                <ShoppingBasket className='w-4 h-4'/>
+            )}{' '}
+            {t('BUY_NOW')}
+        </Button>
     );
 };
 
 export default BuyNowButton;
-

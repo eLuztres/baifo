@@ -64,10 +64,10 @@ describe('formatError', () => {
 
   it('turns a Prisma unique-constraint error into a friendly message', () => {
     const error = { name: 'PrismaClientKnownRequestError', code: 'P2002', meta: { target: ['email'] } };
-    expect(formatError(error)).toBe('Email already exists');
+    expect(formatError(error)).toBe('ERROR_EMAIL_EXISTS');
   });
 
-  it('falls back to the error message', () => {
+  it("passes the app's own error messages through", () => {
     expect(formatError(new Error('Boom'))).toBe('Boom');
   });
 });

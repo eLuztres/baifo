@@ -118,6 +118,9 @@ test('the notification template renders branded HTML', async () => {
   // React's renderer directly: @react-email's `render` needs --experimental-vm-modules in Jest.
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: NotificationEmail } = await import('../email/templates/notification-email');
+  const { getTranslator } = await import('../lib/i18n');
+  // The logo comes from the shop's config, so the test follows it instead of a fixed file name.
+  const { BRAND } = await import('../lib/brand');
 
   const html = renderToStaticMarkup(
     createElement(NotificationEmail, {
@@ -125,13 +128,14 @@ test('the notification template renders branded HTML', async () => {
       name: 'Ana',
       paragraphs: ['It was shipped today.'],
       action: { label: 'View order', url: 'https://example.com/order/1' },
+      lang: 'en',
     })
   );
 
   expect(html).toContain('Your order is on its way');
-  expect(html).toContain('Hi Ana');
+  expect(html).toContain(getTranslator('en')('WELCOME_GREETING', { name: 'Ana' }));
   expect(html).toContain('https://example.com/order/1');
-  expect(html).toContain('/brand/logo.svg');
+  expect(html).toContain(BRAND.logo);
 });
 
 test.each(['en', 'es', 'de', 'fr', 'it'] as const)(

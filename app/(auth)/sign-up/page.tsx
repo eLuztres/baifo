@@ -8,26 +8,29 @@ import {
 import { Metadata } from 'next';
 import Link from 'next/link';
 import BrandLogo from '@/components/shared/brand-logo';
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import SignUpForm from './sign-up-form';
 import GoogleSignInButton from '@/components/shared/google-sign-in-button';
+import { getT } from '@/lib/i18n-server';
+import { getSession } from '@/lib/auth-guard';
+import { safeCallbackUrl } from '@/lib/safe-callback-url';
 
-export const metadata: Metadata = {
-  title: 'Sign Up',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t('AUTH_CREATE_ACCOUNT') };
+}
 
 const SignUpPage = async (props: {
   searchParams: Promise<{
-    callbackUrl: string;
+    callbackUrl?: string;
   }>;
 }) => {
-  const { callbackUrl } = await props.searchParams;
-
-  const session = await auth();
+  // '' when missing or on another site.
+  const callbackUrl = safeCallbackUrl((await props.searchParams).callbackUrl, '');
+  const [{ t }, session] = await Promise.all([getT(), getSession()]);
 
   if (session) {
-    return redirect(callbackUrl || '/');
+    redirect(callbackUrl || '/');
   }
 
   return (
@@ -37,14 +40,14 @@ const SignUpPage = async (props: {
           <Link href='/' className='flex-center'>
             <BrandLogo priority className='h-20' />
           </Link>
-          <CardTitle className='text-center'>Create Account</CardTitle>
+          <CardTitle className='text-center'>{t('AUTH_CREATE_ACCOUNT')}</CardTitle>
           <CardDescription className='text-center'>
-            Enter your information below to sign up
+            {t('AUTH_SIGN_UP_DESCRIPTION')}
           </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
           <GoogleSignInButton callbackUrl={callbackUrl} />
-          <SignUpForm />
+          <SignUpForm callbackUrl={callbackUrl} />
         </CardContent>
       </Card>
     </div>

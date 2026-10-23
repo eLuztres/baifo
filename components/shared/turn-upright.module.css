@@ -1,0 +1,54 @@
+/* Phones held sideways: the shop is made for upright phones and a website can't lock the rotation (iPhone Safari
+   ignores every lock), so the page is covered with a note to turn the phone back. data-sideways comes from the
+   screen's real rotation (turn-upright-watch.tsx): a media query on the viewport also fired when the keyboard opened. */
+.overlay {
+    display: none;
+}
+
+:global(html[data-sideways]) .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem;
+    background: var(--background);
+    color: var(--foreground);
+    text-align: center;
+    /* Swipes on the note must not scroll the page behind it. */
+    touch-action: none;
+    overscroll-behavior: contain;
+}
+
+.icon {
+    width: 3rem;
+    height: 3rem;
+    color: var(--primary);
+    animation: turn-upright 2.4s ease-in-out infinite;
+}
+
+.text {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+}
+
+/* The phone tips from sideways to upright, then rests. */
+@keyframes turn-upright {
+    0%,
+    15% {
+        rotate: -90deg;
+    }
+    55%,
+    100% {
+        rotate: 0deg;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .icon {
+        animation: none;
+    }
+}

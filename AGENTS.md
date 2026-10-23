@@ -18,6 +18,11 @@ The workspace guidelines in `../AGENTS.md` apply. This file adds the rules that 
 - No hardcoded colors like `bg-white/10`, `text-black`, or hex values in components. They break light or dark themes. Dark overlays on photos (`from-black/…`) are the exception.
 - Emails can't use CSS variables. Use `EMAIL_COLORS` from `lib/brand.ts`.
 
+## Checking front-end changes
+
+- After any front-end change, open the page in Google Chrome through the Claude in Chrome extension and check on `http://localhost:3000` that the change is really there and looks right.
+- If the extension isn't connected or the dev server isn't running, say so and ask me to start it. Don't report a visual change as checked without having seen it.
+
 ## Texts
 
 - User-facing text goes through `getT()` / `useI18n()`. A new key must be added to **all** `resources/*.json` files.

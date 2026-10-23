@@ -1,0 +1,156 @@
+.hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: calc(100svh - var(--header-h));
+  /* The layout's top padding would leave a strip of ground above the photograph. */
+  margin-top: -2rem;
+  padding: 2.5rem var(--gutter);
+  overflow: hidden;
+  isolation: isolate;
+  /* A dark display window: one warm light falls where the ring turns. */
+  background:
+    radial-gradient(ellipse 45% 55% at 72% 50%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%),
+    var(--background);
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: clamp(2rem, 4vw, 5rem);
+  }
+}
+
+@media (min-width: 640px) {
+  .hero {
+    margin-top: -3rem;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .jewel {
+      animation: drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100svh;
+    }
+
+    .card {
+      animation: lift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100svh;
+    }
+  }
+}
+
+/* The ring drifts away as the visitor scrolls on. */
+@keyframes drift {
+  to {
+    transform: scale(0.85) translateY(10%);
+    opacity: 0.4;
+  }
+}
+
+@keyframes lift {
+  to {
+    transform: translateY(-6%) scale(0.96);
+  }
+}
+
+.card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(1.75rem, 1rem + 2vw, 3rem);
+  width: min(100%, 48rem);
+  min-height: min(54svh, 34rem);
+  padding: clamp(1.25rem, 0.8rem + 1.5vw, 2rem);
+  color: var(--foreground);
+  transform-origin: 50% 0;
+}
+
+.jewel {
+  position: relative;
+  width: min(100%, 32rem);
+  aspect-ratio: 1;
+  order: -1;
+  /* No frame: the photo melts into the dark, so only the ring stays in the light. */
+  mask-image: radial-gradient(closest-side, black 55%, transparent 100%);
+}
+
+.jewel img {
+  object-fit: cover;
+  animation: breathe 24s ease-in-out infinite alternate;
+}
+
+@keyframes breathe {
+  to {
+    transform: scale(1.06);
+  }
+}
+
+@media (min-width: 1024px) {
+  .jewel {
+    order: 0;
+  }
+}
+
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: var(--step-head);
+}
+
+.body {
+  display: grid;
+  align-content: start;
+  gap: 1.75rem;
+}
+
+.facts {
+  font-size: var(--step-lead);
+  line-height: 1.1;
+}
+
+.facts span {
+  display: block;
+}
+
+.sentence {
+  max-width: 40ch;
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 1rem 2.5rem;
+}
+
+@media (max-width: 639px) {
+  .card {
+    min-height: auto;
+  }
+
+  .title {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    column-gap: 0.4em;
+    font-size: 10vw;
+  }
+
+  .foot {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .foot > :first-child {
+    justify-self: stretch;
+  }
+
+  .foot > :last-child {
+    justify-self: start;
+  }
+}

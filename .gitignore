@@ -50,3 +50,6 @@ storybook-static
 
 # ide
 /.idea/
+
+# design-taste-frontend skill screenshots (regenerated on every run)
+.taste-skill/inspect/

@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { useTransition } from 'react';
 import { paymentMethodSchema } from '@/lib/validators';
 import { useForm } from 'react-hook-form';
@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { updateUserPaymentMethod } from '@/lib/actions/user.actions';
+import { useI18n } from '@/components/i18n-provider';
+import { paymentMethodLabel } from '@/lib/utils';
 
 interface PaymentMethodFormProps {
   preferredPaymentMethod: string | null;
@@ -32,7 +34,7 @@ const PaymentMethodForm = ({
   defaultPaymentMethod,
 }: PaymentMethodFormProps) => {
   const router = useRouter();
-  const { toast } = useToast();
+  const { t } = useI18n();
 
   const form = useForm<z.infer<typeof paymentMethodSchema>>({
     resolver: zodResolver(paymentMethodSchema),
@@ -62,10 +64,8 @@ const PaymentMethodForm = ({
   return (
     <>
       <div className='max-w-md mx-auto space-y-4'>
-        <h1 className='h2-bold mt-4'>Payment Method</h1>
-        <p className='text-sm text-muted-foreground'>
-          Please select a payment method
-        </p>
+        <h1 className='h2-bold mt-4'>{t('CHECKOUT_PAYMENT_METHOD')}</h1>
+        <p className='text-sm text-muted-foreground'>{t('CHECKOUT_PAYMENT_TEXT')}</p>
         <Form {...form}>
           <form
             method='post'
@@ -95,7 +95,7 @@ const PaymentMethodForm = ({
                               />
                             </FormControl>
                             <FormLabel className='font-normal'>
-                              {paymentMethod}
+                              {paymentMethodLabel(t, paymentMethod)}
                             </FormLabel>
                           </FormItem>
                         ))}
@@ -114,7 +114,7 @@ const PaymentMethodForm = ({
                 ) : (
                   <ArrowRight className='w-4 h-4' />
                 )}{' '}
-                Continue
+                {t('CHECKOUT_CONTINUE')}
               </Button>
             </div>
           </form>

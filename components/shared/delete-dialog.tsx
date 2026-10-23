@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
-import { useTransition } from 'react';
+import { type ReactNode, useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '../ui/button';
+import { useI18n } from '@/components/i18n-provider';
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -12,18 +12,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '../ui/alert-dialog';
+} from '@/components/ui/alert-dialog';
 
-const DeleteDialog = ({
-  id,
-  action,
-}: {
+interface DeleteDialogProps {
   id: string;
   action: (id: string) => Promise<{ success: boolean; message: string }>;
-}) => {
+  /** Says what deleting does, instead of the general warning. */
+  description?: string;
+  /** Replaces the default "Delete" button that opens the dialog. */
+  trigger?: ReactNode;
+}
+
+const DeleteDialog = ({ id, action, description, trigger }: DeleteDialogProps) => {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const handleDeleteClick = () => {
     startTransition(async () => {
@@ -46,26 +50,28 @@ const DeleteDialog = ({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button size='sm' variant='destructive' className='ml-2'>
-          Delete
-        </Button>
+        {trigger ?? (
+          <Button size='sm' variant='destructive' className='ml-2'>
+            {t('DELETE_DIALOG_CONFIRM')}
+          </Button>
+        )}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogTitle>{t('DELETE_DIALOG_TITLE')}</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone
+            {description ?? t('DELETE_DIALOG_TEXT')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t('DELETE_DIALOG_CANCEL')}</AlertDialogCancel>
           <Button
             variant='destructive'
             size='sm'
             disabled={isPending}
             onClick={handleDeleteClick}
           >
-            {isPending ? 'Deleting...' : 'Delete'}
+            {isPending ? t('DELETE_DIALOG_PENDING') : t('DELETE_DIALOG_CONFIRM')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

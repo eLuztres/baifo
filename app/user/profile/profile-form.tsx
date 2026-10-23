@@ -15,6 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useI18n } from '@/components/i18n-provider';
 
 interface ProfileFormProps {
   name: string;
@@ -22,6 +23,7 @@ interface ProfileFormProps {
 }
 
 const ProfileForm = ({ name, email }: ProfileFormProps) => {
+  const { t } = useI18n();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof updateProfileSchema>>({
@@ -67,7 +69,8 @@ const ProfileForm = ({ name, email }: ProfileFormProps) => {
                 <FormControl>
                   <Input
                     disabled
-                    placeholder='Email'
+                    placeholder={t('FIELD_EMAIL')}
+                    aria-label={t('FIELD_EMAIL')}
                     className='input-field'
                     {...field}
                   />
@@ -83,7 +86,9 @@ const ProfileForm = ({ name, email }: ProfileFormProps) => {
               <FormItem className='w-full'>
                 <FormControl>
                   <Input
-                    placeholder='Name'
+                    placeholder={t('FIELD_NAME')}
+                    aria-label={t('FIELD_NAME')}
+                    autoComplete='name'
                     className='input-field'
                     {...field}
                   />
@@ -99,7 +104,7 @@ const ProfileForm = ({ name, email }: ProfileFormProps) => {
           className='button col-span-2 w-full'
           disabled={form.formState.isSubmitting}
         >
-          {form.formState.isSubmitting ? 'Submitting...' : 'Update Profile'}
+          {form.formState.isSubmitting ? t('FORM_SAVING') : t('PROFILE_UPDATE')}
         </Button>
       </form>
     </Form>

@@ -1,7 +1,8 @@
+
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
-import { getNavLinks } from '@/components/shared/header';
+import { getNavLinks } from '@/components/shared/header/nav-items';
 import BrandLogo from '@/components/shared/brand-logo';
 import { getContactChannels } from '@/components/shared/contact-channels';
 
@@ -17,6 +18,17 @@ const Footer = async () => {
           <BrandLogo withName />
           <p className='max-w-xs text-sm leading-6 text-muted-foreground'>
             {t('FOOTER_TAGLINE')}
+          </p>
+          <p className='text-xs text-muted-foreground'>
+            © {currentYear} {BRAND.name}. {t('FOOTER_RIGHTS')}
+          </p>
+          <p className='flex gap-4 text-xs'>
+            <Link href='/privacy' className='text-muted-foreground transition hover:text-foreground'>
+              {t('FOOTER_PRIVACY')}
+            </Link>
+            <Link href='/impressum' className='text-muted-foreground transition hover:text-foreground'>
+              {t('FOOTER_IMPRINT')}
+            </Link>
           </p>
         </div>
 
@@ -60,12 +72,6 @@ const Footer = async () => {
             </ul>
           </div>
         )}
-      </div>
-
-      <div className='border-t border-border'>
-        <div className='wrapper py-6 text-xs text-muted-foreground'>
-          © {currentYear} {BRAND.name}. {t('FOOTER_RIGHTS')}
-        </div>
       </div>
     </footer>
   );

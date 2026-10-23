@@ -1,23 +1,25 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// import { signUpDefaultValues } from '@/lib/constants';
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { signUpUser } from '@/lib/actions/user.actions';
-import { useSearchParams } from 'next/navigation';
+import { useI18n, useTranslateMessage } from '@/components/i18n-provider';
+import SubmitButton from '../submit-button';
 
-const SignUpForm = () => {
+interface SignUpFormProps {
+  /** Where to go after signing up, already checked to be on this site ('' for the home page). */
+  callbackUrl: string;
+}
+
+const SignUpForm = ({ callbackUrl }: SignUpFormProps) => {
+  const { t } = useI18n();
+  const translateMessage = useTranslateMessage();
   const [data, action] = useActionState(signUpUser, {
     success: false,
     message: '',
   });
-
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
 
   const [formValues, setFormValues] = useState({
     name: '',
@@ -31,22 +33,12 @@ const SignUpForm = () => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const SignUpButton = () => {
-    const { pending } = useFormStatus();
-
-    return (
-      <Button disabled={pending} className='w-full' variant='default'>
-        {pending ? 'Submitting...' : 'Sign Up'}
-      </Button>
-    );
-  };
-
   return (
     <form action={action}>
       <input type='hidden' name='callbackUrl' value={callbackUrl} />
       <div className='space-y-6'>
         <div>
-          <Label htmlFor='name'>Name</Label>
+          <Label htmlFor='name'>{t('FIELD_NAME')}</Label>
           <Input
             id='name'
             name='name'
@@ -58,7 +50,7 @@ const SignUpForm = () => {
           />
         </div>
         <div>
-          <Label htmlFor='email'>Email</Label>
+          <Label htmlFor='email'>{t('FIELD_EMAIL')}</Label>
           <Input
             id='email'
             name='email'
@@ -69,41 +61,45 @@ const SignUpForm = () => {
           />
         </div>
         <div>
-          <Label htmlFor='password'>Password</Label>
+          <Label htmlFor='password'>{t('FIELD_PASSWORD')}</Label>
           <Input
             id='password'
             name='password'
             type='password'
             required
-            autoComplete='password'
+            autoComplete='new-password'
             defaultValue={formValues.password}
             onChange={handleChange}
           />
         </div>
         <div>
-          <Label htmlFor='confirmPassword'>Confirm Password</Label>
+          <Label htmlFor='confirmPassword'>{t('FIELD_CONFIRM_PASSWORD')}</Label>
           <Input
             id='confirmPassword'
             name='confirmPassword'
             type='password'
             required
-            autoComplete='confirmPassword'
+            autoComplete='new-password'
             defaultValue={formValues.confirmPassword}
             onChange={handleChange}
           />
         </div>
         <div>
-          <SignUpButton />
+          <SubmitButton label={t('AUTH_SIGN_UP')} pendingLabel={t('AUTH_SIGNING_UP')} />
         </div>
 
         {data && !data.success && (
-          <div className='text-center text-destructive'>{data.message}</div>
+          <div className='text-center text-destructive'>{translateMessage(data.message)}</div>
         )}
 
         <div className='text-sm text-center text-muted-foreground'>
-          Already have an account?{' '}
-          <Link href='/sign-in' target='_self' className='link'>
-            Sign In
+          {t('AUTH_HAVE_ACCOUNT')}{' '}
+          <Link
+            href={callbackUrl ? `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/sign-in'}
+            target='_self'
+            className='link'
+          >
+            {t('SIGN_IN')}
           </Link>
         </div>
       </div>

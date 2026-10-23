@@ -1,27 +1,29 @@
 'use client';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { formatPriceTag } from '@/lib/utils';
 
-const Charts = ({
-  data: { salesData },
-}: {
+interface ChartsProps {
   data: { salesData: { month: string; totalSales: number }[] };
-}) => {
+}
+
+// The axes draw in currentColor, so their color comes from the theme token on the container.
+const Charts = ({ data: { salesData } }: ChartsProps) => {
   return (
-    <ResponsiveContainer width='100%' height={350}>
+    <ResponsiveContainer width='100%' height={350} className='text-muted-foreground'>
       <BarChart data={salesData}>
         <XAxis
           dataKey='month'
-          stroke='#888888'
+          stroke='currentColor'
           fontSize={12}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          stroke='#888888'
+          stroke='currentColor'
           fontSize={12}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `$${value}`}
+          tickFormatter={(value: number) => formatPriceTag(value)}
         />
         <Bar
           dataKey='totalSales'

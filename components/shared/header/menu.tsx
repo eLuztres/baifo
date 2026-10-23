@@ -1,6 +1,7 @@
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { MenuIcon, ShoppingBag } from 'lucide-react';
+import { MenuIcon } from 'lucide-react';
 import {
   Sheet,
   SheetClose,
@@ -8,44 +9,28 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { SHOWCASE_MODE } from '@/lib/constants';
+import { getT } from '@/lib/i18n-server';
 import UserButton from './user-button';
 import LanguageSwitcher from './language-switcher';
-import { getMyCart } from '@/lib/actions/cart.actions';
+import MenuAccount, { MENU_ROW_CLASS } from './menu-account';
+import CartButton, { CartLink } from './cart-button';
+import { getNavLinks } from './nav-items';
 
-type MenuProps = {
-  navLinks?: { href: string; label: string }[];
-  menuLabel?: string;
-  cartLabel?: string;
-};
-
-const Menu = async ({
-  navLinks = [
-    { href: '/', label: 'Home' },
-    { href: '/store', label: 'Shop' },
-  ],
-  menuLabel = 'Menu',
-  cartLabel = 'Cart',
-}: MenuProps) => {
-  const cart = await getMyCart();
-  const itemCount = cart?.items.reduce((sum, item) => sum + item.qty, 0) ?? 0;
+// The shop, admin and account headers all render it, so it translates its own links and labels.
+const Menu = async () => {
+  const { t } = await getT();
+  const navLinks = getNavLinks(t);
+  const menuLabel = t('NAV_MENU');
+  const cartLabel = t('NAV_CART');
 
   return (
     <div className='flex items-center gap-2'>
-      <Button
-        asChild
-        variant='ghost'
-        size='icon'
-        className='relative rounded-full'
-      >
-        <Link href='/cart' aria-label={`${cartLabel} (${itemCount})`}>
-          <ShoppingBag className='!size-5' />
-          {itemCount > 0 && (
-            <span className='absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground'>
-              {itemCount}
-            </span>
-          )}
-        </Link>
-      </Button>
+      {!SHOWCASE_MODE && (
+        <Suspense fallback={<CartLink label={cartLabel} />}>
+          <CartButton label={cartLabel} />
+        </Suspense>
+      )}
 
       <div className='hidden lg:block'>
         <UserButton />
@@ -62,23 +47,25 @@ const Menu = async ({
             <MenuIcon className='!size-5' />
           </Button>
         </SheetTrigger>
-        <SheetContent className='flex flex-col gap-6'>
+        {/* The sheet has a title but no description; this tells Radix that is on purpose. */}
+        <SheetContent className='flex flex-col gap-6 overflow-y-auto' aria-describedby={undefined}>
           <SheetTitle className='font-display text-2xl'>{menuLabel}</SheetTitle>
+          <LanguageSwitcher />
           <nav className='flex flex-col gap-1'>
             {navLinks.map((link) => (
               <SheetClose asChild key={link.href}>
                 <Link
                   href={link.href}
-                  className='rounded-lg px-3 py-3 text-lg text-foreground/80 transition hover:bg-muted hover:text-foreground'
+                  className={MENU_ROW_CLASS}
                 >
                   {link.label}
                 </Link>
               </SheetClose>
             ))}
           </nav>
-          <div className='mt-auto space-y-4 border-t pt-6'>
-            <LanguageSwitcher />
-            <UserButton />
+          {/* Every account link sits right in the menu: a second dropdown inside the sheet was cramped on phones. */}
+          <div className='border-t pt-4'>
+            <MenuAccount />
           </div>
         </SheetContent>
       </Sheet>

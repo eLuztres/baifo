@@ -1,58 +1,44 @@
-import { Metadata } from 'next';
+import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import { getOrderById } from '@/lib/actions/order.actions';
-import { notFound, redirect } from 'next/navigation';
+import { requireUser } from '@/lib/auth-guard';
+import { getT } from '@/lib/i18n-server';
 import OrderDetailsTable from './order-details-table';
-import { ShippingAddress } from '@/types';
-import {auth} from '@/auth';
-import {Stripe} from 'stripe'
-import { CURRENCY } from '@/lib/constants/currency';
+import OrderPaymentSection, { ONLINE_PAYMENT_METHODS } from './order-payment-section';
+import { MarkAsDeliveredButton, MarkAsPaidButton } from './admin-order-actions';
+import { PaymentSkeleton } from './lazy-checkouts';
 
-export const metadata: Metadata = {
-  title: 'Order Details',
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t('ORDER_DETAILS') };
+}
 
-const OrderDetailsPage = async (props: {
-  params: Promise<{
-    id: string;
-  }>;
-}) => {
-  const { id } = await props.params;
+interface OrderDetailsPageProps {
+  params: Promise<{ id: string }>;
+}
 
-  const order = await getOrderById(id);
+const OrderDetailsPage = async ({ params }: OrderDetailsPageProps) => {
+  const { id } = await params;
+  const [session, order] = await Promise.all([requireUser(), getOrderById(id)]);
+  // Also for orders of other customers, so the page doesn't reveal that they exist.
   if (!order) notFound();
 
-  const session = await auth();
-  // Redirect the user if they don't own the order
-  if (order.userId !== session?.user.id && session?.user.role !== 'admin') {
-    return redirect('/unauthorized');
-  }
-
-  let client_secret: any = null;
-
-  // Check if is not paid and using stripe
-  if (order.paymentMethod === 'Stripe' && !order.isPaid) {
-    // Init stripe instance
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(order.totalPrice) * 100),
-      currency: CURRENCY,
-      metadata: { orderId: order.id },
-    });
-    client_secret = paymentIntent.client_secret;
-  }
-
+  const isAdmin = session.user.role === 'admin';
+  const canPayOnline =
+    order.userId === session.user.id && !order.isPaid && ONLINE_PAYMENT_METHODS.includes(order.paymentMethod);
 
   return (
-    <OrderDetailsTable
-      order={{
-        ...order,
-        shippingAddress: order.shippingAddress as ShippingAddress,
-      }}
-      stripeClientSecret={client_secret}
-      paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
-      isAdmin={session?.user?.role === 'admin' || false}
-    />
+    <OrderDetailsTable order={order}>
+      {canPayOnline && (
+        <Suspense fallback={<PaymentSkeleton />}>
+          <OrderPaymentSection order={order} />
+        </Suspense>
+      )}
+      {isAdmin && !order.isPaid && order.paymentMethod === 'CashOnDelivery' && (
+        <MarkAsPaidButton orderId={order.id} />
+      )}
+      {isAdmin && order.isPaid && !order.isDelivered && <MarkAsDeliveredButton orderId={order.id} />}
+    </OrderDetailsTable>
   );
 };
 

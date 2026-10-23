@@ -88,7 +88,7 @@ Then **Deployments → Redeploy**. Changing `NEXT_PUBLIC_*` values always needs 
 Skip this step and the Google button simply doesn't show.
 
 1. <https://console.cloud.google.com> → create a project (e.g. "Acme Shop").
-2. **Google Auth Platform → Branding**: app name = shop name, support email, logo (optional).
+2. **Google Auth Platform → Branding**: app name = shop name, support email, logo (optional), homepage `https://<domain>`, privacy policy `https://<domain>/privacy`, authorized domain `<domain>`. Fill in `IMPRINT_TEXT` (and check `PRIVACY_TEXT`) in `brand/messages/` first.
 3. **Audience**: *External* → **Publish app** (otherwise only test users can log in).
 4. **Clients → Create client** → *Web application*:
    - Authorized JavaScript origins: `https://<domain>` and `http://localhost:3000`
@@ -147,6 +147,7 @@ These are the welcome email and order receipts.
 | :--- | :--- |
 | `RESEND_API_KEY` | `re_…` |
 | `SENDER_EMAIL` | e.g. `shop@acme.com` (on the verified domain) |
+| `ORDER_ALERT_EMAIL` | optional: who gets an email for every new order, e.g. `owner@gmail.com` (defaults to `CONTACT_EMAIL`). Admins can override it, turn emails off or add WhatsApp alerts (via CallMeBot) under Admin › Overview › Notifications |
 | `CONTACT_EMAIL` | where customer replies should go |
 
 Without a verified domain, Resend only delivers to your own address. That's fine for testing.

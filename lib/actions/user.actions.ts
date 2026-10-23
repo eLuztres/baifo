@@ -1,31 +1,34 @@
 'use server';
 
 import {
+  allowedPaymentMethodSchema,
+  idSchema,
   shippingAddressSchema,
   signInFormSchema,
   signUpFormSchema,
   paymentMethodSchema,
+  updateProfileSchema,
   updateUserSchema,
-} from '../validators';
-import { auth, authServer } from '@/auth';
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+  userRoleSchema,
+} from '@/lib/validators';
+import { authServer } from '@/auth';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/db/prisma';
-import { formatError } from '../utils';
+import { formatError } from '@/lib/utils';
 import { ShippingAddress } from '@/types';
 import { z } from 'zod';
-import { PAGE_SIZE } from '../constants';
+import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, USER_ROLES } from '@/lib/constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
-import { isAdmin } from '@/lib/auth-guard';
+import type { TranslationKey } from '@/lib/i18n-core';
+import { CUSTOMER_VIEW_COOKIE, getSession, getSessionUserId, isAdmin, isCustomerView } from '@/lib/auth-guard';
+import { cookies, headers } from 'next/headers';
+import { safeCallbackUrl } from '@/lib/safe-callback-url';
 
-// Only same-site paths are allowed as the target after signing in.
-function safeCallbackUrl(formData: FormData) {
-  const callbackUrl = (formData.get('callbackUrl') as string) || '/';
-  return callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : '/';
-}
+// Without a target, the sign-in page sends signed-in visitors on to their home (admins to ADMIN_HOME_PATH).
+const AFTER_SIGN_IN = '/sign-in';
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -38,18 +41,38 @@ export async function signInWithCredentials(
       password: formData.get('password'),
     });
     await authServer.api.signInEmail({ body: user, headers: await headers() });
-    redirect(safeCallbackUrl(formData));
+    redirect(safeCallbackUrl(formData.get('callbackUrl'), AFTER_SIGN_IN));
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
     }
-    return { success: false, message: 'Invalid email or password' };
+    const email = signInFormSchema.shape.email.safeParse(formData.get('email'));
+    if (email.success && (await isGoogleOnlyAccount(email.data))) {
+      return { success: false, message: 'AUTH_USE_GOOGLE' satisfies TranslationKey };
+    }
+    return { success: false, message: 'AUTH_INVALID_CREDENTIALS' satisfies TranslationKey };
   }
+}
+
+// Linking Google drops an unverified password login (claimUnverifiedUser in auth.ts), and there is no
+// password reset, so these customers are told how to get in instead of "invalid password".
+async function isGoogleOnlyAccount(email: string) {
+  if (!GOOGLE_AUTH_ENABLED) return false;
+  const user = await prisma.user
+    .findFirst({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+        account: { some: { providerId: 'google' }, none: { providerId: 'credential' } },
+      },
+      select: { id: true },
+    })
+    .catch(() => null);
+  return Boolean(user);
 }
 
 // Sign in (or sign up) with Google, then return to where the user came from
 export async function signInWithGoogle(formData: FormData) {
-  const redirectTo = safeCallbackUrl(formData);
+  const redirectTo = safeCallbackUrl(formData.get('callbackUrl'), AFTER_SIGN_IN);
   const { url } = await authServer.api.signInSocial({
     body: {
       provider: 'google',
@@ -63,16 +86,27 @@ export async function signInWithGoogle(formData: FormData) {
 
 // Sign user out
 export async function signOutUser() {
-    // get current users cart and delete it so it does not persist to next user
+  // Delete the cart so it does not carry over to the next person on this device
   const currentCart = await getMyCart();
 
   if (currentCart?.id) {
     await prisma.cart.delete({ where: { id: currentCart.id } });
-  } else {
-    console.warn('No cart found for deletion.');
   }
   await authServer.api.signOut({ headers: await headers() });
   redirect('/');
+}
+
+// Switch an admin between their edit tools and the shop as customers see it, landing where each one starts
+export async function toggleCustomerView() {
+  if (!(await isAdmin())) return;
+  const cookieStore = await cookies();
+  if (await isCustomerView()) {
+    cookieStore.delete(CUSTOMER_VIEW_COOKIE);
+    redirect('/admin/products');
+  }
+  cookieStore.set(CUSTOMER_VIEW_COOKIE, '1', { path: '/', sameSite: 'lax', httpOnly: true });
+  // /store forwards to the shop section; a server action's redirect would lose a #hash.
+  redirect('/store');
 }
 
 // Sign up user
@@ -85,12 +119,21 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
       confirmPassword: formData.get('confirmPassword'),
     });
 
+    // Older accounts may have a mixed-case email, which the case-sensitive unique index lets through.
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: user.email, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existingUser) {
+      return { success: false, message: 'ERROR_EMAIL_EXISTS' satisfies TranslationKey };
+    }
+
     // Creates the user and signs them in; the welcome email is sent from the user-create hook in auth.ts.
     await authServer.api.signUpEmail({
       body: { name: user.name, email: user.email, password: user.password },
       headers: await headers(),
     });
-    redirect(safeCallbackUrl(formData));
+    redirect(safeCallbackUrl(formData.get('callbackUrl'), AFTER_SIGN_IN));
   } catch (error) {
     if (isRedirectError(error)) {
       throw error;
@@ -99,39 +142,42 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
   }
 }
 
-// Get user by the ID
+// What pages and order code may read about an account (never the password hash).
+const ACCOUNT_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  address: true,
+  paymentMethod: true,
+} satisfies Prisma.UserSelect;
+
+/** The account of the signed-in user, or any account for an admin; null otherwise or when it doesn't exist. */
 export async function getUserById(userId: string) {
-  const user = await prisma.user.findFirst({
-    where: { id: userId },
-  });
-  if (!user) throw new Error('User not found');
-  return user;
+  const session = await getSession();
+  const callerId = session?.user?.id;
+  const isAllowed = callerId === userId || session?.user?.role === 'admin';
+  if (!callerId || !isAllowed || !idSchema.safeParse(userId).success) return null;
+
+  return prisma.user.findUnique({ where: { id: userId }, select: ACCOUNT_SELECT });
 }
 
 // Update the user's address
 export async function updateUserAddress(data: ShippingAddress) {
   try {
-    const session = await auth();
-
-    const currentUser = await prisma.user.findFirst({
-      where: { id: session?.user?.id },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'User not found' };
+    const userId = await getSessionUserId();
+    if (!userId) {
+      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
     }
 
     const address = shippingAddressSchema.parse(data);
 
     await prisma.user.update({
-      where: { id: currentUser.id },
+      where: { id: userId },
       data: { address },
     });
 
-    return {
-      success: true,
-      message: 'User updated successfully',
-    };
+    return { success: true, message: 'ACCOUNT_SAVED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }
@@ -142,53 +188,39 @@ export async function updateUserPaymentMethod(
   data: z.infer<typeof paymentMethodSchema>
 ) {
   try {
-    const session = await auth();
-    const currentUser = await prisma.user.findFirst({
-      where: { id: session?.user?.id },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'User not found' };
+    const userId = await getSessionUserId();
+    if (!userId) {
+      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
     }
 
-    const paymentMethod = paymentMethodSchema.parse(data);
+    const { type } = paymentMethodSchema.parse(data);
+    allowedPaymentMethodSchema(PAYMENT_METHODS).parse(type);
 
     await prisma.user.update({
-      where: { id: currentUser.id },
-      data: { paymentMethod: paymentMethod.type },
+      where: { id: userId },
+      data: { paymentMethod: type },
     });
 
-    return {
-      success: true,
-      message: 'User updated successfully',
-    };
+    return { success: true, message: 'ACCOUNT_SAVED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }
 }
 
-// Update the user profile
-export async function updateProfile(user: { name: string; email: string }) {
+// Update the user profile (only the name: the email is the login)
+export async function updateProfile(user: z.infer<typeof updateProfileSchema>) {
   try {
-    const session = await auth();
-
-    const currentUser = await prisma.user.findFirst({
-      where: {
-        id: session?.user?.id,
-      },
-    });
-
-    if (!currentUser) {
-      return { success: false, message: 'User not found' };
+    const userId = await getSessionUserId();
+    if (!userId) {
+      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
     }
 
-    // Through Better Auth so the cached session (and the header) picks up the new name at once.
-    await authServer.api.updateUser({ body: { name: user.name }, headers: await headers() });
+    const { name } = updateProfileSchema.pick({ name: true }).parse(user);
 
-    return {
-      success: true,
-      message: 'User updated successfully',
-    };
+    // Through Better Auth so the session (and the header) picks up the new name at once.
+    await authServer.api.updateUser({ body: { name }, headers: await headers() });
+
+    return { success: true, message: 'ACCOUNT_SAVED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }
@@ -204,27 +236,22 @@ export async function getAllUsers({
   page: number;
   query: string;
 }) {
-  if (!(await isAdmin())) throw new Error('Only admins can do this');
-  const queryFilter: Prisma.UserWhereInput =
+  if (!(await isAdmin())) throw new Error('ERROR_ADMIN_ONLY' satisfies TranslationKey);
+  const where: Prisma.UserWhereInput =
     query && query !== 'all'
-      ? {
-          name: {
-            contains: query,
-            mode: 'insensitive',
-          } as Prisma.StringFilter,
-        }
+      ? { name: { contains: query, mode: 'insensitive' } }
       : {};
 
-  const data = await prisma.user.findMany({
-    where: {
-      ...queryFilter,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    skip: (page - 1) * limit,
-  });
-
-  const dataCount = await prisma.user.count();
+  const [data, dataCount] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: (page - 1) * limit,
+    }),
+    prisma.user.count({ where }),
+  ]);
 
   return {
     data,
@@ -236,33 +263,33 @@ export async function getAllUsers({
 export async function deleteUser(id: string) {
   try {
     // Server actions can be called directly, so check the caller here too
-    const session = await auth();
+    const session = await getSession();
     if (session?.user?.role !== 'admin') {
-      return { success: false, message: 'Only admins can delete users' };
+      return { success: false, message: 'ERROR_ADMIN_ONLY' satisfies TranslationKey };
     }
     if (session.user.id === id) {
-      return {
-        success: false,
-        message: 'You cannot delete the account you are signed in with',
-      };
+      return { success: false, message: 'ADMIN_USER_DELETE_SELF' satisfies TranslationKey };
     }
 
-    const exists = await prisma.user.findUnique({ where: { id }, select: { id: true } });
-    if (!exists) {
+    const user = await prisma.user.findUnique({
+      where: { id: idSchema.parse(id) },
+      select: { _count: { select: { Order: true } } },
+    });
+    if (!user) {
       revalidatePath('/admin/users');
-      return { success: false, message: 'User not found. It may already have been deleted.' };
+      return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
+    }
+    // Deleting cascades to the user's orders, which the shop must keep for invoices and taxes.
+    if (user._count.Order > 0) {
+      return { success: false, message: 'ADMIN_USER_HAS_ORDERS' satisfies TranslationKey };
     }
 
-    // The database cascades this to the user's linked Google accounts,
-    // sessions, carts, orders and reviews.
+    // The database cascades this to the user's linked Google accounts, sessions, carts and reviews.
     await prisma.user.delete({ where: { id } });
 
     revalidatePath('/admin/users');
 
-    return {
-      success: true,
-      message: 'User deleted successfully',
-    };
+    return { success: true, message: 'ADMIN_USER_DELETED' satisfies TranslationKey };
   } catch (error) {
     return {
       success: false,
@@ -274,23 +301,27 @@ export async function deleteUser(id: string) {
 // Update a user
 export async function updateUser(user: z.infer<typeof updateUserSchema>) {
   try {
-    if (!(await isAdmin())) {
-      return { success: false, message: 'Only admins can do this' };
+    const session = await getSession();
+    if (session?.user?.role !== 'admin') {
+      return { success: false, message: 'ERROR_ADMIN_ONLY' satisfies TranslationKey };
     }
+
+    const { id, name, role } = updateUserSchema.parse(user);
+    // USER_ROLES is server env, so the role is checked here and not in the schema the form shares.
+    userRoleSchema(USER_ROLES).parse(role);
+    // Keeps the shop from losing its last admin by accident.
+    if (id === session.user.id && role !== 'admin') {
+      return { success: false, message: 'ADMIN_USER_ROLE_SELF' satisfies TranslationKey };
+    }
+
     await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        name: user.name,
-        role: user.role,
-      },
+      where: { id },
+      data: { name, role },
     });
 
     revalidatePath('/admin/users');
 
-    return {
-      success: true,
-      message: 'User updated successfully',
-    };
+    return { success: true, message: 'ADMIN_USER_UPDATED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }

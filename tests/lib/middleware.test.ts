@@ -35,6 +35,18 @@ describe('middleware', () => {
     expect(isSignInRedirect(middleware(request(path)))).toBe(false);
   });
 
+  it('keeps the query string in the callback URL', () => {
+    const res = middleware(request('/order/abc?paid=1'));
+
+    expect(res.headers.get('location')).toBe(
+      `http://localhost:3000/sign-in?callbackUrl=${encodeURIComponent('/order/abc?paid=1')}`
+    );
+  });
+
+  it.each(['/users', '/orders-info'])('does not protect look-alike path %s', (path) => {
+    expect(isSignInRedirect(middleware(request(path)))).toBe(false);
+  });
+
   it('lets signed-in users through protected pages', () => {
     expect(isSignInRedirect(middleware(request('/place-order', { signedIn: true })))).toBe(false);
   });

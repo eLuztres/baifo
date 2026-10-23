@@ -1,5 +1,10 @@
 import HomePage from './home-page';
 
-export default function Page() {
-  return <HomePage />;
+interface PageProps {
+  searchParams: Promise<{ material?: string }>;
+}
+
+export default async function Page({ searchParams }: PageProps) {
+  const { material } = await searchParams;
+  return <HomePage material={material} />;
 }

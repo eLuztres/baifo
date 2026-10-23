@@ -12,15 +12,15 @@ export interface ContactChannel {
   external: boolean;
 }
 
-/** The contact options configured in .env; unset ones are left out (footer and contact page). */
+/** The contact options configured in .env, minus the ones its SHOW_CONTACT_* switches hide (footer and contact page). */
 export function getContactChannels(t: Translator): ContactChannel[] {
-  const { email, phone, whatsappUrl, instagram, instagramUrl } = BRAND.contact;
+  const { email, phone, whatsappUrl, instagram, instagramUrl, showEmail, showPhone, showInstagram } = BRAND.contact;
   const channels: ContactChannel[] = [];
 
-  if (email) {
+  if (email && showEmail) {
     channels.push({ label: t('CONTACT_EMAIL_LABEL'), value: email, href: `mailto:${email}`, icon: Mail, external: false });
   }
-  if (phone) {
+  if (phone && showPhone) {
     channels.push({
       label: whatsappUrl ? t('CONTACT_WHATSAPP_LABEL') : t('CONTACT_PHONE_LABEL'),
       value: phone,
@@ -29,7 +29,7 @@ export function getContactChannels(t: Translator): ContactChannel[] {
       external: Boolean(whatsappUrl),
     });
   }
-  if (instagram && instagramUrl) {
+  if (instagram && instagramUrl && showInstagram) {
     channels.push({
       label: t('CONTACT_INSTAGRAM_LABEL'),
       value: `@${instagram.replace(/^@/, '')}`,

@@ -9,23 +9,52 @@ datasource db {
 }
 
 model Product {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  slug        String      @unique(map: "product_slug_idx")
-  category    String
-  images      String[]
-  brand       String
-  description String
-  stock       Int
-  price       Decimal     @default(0) @db.Decimal(12, 2)
-  rating      Decimal     @default(0) @db.Decimal(3, 2)
-  numReviews  Int         @default(0)
-  isFeatured  Boolean     @default(false)
-  banner      String?
-  createdAt   DateTime    @default(now()) @db.Timestamp(6)
-  OrderItem   OrderItem[]
-  Review      Review[]
-  imageIndex  Int         @default(0)
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  slug          String      @unique(map: "product_slug_idx")
+  category      String
+  images        String[]
+  brand         String
+  description   String
+  stock         Int
+  price         Decimal     @default(0) @db.Decimal(12, 2)
+  priceClass    String?
+  rating        Decimal     @default(0) @db.Decimal(3, 2)
+  numReviews    Int         @default(0)
+  isFeatured    Boolean     @default(false)
+  banner        String?
+  createdAt     DateTime    @default(now()) @db.Timestamp(6)
+  OrderItem     OrderItem[]
+  Review        Review[]
+  imageIndex    Int         @default(0)
+  // A reservation only counts while reservedUntil is in the future, so it ends by itself.
+  reservedUntil DateTime?   @db.Timestamp(6)
+  reservedById  String?     @db.Uuid
+  reservedBy    User?       @relation(fields: [reservedById], references: [id], onDelete: SetNull)
+  categories    Category[]
+  // The maker's original photo; the AI views in `images` are regenerated from it when a category's scene changes.
+  sourceImage    String?
+  // The images before the last regeneration, so it can be undone.
+  previousImages String[]  @default([])
+  // The admin's order in the store; new rings keep 0 and so come first, newest first.
+  sortOrder      Int       @default(0)
+}
+
+// A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
+model Category {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug          String    @unique
+  name          Json
+  text          Json
+  image         String?
+  // Materials that put a ring in this category, e.g. "madera", "olivo".
+  keywords      String[]  @default([])
+  // The world the AI places this category's rings in; the variants keep neighbouring photos from looking alike.
+  scene         String
+  sceneVariants String[]  @default([])
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now()) @db.Timestamp(6)
+  products      Product[]
 }
 
 model User {
@@ -44,6 +73,7 @@ model User {
   Cart          Cart[]
   Order         Order[]
   Review        Review[]
+  reservations  Product[]
 }
 
 // Better Auth tables. Email/password logins are accounts with providerId "credential".
@@ -146,4 +176,21 @@ model Review {
   createdAt          DateTime @default(now()) @db.Timestamp(6)
   product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One row (id 1): how the owner hears about orders and interested customers, set on the admin overview.
+model ShopSettings {
+  id             Int      @id @default(1)
+  notifyEmail    Boolean  @default(true)
+  // Comma-separated; empty means ORDER_ALERT_EMAIL / CONTACT_EMAIL from .env.
+  alertEmails    String   @default("")
+  notifyWhatsapp Boolean  @default(false)
+  whatsappNumber String   @default("")
+  // CallMeBot key: it only sends to the number that asked for it, i.e. the owner's own.
+  whatsappApiKey String   @default("")
+  // Which .env contact details the website shows; admins can hide each one.
+  showEmail      Boolean  @default(true)
+  showPhone      Boolean  @default(true)
+  showInstagram  Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
 }

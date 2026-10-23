@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import '@/assets/styles/globals.css';
 import { SERVER_URL } from '@/lib/constants';
@@ -8,8 +8,18 @@ import { Toaster } from '@/components/ui/toaster';
 import { I18nProvider } from '@/components/i18n-provider';
 import { getDictionary } from '@/lib/i18n';
 import { getEnabledLocales, getLocale } from '@/lib/i18n-server';
+import TurnUpright from '@/components/shared/turn-upright';
+import NoPinchZoom from '@/components/shared/no-pinch-zoom';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
+// The shop is laid out for the phone's own width; zooming only pushed it off the sides.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -57,6 +67,8 @@ export default async function RootLayout({
           >
             {children}
             <Toaster />
+            <TurnUpright />
+            <NoPinchZoom />
           </I18nProvider>
         </ThemeProvider>
       </body>

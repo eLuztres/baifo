@@ -3,14 +3,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { useI18n } from '@/components/i18n-provider';
+import type { TranslationKey } from '@/lib/i18n-core';
 
-const links = [
+const links: { title: TranslationKey; href: string }[] = [
   {
-    title: 'Profile',
+    title: 'USER_PROFILE',
     href: '/user/profile',
   },
   {
-    title: 'Orders',
+    title: 'ORDERS_TITLE',
     href: '/user/orders',
   },
 ];
@@ -20,6 +22,7 @@ const MainNav = ({
   ...props
 }: React.HTMLAttributes<HTMLElement>) => {
   const pathname = usePathname();
+  const { t } = useI18n();
   return (
     <nav
       className={cn('flex items-center space-x-4 lg:space-x-6', className)}
@@ -34,7 +37,7 @@ const MainNav = ({
             pathname.includes(item.href) ? '' : 'text-muted-foreground'
           )}
         >
-          {item.title}
+          {t(item.title)}
         </Link>
       ))}
     </nav>

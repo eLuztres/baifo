@@ -1,3 +1,5 @@
+'use client';
+
 import { FormEvent, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -9,101 +11,77 @@ import {
 } from '@stripe/react-stripe-js';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/components/i18n-provider';
 import { formatCurrency } from '@/lib/utils';
-import { SERVER_URL } from '@/lib/constants';
 
-const StripePayment = ({
-  priceInCents,
-  orderId,
-  clientSecret,
-}: {
-  priceInCents: number;
+// Once per page load: a new promise on every render makes Elements remount the payment form.
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+
+interface StripeFormProps {
   orderId: string;
-  clientSecret: string;
-}) => {
-  const stripePromise = loadStripe(
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
-  );
+  totalPrice: string;
+}
 
-  const { theme, systemTheme } = useTheme();
+function StripeForm({ orderId, totalPrice }: StripeFormProps) {
+  const { t } = useI18n();
+  const stripe = useStripe();
+  const elements = useElements();
 
-  // Stripe Form Component
-  const StripeForm = () => {
-    const stripe = useStripe();
-    const elements = useElements();
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState('');
-    const [email, setEmail] = useState('');
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!stripe || !elements) return;
 
-    const handleSubmit = async (e: FormEvent) => {
-      e.preventDefault();
-
-      if (stripe == null || elements == null || email == null) return;
-
-      setIsLoading(true);
-
-      stripe
-        .confirmPayment({
-          elements,
-          confirmParams: {
-            return_url: `${SERVER_URL}/order/${orderId}/stripe-payment-success`,
-          },
-        })
-        .then(({ error }) => {
-          if (
-            error?.type === 'card_error' ||
-            error?.type === 'validation_error'
-          ) {
-            setErrorMessage(error?.message ?? 'An unknown error occurred');
-          } else if (error) {
-            setErrorMessage('An unknown error occurred');
-          }
-        })
-        .finally(() => setIsLoading(false));
-    };
-
-    return (
-      <form className='space-y-4' onSubmit={handleSubmit}>
-        <div className='text-xl'>Stripe Checkout</div>
-        {errorMessage && <div className='text-destructive'>{errorMessage}</div>}
-        <PaymentElement />
-        <div>
-          <LinkAuthenticationElement
-            onChange={(e) => setEmail(e.value.email)}
-          />
-        </div>
-        <Button
-          className='w-full'
-          size='lg'
-          disabled={stripe == null || elements == null || isLoading}
-        >
-          {isLoading
-            ? 'Purchasing...'
-            : `Purchase ${formatCurrency(priceInCents / 100)}`}
-        </Button>
-      </form>
-    );
+    setIsLoading(true);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      // The current origin, so a preview deployment comes back to itself and not to production.
+      confirmParams: { return_url: `${window.location.origin}/order/${orderId}/stripe-payment-success` },
+    });
+    // On success Stripe leaves for return_url. Card and validation messages are meant
+    // for the buyer and come in the Elements locale; anything else gets a generic text.
+    if (error) {
+      const isBuyerMessage = error.type === 'card_error' || error.type === 'validation_error';
+      setErrorMessage(isBuyerMessage && error.message ? error.message : t('ORDER_STRIPE_ERROR'));
+    }
+    setIsLoading(false);
   };
+
+  return (
+    <form className='space-y-4' onSubmit={handleSubmit}>
+      <div className='text-xl'>{t('ORDER_STRIPE_TITLE')}</div>
+      {errorMessage && <div className='text-destructive'>{errorMessage}</div>}
+      <PaymentElement />
+      <div>
+        <LinkAuthenticationElement />
+      </div>
+      <Button className='w-full' size='lg' disabled={!stripe || !elements || isLoading}>
+        {isLoading ? t('ORDER_STRIPE_PAYING') : t('ORDER_STRIPE_PAY', { amount: formatCurrency(totalPrice) })}
+      </Button>
+    </form>
+  );
+}
+
+interface StripePaymentProps extends StripeFormProps {
+  clientSecret: string;
+}
+
+const StripePayment = ({ orderId, clientSecret, totalPrice }: StripePaymentProps) => {
+  const { locale } = useI18n();
+  const { resolvedTheme } = useTheme();
 
   return (
     <Elements
       options={{
         clientSecret,
-        appearance: {
-          theme:
-            theme === 'dark'
-              ? 'night'
-              : theme === 'light'
-              ? 'stripe'
-              : systemTheme === 'light'
-              ? 'stripe'
-              : 'night',
-        },
+        locale,
+        appearance: { theme: resolvedTheme === 'light' ? 'stripe' : 'night' },
       }}
       stripe={stripePromise}
     >
-      <StripeForm />
+      <StripeForm orderId={orderId} totalPrice={totalPrice} />
     </Elements>
   );
 };

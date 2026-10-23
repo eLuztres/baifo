@@ -1,0 +1,678 @@
+.stage {
+    /* Tied to the screen height too, so the cards under the ring still show on the first screen. */
+    --card-w: clamp(7rem, min(30vw, 16svh), 16rem);
+    --radius: calc(var(--card-w) * var(--radius-factor));
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: calc(var(--card-w) * 2.6);
+    overflow: hidden;
+    perspective: calc(var(--card-w) * 9);
+    /* Cards drift out of sight at the sides instead of being cut off. */
+    mask-image:
+        linear-gradient(to right, transparent, black 8%, black 92%, transparent),
+        linear-gradient(to bottom, black 88%, transparent);
+    mask-composite: intersect;
+    /* The selector owns every touch: sideways turns the ring, up and down does nothing (no page scrolling here). */
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    /* Starts gently, gathers speed and settles softly: a turn that answers at full speed looked abrupt. */
+    --turn-ease: cubic-bezier(0.45, 0, 0.2, 1);
+    /* Front card choreography: the old front shrinks at once, the new one grows near the end of the turn. */
+    --shrink-ms: 350ms;
+    --grow-ms: 650ms;
+    --grow-delay: calc(var(--turn-ms) * 0.6);
+    --grow-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* The ring's center sits behind the stage, so the front card shows at natural size. The still band and the turning
+   cards are two scenes stacked in one spot (category-ring.tsx). */
+.tilt {
+    grid-area: 1 / 1;
+    transform-style: preserve-3d;
+    transform: translateY(calc(var(--card-w) * -0.4)) translateZ(calc(var(--radius) * -1)) rotateX(var(--tilt, -8deg));
+    animation: ring-enter 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.band {
+    /* The engraved wave with flowers, buds, leaves and curls swinging off it on curved stems, two waves per tile so they
+       differ; on the outside at the front and seen on the inside at the back. */
+    --engraving: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='100' viewBox='0 0 240 100'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M0 13H240M0 87H240' stroke='rgba(0,0,0,.5)' stroke-width='1.6'/%3E%3Cpath d='M0 15.5H240M0 89.5H240' stroke='rgba(255,255,255,.4)' stroke-width='1'/%3E%3Cpath d='M0 50C20 24 40 24 60 50S100 76 120 50S160 24 180 50S220 76 240 50' stroke='rgba(0,0,0,.55)' stroke-width='2.4'/%3E%3Cpath d='M0 52C20 26 40 26 60 52S100 78 120 52S160 26 180 52S220 78 240 52' stroke='rgba(255,255,255,.35)' stroke-width='1'/%3E%3Cpath d='M45 35.5C52 46 46 58 33 61M105 64.5C110 52 102 40 90 37M135 35.5C128 47 136 58 148 62M195 64.5C188 54 196 41 209 38' transform='translate(0 1.2)' stroke='rgba(255,255,255,.35)' stroke-width='0.9'/%3E%3Cpath d='M45 35.5C52 46 46 58 33 61M105 64.5C110 52 102 40 90 37M135 35.5C128 47 136 58 148 62M195 64.5C188 54 196 41 209 38' fill='none' stroke='rgba(0,0,0,.55)' stroke-width='1.4'/%3E%3Cpath d='M75 64.5L72.6 62.6L71.5 59.8L71.9 57L73.5 54.9L75.8 53.8L78.2 54L80.1 55.3L81.1 57.2L81 59.2L80 60.8L78.5 61.7L76.9 61.7L75.5 60.9L74.8 59.7L74.8 58.5L75.4 57.5L76.2 57L77.1 57.1L77.7 57.5M15 35.5L12.9 37.2L11.9 39.7L12.2 42.1L13.6 44.1L15.7 45L17.8 44.8L19.5 43.7L20.4 42L20.3 40.2L19.5 38.8L18.1 38L16.6 38L15.5 38.7L14.9 39.7L14.9 40.8L15.3 41.7L16.1 42.1L16.9 42.1L17.4 41.8M225 64.5L222.6 65.8L221.2 68.1L221.1 70.6L222.2 72.7L224 74L226.2 74.2L228 73.4L229.2 71.8L229.4 70.1L228.8 68.5L227.6 67.5L226.2 67.3L224.9 67.7L224.1 68.6L223.9 69.7L224.3 70.7L224.9 71.2L225.7 71.3L226.3 71.1' transform='translate(0 1.2)' stroke='rgba(255,255,255,.35)' stroke-width='0.8'/%3E%3Cpath d='M75 64.5L72.6 62.6L71.5 59.8L71.9 57L73.5 54.9L75.8 53.8L78.2 54L80.1 55.3L81.1 57.2L81 59.2L80 60.8L78.5 61.7L76.9 61.7L75.5 60.9L74.8 59.7L74.8 58.5L75.4 57.5L76.2 57L77.1 57.1L77.7 57.5M15 35.5L12.9 37.2L11.9 39.7L12.2 42.1L13.6 44.1L15.7 45L17.8 44.8L19.5 43.7L20.4 42L20.3 40.2L19.5 38.8L18.1 38L16.6 38L15.5 38.7L14.9 39.7L14.9 40.8L15.3 41.7L16.1 42.1L16.9 42.1L17.4 41.8M225 64.5L222.6 65.8L221.2 68.1L221.1 70.6L222.2 72.7L224 74L226.2 74.2L228 73.4L229.2 71.8L229.4 70.1L228.8 68.5L227.6 67.5L226.2 67.3L224.9 67.7L224.1 68.6L223.9 69.7L224.3 70.7L224.9 71.2L225.7 71.3L226.3 71.1' fill='none' stroke='rgba(0,0,0,.55)' stroke-width='1.2'/%3E%3Cpath d='M48 47C52.1 47.8 53.9 51.9 53 55.6 49.3 54.6 46.6 50.9 48 47ZM104 49C100.5 50.2 97.3 47.9 96.4 44.6 99.7 43.7 103.3 45.4 104 49ZM132 47C133.3 50.7 130.8 54.2 127.3 55.1 126.4 51.6 128.1 47.7 132 47ZM191 51C191 47.3 194.4 45 197.7 45.3 197.4 48.7 194.6 51.6 191 51Z' transform='translate(0 1.2)' stroke='rgba(255,255,255,.35)' stroke-width='0.8'/%3E%3Cpath d='M48 47C52.1 47.8 53.9 51.9 53 55.6 49.3 54.6 46.6 50.9 48 47ZM104 49C100.5 50.2 97.3 47.9 96.4 44.6 99.7 43.7 103.3 45.4 104 49ZM132 47C133.3 50.7 130.8 54.2 127.3 55.1 126.4 51.6 128.1 47.7 132 47ZM191 51C191 47.3 194.4 45 197.7 45.3 197.4 48.7 194.6 51.6 191 51Z' fill='rgba(0,0,0,.16)' stroke='rgba(0,0,0,.55)' stroke-width='1.2'/%3E%3Cpath d='M48.5 47.8L52 54M103.3 48.6L97.8 45.4M131.6 47.7L128.2 53.6M191.6 50.5L196.5 46.4' stroke='rgba(0,0,0,.45)' stroke-width='.8'/%3E%3Cpath d='M149 62.5C153.8 59.2 160.2 62.2 161.7 68.4 155.9 71.3 149.6 68.3 149 62.5ZM149 62.5C150.5 61.6 153 59.9 155.4 60.5 153.2 61.7 150.8 62.2 149 62.5ZM149 62.5C149.3 64.3 149.6 67.2 151.6 68.7 151.1 66.2 149.9 64 149 62.5ZM150.4 63.1Q156.2 63.6 160.3 67.8' transform='translate(0 1.2)' stroke='rgba(255,255,255,.35)' stroke-width='0.8'/%3E%3Cpath d='M149 62.5C153.8 59.2 160.2 62.2 161.7 68.4 155.9 71.3 149.6 68.3 149 62.5ZM149 62.5C150.5 61.6 153 59.9 155.4 60.5 153.2 61.7 150.8 62.2 149 62.5ZM149 62.5C149.3 64.3 149.6 67.2 151.6 68.7 151.1 66.2 149.9 64 149 62.5ZM150.4 63.1Q156.2 63.6 160.3 67.8' fill='rgba(255,255,255,.14)' stroke='rgba(0,0,0,.55)' stroke-width='1.2'/%3E%3Cpath d='M27.1 59.3C20 57.9 18.6 51.7 23.9 49.4 29.6 48.2 32.1 54 27.1 59.3ZM30.3 60.3C29.4 53.2 34.9 49.9 38.7 54.2 41.6 59.2 36.8 63.4 30.3 60.3ZM30.3 63.7C36.8 60.6 41.6 64.8 38.7 69.8 34.9 74.1 29.4 70.8 30.3 63.7ZM27.1 64.7C32.1 70 29.6 75.8 23.9 74.6 18.6 72.3 20 66.1 27.1 64.7ZM25.1 62C21.7 68.3 15.4 67.8 14.8 62 15.3 56.3 21.7 55.7 25.1 62ZM87 33.3C84.4 29 86.9 25.4 90.6 27 93.9 29.4 92 33.4 87 33.3ZM88 35.4C91.2 31.6 95.4 32.9 95 36.9 93.8 40.7 89.4 40.2 88 35.4ZM86.2 37C90.8 38.9 90.9 43.3 87 44.1 82.9 44.2 82.1 39.8 86.2 37ZM84.2 35.8C83.8 40.8 79.6 42.2 77.6 38.7 76.3 34.9 80.2 32.8 84.2 35.8ZM84.7 33.5C79.8 34.7 77.1 31.1 79.8 28.2 83.1 25.8 86.3 28.8 84.7 33.5ZM212.6 33.3C207.3 28.8 209.1 23 214.6 23.6 219.9 25.3 219.2 31.3 212.6 33.3ZM214.7 35.7C217.4 29.4 223.5 29.3 224.6 34.7 224.6 40.2 218.6 41.4 214.7 35.7ZM213.1 38.5C220 39.1 221.9 44.8 217.1 47.6 211.9 49.3 208.9 44 213.1 38.5ZM210 37.8C211.6 44.5 206.7 48.2 202.6 44.5 199.3 40 203.5 35.6 210 37.8ZM209.6 34.6C203.7 38.2 198.8 34.7 201 29.7 204.3 25.2 209.8 27.7 209.6 34.6Z' transform='translate(0 1.2)' stroke='rgba(255,255,255,.35)' stroke-width='0.8'/%3E%3Cpath d='M27.1 59.3C20 57.9 18.6 51.7 23.9 49.4 29.6 48.2 32.1 54 27.1 59.3ZM30.3 60.3C29.4 53.2 34.9 49.9 38.7 54.2 41.6 59.2 36.8 63.4 30.3 60.3ZM30.3 63.7C36.8 60.6 41.6 64.8 38.7 69.8 34.9 74.1 29.4 70.8 30.3 63.7ZM27.1 64.7C32.1 70 29.6 75.8 23.9 74.6 18.6 72.3 20 66.1 27.1 64.7ZM25.1 62C21.7 68.3 15.4 67.8 14.8 62 15.3 56.3 21.7 55.7 25.1 62ZM87 33.3C84.4 29 86.9 25.4 90.6 27 93.9 29.4 92 33.4 87 33.3ZM88 35.4C91.2 31.6 95.4 32.9 95 36.9 93.8 40.7 89.4 40.2 88 35.4ZM86.2 37C90.8 38.9 90.9 43.3 87 44.1 82.9 44.2 82.1 39.8 86.2 37ZM84.2 35.8C83.8 40.8 79.6 42.2 77.6 38.7 76.3 34.9 80.2 32.8 84.2 35.8ZM84.7 33.5C79.8 34.7 77.1 31.1 79.8 28.2 83.1 25.8 86.3 28.8 84.7 33.5ZM212.6 33.3C207.3 28.8 209.1 23 214.6 23.6 219.9 25.3 219.2 31.3 212.6 33.3ZM214.7 35.7C217.4 29.4 223.5 29.3 224.6 34.7 224.6 40.2 218.6 41.4 214.7 35.7ZM213.1 38.5C220 39.1 221.9 44.8 217.1 47.6 211.9 49.3 208.9 44 213.1 38.5ZM210 37.8C211.6 44.5 206.7 48.2 202.6 44.5 199.3 40 203.5 35.6 210 37.8ZM209.6 34.6C203.7 38.2 198.8 34.7 201 29.7 204.3 25.2 209.8 27.7 209.6 34.6Z' fill='rgba(255,255,255,.14)' stroke='rgba(0,0,0,.55)' stroke-width='1.3'/%3E%3Cpath d='M28 62h0' stroke='rgba(0,0,0,.6)' stroke-width='4.6'/%3E%3Cpath d='M86 35h0' stroke='rgba(0,0,0,.6)' stroke-width='3.4'/%3E%3Cpath d='M212 36h0' stroke='rgba(0,0,0,.6)' stroke-width='4.4'/%3E%3C/g%3E%3C/svg%3E");
+    /* Two thin lines set into the band near its top and bottom edge (the shop's --inlay-top and --inlay colors),
+       leaving the middle to the vine: each with fine dark rims where it meets the gold and a polished shine along its upper side. */
+    --inlay-stone: linear-gradient(
+        to bottom,
+        transparent 5%,
+        rgb(0 0 0 / 0.5) 5% 5.6%,
+        color-mix(in srgb, var(--inlay-top) 70%, white) 5.6%,
+        var(--inlay-top) 8%,
+        color-mix(in srgb, var(--inlay-top) 65%, black) 10.4%,
+        rgb(0 0 0 / 0.5) 10.4% 11%,
+        transparent 11% 89%,
+        rgb(0 0 0 / 0.5) 89% 89.6%,
+        color-mix(in srgb, var(--inlay) 70%, white) 89.6%,
+        var(--inlay) 92%,
+        color-mix(in srgb, var(--inlay) 65%, black) 94.4%,
+        rgb(0 0 0 / 0.5) 94.4% 95%,
+        transparent 95%
+    );
+    --band-r: calc(var(--radius) * 0.72);
+    --band-h: calc(var(--card-w) * 0.5);
+    --tile-w: calc(var(--band-h) * 2.4);
+    /* The metal's thickness, shown by the top and bottom edges. */
+    --band-d: calc(var(--band-h) * 0.2);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: var(--band-h);
+    translate: 0 -50%;
+    transform-style: preserve-3d;
+    pointer-events: none;
+}
+
+/* The gold ring the cards are strung on: just inside their circle, so it shows between them but never covers one. */
+.centerBand {
+    --band-r: calc(var(--radius) * 0.96);
+    --band-h: calc(var(--card-w) * 0.34);
+}
+
+.bandSegment {
+    position: absolute;
+    top: 0;
+    /* One face's share of the circumference, plus a hair of overlap so no seams show. */
+    left: calc(var(--band-r) * (var(--face-w) + 0.006) / -2);
+    width: calc(var(--band-r) * (var(--face-w) + 0.006));
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateY(var(--angle)) translateZ(var(--band-r));
+}
+
+.bandOuter,
+.bandInner {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+}
+
+/* Polished gold with a domed profile and a fixed light. */
+.bandOuter {
+    background:
+        linear-gradient(rgb(255 255 255 / var(--highlight)), rgb(255 255 255 / var(--highlight))),
+        linear-gradient(rgb(0 0 0 / var(--shade)), rgb(0 0 0 / var(--shade))),
+        var(--inlay-stone),
+        /* Domed profile: a bright shine above the middle, a darker waist and a softer reflection below. */
+        linear-gradient(
+            to bottom,
+            color-mix(in srgb, var(--primary) 45%, black),
+            color-mix(in srgb, var(--primary) 78%, white) 18%,
+            var(--primary) 40%,
+            color-mix(in srgb, var(--primary) 78%, black) 62%,
+            color-mix(in srgb, var(--primary) 88%, white) 80%,
+            color-mix(in srgb, var(--primary) 40%, black)
+        );
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* The polished inside of the ring, seen at the back: one metal thickness further in, with a soft reflection along its middle. */
+.bandInner {
+    transform: translateZ(calc(var(--band-d) * -1)) rotateY(180deg);
+    background:
+        linear-gradient(rgb(0 0 0 / var(--inner-shade)), rgb(0 0 0 / var(--inner-shade))),
+        var(--inlay-stone),
+        linear-gradient(
+            to bottom,
+            color-mix(in srgb, var(--primary) 50%, black),
+            color-mix(in srgb, var(--primary) 80%, black) 18%,
+            color-mix(in srgb, var(--primary) 75%, white) 46%,
+            color-mix(in srgb, var(--primary) 92%, white) 52%,
+            var(--primary) 70%,
+            color-mix(in srgb, var(--primary) 45%, black)
+        );
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* The vine on faces of its own, laid over the still band and turning with the cards: moved by a transform,
+   so no face repaints during a turn. */
+.engravingFace {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    background: var(--engraving) repeat-x;
+    background-size: var(--tile-w) 100%;
+    background-position: calc(var(--i) * var(--band-r) * var(--face-w) * -1) 0;
+}
+
+/* The vine seen on the inside at the back: the face is turned around, so it lines up with the opposite sign. */
+.engravingInner {
+    transform: translateZ(calc(var(--band-d) * -1)) rotateY(180deg);
+    background-position: calc(var(--i) * var(--band-r) * var(--face-w)) 0;
+}
+
+/* The top and bottom rims: flat strips across the metal's thickness, so the band reads as a solid ring, not a ribbon. */
+.bandEdge {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--band-d);
+}
+
+/* Faces up toward the light: the brightest part of the band. */
+.bandTop {
+    top: 0;
+    transform-origin: top;
+    transform: translateZ(calc(var(--band-d) * -1)) rotateX(90deg);
+    background:
+        linear-gradient(rgb(0 0 0 / calc(var(--shade) * 0.7)), rgb(0 0 0 / calc(var(--shade) * 0.7))),
+        linear-gradient(
+            to bottom,
+            color-mix(in srgb, var(--primary) 70%, black),
+            color-mix(in srgb, var(--primary) 70%, white) 60%,
+            color-mix(in srgb, var(--primary) 85%, white)
+        );
+}
+
+/* Faces down, away from the light. */
+.bandBottom {
+    bottom: 0;
+    transform-origin: bottom;
+    transform: translateZ(calc(var(--band-d) * -1)) rotateX(-90deg);
+    background:
+        linear-gradient(rgb(0 0 0 / var(--shade)), rgb(0 0 0 / var(--shade))),
+        linear-gradient(to top, color-mix(in srgb, var(--primary) 30%, black), color-mix(in srgb, var(--primary) 60%, black));
+}
+
+.ring {
+    position: relative;
+    width: var(--card-w);
+    aspect-ratio: 1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    transform-style: preserve-3d;
+}
+
+/* The cards and the engraving turn together. A transform the GPU runs on its own: animating --spin itself
+   recalculated the whole ring every frame, too slow on phones. */
+.turning {
+    transform: rotateY(calc(var(--spin) * 360deg));
+    transition: transform var(--turn-ms) var(--turn-ease);
+}
+
+.slot {
+    position: absolute;
+    inset: 0;
+    transform: rotateY(var(--angle)) translateZ(var(--radius));
+    backface-visibility: hidden;
+}
+
+.card {
+    position: absolute;
+    inset: 0;
+    animation: float 14s ease-in-out infinite;
+    animation-delay: calc(var(--index) * -1.1s);
+    -webkit-user-drag: none;
+    /* The cards are buttons (default arrow); they take the ring's grab hand, so they read as draggable. */
+    cursor: inherit;
+    /* The front card stands out bigger, the others step back; `scale`, so it adds to the float's `translate`.
+       Leaving the front it shrinks at once, so the turn starts from small cards. */
+    scale: 0.88;
+    transition: scale var(--shrink-ms) ease-out;
+}
+
+/* The new front card only grows once the turn has nearly brought it to the middle, with a little bounce. */
+.card[aria-current] {
+    scale: 1.1;
+    transition: scale var(--grow-ms) var(--grow-ease) var(--grow-delay);
+}
+
+.card:not([aria-current]):hover {
+    scale: 0.94;
+    transition-duration: 300ms;
+}
+
+.captionName {
+    transition: color var(--shrink-ms) ease-out;
+}
+
+.card[aria-current] .captionName {
+    color: var(--primary);
+    transition: color var(--grow-ms) ease var(--grow-delay);
+}
+
+.card[aria-current] .glassCard,
+.card:hover .glassCard,
+.card:focus-visible .glassCard {
+    border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+    box-shadow: var(--band-shadow, 0 0 transparent), 0 26px 56px -24px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* Glass card: product photo under a violet frosted tint. */
+.glassCard {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    background: var(--muted);
+    color: white;
+    box-shadow: var(--band-shadow, 0 0 transparent), 0 24px 48px -26px color-mix(in srgb, var(--primary) 18%, transparent);
+    transition: border-color 600ms ease, box-shadow 600ms ease;
+}
+
+.featured {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 1.75rem;
+    box-shadow: 0 40px 80px -40px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.glass {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--primary) 10%, transparent),
+            transparent 50%,
+            color-mix(in srgb, var(--primary) 8%, transparent)
+        );
+    pointer-events: none;
+}
+
+/* The category name under each card. */
+.caption {
+    position: absolute;
+    top: calc(100% + 0.7rem);
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    text-align: center;
+    color: var(--foreground);
+}
+
+/* Desktop: the front name keeps to one line, using the room beside the card (below it the stage ends).
+   Phones keep the card's width, since the neighbours sit close; there the name wraps instead. */
+@media (min-width: 1024px) {
+    .card[aria-current] .caption {
+        left: -15%;
+        right: -15%;
+    }
+}
+
+.captionName {
+    max-width: 100%;
+    overflow: hidden;
+    font-family: var(--font-display);
+    /* Grows with the card, so the name stays readable under the big desktop cards. */
+    font-size: clamp(1rem, calc(var(--card-w) * 0.085), 1.6rem);
+    line-height: 1.25;
+    /* Long names ("Ceniza de Cumbre Vieja") take a second line instead of being cut. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    text-wrap: balance;
+}
+
+/* The ring's photos cross-fade in the featured card, each drifting in with a slow zoom. */
+/* Views fade through the dark, never overlapping: differently framed photos would show two rings at once. */
+.galleryImage {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 700ms ease-in;
+}
+
+.galleryActive {
+    opacity: 1;
+    transition: opacity 1100ms ease-out 650ms;
+    animation: ken-burns 14s ease-out both;
+}
+
+.thumb {
+    position: relative;
+    width: 4.5rem;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 0.9rem;
+    border: 1px solid var(--border);
+    opacity: 0.55;
+    transition: opacity 400ms ease, border-color 400ms ease, transform 400ms ease;
+}
+
+.thumb:hover,
+.thumbActive {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+    transform: translateX(0.25rem);
+}
+
+@media (max-width: 639px) {
+    .thumb {
+        width: 2.75rem;
+    }
+}
+
+/* A barely noticeable settle, so a new view feels alive without moving. */
+@keyframes ken-burns {
+    from {
+        transform: scale(1.03);
+    }
+}
+
+/* A new page of products rises into place. */
+@keyframes ring-enter {
+    from {
+        scale: 0.85;
+        translate: 0 2rem;
+    }
+}
+
+@keyframes float {
+    0%,
+    100% {
+        translate: 0 -0.35rem;
+    }
+    50% {
+        translate: 0 0.35rem;
+    }
+}
+
+/* Phones and tablets: the front card nearly fills the width, its neighbours drift out at the sides. */
+@media (max-width: 1023px) {
+    .stage {
+        --card-w: min(76vw, 30rem, 28svh);
+        height: calc(var(--card-w) * 1.45);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tilt,
+    .card,
+    .galleryActive {
+        animation: none;
+    }
+
+    .turning {
+        transition: none;
+    }
+}
+
+/* The store's category selector: just tall enough for the ring and the front name, so the banner sits close below it. */
+.categoryStage {
+    --card-w: clamp(7rem, min(26vw, 26svh), 20rem);
+    /* Distance between neighbouring cards, in card widths: phones keep a tight ring with some air between the cards,
+       big screens a ring of smaller steps (category-ring.tsx) with five cards side by side. */
+    --card-spacing: 1.2;
+    --radius-factor: max(calc(var(--card-spacing) * var(--ring-tan)), 1.1);
+    /* The cards cast a soft shadow on the gold band just behind them, away from the light on the left (like the band's
+       shine). Drawn once with each card, so a turn costs nothing; on the dark page around the band it doesn't show. */
+    --band-shadow: calc(var(--card-w) * 0.1) calc(var(--card-w) * 0.02) calc(var(--card-w) * 0.1) rgb(0 0 0 / 0.85);
+    flex: none;
+    height: calc(var(--card-w) * 1.8);
+}
+
+@media (max-width: 1023px) {
+    .categoryStage {
+        --card-w: min(44vw, 24svh);
+        /* Seen from higher up, so the back of the ring shows above the front card on a small screen too. */
+        --tilt: -18deg;
+        /* The tight phone ring is flatter, so it needs less height. */
+        height: calc(var(--card-w) * 1.6);
+    }
+}
+
+@media (min-width: 640px) {
+    .categoryStage {
+        --card-spacing: 1.4;
+    }
+}
+
+/* Big screens: the ring reaches past the page's content width to the screen edges, where it fades out. */
+@media (min-width: 1024px) {
+    .categoryStage {
+        --card-spacing: 1.3;
+        margin-inline: calc(50% - 50vw);
+    }
+
+    /* Only the front card and two on each side show: cards turning further round fade out instead of crowding
+       the edges as thin slivers. Fades along with a turn. */
+    .categoryStage .card {
+        opacity: clamp(0, calc((cos(calc(var(--angle) + var(--spin) * 360deg)) - 0.42) * 5), 1);
+        /* Repeats the front card's scale timing (.card), which this transition would otherwise replace. */
+        transition: opacity var(--turn-ms) var(--turn-ease), scale var(--shrink-ms) ease-out;
+    }
+
+    .categoryStage .card[aria-current] {
+        transition: opacity var(--turn-ms) var(--turn-ease), scale var(--grow-ms) var(--grow-ease) var(--grow-delay);
+    }
+
+    .categoryStage .card:not([aria-current]):hover {
+        transition-duration: var(--turn-ms), 300ms;
+    }
+}
+
+/* Too short for one screen (a phone held sideways): the store grows past the screen, so the ring takes a fixed height
+   instead of the room that is left, which would be none. */
+@media (max-height: 500px) {
+    .categoryStage {
+        flex: none;
+        height: calc(var(--card-w) * 2.2);
+    }
+}
+
+/* The arrow on the cards left and right of the front one: a glass disc over the middle of the photo
+   (left and top come from the measured card). */
+.turnHint {
+    position: absolute;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: clamp(2.25rem, calc(var(--card-w) * 0.22), 3.25rem);
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    background: color-mix(in srgb, var(--background) 45%, transparent);
+    color: var(--primary);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.6);
+    animation: fade-in 250ms ease-out both;
+    /* left/top glide: the arrows show early in a turn and move the last bit when the ring settles. */
+    transition: background 300ms ease, scale 300ms ease, left 600ms ease-out, top 600ms ease-out;
+}
+
+.turnHint svg {
+    width: 55%;
+    height: 55%;
+}
+
+.turnHint:hover {
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    scale: 1.08;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+/* Holds the rings' row and its buttons. Takes the room the ring leaves, within a size that keeps the tiles readable and not huge;
+   the tiles take their size from its height (cqh). */
+.bannerFrame {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    min-height: 9rem;
+    max-height: 22rem;
+    container-type: size;
+}
+
+/* The rings' own ring, seen from the inside (concave): the same turn and perspective as the category ring, but its cards
+   stand on the far side of the circle facing its middle, so the ones beside the front card come closer. */
+.rowStage {
+    /* Shorter than the frame: the cards beside the front one grow as they come closer. */
+    --card-w: calc(72cqh * 0.8);
+    --radius: calc(var(--card-w) * max(calc(1.15 * var(--ring-tan)), 1.6));
+    --turn-ease: cubic-bezier(0.45, 0, 0.2, 1);
+    --shrink-ms: 350ms;
+    --grow-ms: 650ms;
+    --grow-delay: calc(var(--turn-ms) * 0.6);
+    --grow-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    display: grid;
+    flex: 1 1 0;
+    min-width: 0;
+    place-items: center;
+    margin-inline: -1rem;
+    overflow: hidden;
+    /* A short viewing distance makes the curve read clearly: the rings beside the front one turn in toward it. */
+    perspective: calc(var(--card-w) * 4.5);
+    mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    /* Sideways turns the ring (use-ring-drag), like the category ring. */
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+}
+
+/* The ring's middle sits in front of the cards, so the front card shows at natural size. */
+.rowTilt {
+    grid-area: 1 / 1;
+    transform-style: preserve-3d;
+    transform: translateZ(var(--radius)) rotateX(6deg);
+    /* Like the ring box below: the front ring stands behind this plane, so only the slots take clicks. */
+    pointer-events: none;
+}
+
+.rowRing {
+    position: relative;
+    width: var(--card-w);
+    aspect-ratio: 4 / 5;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    transform-style: preserve-3d;
+    pointer-events: none;
+}
+
+.rowSlot {
+    position: absolute;
+    inset: 0;
+    pointer-events: auto;
+    transform: rotateY(var(--angle)) translateZ(calc(var(--radius) * -1));
+    backface-visibility: hidden;
+    /* Only the front ring and two on each side show; the ones further round fade out as they turn away. */
+    opacity: clamp(0, calc((cos(calc(var(--angle) + var(--spin) * 360deg)) - 0.42) * 5), 1);
+    transition: opacity var(--turn-ms) var(--turn-ease);
+}
+
+/* A new category's rings rise softly into place one after another (--tile is their order). No filter here or below:
+   inside the 3D ring, iPhone Safari then often left the photos unpainted. */
+.rowCard {
+    position: absolute;
+    inset: 0;
+    animation: tile-in 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--tile) * 70ms);
+}
+
+/* The front ring is bigger and bright, the ones beside it smaller and a little dimmed; a wrapper, since the
+   slot's transform places it on the ring and the card's animation owns its own `scale`. */
+.rowFocus {
+    position: absolute;
+    inset: 0;
+    border-radius: 1rem;
+    scale: 0.86;
+    /* Grows upward from near its bottom edge, so the name and the shadow stay inside the row. */
+    transform-origin: 50% 92%;
+    box-shadow: 0 0.5rem 1rem rgb(0 0 0 / 0.35);
+    /* Same choreography as the category cards: shrink at once, turn, then the new front ring grows. */
+    transition:
+        scale var(--shrink-ms) ease-out,
+        translate var(--shrink-ms) ease-out,
+        box-shadow var(--shrink-ms) ease-out;
+}
+
+/* Dims the rings beside the front one: a dark veil instead of filter: brightness() (see .rowCard). */
+.rowFocus::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 1rem;
+    background: black;
+    opacity: 0.3;
+    pointer-events: none;
+    transition: opacity var(--shrink-ms) ease-out;
+}
+
+/* The front ring steps forward: clearly bigger, a little raised, with a deep shadow under it and a faint glow of the
+   brand color around it, as if it came out of the ring toward the viewer. */
+.rowSlot[aria-current] .rowFocus {
+    scale: 1.24;
+    translate: 0 -0.75rem;
+    box-shadow:
+        0 1.25rem 2.25rem -0.5rem rgb(0 0 0 / 0.85),
+        0 0.5rem 1rem rgb(0 0 0 / 0.45),
+        0 0 2.5rem -0.5rem color-mix(in srgb, var(--primary) 40%, transparent);
+    transition:
+        scale var(--grow-ms) var(--grow-ease) var(--grow-delay),
+        translate var(--grow-ms) var(--grow-ease) var(--grow-delay),
+        box-shadow var(--grow-ms) ease var(--grow-delay);
+}
+
+.rowSlot[aria-current] .rowFocus::after {
+    opacity: 0;
+    transition: opacity var(--grow-ms) ease var(--grow-delay);
+}
+
+.rowSlot:not([aria-current]) .rowFocus:hover {
+    scale: 0.92;
+    transition-duration: 300ms;
+    cursor: pointer;
+}
+
+.rowSlot:not([aria-current]) .rowFocus:hover::after {
+    opacity: 0.1;
+    transition-duration: 300ms;
+}
+
+.rowSlot[aria-current] .tileName {
+    font-size: 1.15rem;
+    color: var(--primary);
+    transition-delay: var(--grow-delay);
+}
+
+@keyframes tile-in {
+    from {
+        opacity: 0;
+        translate: 0 1.25rem;
+        scale: 0.96;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rowCard {
+        animation: none;
+    }
+}
+
+@media (min-width: 640px) {
+    .rowStage {
+        margin-inline: -1.5rem;
+    }
+}
+
+/* Big screens: edge to edge like the ring above it. */
+@media (min-width: 1024px) {
+    .rowStage {
+        margin-inline: calc(50% - 50vw);
+        mask-image: linear-gradient(to right, transparent, black 6rem, black calc(100% - 6rem), transparent);
+    }
+}

@@ -1,6 +1,8 @@
 import { Button, Heading, Section, Text } from '@react-email/components';
 import EmailLayout from '../components/email-layout';
+import { getShopLocale } from '../shop-locale';
 import { EMAIL_COLORS } from '@/lib/brand';
+import { getTranslator, type Locale } from '@/lib/i18n';
 
 export type NotificationEmailProps = {
   /** Shown in the inbox list next to the subject. Defaults to the heading. */
@@ -12,7 +14,8 @@ export type NotificationEmailProps = {
   paragraphs: string[];
   /** Optional call-to-action button. */
   action?: { label: string; url: string };
-  lang?: string;
+  /** Language of the texts; the greeting follows it. Defaults to the shop's language. */
+  lang?: Locale;
 };
 
 /**
@@ -26,14 +29,16 @@ export default function NotificationEmail({
   name,
   paragraphs,
   action,
-  lang,
+  lang = getShopLocale(),
 }: NotificationEmailProps) {
+  const t = getTranslator(lang);
+
   return (
     <EmailLayout preview={preview ?? heading} lang={lang}>
       <Heading as='h1' className='m-0 mb-6 text-2xl font-semibold text-[#0b0a0f]'>
         {heading}
       </Heading>
-      {name && <Text className='m-0 mb-4'>Hi {name},</Text>}
+      {name && <Text className='m-0 mb-4'>{t('WELCOME_GREETING', { name })}</Text>}
       {paragraphs.map((p, i) => (
         <Text key={i} className='m-0 mb-4'>
           {p}
@@ -62,4 +67,5 @@ NotificationEmail.PreviewProps = {
     'It usually arrives within 3–5 working days. We will let you know if anything changes.',
   ],
   action: { label: 'View your order', url: 'https://example.com/user/orders' },
+  lang: 'en',
 } satisfies NotificationEmailProps;

@@ -1,62 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-type MediaType = 'image' | 'video' | 'unknown';
+type MediaState = 'image' | 'video' | 'failed';
 
-const mediaCache = new Map<string, { type: MediaType; blobUrl?: string }>();
+const VIDEO_URL = /\.(mp4|webm|mov|m4v)([?#]|$)/i;
 
+// Uploaded files have no extension; once one played as a video, later mounts start as video.
+const knownVideos = new Set<string>();
+
+/**
+ * Picks the element for a product media URL without downloading it first, so the image is
+ * in the server HTML. A failing image is retried as a video, a failing video ends as 'failed'.
+ */
 export function useMedia(src: string) {
-    const [mediaType, setMediaType] = useState<MediaType>('unknown');
-    const [mediaUrl, setMediaUrl] = useState<string>(src);
+    const [fallback, setFallback] = useState<{ src: string; state: MediaState }>();
+    const guessed: MediaState = VIDEO_URL.test(src) || knownVideos.has(src) ? 'video' : 'image';
+    const state = fallback?.src === src ? fallback.state : guessed;
 
-    useEffect(() => {
-        let isMounted = true;
+    const handleError = () => setFallback({ src, state: state === 'image' ? 'video' : 'failed' });
+    const handleVideoLoaded = () => knownVideos.add(src);
 
-        async function fetchMedia() {
-            if (mediaCache.has(src)) {
-                const cached = mediaCache.get(src)!;
-                if (isMounted) {
-                    setMediaType(cached.type);
-                    if (cached.blobUrl) setMediaUrl(cached.blobUrl);
-                }
-                return;
-            }
-
-            try {
-                const res = await fetch(src);
-                const contentType = res.headers.get('Content-Type') || '';
-                let type: MediaType = 'unknown';
-
-                if (contentType.startsWith('video/')) type = 'video';
-                if (contentType.startsWith('image/')) type = 'image';
-
-                let blobUrl: string | undefined;
-                if (type === 'video') {
-                    const blob = await res.blob();
-                    blobUrl = URL.createObjectURL(blob);
-                }
-
-                mediaCache.set(src, { type, blobUrl });
-                if (isMounted) {
-                    setMediaType(type);
-                    if (blobUrl) setMediaUrl(blobUrl);
-                }
-            } catch (err) {
-                console.error('Failed to load media:', err);
-                if (isMounted) {
-                    setMediaType('unknown');
-                    setMediaUrl(src); // fallback to original
-                }
-            }
-        }
-
-        setMediaType('unknown'); // reset
-        setMediaUrl(src);
-        void fetchMedia();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [src]);
-
-    return { mediaType, mediaUrl };
+    return { state, handleError, handleVideoLoaded };
 }

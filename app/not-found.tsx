@@ -2,6 +2,7 @@ import BrandLogo from '@/components/shared/brand-logo';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getT } from '@/lib/i18n-server';
+import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 
 const NotFoundPage = async () => {
   const { t } = await getT();
@@ -21,7 +22,7 @@ const NotFoundPage = async () => {
           <Link href='/'>{t('NOT_FOUND_HOME')}</Link>
         </Button>
         <Button asChild variant='outline' className='rounded-full px-7'>
-          <Link href='/store'>{t('NOT_FOUND_SHOP')}</Link>
+          <Link href={sectionHref(SECTION_IDS.showroom)}>{t('NOT_FOUND_SHOP')}</Link>
         </Button>
       </div>
     </div>

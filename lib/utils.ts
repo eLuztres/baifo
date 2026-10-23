@@ -1,7 +1,8 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import qs from 'query-string';
-import { CURRENCY, NUMBER_LOCALE } from '@/lib/constants/currency';
+import { CURRENCY, NUMBER_LOCALE, SHOP_TIME_ZONE } from '@/lib/constants/currency';
+import { MESSAGE_SEPARATOR, type TranslationKey, type Translator } from '@/lib/i18n-core';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -18,29 +19,50 @@ export function formatNumberWithDecimal(num: number): string {
   return decimal ? `${int}.${decimal.padEnd(2, '0')}` : `${int}.00`;
 }
 
-// Format errors
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function formatError(error: any) {
-  if (error.name === 'ZodError') {
-    // Handle Zod error
-    const fieldErrors = Object.keys(error.errors).map(
-      (field) => error.errors[field].message
-    );
+interface ZodErrorShape {
+  name: 'ZodError';
+  issues: { message: string }[];
+}
 
-    return fieldErrors.join('. ');
-  } else if (
-    error.name === 'PrismaClientKnownRequestError' &&
-    error.code === 'P2002'
-  ) {
-    // Handle Prisma error
-    const field = error.meta?.target ? error.meta.target[0] : 'Field';
-    return `${field.charAt(0).toUpperCase() + field.slice(1)} already exists`;
-  } else {
-    // Handle other errors
-    return typeof error.message === 'string'
-      ? error.message
-      : JSON.stringify(error.message);
+// By name, not instanceof ZodError: client components import this file, and importing zod here put it in every page's bundle.
+const isZodError = (error: unknown): error is ZodErrorShape =>
+  typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'ZodError';
+
+interface PrismaError {
+  name: string;
+  code?: string;
+  meta?: { target?: unknown };
+}
+
+const isPrismaError = (error: unknown): error is PrismaError =>
+  typeof error === 'object' &&
+  error !== null &&
+  String((error as { name?: unknown }).name).startsWith('PrismaClient');
+
+// The unique index name or field list, e.g. "user_email_idx" or ['email'].
+function alreadyExistsMessage(target: unknown): TranslationKey {
+  const fields = String(target ?? '');
+  if (fields.includes('email')) return 'ERROR_EMAIL_EXISTS';
+  if (fields.includes('slug')) return 'ERROR_SLUG_EXISTS';
+  return 'ERROR_ALREADY_EXISTS';
+}
+
+/**
+ * The message an action returns to the user: Zod messages (translation keys), known Prisma
+ * cases, or the app's own `throw new Error('…')` text. Anything else is logged and stays private.
+ * Translate the result with translateMessage (Toaster and FormMessage already do).
+ */
+export function formatError(error: unknown): string {
+  if (isZodError(error)) {
+    return error.issues.map((issue) => issue.message).join(MESSAGE_SEPARATOR);
   }
+  if (isPrismaError(error) && error.code === 'P2002') return alreadyExistsMessage(error.meta?.target);
+  if (isPrismaError(error) && error.code === 'P2025') return 'ERROR_NOT_FOUND';
+  // Library errors use subclasses (TypeError, PrismaClient…), so a plain Error is one of ours.
+  if (error instanceof Error && error.name === 'Error' && error.message) return error.message;
+
+  console.error(error);
+  return 'ERROR_GENERIC';
 }
 
 
@@ -61,7 +83,6 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat(NUMBER_LOCALE, {
   minimumFractionDigits: 2,
 });
 
-// Format currency using the formatter above
 // Also takes Prisma Decimals: server components get them raw (e.g. admin product list).
 export function formatCurrency(amount: number | string | { toString(): string } | null) {
   if (typeof amount === 'number') {
@@ -73,7 +94,18 @@ export function formatCurrency(amount: number | string | { toString(): string } 
   }
 }
 
-// Format numbers
+// Shop windows show a calm "70 €"; cart, checkout and orders keep the exact "70,00 €".
+const PRICE_TAG_FORMATTER = new Intl.NumberFormat(NUMBER_LOCALE, {
+  currency: CURRENCY,
+  style: 'currency',
+  minimumFractionDigits: 2,
+  trailingZeroDisplay: 'stripIfInteger',
+});
+
+export function formatPriceTag(amount: number) {
+  return PRICE_TAG_FORMATTER.format(amount);
+}
+
 const NUMBER_FORMATTER = new Intl.NumberFormat(NUMBER_LOCALE);
 
 export function formatNumber(number: number) {
@@ -86,45 +118,38 @@ export function formatId(id: string) {
   return `..${id.substring(id.length - 6)}`;
 }
 
-// Format date and times
-export const formatDateTime = (dateString: Date) => {
-  const dateTimeOptions: Intl.DateTimeFormatOptions = {
-    month: 'short', // abbreviated month name (e.g., 'Oct')
-    year: 'numeric', // abbreviated month name (e.g., 'Oct')
-    day: 'numeric', // numeric day of the month (e.g., '25')
-    hour: 'numeric', // numeric hour (e.g., '8')
-    minute: 'numeric', // numeric minute (e.g., '30')
-    hour12: true, // use 12-hour clock (true) or 24-hour clock (false)
-  };
-  const dateOptions: Intl.DateTimeFormatOptions = {
-    weekday: 'short', // abbreviated weekday name (e.g., 'Mon')
-    month: 'short', // abbreviated month name (e.g., 'Oct')
-    year: 'numeric', // numeric year (e.g., '2023')
-    day: 'numeric', // numeric day of the month (e.g., '25')
-  };
-  const timeOptions: Intl.DateTimeFormatOptions = {
-    hour: 'numeric', // numeric hour (e.g., '8')
-    minute: 'numeric', // numeric minute (e.g., '30')
-    hour12: true, // use 12-hour clock (true) or 24-hour clock (false)
-  };
-  const formattedDateTime: string = new Date(dateString).toLocaleString(
-    'en-US',
-    dateTimeOptions
-  );
-  const formattedDate: string = new Date(dateString).toLocaleString(
-    'en-US',
-    dateOptions
-  );
-  const formattedTime: string = new Date(dateString).toLocaleString(
-    'en-US',
-    timeOptions
-  );
+const DATE_TIME_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: 'numeric',
+};
+const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  weekday: 'short',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+};
+const TIME_OPTIONS: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: 'numeric' };
+
+/** Dates in the shop's time zone; pass the visitor's locale (getT / useI18n), or the shop's number locale is used. */
+export const formatDateTime = (date: Date | string, locale: string = NUMBER_LOCALE) => {
+  const format = (options: Intl.DateTimeFormatOptions) =>
+    new Date(date).toLocaleString(locale, { ...options, timeZone: SHOP_TIME_ZONE });
   return {
-    dateTime: formattedDateTime,
-    dateOnly: formattedDate,
-    timeOnly: formattedTime,
+    dateTime: format(DATE_TIME_OPTIONS),
+    dateOnly: format(DATE_OPTIONS),
+    timeOnly: format(TIME_OPTIONS),
   };
 };
+
+/** Customer-facing name of a payment method id; ids without a PAYMENT_METHOD_<ID> text show as is. */
+export function paymentMethodLabel(t: Translator, id: string) {
+  const key = `PAYMENT_METHOD_${id.toUpperCase()}`;
+  const label = t(key as TranslationKey);
+  return label === key ? id : label;
+}
 
 
 

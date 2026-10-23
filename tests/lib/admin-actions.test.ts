@@ -28,6 +28,7 @@ jest.mock('@/db/prisma', () => {
       user: model(),
       order: model(),
       product: model(),
+      orderItem: model(),
       $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn(),
     },
@@ -81,12 +82,12 @@ describe.each([
   beforeEach(() => mockAuth.mockResolvedValue(session));
 
   it.each(MUTATIONS)('%s is refused without touching the database', async (_, call, write) => {
-    await expect(call()).resolves.toEqual({ success: false, message: 'Only admins can do this' });
+    await expect(call()).resolves.toEqual({ success: false, message: 'ERROR_ADMIN_ONLY' });
     expect(write()).not.toHaveBeenCalled();
   });
 
   it.each(READS)('%s refuses to return data', async (_, call) => {
-    await expect(call()).rejects.toThrow('Only admins can do this');
+    await expect(call()).rejects.toThrow('ERROR_ADMIN_ONLY');
     expect(db.user.findMany).not.toHaveBeenCalled();
     expect(db.order.findMany).not.toHaveBeenCalled();
   });

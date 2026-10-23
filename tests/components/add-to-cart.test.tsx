@@ -28,13 +28,14 @@ describe('AddToCart', () => {
     expect(screen.queryByRole('link', { name: t('VIEW_CART') })).not.toBeInTheDocument();
   });
 
-  it('adds the item and toasts a success message', async () => {
-    mockAdd.mockResolvedValue({ success: true, message: 'ok' });
+  // The server already translates its messages
+  it('adds the item and toasts the server message', async () => {
+    mockAdd.mockResolvedValue({ success: true, message: t('TOAST_ADDED', { name: 'Volcanic Lamp' }) });
     renderWithI18n(<AddToCart item={CART_ITEM} />);
 
     await userEvent.click(screen.getByRole('button', { name: t('ADD_TO_CART') }));
 
-    expect(mockAdd).toHaveBeenCalledWith(CART_ITEM);
+    expect(mockAdd).toHaveBeenCalledWith({ productId: CART_ITEM.productId });
     await waitFor(() =>
       expect(mockToast).toHaveBeenCalledWith({
         description: t('TOAST_ADDED', { name: 'Volcanic Lamp' }),
@@ -42,8 +43,8 @@ describe('AddToCart', () => {
     );
   });
 
-  it('translates the "Not enough stock" server error', async () => {
-    mockAdd.mockResolvedValue({ success: false, message: 'Not enough stock' });
+  it('shows a server error as an error toast', async () => {
+    mockAdd.mockResolvedValue({ success: false, message: t('TOAST_NO_STOCK') });
     renderWithI18n(<AddToCart item={CART_ITEM} />);
 
     await userEvent.click(screen.getByRole('button', { name: t('ADD_TO_CART') }));
@@ -66,7 +67,7 @@ describe('AddToCart', () => {
   });
 
   it('removes one item with the minus button', async () => {
-    mockRemove.mockResolvedValue({ success: true, message: 'ok' });
+    mockRemove.mockResolvedValue({ success: true, message: t('TOAST_REMOVED', { name: 'Volcanic Lamp' }) });
     renderWithI18n(<AddToCart cart={CART} item={CART_ITEM} />);
 
     await userEvent.click(screen.getByRole('button', { name: t('REMOVE_ONE') }));

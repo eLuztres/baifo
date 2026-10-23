@@ -1,27 +1,30 @@
-import { Metadata } from 'next';
-import { requireUser } from '@/lib/auth-guard';
+import { redirect } from 'next/navigation';
 import { getUserById } from '@/lib/actions/user.actions';
-import PaymentMethodForm from './payment-method-form';
-import CheckoutSteps from '@/components/shared/checkout-steps';
+import { requireUser } from '@/lib/auth-guard';
 import { DEFAULT_PAYMENT_METHOD, PAYMENT_METHODS } from '@/lib/constants';
+import { getT } from '@/lib/i18n-server';
+import CheckoutSteps from '@/components/shared/checkout-steps';
+import PaymentMethodForm from './payment-method-form';
 
-export const metadata: Metadata = {
-  title: 'Select Payment Method',
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t('CHECKOUT_PAYMENT_METHOD') };
+}
 
 const PaymentMethodPage = async () => {
   const session = await requireUser();
-  const userId = session?.user?.id;
+  const user = await getUserById(session.user.id);
+  if (!user) redirect('/sign-in');
 
-  if (!userId) throw new Error('User not found');
-
-  const user = await getUserById(userId);
+  // A saved method the shop no longer offers isn't preselected.
+  const preferredPaymentMethod =
+    user.paymentMethod && PAYMENT_METHODS.includes(user.paymentMethod) ? user.paymentMethod : null;
 
   return (
     <>
       <CheckoutSteps current={2} />
       <PaymentMethodForm
-        preferredPaymentMethod={user.paymentMethod}
+        preferredPaymentMethod={preferredPaymentMethod}
         paymentMethods={PAYMENT_METHODS}
         defaultPaymentMethod={DEFAULT_PAYMENT_METHOD}
       />

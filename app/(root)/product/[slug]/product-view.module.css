@@ -1,0 +1,19 @@
+/* The product page is one fixed screen: the window never scrolls and the footer stays on the other pages. */
+:global(html):has(.view) {
+  overflow: hidden;
+}
+
+:global(main):has(.view) + :global(footer) {
+  display: none;
+}
+
+/* The screen minus the sticky header (h-16 / sm:h-20), the space above the page (main's pt-8 / sm:pt-12) and a little below. */
+.view {
+  height: calc(100svh - 7rem);
+}
+
+@media (min-width: 640px) {
+  .view {
+    height: calc(100svh - 9.5rem);
+  }
+}

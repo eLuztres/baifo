@@ -1,21 +1,128 @@
-.loaderSpin {
-    animation: spin-zoom 13s linear infinite;
+.stage {
+    position: relative;
+    /* Everything is sized in em so the ring scales with font-size: 1em = 1px at the default 150px. */
+    font-size: 1px;
+    width: 150em;
+    height: 150em;
+    perspective: 700em;
 }
 
-@keyframes spin-zoom {
+.defs {
+    position: absolute;
+}
+
+.glow {
+    position: absolute;
+    inset: 15em;
+    border-radius: 9999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--primary) 35%, transparent) 0%, transparent 70%);
+    filter: blur(14em);
+    animation: ring-glow 3.2s ease-in-out infinite;
+}
+
+.ring {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    animation: ring-turn 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.layerWrap,
+.layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Warm wood with its own colors (not the theme's): a shop can still set them through these variables. */
+.wood {
+    stop-color: var(--loader-wood, #9a6a3f);
+}
+
+.woodDark {
+    stop-color: var(--loader-wood-dark, #5a3a20);
+}
+
+.woodLight {
+    stop-color: var(--loader-wood-light, #c79a66);
+}
+
+.woodSide {
+    stroke: var(--loader-wood-side, #6b4426);
+}
+
+.grain {
+    stroke: rgb(40 20 8);
+}
+
+/* The polished steel liner inside the wood. */
+.steelLight {
+    stop-color: var(--loader-steel-light, #eceef2);
+}
+
+.steelDark {
+    stop-color: var(--loader-steel-dark, #8d929b);
+}
+
+.steelSide {
+    stroke: var(--loader-steel-dark, #8d929b);
+}
+
+/* The stone line: the shop's inlay color (turquoise by default), as on the category ring. */
+.inlay {
+    stroke: var(--inlay);
+}
+
+.inlayLight {
+    stroke: color-mix(in srgb, var(--inlay) 70%, white);
+}
+
+.edge {
+    stroke: rgb(255 235 205 / 0.35);
+}
+
+/* A soft varnish gleam passing over the wood. */
+.shine {
+    animation: ring-shine 1.6s ease-in-out infinite;
+    transform: skewX(-20deg);
+}
+
+@keyframes ring-turn {
     0% {
-        transform: rotate(0deg) scale(1);
-    }
-    25% {
-        transform: rotate(-90deg) scale(1.5);
+        transform: rotateX(-14deg) rotateY(0deg) translateY(0);
     }
     50% {
-        transform: rotate(-180deg) scale(1);
-    }
-    75% {
-        transform: rotate(-270deg) scale(1.5);
+        transform: rotateX(-14deg) rotateY(180deg) translateY(-6em);
     }
     100% {
-        transform: rotate(-360deg) scale(1);
+        transform: rotateX(-14deg) rotateY(360deg) translateY(0);
+    }
+}
+
+@keyframes ring-shine {
+    0% {
+        transform: translateX(0) skewX(-20deg);
+    }
+    100% {
+        transform: translateX(230px) skewX(-20deg);
+    }
+}
+
+@keyframes ring-glow {
+    0%,
+    100% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ring,
+    .shine,
+    .glow {
+        animation: none;
     }
 }

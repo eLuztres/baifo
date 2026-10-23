@@ -1,59 +1,56 @@
-import { useState } from 'react';
-import { addItemToCart, removeItemFromCart } from '@/lib/actions/cart.actions';
-import { CartItem } from '@/types';
+import { useTransition } from 'react';
+import {
+    addItemToCart,
+    removeItemFromCart,
+    type CartActionResult,
+} from '@/lib/actions/cart.actions';
 import { useToast } from '@/hooks/use-toast';
-import { useI18n } from '@/components/i18n-provider';
 
-export const useCartActions = () => {
-    const [isPending, setIsPending] = useState(false);
+// A request that never reaches the server (offline) rejects; without this the
+// transition would throw into the error page.
+const REQUEST_FAILED: CartActionResult = { success: false, message: 'ERROR_GENERIC' };
+
+interface CartActionsOptions {
+    /** The cart page shows the new quantity itself, so it only toasts errors. */
+    shouldToastSuccess?: boolean;
+}
+
+interface AddToCartOptions {
+    /** Runs once the product is in the cart, also when it already was at full stock (Buy now). */
+    onInCart?: () => void;
+}
+
+/** Cart buttons: one pending state per hook, server messages (already translated) as toasts. */
+export const useCartActions = ({ shouldToastSuccess = true }: CartActionsOptions = {}) => {
+    const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
-    const { t } = useI18n();
 
-    // Server messages are English; show the common ones in the visitor's language.
-    const errorText = (message: string) =>
-        message === 'Not enough stock' ? t('TOAST_NO_STOCK') : message;
-
-    const handleAddToCart = async (item: CartItem) => {
-        setIsPending(true);
-        const res = await addItemToCart(item);
-        setIsPending(false);
-
-        if (!res.success) {
-            toast({
-                variant: 'destructive',
-                description: errorText(res.message),
-            });
-            return;
+    const showResult = (result: CartActionResult) => {
+        if (!result.success) {
+            toast({ variant: 'destructive', description: result.message });
+        } else if (shouldToastSuccess) {
+            toast({ description: result.message });
         }
-
-        toast({
-            description: t('TOAST_ADDED', { name: item.name }),
-        });
     };
 
-
-
-    const handleRemoveFromCart = async (item: CartItem) => {
-        setIsPending(true);
-        const res = await removeItemFromCart(item.productId);
-        setIsPending(false);
-
-        if (!res.success) {
-            toast({
-                variant: 'destructive',
-                description: errorText(res.message),
-            });
-            return;
-        }
-
-        toast({
-            description: t('TOAST_REMOVED', { name: item.name }),
+    const addToCart = (productId: string, { onInCart }: AddToCartOptions = {}) =>
+        startTransition(async () => {
+            const result = await addItemToCart({ productId }).catch(() => REQUEST_FAILED);
+            const isInCart = result.success || Boolean(result.isInCart);
+            // Buy now only needs the product in the cart, so "no more stock" is no error there.
+            if (!(onInCart && result.isInCart)) showResult(result);
+            // After an await, React needs a new startTransition to stay pending while navigating.
+            if (onInCart && isInCart) startTransition(onInCart);
         });
-    };
+
+    const removeFromCart = (productId: string) =>
+        startTransition(async () => {
+            showResult(await removeItemFromCart(productId).catch(() => REQUEST_FAILED));
+        });
 
     return {
         isPending,
-        handleAddToCart,
-        handleRemoveFromCart,
+        addToCart,
+        removeFromCart,
     };
 };

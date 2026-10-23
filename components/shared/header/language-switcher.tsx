@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LOCALE_COOKIE, LOCALES, type Locale } from '@/lib/i18n';
+import { LOCALE_COOKIE, LOCALES, type Locale } from '@/lib/i18n-core';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,17 +28,13 @@ function useChooseLocale() {
   return { locale, choose, isPending };
 }
 
-/**
- * `compact`: a globe button with a dropdown (header on desktop).
- * `pills`: all languages side by side (mobile menu).
- */
-export default function LanguageSwitcher({
-  variant = 'pills',
-  className,
-}: {
+interface LanguageSwitcherProps {
+  /** `compact`: a globe button with a dropdown (header on desktop). `pills`: all languages side by side (mobile menu). */
   variant?: 'compact' | 'pills';
   className?: string;
-}) {
+}
+
+export default function LanguageSwitcher({ variant = 'pills', className }: LanguageSwitcherProps) {
   const { t, locales } = useI18n();
   const { locale, choose, isPending } = useChooseLocale();
   const options = LOCALES.filter((l) => locales.includes(l.id));

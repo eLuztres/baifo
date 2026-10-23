@@ -1,7 +1,7 @@
 import {
+  allowedPaymentMethodSchema,
   cartItemSchema,
   insertReviewSchema,
-  paymentMethodSchema,
   shippingAddressSchema,
   signInFormSchema,
   signUpFormSchema,
@@ -44,7 +44,7 @@ describe('signUpFormSchema', () => {
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]).toMatchObject({
       path: ['confirmPassword'],
-      message: "Passwords don't match",
+      message: 'VALIDATION_PASSWORDS_MISMATCH',
     });
   });
 
@@ -65,14 +65,14 @@ describe('signInFormSchema', () => {
   });
 });
 
-describe('paymentMethodSchema', () => {
+describe('allowedPaymentMethodSchema', () => {
   it.each(PAYMENT_METHODS)('accepts the configured method %s', (type) => {
-    expect(paymentMethodSchema.safeParse({ type }).success).toBe(true);
+    expect(allowedPaymentMethodSchema(PAYMENT_METHODS).safeParse(type).success).toBe(true);
   });
 
   it('rejects an unknown method', () => {
-    const result = paymentMethodSchema.safeParse({ type: 'NotARealMethod' });
-    expect(result.error?.issues[0].message).toBe('Invalid payment method');
+    const result = allowedPaymentMethodSchema(PAYMENT_METHODS).safeParse('NotARealMethod');
+    expect(result.error?.issues[0].message).toBe('VALIDATION_PAYMENT_METHOD_INVALID');
   });
 
   // A typo here (e.g. "Paypal") leaves nothing preselected and fails checkout validation

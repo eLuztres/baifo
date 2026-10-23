@@ -14,6 +14,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { useTranslateMessage } from "@/components/i18n-provider"
 
 const Form = FormProvider
 
@@ -147,7 +148,9 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : children
+  const translate = useTranslateMessage()
+  // Zod messages are translation keys (lib/validators.ts)
+  const body = error ? translate(String(error?.message ?? "")) : children
 
   if (!body) {
     return null

@@ -27,7 +27,7 @@ export default async function GoogleSignInButton({ callbackUrl }: GoogleSignInBu
   return (
     <div className='space-y-6'>
       <form action={signInWithGoogle}>
-        <input type='hidden' name='callbackUrl' value={callbackUrl || '/'} />
+        <input type='hidden' name='callbackUrl' value={callbackUrl || '/sign-in'} />
         <Button type='submit' variant='outline' size='lg' className='w-full rounded-full'>
           <GoogleIcon />
           {t('SIGN_IN_WITH_GOOGLE')}

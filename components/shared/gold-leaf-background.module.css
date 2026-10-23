@@ -1,0 +1,139 @@
+.field {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    overflow: hidden;
+    pointer-events: none;
+    perspective: 1400px;
+    background: radial-gradient(ellipse 70% 55% at 50% 50%, color-mix(in srgb, var(--primary) 6%, transparent), transparent 70%);
+}
+
+/* Dark vignette: the edges sink away so the gold in the center reads as the light source. */
+.field::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgb(0 0 0 / 0.65) 100%);
+}
+
+.heart {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60vmin;
+    aspect-ratio: 1;
+    translate: -50% -50%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 7%, transparent), transparent);
+    animation: heart-breathe 9s ease-in-out infinite;
+}
+
+/* The lamp from the logo rests at the bottom; the rings float above it like the wish it grants. */
+.lamp {
+    /* Width, and how far the foot ends above the picture's bottom edge (as a share of the width). */
+    --lamp-w: min(92vw, 88vmin);
+    --lamp-foot: 0.0594;
+    position: absolute;
+    left: 50%;
+    bottom: 20vh;
+    width: var(--lamp-w);
+    translate: -50% 0;
+    color: color-mix(in srgb, var(--primary) 42%, transparent);
+    stroke-width: 1.4;
+}
+
+.lampDrawing {
+    display: block;
+    width: 100%;
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 22%, transparent));
+}
+
+/* On phones the content sits low, so the lamp moves up into the empty dark above it. */
+@media (max-aspect-ratio: 4 / 5) {
+    .lamp {
+        --lamp-w: 96vw;
+        bottom: 44vh;
+    }
+}
+
+/* A picture lamp (the logo) is about as tall as wide, so it gets less width; its foot is the bottom edge. */
+.lamp.lampPicture {
+    --lamp-w: min(58vw, 46vmin);
+    --lamp-foot: 0;
+    color: var(--primary);
+}
+
+.lampPicture .lampDrawing {
+    height: auto;
+    opacity: 0.75;
+}
+
+/* Covers the lamp and reaches far above it, so the smoke can rise and spread. */
+.lampSmoke {
+    position: absolute;
+    left: -25%;
+    width: 150%;
+    bottom: 0;
+    height: 260%;
+    color: color-mix(in srgb, var(--primary) 55%, white);
+    pointer-events: none;
+}
+
+.lamp path,
+.lamp ellipse {
+    vector-effect: non-scaling-stroke;
+}
+
+/* Only opacity twinkles, which the compositor runs on its own; a scale here kept the main thread busy every frame. */
+.sparkle {
+    position: absolute;
+    color: color-mix(in srgb, var(--primary) 65%, transparent);
+    animation: twinkle 5s ease-in-out infinite;
+}
+
+.sparkle svg {
+    display: block;
+    width: 100%;
+}
+
+
+@keyframes twinkle {
+    0%,
+    100% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes heart-breathe {
+    0%,
+    100% {
+        opacity: 0.6;
+        scale: 0.9;
+    }
+    50% {
+        opacity: 1;
+        scale: 1.1;
+    }
+}
+
+/* On a phone the drawings sit behind every paragraph, so they step far back there.
+   The heart rests: at this faintness its breathing can't be seen, but it kept the compositor redrawing every frame. */
+@media (max-width: 640px) {
+    .field {
+        opacity: 0.35;
+    }
+
+    .heart {
+        animation: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .heart,
+    .sparkle {
+        animation: none;
+    }
+}

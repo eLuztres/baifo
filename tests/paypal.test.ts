@@ -1,41 +1,49 @@
-import {paypal, generateAccessToken } from "../lib/paypal";
+import { paypal, generateAccessToken } from '@/lib/paypal';
+import { CURRENCY } from '@/lib/constants/currency';
 
-// Test ti generate acces token from paypal
+// PayPal is mocked at fetch level, so the tests need neither credentials nor network.
+const mockFetch = jest.fn();
+const originalFetch = global.fetch;
 
-test('generates token from paypal', async ()=>{
-
-  const tokenRespones = await generateAccessToken();
-  console.log(tokenRespones)
-  expect(typeof tokenRespones).toBe("string")
-  expect(tokenRespones.length).toBeGreaterThan(0)
-
-})
-
-// Test to create a paypal order
-test('creates a paypal order', async () => {
-  const token = await generateAccessToken();
-  const price = 10.0;
-
-  const orderResponse = await paypal.createOrder(price);
-  console.log(orderResponse);
-
-  expect(orderResponse).toHaveProperty('id');
-  expect(orderResponse).toHaveProperty('status');
-  expect(orderResponse.status).toBe('CREATED');
+beforeAll(() => {
+  global.fetch = mockFetch as unknown as typeof fetch;
+});
+afterAll(() => {
+  global.fetch = originalFetch;
 });
 
-// Test to capture payment with mock order
+const jsonResponse = (body: unknown) =>
+  ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) }) as Response;
+
+const TOKEN_RESPONSE = jsonResponse({ access_token: 'token-1' });
+
+test('generates token from paypal', async () => {
+  mockFetch.mockResolvedValueOnce(TOKEN_RESPONSE);
+
+  await expect(generateAccessToken()).resolves.toBe('token-1');
+  expect(mockFetch).toHaveBeenCalledWith(
+    expect.stringMatching(/\/v1\/oauth2\/token$/),
+    expect.objectContaining({ method: 'POST', body: 'grant_type=client_credentials' })
+  );
+});
+
+test('creates a paypal order', async () => {
+  mockFetch.mockResolvedValueOnce(TOKEN_RESPONSE).mockResolvedValueOnce(jsonResponse({ id: 'PP-1', status: 'CREATED' }));
+
+  const orderResponse = await paypal.createOrder('10.00');
+
+  expect(orderResponse).toEqual({ id: 'PP-1', status: 'CREATED' });
+  const [url, request] = mockFetch.mock.calls[1];
+  expect(url).toMatch(/\/v2\/checkout\/orders$/);
+  expect(request.headers.Authorization).toBe('Bearer token-1');
+  expect(JSON.parse(request.body).purchase_units[0].amount).toEqual({ currency_code: CURRENCY, value: '10.00' });
+});
+
 test('simulate capturing a payment from an order', async () => {
-  const orderId = '100';
+  mockFetch.mockResolvedValueOnce(TOKEN_RESPONSE).mockResolvedValueOnce(jsonResponse({ id: '100', status: 'COMPLETED' }));
 
-  const mockCapturePayment = jest
-    .spyOn(paypal, 'capturePayment')
-    .mockResolvedValue({
-      status: 'COMPLETED',
-    });
+  const captureResponse = await paypal.capturePayment('100');
 
-  const captureResponse = await paypal.capturePayment(orderId);
   expect(captureResponse).toHaveProperty('status', 'COMPLETED');
-
-  mockCapturePayment.mockRestore();
+  expect(mockFetch.mock.calls[1][0]).toMatch(/\/v2\/checkout\/orders\/100\/capture$/);
 });

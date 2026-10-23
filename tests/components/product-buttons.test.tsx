@@ -26,19 +26,12 @@ const SOLD_OUT_PRODUCT = { ...PRODUCT, stock: 0 };
 beforeEach(() => mockAdd.mockResolvedValue({ success: true, message: 'ok' }));
 
 describe('AddToCartButton', () => {
-  it('adds one unit using the selected image', async () => {
+  it('sends only the product id, the server builds the cart item', async () => {
     renderWithI18n(<AddToCartButton product={PRODUCT} />);
 
     await userEvent.click(screen.getByRole('button', { name: t('ADD_TO_CART') }));
 
-    expect(mockAdd).toHaveBeenCalledWith({
-      productId: PRODUCT.id,
-      name: PRODUCT.name,
-      slug: PRODUCT.slug,
-      price: PRODUCT.price,
-      qty: 1,
-      image: PRODUCT.images[PRODUCT.imageIndex],
-    });
+    expect(mockAdd).toHaveBeenCalledWith({ productId: PRODUCT.id });
   });
 
   it('shows a disabled "Sold out" button when out of stock', () => {
@@ -55,7 +48,7 @@ describe('BuyNowButton', () => {
 
     await userEvent.click(screen.getByRole('button', { name: t('BUY_NOW') }));
 
-    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({ productId: PRODUCT.id, qty: 1 }));
+    expect(mockAdd).toHaveBeenCalledWith({ productId: PRODUCT.id });
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/shipping-address'));
   });
 

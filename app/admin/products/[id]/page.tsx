@@ -1,12 +1,16 @@
 import ProductForm from '@/components/admin/product-form';
 import { getProductById } from '@/lib/actions/product.actions';
+import { getCategoryOptions } from '@/lib/actions/category.actions';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth-guard';
+import { PRICE_CLASSES } from '@/lib/constants';
+import { getT } from '@/lib/i18n-server';
 
-export const metadata: Metadata = {
-  title: 'Update Product',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t('ADMIN_UPDATE_PRODUCT') };
+}
 
 const AdminProductUpdatePage = async (props: {
   params: Promise<{
@@ -16,15 +20,22 @@ const AdminProductUpdatePage = async (props: {
   await requireAdmin();
   const { id } = await props.params;
 
-  const product = await getProductById(id);
+  const [{ t, locale }, product] = await Promise.all([getT(), getProductById(id)]);
 
   if (!product) return notFound();
+  const storeCategories = await getCategoryOptions(locale);
 
   return (
     <div className='space-y-8 max-w-5xl mx-auto'>
-      <h1 className='h2-bold'>Update Product</h1>
+      <h1 className='h2-bold'>{t('ADMIN_UPDATE_PRODUCT')}</h1>
 
-      <ProductForm type='Update' product={product} productId={product.id} />
+      <ProductForm
+        type='Update'
+        product={product}
+        priceClasses={PRICE_CLASSES}
+        storeCategories={storeCategories}
+        previousImages={product.previousImages}
+      />
     </div>
   );
 };

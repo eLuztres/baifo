@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { auth } from '@/auth';
-import { signOutUser } from '@/lib/actions/user.actions';
+import { getSession, isCustomerView } from '@/lib/auth-guard';
+import { signOutUser, toggleCustomerView } from '@/lib/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,22 +11,39 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { UserIcon } from 'lucide-react';
 import { getT } from '@/lib/i18n-server';
+import type { Translator } from '@/lib/i18n-core';
+import { ADMIN_HOME_PATH, SHOWCASE_MODE } from '@/lib/constants';
+
+interface AccountLink {
+  href: string;
+  label: string;
+}
+
+/** The account pages, shared by this dropdown (desktop) and the phone menu (menu-account.tsx). */
+export const getAccountLinks = (t: Translator, isAdmin: boolean): AccountLink[] => [
+  { href: '/user/profile', label: t('USER_PROFILE') },
+  ...(SHOWCASE_MODE ? [] : [{ href: '/user/orders', label: t('ORDER_HISTORY') }]),
+  ...(isAdmin ? [{ href: ADMIN_HOME_PATH, label: t('ADMIN') }] : []),
+];
+
+export const getInitial = (name?: string | null) => name?.charAt(0).toUpperCase() ?? 'U';
 
 const UserButton = async () => {
-  const session = await auth();
-  const { t } = await getT();
+  const [session, { t }] = await Promise.all([getSession(), getT()]);
 
   if (!session) {
     return (
       <Button asChild variant='outline' className='rounded-full'>
         <Link href='/sign-in'>
-          <UserIcon /> {t('SIGN_IN')}
+          <UserIcon /> {t(SHOWCASE_MODE ? 'JOIN' : 'SIGN_IN')}
         </Link>
       </Button>
     );
   }
 
-  const firstInitial = session.user?.name?.charAt(0).toUpperCase() ?? 'U';
+  const firstInitial = getInitial(session.user?.name);
+  const isAdminUser = session.user?.role === 'admin';
+  const isCustomer = await isCustomerView();
 
   return (
     <div className='flex gap-2 items-center'>
@@ -40,7 +57,7 @@ const UserButton = async () => {
             {firstInitial}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className='w-56' align='end' forceMount>
+        <DropdownMenuContent className='w-56' align='end'>
           <DropdownMenuLabel className='font-normal'>
             <div className='flex flex-col space-y-1'>
               <div className='text-sm font-medium leading-none'>
@@ -52,35 +69,30 @@ const UserButton = async () => {
             </div>
           </DropdownMenuLabel>
 
-          <DropdownMenuItem>
-            <Link href='/user/profile' className='w-full'>
-              {t('USER_PROFILE')}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Link href='/user/orders' className='w-full'>
-              {t('ORDER_HISTORY')}
-            </Link>
-          </DropdownMenuItem>
-
-          {session?.user?.role === 'admin' && (
-            <DropdownMenuItem>
-              <Link href='/admin/overview' className='w-full'>
-                {t('ADMIN')}
-              </Link>
+          {/* asChild: Enter and Space click the item itself, so the link or button must be the item to be reached. */}
+          {getAccountLinks(t, isAdminUser).map((link) => (
+            <DropdownMenuItem asChild key={link.href}>
+              <Link href={link.href}>{link.label}</Link>
             </DropdownMenuItem>
+          ))}
+
+          {isAdminUser && (
+            <form action={toggleCustomerView}>
+              <DropdownMenuItem asChild>
+                <button type='submit' className='w-full'>
+                  {t(isCustomer ? 'VIEW_AS_ADMIN' : 'VIEW_AS_CUSTOMER')}
+                </button>
+              </DropdownMenuItem>
+            </form>
           )}
 
-          <DropdownMenuItem className='p-0 mb-1'>
-            <form action={signOutUser} className='w-full'>
-              <Button
-                className='w-full py-4 px-2 h-4 justify-start'
-                variant='ghost'
-              >
+          <form action={signOutUser}>
+            <DropdownMenuItem asChild>
+              <button type='submit' className='w-full'>
                 {t('SIGN_OUT')}
-              </Button>
-            </form>
-          </DropdownMenuItem>
+              </button>
+            </DropdownMenuItem>
+          </form>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

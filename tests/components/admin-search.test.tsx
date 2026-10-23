@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminSearch from '@/components/admin/admin-search';
+import { renderWithI18n } from '../utils/render-with-i18n';
 
 let mockPathname = '/admin/products';
 let mockSearchParams = new URLSearchParams();
@@ -23,7 +24,7 @@ describe('AdminSearch', () => {
     ['/admin/overview', '/admin/products'],
   ])('on %s it searches %s', (pathname, action) => {
     mockPathname = pathname;
-    render(<AdminSearch />);
+    renderWithI18n(<AdminSearch />);
 
     expect(searchForm()).toHaveAttribute('action', action);
     expect(searchForm()).toHaveAttribute('method', 'GET');
@@ -31,7 +32,7 @@ describe('AdminSearch', () => {
 
   it('prefills the current query and lets the user edit it', async () => {
     mockSearchParams = new URLSearchParams('query=lamp');
-    render(<AdminSearch />);
+    renderWithI18n(<AdminSearch />);
 
     const input = screen.getByRole('searchbox');
     expect(input).toHaveValue('lamp');

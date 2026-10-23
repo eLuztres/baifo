@@ -1,4 +1,3 @@
-import { auth } from '@/auth';
 import {
   Table,
   TableBody,
@@ -14,54 +13,44 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Pagination from '@/components/shared/pagination';
 import DeleteDialog from '@/components/shared/delete-dialog';
+import FilterNotice from '@/components/admin/filter-notice';
 import { requireAdmin } from '@/lib/auth-guard';
+import { getT } from '@/lib/i18n-server';
 
-export const metadata: Metadata = {
-  title: 'Admin Orders',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t('ORDERS_TITLE') };
+}
 
 const AdminOrdersPage = async (props: {
-  searchParams: Promise<{ page: string; query: string }>;
+  searchParams: Promise<{ page?: string; query?: string }>;
 }) => {
-  await requireAdmin()
-  const { page = '1', query: searchText } = await props.searchParams;
+  await requireAdmin();
+  const { page: pageParam, query: searchText } = await props.searchParams;
+  const page = Number(pageParam) || 1;
 
-  const session = await auth();
-
-  if (session?.user?.role !== 'admin')
-    throw new Error('User is not authorized');
-
-  const orders = await getAllOrders({
-    page: Number(page),
-    query: searchText,
-  });
+  const [{ t, locale }, orders] = await Promise.all([
+    getT(),
+    getAllOrders({ page, query: searchText ?? '' }),
+  ]);
 
   return (
     <div className='space-y-2'>
       <div className='flex items-center gap-3'>
-        <h1 className='h2-bold'>Orders</h1>
-        {searchText && (
-          <div>
-            Filtered by <i>&quot;{searchText}&quot;</i>{' '}
-            <Link href='/admin/orders'>
-              <Button variant='outline' size='sm'>
-                Remove Filter
-              </Button>
-            </Link>
-          </div>
-        )}
+        <h1 className='h2-bold'>{t('ORDERS_TITLE')}</h1>
+        <FilterNotice query={searchText} clearHref='/admin/orders' />
       </div>
       <div className='overflow-x-auto'>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>DATE</TableHead>
-              <TableHead>BUYER</TableHead>
-              <TableHead>TOTAL</TableHead>
-              <TableHead>PAID</TableHead>
-              <TableHead>DELIVERED</TableHead>
-              <TableHead>ACTIONS</TableHead>
+            <TableRow className='uppercase'>
+              <TableHead>{t('FIELD_ID')}</TableHead>
+              <TableHead>{t('FIELD_DATE')}</TableHead>
+              <TableHead>{t('FIELD_BUYER')}</TableHead>
+              <TableHead>{t('ORDER_TOTAL')}</TableHead>
+              <TableHead>{t('FIELD_PAID')}</TableHead>
+              <TableHead>{t('FIELD_DELIVERED')}</TableHead>
+              <TableHead>{t('FIELD_ACTIONS')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -69,23 +58,23 @@ const AdminOrdersPage = async (props: {
               <TableRow key={order.id}>
                 <TableCell>{formatId(order.id)}</TableCell>
                 <TableCell>
-                  {formatDateTime(order.createdAt).dateTime}
+                  {formatDateTime(order.createdAt, locale).dateTime}
                 </TableCell>
-                {/*<TableCell>{order.user.name}</TableCell>*/}
+                <TableCell>{order.user.name}</TableCell>
                 <TableCell>{formatCurrency(order.totalPrice)}</TableCell>
                 <TableCell>
                   {order.isPaid && order.paidAt
-                    ? formatDateTime(order.paidAt).dateTime
-                    : 'Not Paid'}
+                    ? formatDateTime(order.paidAt, locale).dateTime
+                    : t('ORDER_NOT_PAID')}
                 </TableCell>
                 <TableCell>
                   {order.isDelivered && order.deliveredAt
-                    ? formatDateTime(order.deliveredAt).dateTime
-                    : 'Not Delivered'}
+                    ? formatDateTime(order.deliveredAt, locale).dateTime
+                    : t('ORDER_NOT_DELIVERED')}
                 </TableCell>
                 <TableCell>
                   <Button asChild variant='outline' size='sm'>
-                    <Link href={`/order/${order.id}`}>Details</Link>
+                    <Link href={`/order/${order.id}`}>{t('ORDERS_DETAILS')}</Link>
                   </Button>
                   <DeleteDialog id={order.id} action={deleteOrder} />
                 </TableCell>
@@ -94,10 +83,7 @@ const AdminOrdersPage = async (props: {
           </TableBody>
         </Table>
         {orders.totalPages > 1 && (
-          <Pagination
-            page={Number(page) || 1}
-            totalPages={orders?.totalPages}
-          />
+          <Pagination page={page} totalPages={orders.totalPages} />
         )}
       </div>
     </div>

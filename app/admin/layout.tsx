@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Menu from '@/components/shared/header/menu';
 import MainNav from './main-nav';
 import AdminSearch from '@/components/admin/admin-search';
+import { SHOWCASE_MODE } from '@/lib/constants';
 
 export default function AdminLayout({
   children,
@@ -17,7 +18,7 @@ export default function AdminLayout({
             <Link href='/'>
               <BrandLogo />
             </Link>
-            <MainNav className='mx-6' />
+            <MainNav className='mx-6' isShowcase={SHOWCASE_MODE} />
             <div className='ml-auto items-center flex space-x-4'>
               <AdminSearch />
               <Menu />

@@ -14,50 +14,47 @@ import Link from 'next/link';
 import Pagination from '@/components/shared/pagination';
 import { Badge } from '@/components/ui/badge';
 import DeleteDialog from '@/components/shared/delete-dialog';
+import FilterNotice from '@/components/admin/filter-notice';
+import { roleLabel } from '@/components/admin/role-label';
 import { requireAdmin } from '@/lib/auth-guard';
+import { getT } from '@/lib/i18n-server';
 
-
-
-export const metadata: Metadata = {
-  title: 'Admin Users',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t('ADMIN_USERS') };
+}
 
 const AdminUserPage = async (props: {
   searchParams: Promise<{
-    page: string;
-    query: string;
+    page?: string;
+    query?: string;
   }>;
 }) => {
   await requireAdmin();
 
-  const { page = '1', query: searchText } = await props.searchParams;
+  const { page: pageParam, query: searchText } = await props.searchParams;
+  const page = Number(pageParam) || 1;
 
-  const users = await getAllUsers({ page: Number(page), query: searchText });
+  const [{ t }, users] = await Promise.all([
+    getT(),
+    getAllUsers({ page, query: searchText ?? '' }),
+  ]);
 
   return (
     <div className='space-y-2'>
       <div className='flex items-center gap-3'>
-        <h1 className='h2-bold'>Users</h1>
-        {searchText && (
-          <div>
-            Filtered by <i>&quot;{searchText}&quot;</i>{' '}
-            <Link href='/admin/users'>
-              <Button variant='outline' size='sm'>
-                Remove Filter
-              </Button>
-            </Link>
-          </div>
-        )}
+        <h1 className='h2-bold'>{t('ADMIN_USERS')}</h1>
+        <FilterNotice query={searchText} clearHref='/admin/users' />
       </div>
       <div className='overflow-x-auto'>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>NAME</TableHead>
-              <TableHead>EMAIL</TableHead>
-              <TableHead>ROLE</TableHead>
-              <TableHead>ACTIONS</TableHead>
+            <TableRow className='uppercase'>
+              <TableHead>{t('FIELD_ID')}</TableHead>
+              <TableHead>{t('FIELD_NAME')}</TableHead>
+              <TableHead>{t('FIELD_EMAIL')}</TableHead>
+              <TableHead>{t('FIELD_ROLE')}</TableHead>
+              <TableHead>{t('FIELD_ACTIONS')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,15 +64,13 @@ const AdminUserPage = async (props: {
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  {user.role === 'user' ? (
-                    <Badge variant='secondary'>User</Badge>
-                  ) : (
-                    <Badge variant='default'>Admin</Badge>
-                  )}
+                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                    {roleLabel(t, user.role)}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <Button asChild variant='outline' size='sm'>
-                    <Link href={`/admin/users/${user.id}`}>Edit</Link>
+                    <Link href={`/admin/users/${user.id}`}>{t('ADMIN_EDIT')}</Link>
                   </Button>
                   <DeleteDialog id={user.id} action={deleteUser} />
                 </TableCell>
@@ -84,7 +79,7 @@ const AdminUserPage = async (props: {
           </TableBody>
         </Table>
         {users.totalPages > 1 && (
-          <Pagination page={Number(page) || 1} totalPages={users?.totalPages} />
+          <Pagination page={page} totalPages={users.totalPages} />
         )}
       </div>
     </div>
