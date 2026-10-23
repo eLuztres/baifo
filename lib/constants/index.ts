@@ -41,6 +41,8 @@ const envNumber = (key: string, fallback: number) => {
 // Showcase mode: a presentation, not a shop. Prices never leave the database, stock is ignored
 // and visitors can only say they're interested in a ring; set per shop in .env.
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
+// A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
+export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
 // The AI product studio needs an OpenAI key; without one, new products use the plain product form.
 export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 

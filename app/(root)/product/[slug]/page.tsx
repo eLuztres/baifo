@@ -7,6 +7,7 @@ import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
 import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
+import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
@@ -17,7 +18,7 @@ import {
   ReserveButton,
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
-import { RESERVATION_HOURS, SHOWCASE_MODE } from '@/lib/constants';
+import { RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
@@ -58,6 +59,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Only what the buttons need goes to the browser (not e.g. who reserved the ring).
   const buyProduct = { id: product.id, stock: product.stock };
   const nextRing = findNextRing(groupByCategory(categories, rings, locale), slug, categoryId);
+  // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
+  const hasSellerContact = Boolean(product.contactPhone);
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
@@ -89,15 +92,22 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {product.description}
               </p>
             )}
-            {/* Showcase mode: no price, stock or buying, only a way to tell the maker about the interest. */}
+            {/* Showcase mode: no stock or buying, only a way to reach the maker, or the seller of a classified ad. */}
             {SHOWCASE_MODE ? (
-              <InterestButton
-                productId={product.id}
-                productName={product.name}
-                image={product.images[0]}
-                userName={session?.user?.name ?? undefined}
-                className='w-full'
-              />
+              <>
+                {SHOWS_PRICES && <ProductPrice value={Number(product.price)} />}
+                {hasSellerContact ? (
+                  <ContactSellerButton productId={product.id} productName={product.name} className='w-full' />
+                ) : (
+                  <InterestButton
+                    productId={product.id}
+                    productName={product.name}
+                    image={product.images[0]}
+                    userName={session?.user?.name ?? undefined}
+                    className='w-full'
+                  />
+                )}
+              </>
             ) : (
               <>
                 <div className='flex shrink-0 flex-wrap items-center gap-3'>

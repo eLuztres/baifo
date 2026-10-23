@@ -519,5 +519,9 @@
   "CATALOG_UNCATEGORIZED_TEXT": "Questi prodotti non hanno categoria, quindi il negozio non li mostra. Apri un prodotto per assegnargliene una.",
   "SETTINGS_CONTACT": "Contatti sul sito",
   "SETTINGS_CONTACT_TEXT": "Togli la spunta a ciò che i visitatori non devono vedere. Scompare dal piè di pagina e dalla sezione contatti.",
-  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "es. cotone, estate, blu"
+  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "es. cotone, estate, blu",
+  "CONTACT_SELLER": "Contatta il venditore",
+  "CONTACT_SELLER_WHATSAPP": "Scrivi su WhatsApp",
+  "CONTACT_SELLER_MESSAGE": "Ciao! Mi interessa «{name}»: {url}",
+  "CONTACT_SELLER_UNAVAILABLE": "Questo venditore non è più raggiungibile qui."
 }
