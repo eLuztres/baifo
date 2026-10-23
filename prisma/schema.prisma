@@ -252,6 +252,8 @@ model Submission {
   productId         String?          @unique @db.Uuid
   product           Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
   expiresAt         DateTime?        @db.Timestamp(6)
+  // When the seller was told the listing ends soon.
+  remindedAt        DateTime?        @db.Timestamp(6)
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)

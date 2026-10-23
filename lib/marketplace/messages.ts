@@ -22,6 +22,8 @@ const TEXTS = {
     live: '🎉 ¡Tu anuncio ya está online durante {days} días!\n{url}',
     sold: '¡Enhorabuena por la venta! 🎉 He quitado tu anuncio.',
     noLiveListing: 'No encuentro ningún anuncio tuyo online.',
+    expiring: '⏳ Tu anuncio «{title}» termina el {date}. Si ya lo vendiste, escribe "vendido". Si quieres seguir, mándanos las fotos de nuevo cuando termine.',
+    expired: 'Tu anuncio «{title}» ha terminado y ya no está online. ¿Lo publicamos otra vez? Mándanos las fotos.',
     buttonDone: '✅ Listo',
   },
   en: {
@@ -39,6 +41,8 @@ const TEXTS = {
     live: '🎉 Your listing is online for {days} days!\n{url}',
     sold: 'Congratulations on the sale! 🎉 I took your listing down.',
     noLiveListing: "I can't find a listing of yours that is online.",
+    expiring: '⏳ Your listing "{title}" ends on {date}. If it is sold, write "sold". To keep it online, send us the photos again when it ends.',
+    expired: 'Your listing "{title}" has ended and is no longer online. Shall we publish it again? Just send us the photos.',
     buttonDone: '✅ Done',
   },
 } satisfies Record<BotLocale, Record<string, string>>;

@@ -18,6 +18,7 @@ This code is Baifo's own and lives only in `lib/marketplace/`, `lib/whatsapp-clo
 
 Seller commands: `ayuda`, `borrar` (start over), `vendido` (takes the newest live listing down).
 
+The daily cron also takes listings down after `LISTING_DAYS` (the seller gets a WhatsApp a week before) and sends nothing twice.
 A step that fails is retried by the daily cron (`vercel.json`, `/api/cron/marketplace`); after 3 failures you get a WhatsApp message.
 
 ## Settings (`.env` and Vercel)
@@ -37,8 +38,20 @@ LISTING_PRICE_BIG=10
 LISTING_DAYS=90
 LISTINGS_EMAIL=                 # gets the printable list of live products
 
+# Payments of the listing fee (Stripe Checkout or PayPal); the product goes live on payment
+STRIPE_SECRET_KEY=
+STRIPE_LISTING_WEBHOOK_SECRET=  # a second Stripe webhook: https://baifo.es/api/webhooks/stripe-listing, event checkout.session.completed
+PAYPAL_CLIENT_ID=
+PAYPAL_APP_SECRET=
+SHOWCASE_MODE=true              # no cart; buyers contact the seller
+SHOWCASE_SHOW_PRICES=true
+
 CRON_SECRET=                    # Vercel sends it to the cron route
 OPENAI_API_KEY=                 # AI photo and text
 ```
+
+Store categories: Baifo's defaults come from a migration (casa, moda, electronica, deporte, ninos, jardin, motor, otros). Listings whose category matches none go to "otros", because the showroom only shows categorized products.
+
+Every new listing emails the printable list of live products (photo, price, WhatsApp, link) to `LISTINGS_EMAIL`.
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { expireListings } from '@/lib/marketplace/expiry';
 import { findStuckSubmissions, processSubmission } from '@/lib/marketplace/processing';
 
 export const maxDuration = 300;
@@ -10,5 +11,6 @@ export async function GET(request: NextRequest) {
   }
   const stuck = await findStuckSubmissions();
   for (const { id } of stuck) await processSubmission(id);
-  return NextResponse.json({ retried: stuck.length });
+  const expiry = await expireListings();
+  return NextResponse.json({ retried: stuck.length, ...expiry });
 }
