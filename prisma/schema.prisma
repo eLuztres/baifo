@@ -38,6 +38,11 @@ model Product {
   previousImages String[]  @default([])
   // The admin's order in the store; new rings keep 0 and so come first, newest first.
   sortOrder      Int       @default(0)
+  // Baifo: the private seller who listed it by WhatsApp, and when the listing goes offline.
+  sellerId       String?   @db.Uuid
+  seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  expiresAt      DateTime? @db.Timestamp(6)
+  submission     Submission?
 }
 
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
@@ -193,4 +198,68 @@ model ShopSettings {
   showPhone      Boolean  @default(true)
   showInstagram  Boolean  @default(true)
   updatedAt      DateTime @updatedAt
+}
+
+// ── Baifo marketplace: listings sent in by WhatsApp ──────────────────────
+
+enum SubmissionStatus {
+  COLLECTING
+  PROCESSING
+  IN_REVIEW
+  AWAITING_PAYMENT
+  LIVE
+  EXPIRED
+  SOLD
+  REJECTED
+}
+
+// A private seller, known only by their WhatsApp number.
+model Seller {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  waId        String       @unique
+  name        String?
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  submissions Submission[]
+  products    Product[]
+}
+
+// One listing on its way from the seller's WhatsApp photos to a live product.
+model Submission {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sellerId          String           @db.Uuid
+  seller            Seller           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  status            SubmissionStatus @default(COLLECTING)
+  // WhatsApp media ids still to download, then the stored originals and the AI pictures.
+  mediaIds          String[]         @default([])
+  rawImages         String[]         @default([])
+  images            String[]         @default([])
+  rawText           String           @default("")
+  title             String?
+  description       String?
+  descriptionEn     String?
+  category          String?
+  price             Decimal?         @db.Decimal(12, 2)
+  plan              String?
+  crossPostFacebook Boolean          @default(false)
+  crossPostWallapop Boolean          @default(false)
+  hasContactConsent Boolean          @default(false)
+  // Secret part of the seller's /publicar link.
+  payToken          String           @unique @default(dbgenerated("gen_random_uuid()::text"))
+  paymentProvider   String?
+  paidAt            DateTime?        @db.Timestamp(6)
+  productId         String?          @unique @db.Uuid
+  product           Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  expiresAt         DateTime?        @db.Timestamp(6)
+  attempts          Int              @default(0)
+  lastError         String?
+  createdAt         DateTime         @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime         @updatedAt
+
+  @@index([sellerId, status])
+}
+
+// Inbound WhatsApp message ids: Meta can deliver a webhook more than once.
+model WhatsappMessage {
+  id        String   @id
+  createdAt DateTime @default(now()) @db.Timestamp(6)
 }
