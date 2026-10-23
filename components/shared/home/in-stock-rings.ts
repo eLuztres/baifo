@@ -1,5 +1,5 @@
 import { prisma } from '@/db/prisma';
-import { SHOWCASE_MODE } from '@/lib/constants';
+import { SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/category';
 
@@ -33,7 +33,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       slug: true,
       name: true,
       images: true,
-      price: !SHOWCASE_MODE,
+      price: SHOWS_PRICES,
       reservedUntil: !SHOWCASE_MODE,
       categories: { select: { id: true } },
     },

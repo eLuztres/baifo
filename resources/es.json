@@ -519,5 +519,9 @@
   "CATALOG_UNCATEGORIZED_TEXT": "Estos productos no tienen categoría, así que la tienda no los muestra. Abre un producto para darle una categoría.",
   "SETTINGS_CONTACT": "Contacto en la web",
   "SETTINGS_CONTACT_TEXT": "Desmarca lo que los visitantes no deben ver. Desaparece del pie de página y de la sección de contacto.",
-  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "p. ej. algodón, verano, azul"
+  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "p. ej. algodón, verano, azul",
+  "CONTACT_SELLER": "Contactar al vendedor",
+  "CONTACT_SELLER_WHATSAPP": "Escribir por WhatsApp",
+  "CONTACT_SELLER_MESSAGE": "¡Hola! Me interesa «{name}»: {url}",
+  "CONTACT_SELLER_UNAVAILABLE": "Ya no se puede contactar con este vendedor aquí."
 }

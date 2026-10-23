@@ -519,5 +519,9 @@
   "CATALOG_UNCATEGORIZED_TEXT": "Diese Produkte haben keine Kategorie, deshalb zeigt der Shop sie nicht. Öffne ein Produkt, um ihm eine Kategorie zu geben.",
   "SETTINGS_CONTACT": "Kontakt auf der Website",
   "SETTINGS_CONTACT_TEXT": "Entferne den Haken bei allem, was Besucher nicht sehen sollen. Es verschwindet aus der Fußzeile und dem Kontaktbereich.",
-  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "z. B. Baumwolle, Sommer, blau"
+  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "z. B. Baumwolle, Sommer, blau",
+  "CONTACT_SELLER": "Verkäufer kontaktieren",
+  "CONTACT_SELLER_WHATSAPP": "Per WhatsApp schreiben",
+  "CONTACT_SELLER_MESSAGE": "Hallo! Ich interessiere mich für „{name}“: {url}",
+  "CONTACT_SELLER_UNAVAILABLE": "Dieser Verkäufer ist hier nicht mehr erreichbar."
 }

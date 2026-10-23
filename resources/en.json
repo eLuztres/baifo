@@ -519,5 +519,9 @@
   "CATALOG_UNCATEGORIZED_TEXT": "These products are in no category, so the store doesn't show them. Open a product to give it a category.",
   "SETTINGS_CONTACT": "Contact on the website",
   "SETTINGS_CONTACT_TEXT": "Untick what visitors shouldn't see. It disappears from the footer and the contact section.",
-  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "e.g. cotton, summer, blue"
+  "CATEGORY_FORM_KEYWORDS_PLACEHOLDER": "e.g. cotton, summer, blue",
+  "CONTACT_SELLER": "Contact the seller",
+  "CONTACT_SELLER_WHATSAPP": "Write on WhatsApp",
+  "CONTACT_SELLER_MESSAGE": "Hi! I am interested in \"{name}\": {url}",
+  "CONTACT_SELLER_UNAVAILABLE": "This seller can no longer be reached here."
 }

@@ -1,7 +1,7 @@
 'use server';
 import { prisma } from '@/db/prisma';
 import { convertToPlainObject, formatError } from '../utils';
-import { PAGE_SIZE, PRICE_CLASSES, SHOWCASE_MODE } from '../constants';
+import { PAGE_SIZE, PRICE_CLASSES, SHOWS_PRICES } from '../constants';
 import { revalidatePath } from 'next/cache';
 import { insertProductSchema, updateProductSchema } from '../validators';
 import { z } from 'zod';
@@ -14,8 +14,17 @@ export async function getProductBySlug(slug: string) {
   return await prisma.product.findFirst({
     where: { slug: slug },
     // Showcase mode: the price is never read, so no page can send it.
-    omit: { price: SHOWCASE_MODE },
+    omit: { price: !SHOWS_PRICES },
   });
+}
+
+/** The seller's WhatsApp link of a product that has one (classifieds); fetched on a click, so the number isn't in the page. */
+export async function getProductContact(productId: string) {
+  const id = z.string().uuid().safeParse(productId);
+  if (!id.success) return null;
+  const product = await prisma.product.findUnique({ where: { id: id.data }, select: { contactPhone: true } });
+  const digits = product?.contactPhone?.replace(/\D/g, '');
+  return digits ? { phone: `+${digits}`, whatsappUrl: `https://wa.me/${digits}` } : null;
 }
 
 // Get single product by it's ID

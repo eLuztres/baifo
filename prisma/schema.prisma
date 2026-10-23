@@ -38,6 +38,8 @@ model Product {
   previousImages String[]  @default([])
   // The admin's order in the store; new rings keep 0 and so come first, newest first.
   sortOrder      Int       @default(0)
+  // Classifieds: the seller's phone (WhatsApp) that buyers get on "Contact seller" instead of a cart.
+  contactPhone   String?
   // Baifo: the private seller who listed it by WhatsApp, and when the listing goes offline.
   sellerId       String?   @db.Uuid
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
