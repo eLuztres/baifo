@@ -1,0 +1,60 @@
+.field {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* A low sun in the accent color, so the page feels lit from one side like a late afternoon. */
+.sun {
+  position: absolute;
+  top: -18vmin;
+  right: -12vmin;
+  width: 70vmin;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 16%, transparent), transparent);
+}
+
+.dune {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 200%;
+  height: 22vh;
+  animation: drift 90s linear infinite;
+}
+
+/* Back to front: lighter and slower in the distance, a hint of the sea color in front. */
+.dune[data-layer='0'] {
+  height: 26vh;
+  color: color-mix(in srgb, var(--secondary) 45%, transparent);
+  animation-duration: 160s;
+}
+
+.dune[data-layer='1'] {
+  height: 20vh;
+  color: color-mix(in srgb, var(--secondary) 70%, transparent);
+  animation-duration: 120s;
+  animation-direction: reverse;
+}
+
+.dune[data-layer='2'] {
+  height: 13vh;
+  color: color-mix(in srgb, var(--primary) 10%, var(--secondary) 55%);
+  opacity: 0.6;
+}
+
+/* Each path repeats after half its width, so moving it by half loops without a jump. */
+@keyframes drift {
+  to {
+    translate: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dune {
+    animation: none;
+  }
+}

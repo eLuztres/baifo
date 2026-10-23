@@ -96,6 +96,7 @@ export const BRAND = {
   heroImage: env('BRAND_HERO_IMAGE'),
   showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
+  hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   /** A picture (e.g. the logo) instead of the drawn genie lamp; its bottom edge must be the lamp's foot. */
   lampImage: env('BRAND_LAMP_IMAGE'),
   lampSpout: readPoint('BRAND_LAMP_SPOUT'),
@@ -172,7 +173,8 @@ export function getBrandCss() {
 
   if (BRAND.displayFontUrl && isSafeFontUrl(BRAND.displayFontUrl)) {
     rules.push(
-      `@font-face { font-family: 'BrandDisplay'; src: url('${BRAND.displayFontUrl}'); font-display: swap; }`,
+      // The weight range lets a variable font draw every weight itself instead of the browser faking bold.
+      `@font-face { font-family: 'BrandDisplay'; src: url('${BRAND.displayFontUrl}'); font-weight: 100 900; font-display: swap; }`,
       `:root { --brand-font-display: 'BrandDisplay'; }`
     );
   }

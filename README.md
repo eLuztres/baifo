@@ -205,6 +205,7 @@ The home page is one scrolling page: an opening scene, the **showroom** (a ring 
 
 ```env
 BRAND_DECORATION=goldleaf           # dark background with a gold lamp breathing out smoke
+BRAND_DECORATION=dunes              # or: soft drifting sand dunes and a low sun, in the theme colors
 SHOWCASE_MODE=true                  # no prices, no cart: visitors send "I'm interested" instead
 SHOWCASE_SHOW_PRICES=true           # showcase with prices (classifieds); a product's contactPhone adds "Contact the seller"
 ```
