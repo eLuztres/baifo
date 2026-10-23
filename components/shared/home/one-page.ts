@@ -1,9 +1,9 @@
-/** Inicio, Showroom, Tienda, Taller and Contacto are parts of one scrolling page; these are their element ids. */
+/** Home, showroom, shop, workshop and contact are parts of one scrolling page; these are their element ids. */
 export const SECTION_IDS = {
   home: 'home',
   showroom: 'showroom',
   shop: 'shop',
-  workshop: 'taller',
+  workshop: 'workshop',
   contact: 'contact',
 } as const;
 

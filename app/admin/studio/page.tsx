@@ -3,6 +3,8 @@ import ProductStudio from '@/components/admin/product-studio';
 import { getAllCategories } from '@/lib/actions/product.actions';
 import { getCategoryOptions } from '@/lib/actions/category.actions';
 import { requireAdmin } from '@/lib/auth-guard';
+import { IS_STUDIO_ENABLED } from '@/lib/constants';
+import { redirect } from 'next/navigation';
 import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 
@@ -21,6 +23,7 @@ interface StudioPageProps {
 
 const StudioPage = async ({ searchParams }: StudioPageProps) => {
   await requireAdmin();
+  if (!IS_STUDIO_ENABLED) redirect('/admin/products/create');
   const [{ t, locale }, categoryCounts, { category }] = await Promise.all([getT(), getAllCategories(), searchParams]);
   const storeCategories = await getCategoryOptions(locale);
   // Prisma types a groupBy result loosely; each entry does carry its category.

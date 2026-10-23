@@ -41,6 +41,8 @@ const envNumber = (key: string, fallback: number) => {
 // Showcase mode: a presentation, not a shop. Prices never leave the database, stock is ignored
 // and visitors can only say they're interested in a ring; set per shop in .env.
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
+// The AI product studio needs an OpenAI key; without one, new products use the plain product form.
+export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);

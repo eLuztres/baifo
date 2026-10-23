@@ -1,4 +1,4 @@
-import { hasContactInfo } from '@/lib/brand';
+import { hasContactInfo, hasWorkshop } from '@/lib/brand';
 import type { Translator } from '@/lib/i18n-core';
 import { SECTION_IDS, sectionHref, type SectionId } from '@/components/shared/home/one-page';
 
@@ -14,6 +14,6 @@ const navLink = (section: SectionId, label: string): NavLink => ({ href: section
 export const getNavLinks = (t: Translator): NavLink[] => [
   navLink(SECTION_IDS.home, t('NAV_HOME')),
   navLink(SECTION_IDS.showroom, t('NAV_SHOWROOM')),
-  navLink(SECTION_IDS.workshop, t('NAV_WORKSHOP')),
+  ...(hasWorkshop ? [navLink(SECTION_IDS.workshop, t('NAV_WORKSHOP'))] : []),
   ...(hasContactInfo ? [navLink(SECTION_IDS.contact, t('NAV_CONTACT'))] : []),
 ];

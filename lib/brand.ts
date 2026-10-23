@@ -5,6 +5,8 @@
  * Server-only: these env vars are read at request time, not inlined in client code.
  */
 
+import workshop from '@/brand/workshop.json';
+
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 const env = (key: string) => process.env[key]?.trim() || undefined;
@@ -121,6 +123,11 @@ export const BRAND = {
 export const hasContactInfo = Boolean(
   BRAND.contact.email || BRAND.contact.phone || BRAND.contact.instagram
 );
+
+/** The workshop section's pictures from brand/workshop.json: up to three step photos and a gallery. */
+export const WORKSHOP: { steps: string[]; gallery: string[] } = workshop;
+
+export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length > 0;
 
 /** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
 export const EMAIL_COLORS = {

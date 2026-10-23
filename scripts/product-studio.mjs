@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// AI product studio: turns raw ring photos into shop-ready product images and texts.
+// AI product studio: turns raw product photos into shop-ready product images and texts.
 //   npm run studio -- pull                     copy the Drive inbox (rclone) to STUDIO_DIR/inbox
 //   npm run studio -- generate [--only id] [--force]
 //   npm run studio -- regenerate <id> [hero|side|top]
@@ -32,22 +32,6 @@ import { draftText, editImage } from '../lib/studio/openai.mjs';
 
 nextEnv.loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
 
-const STUDIO_DIR = process.env.STUDIO_DIR || path.join(os.homedir(), 'emlets-studio');
-const INBOX = path.join(STUDIO_DIR, 'inbox');
-const OUT = path.join(STUDIO_DIR, 'out');
-const DRIVE_REMOTE = process.env.STUDIO_DRIVE_REMOTE || 'gdrive:emlets';
-const DEFAULT_PRICE = '70.00';
-const STYLE_IMAGE = process.env.STUDIO_STYLE_IMAGE || path.join(STUDIO_DIR, 'style.png');
-const PHOTO_EXTENSIONS = /\.(jpe?g|png|webp|heic)$/i;
-const SHOP_PHOTOS = path.join('public', 'brand', 'products');
-const CUTOUT_SHOTS = path.join(STUDIO_DIR, 'cutouts');
-const CUTOUT_LIST = path.join('brand', 'cutouts.json');
-const CUTOUT_SIZE = 900;
-// Pixels below this alpha count as background when looking for the ring.
-const MIN_ALPHA = 40;
-
-// ---------- helpers ----------
-
 const slugify = (text) =>
   text
     .normalize('NFD')
@@ -56,8 +40,32 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 
+const SHOP_NAME = process.env.APP_NAME || 'Shop';
+const STUDIO_DIR = process.env.STUDIO_DIR || path.join(os.homedir(), `${slugify(SHOP_NAME)}-studio`);
+const INBOX = path.join(STUDIO_DIR, 'inbox');
+const OUT = path.join(STUDIO_DIR, 'out');
+// Without a Drive remote (an rclone remote like "gdrive:myshop") everything stays in STUDIO_DIR.
+const DRIVE_REMOTE = process.env.STUDIO_DRIVE_REMOTE;
+const DEFAULT_PRICE = '70.00';
+const STYLE_IMAGE = process.env.STUDIO_STYLE_IMAGE || path.join(STUDIO_DIR, 'style.png');
+const PHOTO_EXTENSIONS = /\.(jpe?g|png|webp|heic)$/i;
+const SHOP_PHOTOS = path.join('public', 'brand', 'products');
+const CUTOUT_SHOTS = path.join(STUDIO_DIR, 'cutouts');
+const CUTOUT_LIST = path.join('brand', 'cutouts.json');
+const WORKSHOP_FILE = path.join('brand', 'workshop.json');
+const CUTOUT_SIZE = 900;
+// Pixels below this alpha count as background when looking for the ring.
+const MIN_ALPHA = 40;
+
+// ---------- helpers ----------
+
 const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 const writeJson = (file, data) => writeFileSync(file, JSON.stringify(data, null, 2) + '\n');
+
+// The workshop section's own pictures under public/ (full URLs live elsewhere).
+const WORKSHOP_IMAGES = existsSync(WORKSHOP_FILE)
+  ? Object.values(readJson(WORKSHOP_FILE)).flat().filter((image) => image.startsWith('/'))
+  : [];
 const productFile = (id) => path.join(OUT, id, 'product.json');
 
 function listInboxProducts() {
@@ -141,7 +149,7 @@ async function generateProduct(id, { force = false } = {}) {
     slug: slugify(name),
     description: text.description,
     price: info.price ? Number(info.price.replace(',', '.')).toFixed(2) : DEFAULT_PRICE,
-    brand: info.maker || 'emlets',
+    brand: info.maker || SHOP_NAME,
     images,
     uploaded: [],
   });
@@ -210,11 +218,11 @@ function review() {
 <p>${escapeHtml(product.description)}</p><div class="row">${originals}${generated}</div></section>`;
     })
     .join('\n');
-  const html = `<!doctype html><meta charset="utf-8"><title>emlets studio review</title>
+  const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(SHOP_NAME)} studio review</title>
 <style>body{background:#0d1517;color:#eef3f2;font:15px system-ui;margin:24px}section{border-bottom:1px solid #24343a;padding:16px 0}
 h2{font-weight:500}small{color:#93a7a7;font-weight:400}.row{display:flex;gap:12px;flex-wrap:wrap}
 figure{margin:0}img{width:220px;height:220px;object-fit:cover;border-radius:10px}figcaption{color:#93a7a7;font-size:12px}</style>
-<h1>emlets studio review</h1>${cards}`;
+<h1>${escapeHtml(SHOP_NAME)} studio review</h1>${cards}`;
   const file = path.join(STUDIO_DIR, 'review.html');
   writeFileSync(file, html);
   console.log(`✓ ${file}`);
@@ -323,6 +331,7 @@ async function cutouts(args) {
 
 // `copy` only adds and updates, so nothing on Drive is ever deleted from here.
 function rclone(from, to, ...filters) {
+  if (!DRIVE_REMOTE) return;
   if (existsSync(from) || from.startsWith(DRIVE_REMOTE)) execFileSync('rclone', ['copy', from, to, ...filters], { stdio: 'inherit' });
 }
 
@@ -356,7 +365,7 @@ const syncRing = (id) => trySync(id, () => pushRing(id));
 function push() {
   for (const id of existsSync(OUT) ? readdirSync(OUT).sort() : []) pushRing(id);
   pushShopPictures();
-  rclone(path.join('public', 'brand', 'taller'), `${DRIVE_REMOTE}/atelier`);
+  for (const image of WORKSHOP_IMAGES) rclone(path.join('public', image), `${DRIVE_REMOTE}/atelier`);
   rclone(path.join('public', 'brand'), `${DRIVE_REMOTE}/brand`, '--include', '/*.{png,jpg,svg,webp}');
 }
 
