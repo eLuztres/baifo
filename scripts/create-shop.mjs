@@ -19,6 +19,7 @@ import { normalizeHex, paletteFromImage, paletteFromPrimary } from './lib/colors
 const TEMPLATE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCALES = ['en', 'es', 'de', 'fr', 'it'];
 const THEMES = ['light', 'dark', 'system'];
+const DECORATIONS = ['none', 'dunes', 'goldleaf'];
 
 const bold = (s) => `\x1b[1m${s}\x1b[0m`;
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -91,6 +92,7 @@ async function interview() {
   console.log(bold('\nLook'));
   config.logo = await ask(rl, 'Logo file or URL (png/svg/jpg, empty = placeholder)', '');
   config.theme = await askChoice(rl, 'Theme', THEMES, 'light');
+  config.decoration = await askChoice(rl, 'Background decoration', DECORATIONS, 'none');
   config.primaryColor = await ask(rl, 'Main color as hex (empty = taken from the logo)', '');
 
   console.log(bold('\nContact') + dim('  (leave empty to hide)'));
@@ -167,6 +169,7 @@ function validate(config) {
   if (!config.name) throw new Error('"name" is required.');
   config.slug = slugify(config.slug || `shop-${config.name}`);
   config.theme = THEMES.includes(config.theme) ? config.theme : 'light';
+  config.decoration = DECORATIONS.includes(config.decoration) ? config.decoration : 'none';
   config.locales = (config.locales ?? []).filter((l) => LOCALES.includes(l));
   if (config.locales.length === 0) config.locales = ['en'];
   if (!config.locales.includes(config.defaultLocale)) config.defaultLocale = config.locales[0];
@@ -207,6 +210,7 @@ async function createShop(config) {
     APP_NAME: config.name,
     APP_DESCRIPTION: config.description,
     BRAND_THEME: config.theme,
+    BRAND_DECORATION: config.decoration === 'none' ? undefined : config.decoration,
     BRAND_SHOW_NAME: config.showName === false ? 'false' : undefined,
     BRAND_RADIUS: config.radius,
   };
