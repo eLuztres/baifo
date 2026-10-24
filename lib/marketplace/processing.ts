@@ -2,47 +2,61 @@ import { prisma } from '@/db/prisma';
 import { getCategoryOptions } from '@/lib/actions/category.actions';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enhancePhoto, writeListing } from './ai';
-import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
+import { MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { parsePrice } from './price';
-import { sendForReview } from './review';
+import { reviewerOf, sendForReview } from './review';
 
 // A submission still PROCESSING after this long counts as stuck, so the cron starts it again.
 export const STUCK_AFTER_MS = 10 * 60 * 1000;
 
+/** The AI makes at most this many shop pictures per listing; more photos stay as they are. */
+export const MAX_ENHANCED_PHOTOS = 4;
+
+const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
+
 /**
- * Photos → UploadThing → AI photo → AI text → review. Every step saves its result, so a retry
+ * Photos → UploadThing → AI pictures → AI text → review. Every step saves its result, so a retry
  * (after a crash or timeout) continues where the last run stopped instead of paying the AI twice.
+ * Listings the admin made on /admin/listings/new skip the WhatsApp review: the admin sees them there.
  */
 export async function processSubmission(submissionId: string) {
-  let submission = await prisma.submission.findUnique({ where: { id: submissionId } });
+  let submission = await findSubmission(submissionId);
   if (!submission || submission.status !== 'PROCESSING') return;
 
   try {
     if (submission.mediaIds.length > 0) {
       const stored = await Promise.all(submission.mediaIds.map((mediaId) => storeWhatsappPhoto(mediaId, submissionId)));
-      submission = await prisma.submission.update({
+      await prisma.submission.update({
         where: { id: submissionId },
         data: { rawImages: [...submission.rawImages, ...stored], mediaIds: [] },
       });
+      submission = (await findSubmission(submissionId))!;
     }
 
-    const original = submission.rawImages[0];
-    if (!original) throw new Error('No photo to work with');
-    const photo = await fetchImage(original);
+    const originals = submission.rawImages;
+    if (originals.length === 0) throw new Error('No photo to work with');
+    const firstPhoto = await fetchImage(originals[0]);
 
     if (submission.images.length === 0) {
-      const enhanced = await uploadImage(await enhancePhoto(photo), `listing-${submissionId}`);
-      submission = await prisma.submission.update({
+      // Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting).
+      const enhanced = await Promise.all(
+        originals.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
+          const photo = index === 0 ? firstPhoto : await fetchImage(url);
+          return uploadImage(await enhancePhoto(photo), `listing-${submissionId}-${index}`);
+        })
+      );
+      await prisma.submission.update({
         where: { id: submissionId },
-        data: { images: [enhanced, ...submission.rawImages.slice(1)] },
+        data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)] },
       });
+      submission = (await findSubmission(submissionId))!;
     }
 
     if (!submission.title) {
       const categories = (await getCategoryOptions('es')).map((category) => category.name);
-      const text = await writeListing(photo, submission.rawText, categories);
-      submission = await prisma.submission.update({
+      const text = await writeListing(firstPhoto, submission.rawText, categories);
+      await prisma.submission.update({
         where: { id: submissionId },
         data: {
           title: text.title,
@@ -50,13 +64,17 @@ export async function processSubmission(submissionId: string) {
           descriptionEn: text.descriptionEn,
           category: text.category,
           // What the seller asked for wins over the AI's suggestion.
-          price: parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
+          price: submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
         },
       });
     }
 
-    submission = await prisma.submission.update({ where: { id: submissionId }, data: { status: 'IN_REVIEW', lastError: null } });
-    await sendForReview(submission);
+    submission = await prisma.submission.update({
+      where: { id: submissionId },
+      data: { status: 'IN_REVIEW', lastError: null },
+      include: { seller: true },
+    });
+    if (!submission.createdByAdmin) await sendForReview(submission);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const failed = await prisma.submission.update({
@@ -64,8 +82,9 @@ export async function processSubmission(submissionId: string) {
       data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) },
     });
     console.error(`Submission ${submissionId} failed (attempt ${failed.attempts})`, error);
-    if (failed.attempts >= MAX_PROCESSING_ATTEMPTS && ADMIN_WHATSAPP_NUMBER) {
-      await sendText(ADMIN_WHATSAPP_NUMBER, `⚠️ No pude preparar el anuncio ${submissionId}: ${message.slice(0, 300)}`).catch(() => {});
+    const reviewer = reviewerOf(submission.seller.waId);
+    if (failed.attempts >= MAX_PROCESSING_ATTEMPTS && reviewer && !submission.createdByAdmin) {
+      await sendText(reviewer, `⚠️ No pude preparar el anuncio ${submissionId}: ${message.slice(0, 300)}`).catch(() => {});
     }
   }
 }

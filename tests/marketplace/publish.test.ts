@@ -1,6 +1,6 @@
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
-import { publishSubmission } from '@/lib/marketplace/publish';
+import { publishByAdmin, publishSubmission } from '@/lib/marketplace/publish';
 import { expireListings } from '@/lib/marketplace/expiry';
 
 jest.mock('@/db/prisma', () => {
@@ -85,6 +85,19 @@ describe('publishSubmission', () => {
     db.submission.findUnique.mockResolvedValue({ ...SUBMISSION, status: 'LIVE' });
 
     expect(await publishSubmission(payment())).toBe('already-published');
+  });
+});
+
+describe('publishByAdmin', () => {
+  it('publishes a listing under review without payment, with the chosen plan', async () => {
+    db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', plan: 'normal', createdByAdmin: true });
+
+    expect(await publishByAdmin(SUBMISSION.id, 'normal')).toEqual({ id: 'product-1', slug: 'bici-de-paseo-abcdef' });
+
+    expect(db.submission.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: SUBMISSION.id, status: { in: ['IN_REVIEW', 'AWAITING_PAYMENT'] } } })
+    );
+    expect(db.product.create).toHaveBeenCalledWith({ data: expect.objectContaining({ isFeatured: false }) });
   });
 });
 

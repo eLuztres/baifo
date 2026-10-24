@@ -254,6 +254,8 @@ model Submission {
   expiresAt         DateTime?        @db.Timestamp(6)
   // When the seller was told the listing ends soon.
   remindedAt        DateTime?        @db.Timestamp(6)
+  // Made on /admin/listings/new: no WhatsApp review, the admin sees the result right away.
+  createdByAdmin    Boolean          @default(false)
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)
@@ -266,4 +268,19 @@ model Submission {
 model WhatsappMessage {
   id        String   @id
   createdAt DateTime @default(now()) @db.Timestamp(6)
+}
+
+// The admin simulator's WhatsApp messages (numbers starting with 34000): stored instead of sent.
+model SimulatedMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // The simulated phone: the seller's or the admin's number.
+  waId      String
+  direction String
+  text      String   @default("")
+  image     String?
+  // Reply buttons of a bot message: [{ "id": "...", "title": "..." }].
+  buttons   Json?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([waId, createdAt])
 }

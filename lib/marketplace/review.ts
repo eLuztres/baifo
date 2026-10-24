@@ -1,10 +1,11 @@
-import type { Submission } from '@prisma/client';
+import type { Seller, Submission } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import { formatCurrency } from '@/lib/utils';
 import { sendButtons, sendText } from '@/lib/whatsapp-cloud/client';
 import { ADMIN_WHATSAPP_NUMBER, publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { parsePrice } from './price';
+import { SIMULATED_ADMIN, SIMULATED_PREFIX, isSimulatedNumber } from './simulator';
 
 // Button ids carry the action and the submission, e.g. "approve:<uuid>".
 const ACTIONS = ['approve', 'edit', 'reject'] as const;
@@ -30,11 +31,19 @@ const reviewCaption = (submission: Submission) =>
     .filter((line, index) => line || index === 3)
     .join('\n');
 
+type SubmissionWithSeller = Submission & { seller: Seller };
+
+/** Who reviews a seller's listings: the simulated admin for simulated sellers, otherwise ADMIN_WHATSAPP_NUMBER. */
+export function reviewerOf(sellerWaId: string) {
+  return isSimulatedNumber(sellerWaId) ? SIMULATED_ADMIN : ADMIN_WHATSAPP_NUMBER;
+}
+
 /** Shows the admin the listing as the AI made it, with approve / edit / reject buttons. */
-export async function sendForReview(submission: Submission) {
-  if (!ADMIN_WHATSAPP_NUMBER) throw new Error('ADMIN_WHATSAPP_NUMBER is missing in .env');
+export async function sendForReview(submission: SubmissionWithSeller) {
+  const reviewer = reviewerOf(submission.seller.waId);
+  if (!reviewer) throw new Error('ADMIN_WHATSAPP_NUMBER is missing in .env');
   await sendButtons(
-    ADMIN_WHATSAPP_NUMBER,
+    reviewer,
     reviewCaption(submission),
     [
       { id: `approve:${submission.id}`, title: '✅ Aprobar' },
@@ -45,30 +54,35 @@ export async function sendForReview(submission: Submission) {
   );
 }
 
-async function findInReview(submissionId: string) {
-  return prisma.submission.findFirst({
-    where: { id: submissionId, status: 'IN_REVIEW' },
-    include: { seller: true },
-  });
+const findInReview = (submissionId: string) =>
+  prisma.submission.findFirst({ where: { id: submissionId, status: 'IN_REVIEW' }, include: { seller: true } });
+
+/** Approved: the seller gets the link to choose a plan and pay. Null when it isn't waiting for review. */
+export async function approveSubmission(submissionId: string) {
+  const submission = await findInReview(submissionId);
+  if (!submission) return null;
+  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'AWAITING_PAYMENT' } });
+  const locale = localeOf(submission.seller.waId);
+  await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken) }));
+  return submission;
 }
 
-/** The admin tapped a review button. */
-export async function handleReviewButton(action: ReviewAction, submissionId: string) {
+/** Rejected: the seller gets a polite message. Null when it isn't waiting for review. */
+export async function rejectSubmission(submissionId: string) {
   const submission = await findInReview(submissionId);
-  if (!submission) return sendText(ADMIN_WHATSAPP_NUMBER!, 'Este anuncio ya no está pendiente de revisión.');
-  const locale = localeOf(submission.seller.waId);
+  if (!submission) return null;
+  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'REJECTED' } });
+  await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'rejected'));
+  return submission;
+}
 
-  if (action === 'edit') return sendText(ADMIN_WHATSAPP_NUMBER!, EDIT_HELP);
-
-  if (action === 'reject') {
-    await prisma.submission.update({ where: { id: submission.id }, data: { status: 'REJECTED' } });
-    await sendText(submission.seller.waId, botText(locale, 'rejected'));
-    return sendText(ADMIN_WHATSAPP_NUMBER!, `❌ Rechazado: ${submission.title ?? submission.id}`);
-  }
-
-  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'AWAITING_PAYMENT' } });
-  await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken) }));
-  return sendText(ADMIN_WHATSAPP_NUMBER!, `✅ Aprobado, enlace enviado: ${submission.title}`);
+/** The admin (real or simulated) tapped a review button. */
+export async function handleReviewButton(action: ReviewAction, submissionId: string, adminWaId: string) {
+  if (action === 'edit') return sendText(adminWaId, EDIT_HELP);
+  const submission = action === 'approve' ? await approveSubmission(submissionId) : await rejectSubmission(submissionId);
+  if (!submission) return sendText(adminWaId, 'Este anuncio ya no está pendiente de revisión.');
+  const title = submission.title ?? submission.id;
+  return sendText(adminWaId, action === 'approve' ? `✅ Aprobado, enlace enviado: ${title}` : `❌ Rechazado: ${title}`);
 }
 
 type ListingField = 'price' | 'title' | 'description' | 'category';
@@ -91,14 +105,23 @@ export function parseEdit(text: string): { field: ListingField; value: string } 
   return null;
 }
 
-/** A text from the admin: an edit of the listing most recently sent for review. */
-export async function handleAdminText(text: string) {
+/** A text from the admin: an edit of the listing most recently sent to this admin for review. */
+export async function handleAdminText(text: string, adminWaId: string) {
   const edit = parseEdit(text);
-  const submission = await prisma.submission.findFirst({ where: { status: 'IN_REVIEW' }, orderBy: { updatedAt: 'desc' } });
+  // The simulated admin only edits simulated listings, the real admin only real ones.
+  const where = {
+    status: 'IN_REVIEW' as const,
+    seller: { waId: isSimulatedNumber(adminWaId) ? { startsWith: SIMULATED_PREFIX } : { not: { startsWith: SIMULATED_PREFIX } } },
+  };
+  const submission = await prisma.submission.findFirst({ where, orderBy: { updatedAt: 'desc' } });
   if (!edit || !submission) {
-    const pending = await prisma.submission.count({ where: { status: 'IN_REVIEW' } });
-    return sendText(ADMIN_WHATSAPP_NUMBER!, `${pending} anuncio(s) pendiente(s) de revisión.\n${EDIT_HELP}`);
+    const pending = await prisma.submission.count({ where });
+    return sendText(adminWaId, `${pending} anuncio(s) pendiente(s) de revisión.\n${EDIT_HELP}`);
   }
-  const updated = await prisma.submission.update({ where: { id: submission.id }, data: { [edit.field]: edit.value } });
+  const updated = await prisma.submission.update({
+    where: { id: submission.id },
+    data: { [edit.field]: edit.value },
+    include: { seller: true },
+  });
   return sendForReview(updated);
 }

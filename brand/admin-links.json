@@ -1,1 +1,4 @@
-[]
+[
+  { "href": "/admin/listings", "label": { "es": "Anuncios", "en": "Listings" } },
+  { "href": "/admin/simulator", "label": { "es": "Simulador", "en": "Simulator" } }
+]
