@@ -15,11 +15,15 @@
   "WORKSHOP_TITLE": "Selling is this easy.",
   "WORKSHOP_INTRO": "No accounts, no forms: just WhatsApp. We do the rest.",
   "WORKSHOP_STEP_1_TITLE": "Send a photo",
-  "WORKSHOP_STEP_1_TEXT": "Send a photo of what you want to sell on WhatsApp and, if you like, the price and a few words.",
+  "WORKSHOP_STEP_1_TEXT": "Message us on WhatsApp with a photo of what you want to sell and, if you like, the price and a few words.",
   "WORKSHOP_STEP_2_TITLE": "We make it shine",
-  "WORKSHOP_STEP_2_TEXT": "We improve the photo, write the listing and review it. You get a link to see it and choose your listing.",
+  "WORKSHOP_STEP_2_TEXT": "We improve the photo with AI, write the listing and check it with you.",
   "WORKSHOP_STEP_3_TITLE": "Online for 3 months",
-  "WORKSHOP_STEP_3_TEXT": "Pay by card or PayPal and your listing goes online for 3 months. Buyers write to you directly.",
+  "WORKSHOP_STEP_3_TEXT": "Your listing goes online on Baifo for 3 months. Buyers write to you directly on WhatsApp.",
   "STORE_EMPTY": "Listings are coming soon. Want to be the first? Write to us on WhatsApp.",
-  "FOOTER_TAGLINE": "Second hand in Fuerteventura, on WhatsApp."
+  "FOOTER_TAGLINE": "Second hand in Fuerteventura, on WhatsApp.",
+  "CONTACT_RULES_NOT_A_SHOP": "A noticeboard",
+  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} publishes second-hand listings from private sellers in Fuerteventura. Buyer and seller agree on the sale directly: {shop} does not sell the items or take payment for them.",
+  "CONTACT_RULES_RING": "Contact the seller",
+  "HOME_FAQ_1_A": "On each listing, tap \"Contact the seller\" and write to them on WhatsApp. If a listing has no seller, write to us."
 }
