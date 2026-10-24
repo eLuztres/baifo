@@ -2,7 +2,8 @@ import { Column, Heading, Img, Link, Row, Section, Text } from '@react-email/com
 import { prisma } from '@/db/prisma';
 import { EmailLayout, emailService } from '@/email';
 import { formatCurrency } from '@/lib/utils';
-import { LISTINGS_EMAIL, productUrl } from './config';
+import { productUrl } from './config';
+import { getMarketplaceSettings } from './settings';
 
 interface LiveListing {
   slug: string;
@@ -45,9 +46,14 @@ export function ListingsEmail({ listings }: ListingsEmailProps) {
   );
 }
 
-/** Sends the current list to LISTINGS_EMAIL (skipped when it isn't set). */
-export async function sendListingsEmail() {
-  if (!LISTINGS_EMAIL) return;
+/**
+ * Sends the current list to the address set in the admin (or LISTINGS_EMAIL). After a new listing
+ * (isAutomatic) only when the admin wants that; "Enviar lista" always sends.
+ */
+export async function sendListingsEmail({ isAutomatic = true } = {}) {
+  const { listingsEmail, sendOnPublish } = await getMarketplaceSettings();
+  if (!listingsEmail) return { success: false, error: 'No email address set' };
+  if (isAutomatic && !sendOnPublish) return { success: true };
   const products = await prisma.product.findMany({
     where: { sellerId: { not: null } },
     orderBy: { createdAt: 'desc' },
@@ -60,10 +66,11 @@ export async function sendListingsEmail() {
     phone: contactPhone,
   }));
   const result = await emailService.send({
-    to: LISTINGS_EMAIL,
+    to: listingsEmail,
     subject: `Baifo: ${listings.length} anuncios online`,
     react: <ListingsEmail listings={listings} />,
     tags: [{ name: 'type', value: 'listings' }],
   });
   if (!result.success) console.error(`[email] Listings email not sent: ${result.error}`);
+  return result;
 }

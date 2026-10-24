@@ -284,3 +284,13 @@ model SimulatedMessage {
 
   @@index([waId, createdAt])
 }
+
+// Baifo's own admin settings (one row, id "default").
+model MarketplaceSettings {
+  id            String   @id @default("default")
+  // Gets the printable list of all live listings; LISTINGS_EMAIL in .env until it is set here.
+  listingsEmail String?
+  // Also send the list by itself after every new listing, not only on "Enviar lista".
+  sendOnPublish Boolean  @default(true)
+  updatedAt     DateTime @updatedAt
+}

@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
+import { getMarketplaceSettings } from '@/lib/marketplace/settings';
+import ListingsEmailCard from '@/components/marketplace/listings-email-card';
 import { adminTexts, fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn, formatCurrency } from '@/lib/utils';
 
@@ -28,7 +30,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
   const texts = adminTexts(locale);
   const status = STATUSES.find((value) => value === estado);
 
-  const [listings, counts] = await Promise.all([
+  const [listings, counts, settings] = await Promise.all([
     prisma.submission.findMany({
       where: status ? { status } : { status: { not: 'COLLECTING' } },
       orderBy: { updatedAt: 'desc' },
@@ -36,6 +38,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       include: { seller: { select: { waId: true, name: true } } },
     }),
     prisma.submission.groupBy({ by: ['status'], _count: true }),
+    getMarketplaceSettings(),
   ]);
   const countOf = (value: SubmissionStatus) => counts.find((count) => count.status === value)?._count ?? 0;
 
@@ -59,6 +62,8 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           </Button>
         </div>
       </header>
+
+      <ListingsEmailCard locale={locale} initialEmail={settings.listingsEmail} initialSendOnPublish={settings.sendOnPublish} />
 
       <nav className='flex flex-wrap gap-2'>
         {[undefined, ...STATUSES].map((value) => {
