@@ -202,6 +202,7 @@ The home page is one scrolling page: an opening scene, the **showroom** (a ring 
 | `brand/cutouts.json` | product slugs with a cut-out picture at `public/brand/products/cutout/<slug>.webp`. With at least 4, those products float in the opening scene instead of the hero picture |
 | `brand/rings3d.json` | optional 3D recipes per product slug for the opening scene (three.js, loaded only then) |
 | `brand/studio.mjs` | your own AI studio prompts: export any prompt of `lib/studio/prompts.mjs` under its name to replace the neutral one |
+| `brand/admin-links.json` | the shop's own admin pages in the admin menu: `[{ "href": "/admin/x", "label": { "es": "…", "en": "…" } }]` |
 
 ```env
 BRAND_DECORATION=goldleaf           # dark background with a gold lamp breathing out smoke

@@ -6,6 +6,7 @@
  */
 
 import workshop from '@/brand/workshop.json';
+import adminLinks from '@/brand/admin-links.json';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -130,6 +131,9 @@ export const hasContactInfo = Boolean(
 export const WORKSHOP: { steps: string[]; gallery: string[] } = workshop;
 
 export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length > 0;
+
+/** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */
+export const ADMIN_LINKS: { href: string; label: Record<string, string> }[] = adminLinks;
 
 /** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
 export const EMAIL_COLORS = {

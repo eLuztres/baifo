@@ -20,5 +20,18 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };
     }),
+  // Several product photos at once (the shop's own admin tools).
+  photosUploader: f({
+    'image/jpeg': { maxFileSize: '4MB', maxFileCount: 8 },
+    'image/png': { maxFileSize: '4MB', maxFileCount: 8 },
+  })
+    .middleware(async () => {
+      const session = await auth();
+      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
+      return { userId: session.user.id };
+    })
+    .onUploadComplete(async ({ metadata }) => {
+      return { uploadedBy: metadata.userId };
+    }),
 } satisfies FileRouter;
 export type OurFileRouter = typeof ourFileRouter;
