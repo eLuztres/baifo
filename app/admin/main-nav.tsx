@@ -37,9 +37,11 @@ interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
   isShowcase: boolean;
   /** Without the AI studio, "New product" opens the plain product form. */
   isStudioEnabled: boolean;
+  /** The shop's own admin pages (brand/admin-links.json), already in the visitor's language. */
+  extraLinks?: { href: string; label: string }[];
 }
 
-const MainNav = ({ className, isShowcase, isStudioEnabled, ...props }: MainNavProps) => {
+const MainNav = ({ className, isShowcase, isStudioEnabled, extraLinks = [], ...props }: MainNavProps) => {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
@@ -62,6 +64,18 @@ const MainNav = ({ className, isShowcase, isStudioEnabled, ...props }: MainNavPr
           </Link>
         );
       })}
+      {extraLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className={cn(
+            'text-sm font-medium transition-colors hover:text-primary',
+            pathname.startsWith(link.href) ? '' : 'text-muted-foreground'
+          )}
+        >
+          {link.label}
+        </Link>
+      ))}
     </nav>
   );
 };
