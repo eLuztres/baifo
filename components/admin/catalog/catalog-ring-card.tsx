@@ -19,7 +19,7 @@ const CatalogRingCard = ({ ring, ringIds, soldOutLabel, reservedLabel }: Catalog
   return (
     <div className='relative'>
       <Link
-        href={`/admin/products/${ring.id}`}
+        href={ring.listingId ? `/admin/listings/${ring.listingId}` : `/admin/products/${ring.id}`}
         className='group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted transition hover:border-primary/60'
       >
         <ProductMedia src={ring.images[0]} alt={ring.name} fill sizes='(min-width: 1024px) 16rem, 50vw' className='object-cover' />

@@ -61,7 +61,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const slugOf = new Map(categories.map((category) => [category.id, category.slug]));
   const feed = composeFeed(listings, subcategory?.id ?? focus?.id, `${todayOnTheIsland()}:${focus?.slug ?? ''}:${subcategory?.slug ?? ''}`);
   const now = new Date();
-  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.whatsappUrl : undefined;
+  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl : undefined;
 
   return (
     <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:py-10'>

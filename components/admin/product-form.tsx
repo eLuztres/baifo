@@ -7,6 +7,7 @@ import { insertProductSchema } from '@/lib/validators';
 import { Product } from '@/types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { ControllerRenderProps, SubmitHandler, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -77,6 +78,15 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
   const showUploadError = () => {
     toast({ variant: 'destructive', description: t('STUDIO_UPLOAD_FAILED') });
   };
+
+  // Leaving with changes not saved yet asks first.
+  const hasUnsaved = form.formState.isDirty && !form.formState.isSubmitSuccessful;
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsaved]);
 
   const images = form.watch('images');
   const isFeatured = form.watch('isFeatured');
@@ -385,12 +395,16 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
             )}
           />
         </div>
-        <div>
+        {/* Always in sight at the bottom of a long form, with a word when there are changes still to save. */}
+        <div className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl backdrop-blur'>
+          <p role='status' className='min-w-0 flex-1 truncate text-sm text-muted-foreground'>
+            {hasUnsaved && t('FORM_UNSAVED')}
+          </p>
           <Button
             type='submit'
             size='lg'
             disabled={form.formState.isSubmitting}
-            className='button col-span-2 w-full'
+            className='shrink-0 rounded-full'
           >
             {form.formState.isSubmitting
               ? t('FORM_SAVING')

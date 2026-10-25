@@ -12,8 +12,8 @@ import { sendForReview } from './review';
 // A submission still PROCESSING after this long counts as stuck, so the cron starts it again.
 export const STUCK_AFTER_MS = 10 * 60 * 1000;
 
-/** The AI makes at most this many shop pictures per listing; more photos stay as they are. */
-export const MAX_ENHANCED_PHOTOS = 4;
+/** The AI makes a shop picture of every photo, up to as many as the uploader takes; the admin picks either version per photo. */
+export const MAX_ENHANCED_PHOTOS = 8;
 
 const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
 

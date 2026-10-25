@@ -68,6 +68,7 @@ export async function getCatalogRings() {
       stock: true,
       reservedUntil: true,
       categories: { select: { id: true } },
+      submission: { select: { id: true } },
     },
   });
 }

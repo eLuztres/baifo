@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, ChevronDown, ExternalLink, Languages, Loader2, Plus, Send, Sparkles, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, Plus, Save, Send, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import ImageLightbox from '@/components/shared/image-lightbox';
 import { PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,6 +85,8 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [images, setImages] = useState(listing.images.length > 0 ? listing.images : listing.rawImages);
+  // The picture open full screen, to judge it before choosing original or AI.
+  const [viewedIndex, setViewedIndex] = useState<number | null>(null);
   const [fields, setFields] = useState({
     title: listing.title ?? '',
     description: listing.description ?? '',
@@ -150,6 +153,31 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
   }, [fields, images, listing.id, isService, textMode]);
+
+  // The save bar's button: saves at once instead of waiting for the autosave.
+  const saveNow = async () => {
+    const snapshot = JSON.stringify({ ...fields, images });
+    setSaveState('saving');
+    const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+    if (saved.success) savedSnapshot.current = snapshot;
+    setSaveState(saved.success ? 'saved' : 'failed');
+    setError(saved.success ? '' : saved.message);
+  };
+
+  // Leaving with a change not saved yet asks first.
+  const hasUnsaved = saveState === 'saving' || saveState === 'failed';
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsaved]);
+  const saveLabel = {
+    saving: texts.saving,
+    failed: texts.notSaved,
+    saved: listing.status === 'LIVE' ? texts.savedLive : texts.savedDraft,
+    idle: listing.status === 'LIVE' ? texts.savedLive : texts.savedDraft,
+  }[saveState];
 
   // Every action saves the edits first, so what goes online is what the admin sees.
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
@@ -223,28 +251,42 @@ export default function ListingEditor({ listing, categories, languages, shopLang
         </div>
       )}
 
-      {/* The main picture a bit bigger; a tap on another one makes it the main picture. Under each, original or AI. */}
+      {/* The main picture a bit bigger; a tap opens a picture full screen, the star makes it the main one. Under each, original or AI. */}
       <ul className='flex items-start gap-3 overflow-x-auto p-1'>
         {images.map((url, index) => {
           const counterpart = counterpartOf(url);
           const isAiPicture = listing.aiImages.length > 0 ? Boolean(counterpart?.isAi) : index === 0 && listing.images.length > 0;
           return (
             <li key={`${index}-${url}`} className={cn('flex shrink-0 flex-col items-center gap-1.5', index > 0 && 'pt-8')}>
-              <button
-                type='button'
-                onClick={() => makeMain(url)}
-                aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
-                aria-pressed={index === 0}
-                className={cn(
-                  'relative block overflow-hidden rounded-2xl border-2 bg-muted',
-                  index === 0 ? 'size-24 border-primary' : 'size-16 border-transparent'
-                )}
-              >
-                <ProductMedia src={url} alt='' fill sizes='6rem' />
-                {isAiPicture && (
-                  <Sparkles className='absolute left-1.5 top-1.5 size-4 rounded-full bg-background/90 p-0.5 text-primary' aria-label={texts.aiPicture} />
-                )}
-              </button>
+              <div className='relative'>
+                <button
+                  type='button'
+                  onClick={() => setViewedIndex(index)}
+                  aria-label={`${texts.photosLabel} ${index + 1}`}
+                  className={cn(
+                    'relative block cursor-zoom-in overflow-hidden rounded-2xl border-2 bg-muted transition-transform hover:scale-[1.03]',
+                    index === 0 ? 'size-32 border-primary' : 'size-24 border-transparent'
+                  )}
+                >
+                  <ProductMedia src={url} alt='' fill sizes='8rem' />
+                  {isAiPicture && (
+                    <Sparkles className='absolute left-1.5 top-1.5 size-5 rounded-full bg-background/90 p-1 text-primary' aria-label={texts.aiPicture} />
+                  )}
+                </button>
+                <button
+                  type='button'
+                  onClick={() => index > 0 && makeMain(url)}
+                  aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
+                  aria-pressed={index === 0}
+                  title={index === 0 ? texts.mainPhoto : texts.makeMain}
+                  className={cn(
+                    'absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-full bg-background/90 shadow transition-colors',
+                    index === 0 ? 'text-primary' : 'text-muted-foreground hover:text-primary'
+                  )}
+                >
+                  <Star className={cn('size-4', index === 0 && 'fill-current')} />
+                </button>
+              </div>
               {counterpart && (
                 <div role='radiogroup' aria-label={texts.photosLabel} className='flex rounded-full bg-muted p-0.5'>
                   {[
@@ -276,6 +318,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
           );
         })}
       </ul>
+      <ImageLightbox images={images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
 
       <section className='relative space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
         {hasOriginalText && (
@@ -328,7 +371,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             value={text?.description ?? ''}
             onChange={setText('description')}
             placeholder={texts.descriptionLabel}
-            className={`${INLINE_CLASS} field-sizing-content max-h-[28svh] min-h-16 resize-none overflow-y-auto text-base leading-relaxed md:text-base`}
+            className={`${INLINE_CLASS} field-sizing-content max-h-[56svh] min-h-32 resize-none overflow-y-auto text-base leading-relaxed md:text-base`}
           />
         </div>
         {textWork && (
@@ -452,6 +495,29 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
           </Button>
           <p className='text-center text-xs text-muted-foreground'>{texts.publishNowHint}</p>
+        </div>
+      )}
+
+      {/* Edits save by themselves; the bar stays in sight while editing, says so, and saves at once on request. */}
+      {!isOpen && (
+        <div className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
+          <p
+            role='status'
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-2 text-sm',
+              saveState === 'failed' ? 'font-medium text-destructive' : hasUnsaved ? 'text-muted-foreground' : 'text-primary'
+            )}
+          >
+            {saveState === 'saving' ? (
+              <Loader2 className='size-4 shrink-0 animate-spin' aria-hidden />
+            ) : (
+              !hasUnsaved && <CheckCircle2 className='size-4 shrink-0' aria-hidden />
+            )}
+            <span className='truncate'>{saveLabel}</span>
+          </p>
+          <Button className='shrink-0 rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
+            <Save /> {texts.saveNow}
+          </Button>
         </div>
       )}
     </div>

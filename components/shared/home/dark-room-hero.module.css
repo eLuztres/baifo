@@ -129,12 +129,44 @@
   gap: 1rem 2.5rem;
 }
 
+/* The sell button with its label, and the QR code for computers under it. */
+.sell {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  place-self: center;
+}
+
+.sellLabel {
+  color: var(--muted-foreground);
+  letter-spacing: 0.02em;
+}
+
+.qr {
+  display: none;
+}
+
+/* Only where a mouse points: phones open WhatsApp straight from the button. */
+@media (min-width: 1024px) and (pointer: fine) {
+  .qr {
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 0.75rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--background);
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+}
+
 /* WhatsApp's own green: the logo is only recognizable in it, on any shop theme. */
 .whatsapp {
   display: grid;
   place-items: center;
   position: relative;
-  place-self: center;
   width: clamp(9rem, 5rem + 9vw, 15rem);
   aspect-ratio: 1;
   border-radius: 50%;

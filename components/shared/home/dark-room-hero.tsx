@@ -5,6 +5,7 @@ import { BRAND } from '@/lib/brand';
 import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
+import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import styles from './dark-room-hero.module.css';
@@ -15,7 +16,7 @@ interface DarkRoomHeroProps {
 
 export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
   const { t } = await getT();
-  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.whatsappUrl : undefined;
+  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl : undefined;
 
   return (
     <section className={cn(room.bleed, styles.hero)}>
@@ -49,16 +50,19 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
 
       {/* Selling starts with a WhatsApp message, so that is the hero's centerpiece. */}
       {whatsappUrl && (
-        <Link
-          href={whatsappUrl}
-          target='_blank'
-          rel='noopener noreferrer'
-          aria-label={t('HOME_HERO_ORDER')}
-          title={t('HOME_HERO_ORDER')}
-          className={styles.whatsapp}
-        >
-          <WhatsAppLogo />
-        </Link>
+        <div className={styles.sell}>
+          <Link href={whatsappUrl} target='_blank' rel='noopener noreferrer' aria-labelledby='hero-sell' className={styles.whatsapp}>
+            <WhatsAppLogo />
+          </Link>
+          <p id='hero-sell' className={cn(room.small, styles.sellLabel)}>
+            {t('HOME_HERO_ORDER')}
+          </p>
+          {/* A computer can't open WhatsApp like a phone does: there the phone scans this instead. */}
+          <figure className={styles.qr}>
+            <WhatsAppQr url={whatsappUrl} label={t('HOME_HERO_ORDER')} className='size-28' />
+            <figcaption>{t('HOME_HERO_SCAN')}</figcaption>
+          </figure>
+        </div>
       )}
 
       {/* One real ring, floating in the dark like a jewel in a display window. */}

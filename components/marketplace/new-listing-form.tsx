@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, RotateCw, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
-import { createAdminListing, getAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { createAdminListing, getAdminListing, retryAdminListing, swapListingPicture, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { ProductKind } from '@/lib/constants';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
@@ -30,7 +31,6 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [listing, setListing] = useState<AdminListing | null>(null);
   const [shownIndex, setShownIndex] = useState(0);
-  const [isShowingOriginal, setIsShowingOriginal] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -93,9 +93,25 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
       setListing({ ...listing, lastError: null });
     });
 
-  // Before the AI: the chosen photo. After: the AI picture, or its original on request.
+  // Before the AI: the chosen photo. After: the version in use of each picture, AI or original.
   const thumbnails = pictures.length > 0 ? pictures : photos;
-  const stageSource = pictures.length > 0 && !isShowingOriginal ? pictures[shownIndex] : photos[shownIndex] ?? photos[0];
+  const stageSource = pictures.length > 0 ? pictures[shownIndex] : photos[shownIndex] ?? photos[0];
+  const versionOf = (url: string) => (listing ? pictureCounterpart(listing, url) : undefined);
+  const shownVersion = pictures.length > 0 ? versionOf(stageSource) : undefined;
+
+  // Shown at once and saved right after; a failed save puts the picture back.
+  const choosePicture = async (url: string) => {
+    if (!listing) return;
+    const version = versionOf(url);
+    if (!version) return;
+    const before = listing;
+    setListing({ ...listing, images: listing.images.map((image) => (image === url ? version.other : image)) });
+    const result = await swapListingPicture(listing.id, url);
+    if (!result.success) {
+      setListing(before);
+      setError(result.message);
+    }
+  };
 
   return (
     <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
@@ -145,22 +161,36 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             </span>
           </>
         )}
-        {pictures.length > 0 && (
-          <>
-            {!isShowingOriginal && (
-              <span className='absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow'>
-                <Sparkles className='size-3.5 text-primary' /> {texts.aiPicture}
-              </span>
-            )}
-            <button
-              type='button'
-              aria-pressed={isShowingOriginal}
-              onClick={() => setIsShowingOriginal((current) => !current)}
-              className='absolute bottom-3 right-3 rounded-full bg-background/90 px-4 py-2 text-sm font-medium shadow transition hover:bg-background'
-            >
-              {isShowingOriginal ? texts.showAi : texts.showOriginal}
-            </button>
-          </>
+        {/* For every picture its own choice: the original photo or the AI picture, whichever looks better. */}
+        {shownVersion && (
+          <div
+            role='radiogroup'
+            aria-label={texts.photosLabel}
+            className='absolute inset-x-0 bottom-3 mx-auto flex w-fit rounded-full bg-background/90 p-1 shadow-lg backdrop-blur'
+          >
+            {[
+              { isAi: false, icon: Camera, label: texts.original, title: texts.useOriginalPicture },
+              { isAi: true, icon: Sparkles, label: texts.aiPicture, title: texts.useAiPicture },
+            ].map(({ isAi, icon: Icon, label, title }) => {
+              const isChecked = isAi === shownVersion.isAi;
+              return (
+                <button
+                  key={label}
+                  type='button'
+                  role='radio'
+                  aria-checked={isChecked}
+                  title={title}
+                  onClick={() => !isChecked && choosePicture(stageSource)}
+                  className={cn(
+                    'flex min-w-28 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                    isChecked ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className='size-4' aria-hidden /> {label}
+                </button>
+              );
+            })}
+          </div>
         )}
       </ListingStage>
 
@@ -170,15 +200,17 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             <li key={`${index}-${url}`} className='relative shrink-0'>
               <button
                 type='button'
-                onClick={() => {
-                  setShownIndex(index);
-                  setIsShowingOriginal(false);
-                }}
+                onClick={() => setShownIndex(index)}
                 aria-pressed={index === shownIndex}
                 aria-label={`${texts.photosLabel} ${index + 1}`}
                 className={cn('relative block size-16 overflow-hidden rounded-2xl border-2 bg-muted', index === shownIndex ? 'border-primary' : 'border-transparent')}
               >
                 <ProductMedia src={url} alt='' fill sizes='4rem' />
+                {versionOf(url) && (
+                  <span className='absolute bottom-1 right-1 flex size-5 items-center justify-center rounded-full bg-background/90 text-primary shadow'>
+                    {versionOf(url)?.isAi ? <Sparkles className='size-3' aria-label={texts.aiPicture} /> : <Camera className='size-3' aria-label={texts.original} />}
+                  </span>
+                )}
               </button>
               {!listing && (
                 <button

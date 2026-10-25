@@ -13,6 +13,7 @@ import { HOUSE_SELLER } from './config';
 import { fetchImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
+import { pictureCounterpart } from './pictures';
 import { publishByAdmin, takeDown } from './publish';
 import { approveSubmission, rejectSubmission } from './review';
 
@@ -108,6 +109,20 @@ export async function getAdminListing(id: string) {
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
+
+/** Before the text: one picture switched between its original photo and its AI picture, the others untouched.
+    A live listing changes its pictures in the editor, which also updates the product. */
+export async function swapListingPicture(id: string, url: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !photoUrlSchema.safeParse(url).success) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { images: true, rawImages: true, aiImages: true, productId: true } });
+  const noOtherVersion = { success: false, message: 'Esta foto no tiene otra versión' } as const;
+  if (!submission || submission.productId || !submission.images.includes(url)) return noOtherVersion;
+  const counterpart = pictureCounterpart(submission, url);
+  if (!counterpart) return noOtherVersion;
+  const images = submission.images.map((image) => (image === url ? counterpart.other : image));
+  await prisma.submission.update({ where: { id }, data: { images } });
+  return { success: true, message: 'Guardado', images };
+}
 
 const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000) });
 

@@ -8,6 +8,8 @@ export interface CatalogCard {
   isReserved: boolean;
   /** Names of the other categories it is in. */
   otherCategories: string[];
+  /** The listing it came from, if any: then it is edited in the listing editor, which saves by itself. */
+  listingId?: string;
 }
 
 /** One branch of the tree: a category with its rings. */

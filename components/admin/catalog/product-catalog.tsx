@@ -28,6 +28,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
     isSoldOut: ring.stock <= 0,
     isReserved: ring.stock > 0 && isReservationActive(ring),
     otherCategories: ring.categoryIds.filter((id) => id !== categoryId).map((id) => nameOf.get(id) ?? ''),
+    listingId: ring.submission?.id,
   });
 
   const branches: CatalogBranch[] = categories.map((category) => ({
