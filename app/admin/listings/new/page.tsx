@@ -12,16 +12,28 @@ export const metadata: Metadata = { title: 'Nuevo anuncio' };
 // "Crear con IA" starts the AI work inside the action's time.
 export const maxDuration = 300;
 
-export default async function NewListingPage() {
+interface NewListingPageProps {
+  /** `kind=service`: a person offering a service instead of an item (the "+" menu's "New service"). */
+  searchParams: Promise<{ kind?: string }>;
+}
+
+export default async function NewListingPage({ searchParams }: NewListingPageProps) {
   await requireAdmin();
-  const texts = adminTexts(await getLocale());
+  const [texts, { kind }] = await Promise.all([getLocale().then(adminTexts), searchParams]);
+  const isService = kind === 'service';
   return (
     <div className='space-y-8'>
       <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
+      {isService && (
+        <div className='mx-auto max-w-xl space-y-1 text-center'>
+          <h2 className='font-display text-2xl'>{texts.newService}</h2>
+          <p className='text-sm text-muted-foreground'>{texts.newServiceIntro}</p>
+        </div>
+      )}
       <ListingSteps current={0} texts={texts} />
-      <NewListingForm texts={texts} />
+      <NewListingForm texts={texts} kind={isService ? 'service' : 'product'} />
     </div>
   );
 }

@@ -70,7 +70,7 @@ export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
 export const NEW_PRODUCT_PATH =
   process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
-export const NEW_SERVICE_PATH = '/admin/services/new';
+export const NEW_SERVICE_PATH = '/admin/listings/new?kind=service';
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);

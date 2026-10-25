@@ -11,6 +11,7 @@ import { getAdminListing } from '@/lib/marketplace/admin.actions';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getListingCategories } from '@/lib/marketplace/catalog';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
+import type { ProductKind } from '@/lib/constants';
 
 export const metadata: Metadata = { title: 'Anuncio' };
 
@@ -24,8 +25,10 @@ interface ListingPageProps {
 export default async function ListingPage({ params }: ListingPageProps) {
   await requireAdmin();
   const [{ id }, locale] = await Promise.all([params, getLocale()]);
-  const [listing, categories] = await Promise.all([getAdminListing(id), getListingCategories()]);
+  const listing = await getAdminListing(id);
   if (!listing) notFound();
+  // A service is sorted into a kind of service instead of a store category.
+  const categories = await getListingCategories(listing.kind as ProductKind);
   const texts = adminTexts(locale);
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });

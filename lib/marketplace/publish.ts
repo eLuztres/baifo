@@ -5,7 +5,8 @@ import { getShopLocale } from '@/lib/i18n-server';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
-import { categoryName, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
+import type { ProductKind } from '@/lib/constants';
+import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
 
@@ -34,8 +35,9 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const plan = (submission.plan ?? 'normal') as ListingPlan;
   const expiresAt = new Date(Date.now() + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
-  const categories = await getListingCategories();
-  const category = findCategory(categories, submission.category) ?? findCategory(categories, FALLBACK_CATEGORY_SLUG);
+  const isService = submission.kind === 'service';
+  const categories = await getListingCategories(submission.kind as ProductKind);
+  const category = findCategory(categories, submission.category) ?? findCategory(categories, isService ? categories[0]?.slug : FALLBACK_CATEGORY_SLUG);
   const contactPhone = submission.hasContactConsent && isPhoneNumber(submission.seller.waId) ? `+${submission.seller.waId}` : null;
 
   const product = await prisma.$transaction(async (tx) => {
@@ -55,12 +57,13 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         description: submission.description ?? '',
         translations: toProductTranslations(submission.translations),
         stock: 1,
-        price: submission.price ?? 0,
+        price: isService ? 0 : (submission.price ?? 0),
+        kind: submission.kind,
         isFeatured: plan === 'big',
         contactPhone,
         sellerId: submission.sellerId,
         expiresAt,
-        categories: { connect: category ? [{ id: category.id }] : [] },
+        categories: { connect: category ? categoryRefs(category) : [] },
       },
     });
     await tx.submission.update({ where: { id: submission.id }, data: { productId: created.id } });

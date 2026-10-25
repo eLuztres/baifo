@@ -99,7 +99,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                   </div>
                   <div className='space-y-1 p-4'>
                     <p className='truncate font-medium'>{listing.title ?? texts.noTitle}</p>
-                    <p className='text-primary'>{listing.price ? formatCurrency(listing.price.toString()) : texts.noPrice}</p>
+                    <p className='text-primary'>{listing.kind === 'service' ? texts.service : listing.price ? formatCurrency(listing.price.toString()) : texts.noPrice}</p>
                     <p className='truncate text-xs text-muted-foreground'>
                       {listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (listing.seller.name ?? `+${listing.seller.waId}`)}
                       {listing.expiresAt && listing.status === 'LIVE' && ` · ${fillText(texts.until, { date: listing.expiresAt.toLocaleDateString(locale) })}`}

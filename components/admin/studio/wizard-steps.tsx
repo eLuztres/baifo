@@ -12,17 +12,15 @@ const WIZARD_STEPS: TranslationKey[] = [
 ];
 
 interface WizardStepsProps {
-  /** Index of the current step in `steps`. */
+  /** Index of the current step in WIZARD_STEPS. */
   current: number;
-  /** The steps' names; the product studio's by default. */
-  steps?: TranslationKey[];
 }
 
-const WizardSteps = ({ current, steps = WIZARD_STEPS }: WizardStepsProps) => {
+const WizardSteps = ({ current }: WizardStepsProps) => {
   const { t } = useI18n();
   return (
     <ol className="flex items-center gap-2 text-sm sm:gap-4">
-      {steps.map((label, index) => (
+      {WIZARD_STEPS.map((label, index) => (
         <li key={label} className="flex items-center gap-2 sm:gap-4">
           {index > 0 && <span className="h-px w-6 bg-border sm:w-12" />}
           <span

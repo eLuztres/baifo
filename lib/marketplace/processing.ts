@@ -1,4 +1,5 @@
 import { prisma } from '@/db/prisma';
+import type { ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enhancePhoto, writeListing } from './ai';
@@ -17,11 +18,11 @@ export const MAX_ENHANCED_PHOTOS = 4;
 const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
 
 /** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting). */
-async function makeShopPictures(submissionId: string, originals: string[], firstPhoto?: Buffer) {
+async function makeShopPictures(submissionId: string, originals: string[], kind: ProductKind, firstPhoto?: Buffer) {
   const enhanced = await Promise.all(
     originals.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
-      return uploadImage(await enhancePhoto(photo), `listing-${submissionId}-${index}`);
+      return uploadImage(await enhancePhoto(photo, kind), `listing-${submissionId}-${index}`);
     })
   );
   await prisma.submission.update({
@@ -36,7 +37,7 @@ export async function makeListingPictures(submissionId: string) {
   if (!submission || submission.status !== 'COLLECTING' || submission.images.length > 0) return;
   try {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
-    await makeShopPictures(submissionId, submission.rawImages);
+    await makeShopPictures(submissionId, submission.rawImages, submission.kind as ProductKind);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await prisma.submission.update({ where: { id: submissionId }, data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) } });
@@ -71,7 +72,8 @@ export async function processSubmission(submissionId: string) {
     if (!submission.title) {
       const shopLocale = getShopLocale();
       const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
-      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(), locales);
+      const kind = submission.kind as ProductKind;
+      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(kind), locales, kind);
       const { [shopLocale]: own, ...others } = text.texts;
       await prisma.submission.update({
         where: { id: submissionId },
@@ -81,15 +83,15 @@ export async function processSubmission(submissionId: string) {
           translations: others,
           category: text.category,
           condition: text.condition,
-          // What the seller asked for wins over the AI's suggestion.
-          price: submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
+          // What the seller asked for wins over the AI's suggestion; a service never has a price, even if the notes name one.
+          price: kind === 'service' ? null : (submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null)),
         },
       });
       submission = (await findSubmission(submissionId))!;
     }
 
     if (submission.images.length === 0) {
-      await makeShopPictures(submissionId, originals, firstPhoto);
+      await makeShopPictures(submissionId, originals, submission.kind as ProductKind, firstPhoto);
       submission = (await findSubmission(submissionId))!;
     }
 

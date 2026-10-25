@@ -21,8 +21,10 @@ interface DescriptionStepProps {
 
 /** Step 2: everything the admin knows about the item in one text; the AI turns it into the listing. */
 export default function DescriptionStep({ listing, texts, onSent }: DescriptionStepProps) {
+  // A service always belongs to the person offering it, so their WhatsApp is asked for right away.
+  const isService = listing.kind === 'service';
   const [notes, setNotes] = useState(listing.rawText);
-  const [isForSeller, setIsForSeller] = useState(false);
+  const [isForSeller, setIsForSeller] = useState(isService);
   const [sellerPhone, setSellerPhone] = useState('');
   const [hasConsent, setHasConsent] = useState(false);
   const [error, setError] = useState('');
@@ -68,10 +70,10 @@ export default function DescriptionStep({ listing, texts, onSent }: DescriptionS
           value={notes}
           readOnly={isWriting}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder={texts.tellPlaceholder}
+          placeholder={isService ? texts.tellServicePlaceholder : texts.tellPlaceholder}
           className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
         />
-        {!isWriting && (
+        {!isWriting && !isService && (
           <button
             type='button'
             onClick={() => setIsForSeller((current) => !current)}
@@ -83,21 +85,21 @@ export default function DescriptionStep({ listing, texts, onSent }: DescriptionS
         )}
         {isForSeller && !isWriting && (
           <div className='space-y-2 pt-1'>
-            <Label htmlFor='seller'>{texts.sellerLabel}</Label>
+            <Label htmlFor='seller'>{isService ? texts.servicePhoneLabel : texts.sellerLabel}</Label>
             <Input
               id='seller'
               type='tel'
-              autoFocus
+              autoFocus={!isService}
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder={texts.sellerPlaceholder}
               className='h-12 rounded-2xl bg-background'
             />
-            <p className='text-xs text-muted-foreground'>{texts.sellerHint}</p>
+            <p className='text-xs text-muted-foreground'>{isService ? texts.servicePhoneHint : texts.sellerHint}</p>
             {sellerPhone.trim() && (
               <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
                 <Checkbox checked={hasConsent} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
-                {texts.consent}
+                {isService ? texts.serviceConsent : texts.consent}
               </Label>
             )}
           </div>

@@ -54,6 +54,19 @@ interface ListingEditorProps {
 
 type Plan = 'normal' | 'big';
 
+interface EditorFields {
+  title: string;
+  description: string;
+  translations: Record<string, { title: string; description: string }>;
+  category: string;
+  price: string;
+  condition: ProductCondition | '';
+}
+
+// A service sends no price and no condition: it never has either.
+const toEdit = ({ price, condition, ...fields }: EditorFields, images: string[], isService: boolean) =>
+  isService ? { ...fields, images } : { ...fields, price, condition, images };
+
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
 // Native selects: on a phone they open the system's own picker.
@@ -88,6 +101,8 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   // What the server has, so only real changes are saved (and React's double effects in dev save nothing).
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
   const hasSellerPhone = listing.seller.waId !== houseSeller;
+  // A service has no price and no condition, and its category is a kind of service.
+  const isService = listing.kind === 'service';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
@@ -108,19 +123,19 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     if (snapshot === savedSnapshot.current) return;
     setSaveState('saving');
     const timer = setTimeout(async () => {
-      const saved = await updateAdminListing(listing.id, { ...fields, images });
+      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService));
       if (saved.success) savedSnapshot.current = snapshot;
       setSaveState(saved.success ? 'saved' : 'failed');
       setError(saved.success ? '' : saved.message);
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
-  }, [fields, images, listing.id]);
+  }, [fields, images, listing.id, isService]);
 
   // Every action saves the edits first, so what goes online is what the admin sees.
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
     startTransition(async () => {
       setError('');
-      const saved = await updateAdminListing(listing.id, { ...fields, images });
+      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService));
       if (!saved.success) return setError(saved.message);
       savedSnapshot.current = JSON.stringify({ ...fields, images });
       const result = await action();
@@ -145,7 +160,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             </Button>
           )}
           <Button asChild variant='outline' className='rounded-full'>
-            <Link href='/admin/listings/new'>
+            <Link href={isService ? '/admin/listings/new?kind=service' : '/admin/listings/new'}>
               <Plus /> {texts.newAnother}
             </Link>
           </Button>
@@ -221,32 +236,43 @@ export default function ListingEditor({ listing, categories, languages, shopLang
       </section>
 
       <div className='grid grid-cols-2 gap-3'>
-        <div className='space-y-1'>
-          <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
-            {texts.priceShort}
-          </Label>
-          <div className='relative'>
-            <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
-            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
-          </div>
-        </div>
-        <div className='space-y-1'>
-          <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
-            {texts.conditionLabel}
-          </Label>
-          <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
-            <option value=''>–</option>
-            {PRODUCT_CONDITIONS.map((condition) => (
-              <option key={condition} value={condition}>
-                {texts[`condition_${condition}`]}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!isService && (
+          <>
+            <div className='space-y-1'>
+              <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
+                {texts.priceShort}
+              </Label>
+              <div className='relative'>
+                <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
+                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+              </div>
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
+                {texts.conditionLabel}
+              </Label>
+              <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
+                <option value=''>–</option>
+                {PRODUCT_CONDITIONS.map((condition) => (
+                  <option key={condition} value={condition}>
+                    {texts[`condition_${condition}`]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
         <div className='col-span-2 space-y-1'>
-          <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
-            {texts.categoryLabel}
-          </Label>
+          <div className='flex items-baseline justify-between gap-3 px-1'>
+            <Label htmlFor='category' className='text-xs text-muted-foreground'>
+              {isService ? texts.serviceKindLabel : texts.categoryLabel}
+            </Label>
+            {isService && (
+              <Link href='/admin/services/subcategories' className='text-xs text-primary underline-offset-4 hover:underline'>
+                {texts.editServiceKinds}
+              </Link>
+            )}
+          </div>
           <select id='category' value={fields.category} onChange={set('category')} className={SELECT_CLASS}>
             {!fields.category && <option value=''>–</option>}
             {categories.map((category) => (

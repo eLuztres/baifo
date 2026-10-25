@@ -5,9 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { PRODUCT_CONDITIONS } from '@/lib/constants';
+import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
 import { getShopLocale } from '@/lib/i18n-server';
-import { categoryName, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
+import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { HOUSE_SELLER } from './config';
 import { makeListingPictures, processSubmission } from './processing';
 import { publishByAdmin, takeDown } from './publish';
@@ -23,7 +23,7 @@ const photoUrlSchema = z.string().refine((value) => {
   return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
 });
 
-const newListingSchema = z.object({ photos: z.array(photoUrlSchema).min(1).max(8) });
+const newListingSchema = z.object({ photos: z.array(photoUrlSchema).min(1).max(8), kind: z.enum(PRODUCT_KINDS).default('product') });
 
 export type NewListingInput = z.input<typeof newListingSchema>;
 
@@ -36,7 +36,7 @@ export async function createAdminListing(input: NewListingInput) {
   const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
   // COLLECTING until the description arrives: only the pictures are made now.
   const submission = await prisma.submission.create({
-    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: parsed.data.photos },
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: parsed.data.photos, kind: parsed.data.kind },
   });
   after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
@@ -60,6 +60,11 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, hasContactConsent } = parsed.data;
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true } });
+  // A service is nothing without the person's WhatsApp, and that number goes public.
+  if (listing?.kind === 'service' && !(sellerPhone && hasContactConsent)) {
+    return { success: false, message: 'Un servicio necesita el WhatsApp de la persona y su permiso para mostrarlo' };
+  }
 
   // A Spanish mobile without country code gets +34.
   const waId = sellerPhone ? (sellerPhone.length === 9 ? `34${sellerPhone}` : sellerPhone) : HOUSE_SELLER;
@@ -100,10 +105,12 @@ const editSchema = z.object({
   category: z.string().trim().max(60),
   // Empty: the admin took the condition away.
   condition: z.union([z.enum(PRODUCT_CONDITIONS), z.literal('')]).transform((value) => value || null).optional(),
+  // Missing for a service, which never has a price.
   price: z
     .string()
     .regex(/^\d{1,6}([.,]\d{1,2})?$/)
-    .transform((value) => Number(value.replace(',', '.')).toFixed(2)),
+    .transform((value) => Number(value.replace(',', '.')).toFixed(2))
+    .optional(),
   images: z.array(photoUrlSchema).min(1).max(12),
 });
 
@@ -112,10 +119,11 @@ export type ListingEdit = z.input<typeof editSchema>;
 export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = editSchema.safeParse(input);
-  if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
-  const category = findCategory(await getListingCategories(), parsed.data.category);
+  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true, kind: true } });
+  const isService = current?.kind === 'service';
+  if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
+  const category = findCategory(await getListingCategories(current?.kind as ProductKind), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
-  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true } });
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const submission = await prisma.submission.update({ where: { id }, data: { ...parsed.data, translations, category: category.slug } });
@@ -128,11 +136,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         name: title,
         description,
         translations: toProductTranslations(translations),
-        price,
+        price: isService ? 0 : price,
         images,
         condition,
         category: categoryName(category, getShopLocale()),
-        categories: { set: [{ id: category.id }] },
+        categories: { set: categoryRefs(category) },
       },
     });
     revalidatePath('/');
@@ -143,13 +151,14 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
 /** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
 export async function setAdminListingCategory(id: string, slug: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const category = findCategory(await getListingCategories(), slug);
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true } });
+  const category = findCategory(await getListingCategories(listing?.kind as ProductKind), slug);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   const submission = await prisma.submission.update({ where: { id }, data: { category: category.slug } });
   if (submission.productId) {
     await prisma.product.update({
       where: { id: submission.productId },
-      data: { category: categoryName(category, getShopLocale()), categories: { set: [{ id: category.id }] } },
+      data: { category: categoryName(category, getShopLocale()), categories: { set: categoryRefs(category) } },
     });
     revalidatePath('/');
   }

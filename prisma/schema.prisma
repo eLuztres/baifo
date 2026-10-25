@@ -270,6 +270,8 @@ model Submission {
   remindedAt        DateTime?        @db.Timestamp(6)
   // Made on /admin/listings/new: no WhatsApp review, the admin sees the result right away.
   createdByAdmin    Boolean          @default(false)
+  // 'product' or 'service' (PRODUCT_KINDS); the product it becomes takes it over.
+  kind              String           @default("product")
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)
