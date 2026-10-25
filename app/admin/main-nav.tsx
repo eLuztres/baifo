@@ -35,13 +35,13 @@ const links: { title: TranslationKey; href: string; isSalesOnly?: boolean }[] = 
 interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
   /** Showcase shops sell nothing online, so sales figures and orders stay out of the menu. */
   isShowcase: boolean;
-  /** Without the AI studio, "New product" opens the plain product form. */
-  isStudioEnabled: boolean;
+  /** Where "New product" leads (NEW_PRODUCT_PATH). */
+  newProductHref: string;
   /** The shop's own admin pages (brand/admin-links.json), already in the visitor's language. */
   extraLinks?: { href: string; label: string }[];
 }
 
-const MainNav = ({ className, isShowcase, isStudioEnabled, extraLinks = [], ...props }: MainNavProps) => {
+const MainNav = ({ className, isShowcase, newProductHref, extraLinks = [], ...props }: MainNavProps) => {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
@@ -50,7 +50,7 @@ const MainNav = ({ className, isShowcase, isStudioEnabled, extraLinks = [], ...p
       {...props}
     >
       {links.filter((item) => !(isShowcase && item.isSalesOnly)).map((item) => {
-        const href = item.href === '/admin/studio' && !isStudioEnabled ? '/admin/products/create' : item.href;
+        const href = item.href === '/admin/studio' ? newProductHref : item.href;
         return (
           <Link
             key={item.href}
@@ -70,7 +70,8 @@ const MainNav = ({ className, isShowcase, isStudioEnabled, extraLinks = [], ...p
           href={link.href}
           className={cn(
             'text-sm font-medium transition-colors hover:text-primary',
-            pathname.startsWith(link.href) ? '' : 'text-muted-foreground'
+            // The shop's own creation page may sit under one of its links (e.g. /admin/listings/new).
+            pathname.startsWith(link.href) && !pathname.startsWith(newProductHref) ? '' : 'text-muted-foreground'
           )}
         >
           {link.label}

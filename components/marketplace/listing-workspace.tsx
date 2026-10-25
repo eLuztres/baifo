@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { RotateCw } from 'lucide-react';
-import ProductMedia from '@/components/ProductMedia';
+import { RotateCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import AiProgress from './ai-progress';
 import ListingEditor from './listing-editor';
+import ListingStage from './listing-stage';
+import PublishedView from './published-view';
 
 interface ListingWorkspaceProps {
   initial: AdminListing;
@@ -22,6 +23,7 @@ const POLL_MS = 2500;
 export default function ListingWorkspace({ initial, categories, texts, houseSeller }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isPending, startTransition] = useTransition();
+  const [isJustPublished, setIsJustPublished] = useState(false);
   const isWorking = listing.status === 'PROCESSING' && !listing.lastError;
 
   // Server renders (after an action's refresh) bring a newer listing.
@@ -37,17 +39,18 @@ export default function ListingWorkspace({ initial, categories, texts, houseSell
   }, [isWorking, listing.id]);
 
   if (listing.status === 'PROCESSING') {
+    const hasAiPicture = listing.images.length > 0;
     return (
-      <div className='space-y-6'>
+      <div className='mx-auto w-full max-w-xl space-y-5'>
+        <ListingStage src={listing.images[0] ?? listing.rawImages[0]}>
+          {!hasAiPicture && !listing.lastError && (
+            <span className='absolute inset-0 animate-pulse bg-primary/15 motion-reduce:animate-none' />
+          )}
+          <span className='absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-sm font-medium shadow'>
+            <Sparkles className='size-4 text-primary' /> {texts.aiWorkingTitle}
+          </span>
+        </ListingStage>
         <AiProgress listing={listing} texts={texts} />
-        <ul className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-          {(listing.images.length > 0 ? listing.images : listing.rawImages).map((url) => (
-            <li key={url} className='relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted'>
-              <ProductMedia src={url} alt='' fill />
-              {listing.images.length === 0 && <span className='absolute inset-0 animate-pulse bg-primary/10' />}
-            </li>
-          ))}
-        </ul>
         {listing.lastError ? (
           <div className='space-y-3 rounded-2xl border border-destructive/40 p-4'>
             <p className='text-sm text-destructive'>{listing.lastError}</p>
@@ -72,5 +75,33 @@ export default function ListingWorkspace({ initial, categories, texts, houseSell
     );
   }
 
-  return <ListingEditor key={listing.status} listing={listing} categories={categories} texts={texts} houseSeller={houseSeller} />;
+  // Shown once the refresh brings the LIVE listing, so the done screen never shows a listing that isn't online.
+  if (isJustPublished && listing.status === 'LIVE') {
+    return (
+      <PublishedView
+        image={listing.images[0] ?? listing.rawImages[0]}
+        title={listing.title ?? ''}
+        price={listing.price}
+        slug={listing.product?.slug}
+        texts={texts}
+        onKeepEditing={() => setIsJustPublished(false)}
+      />
+    );
+  }
+
+  const handlePublished = () => {
+    setIsJustPublished(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <ListingEditor
+      key={listing.status}
+      listing={listing}
+      categories={categories}
+      texts={texts}
+      houseSeller={houseSeller}
+      onPublished={handlePublished}
+    />
+  );
 }

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Menu from '@/components/shared/header/menu';
 import MainNav from './main-nav';
 import AdminSearch from '@/components/admin/admin-search';
-import { IS_STUDIO_ENABLED, SHOWCASE_MODE } from '@/lib/constants';
+import { NEW_PRODUCT_PATH, SHOWCASE_MODE } from '@/lib/constants';
 import { ADMIN_LINKS } from '@/lib/brand';
 import { localize } from '@/lib/category';
 import { getLocale } from '@/lib/i18n-server';
@@ -23,7 +23,7 @@ export default async function AdminLayout({
             <Link href='/'>
               <BrandLogo />
             </Link>
-            <MainNav className='mx-6' isShowcase={SHOWCASE_MODE} isStudioEnabled={IS_STUDIO_ENABLED} extraLinks={extraLinks} />
+            <MainNav className='mx-6' isShowcase={SHOWCASE_MODE} newProductHref={NEW_PRODUCT_PATH} extraLinks={extraLinks} />
             <div className='ml-auto items-center flex space-x-4'>
               <AdminSearch />
               <Menu />

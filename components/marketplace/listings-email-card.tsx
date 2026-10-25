@@ -32,6 +32,17 @@ const TEXTS = {
     notSent: 'Could not send. Is Resend set up?',
     invalidEmail: 'Enter a valid email',
   },
+  it: {
+    title: 'Lista degli annunci via email',
+    hint: 'Tutti gli annunci online con foto, prezzo e contatto, pronta da stampare.',
+    email: 'Invia a',
+    auto: 'Inviala anche dopo ogni nuovo annuncio',
+    send: 'Invia la lista ora',
+    sent: 'Lista inviata',
+    saved: 'Salvato',
+    notSent: 'Invio non riuscito. Resend è configurato?',
+    invalidEmail: 'Scrivi un indirizzo email valido',
+  },
 };
 
 interface ListingsEmailCardProps {
@@ -42,7 +53,7 @@ interface ListingsEmailCardProps {
 
 /** Where the printable list goes, whether it goes by itself, and a button to send it now. */
 export default function ListingsEmailCard({ locale, initialEmail, initialSendOnPublish }: ListingsEmailCardProps) {
-  const texts = locale === 'es' ? TEXTS.es : TEXTS.en;
+  const texts = TEXTS[locale as keyof typeof TEXTS] ?? TEXTS.en;
   const { toast } = useToast();
   const [email, setEmail] = useState(initialEmail);
   const [sendOnPublish, setSendOnPublish] = useState(initialSendOnPublish);

@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import ListingSteps from '@/components/marketplace/listing-steps';
 import ListingWorkspace from '@/components/marketplace/listing-workspace';
 import { getCategoryOptions } from '@/lib/actions/category.actions';
 import { requireAdmin } from '@/lib/auth-guard';
@@ -32,10 +31,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
-      <div className='space-y-4'>
-        <h1 className='h2-bold'>{listing.title ?? texts.newListing}</h1>
-        {listing.createdByAdmin && listing.status !== 'LIVE' && <ListingSteps current={listing.status === 'PROCESSING' ? 1 : 2} texts={texts} />}
-      </div>
+      {/* The editor shows the title as the big editable headline. */}
+      <h1 className='sr-only'>{listing.title ?? texts.newListing}</h1>
       <ListingWorkspace initial={listing} categories={categories.map((category) => category.name)} texts={texts} houseSeller={HOUSE_SELLER} />
     </div>
   );

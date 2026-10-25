@@ -31,8 +31,9 @@ describe('commands and language', () => {
     expect(commandOf('vendo una mesa')).toBeUndefined();
   });
 
-  it('writes Spanish to Spanish numbers and English to others', () => {
+  it('writes Spanish to Spanish numbers, Italian to Italian ones and English to others', () => {
     expect(localeOf('34600111222')).toBe('es');
+    expect(localeOf('393331112222')).toBe('it');
     expect(localeOf('49170111222')).toBe('en');
   });
 });

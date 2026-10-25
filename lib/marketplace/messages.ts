@@ -1,10 +1,10 @@
 // What the Baifo bot writes on WhatsApp. Sellers never open the website before the payment link,
 // so these texts live here and not in the shop's i18n files.
 
-export type BotLocale = 'es' | 'en';
+export type BotLocale = 'es' | 'en' | 'it';
 
-/** Spanish for Spanish numbers, English for everyone else (tourists and residents from abroad). */
-export const localeOf = (waId: string): BotLocale => (waId.startsWith('34') ? 'es' : 'en');
+/** Spanish for Spanish numbers, Italian for Italian ones, English for everyone else (tourists and residents from abroad). */
+export const localeOf = (waId: string): BotLocale => (waId.startsWith('34') ? 'es' : waId.startsWith('39') ? 'it' : 'en');
 
 const TEXTS = {
   es: {
@@ -45,6 +45,25 @@ const TEXTS = {
     expired: 'Your listing "{title}" has ended and is no longer online. Shall we publish it again? Just send us the photos.',
     buttonDone: '✅ Done',
   },
+  it: {
+    welcome: 'Ciao! 👋 Sono Baifo. Mandami una foto di quello che vuoi vendere e, se vuoi, il prezzo e qualche parola.',
+    photoReceived: '📸 Foto ricevuta! Puoi mandare altre foto, il prezzo e una descrizione. Quando hai finito, tocca ✅ Fatto.',
+    askPhoto: 'Prima mandami una foto di quello che vuoi vendere 📸',
+    textReceived: 'Segnato ✍️ Quando hai finito, tocca ✅ Fatto.',
+    done: 'Grazie! 🙌 Stiamo preparando il tuo annuncio. Ti scriviamo con un link appena è stato controllato.',
+    help: 'Ecco come funziona: 1) mandami delle foto e, se vuoi, prezzo e descrizione, 2) tocca ✅ Fatto, 3) controlliamo il tuo annuncio e ti mandiamo un link per pubblicarlo per 3 mesi.\nScrivi "cancella" per ricominciare o "venduto" quando l\'hai venduto.',
+    cancelled: 'Fatto, ho cancellato quello che mi avevi mandato. Puoi ricominciare quando vuoi.',
+    nothingToCancel: 'Non c\'è niente in sospeso da cancellare.',
+    busy: 'Il tuo annuncio precedente è ancora in preparazione. Ti scriviamo a breve.',
+    approved: 'Il tuo annuncio è pronto! ✨ Dagli un\'occhiata, scegli come pubblicarlo e paga qui:\n{url}',
+    rejected: 'Ci dispiace, non possiamo pubblicare questo annuncio. Se hai domande, rispondici qui.',
+    live: '🎉 Il tuo annuncio è online per {days} giorni!\n{url}',
+    sold: 'Complimenti per la vendita! 🎉 Ho tolto il tuo annuncio.',
+    noLiveListing: 'Non trovo nessun tuo annuncio online.',
+    expiring: '⏳ Il tuo annuncio «{title}» scade il {date}. Se l\'hai già venduto, scrivi "venduto". Se vuoi continuare, rimandaci le foto quando scade.',
+    expired: 'Il tuo annuncio «{title}» è scaduto e non è più online. Lo pubblichiamo di nuovo? Mandaci le foto.',
+    buttonDone: '✅ Fatto',
+  },
 } satisfies Record<BotLocale, Record<string, string>>;
 
 export type BotText = keyof (typeof TEXTS)['es'];
@@ -53,11 +72,11 @@ export function botText(locale: BotLocale, key: BotText, values: Record<string, 
   return TEXTS[locale][key].replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? ''));
 }
 
-/** Commands sellers can type, in either language. */
+/** Commands sellers can type, in any of the bot's languages. */
 export const COMMANDS = {
-  help: ['ayuda', 'help', 'hola', 'hi', 'hello', 'info'],
-  cancel: ['borrar', 'cancelar', 'delete', 'cancel'],
-  sold: ['vendido', 'sold'],
+  help: ['ayuda', 'help', 'hola', 'hi', 'hello', 'info', 'aiuto', 'ciao'],
+  cancel: ['borrar', 'cancelar', 'delete', 'cancel', 'cancella', 'annulla'],
+  sold: ['vendido', 'sold', 'venduto'],
 } as const;
 
 export type Command = keyof typeof COMMANDS;

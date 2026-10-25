@@ -44,11 +44,32 @@ const TEXTS = {
     unavailable: 'This link is no longer valid. Write to us on WhatsApp if you have questions.',
     error: 'Something went wrong. Please try again in a moment.',
   },
-};
+  it: {
+    title: 'Il tuo annuncio',
+    intro: 'Ecco come apparirà il tuo annuncio su Baifo. Scegli come pubblicarlo e paga per metterlo online.',
+    planTitle: 'Come lo pubblichiamo?',
+    planNormal: 'Normale',
+    planNormalText: 'Il tuo annuncio su Baifo per {days} giorni.',
+    planBig: 'Grande',
+    planBigText: 'In evidenza in alto e più grande, per {days} giorni.',
+    extrasTitle: 'Extra gratuiti',
+    extraFacebook: 'Pubblicalo anche su Facebook',
+    extraWallapop: 'Pubblicalo anche su Wallapop',
+    consent: 'Accetto che il mio numero WhatsApp venga mostrato sul sito e nella lista stampata di Baifo, così gli acquirenti possono contattarmi.',
+    payStripe: 'Paga {price} con carta',
+    payPaypal: 'Oppure paga con PayPal',
+    consentRequired: 'Per pubblicare ci serve il tuo permesso a mostrare il tuo numero.',
+    paid: 'Grazie! Abbiamo ricevuto il pagamento e il tuo annuncio è (o sarà tra pochi secondi) online. Ti avvisiamo su WhatsApp.',
+    live: 'Questo annuncio è già online.',
+    viewListing: 'Vedi annuncio',
+    unavailable: 'Questo link non è più valido. Scrivici su WhatsApp se hai domande.',
+    error: 'Qualcosa è andato storto. Riprova tra un momento.',
+  },
+} satisfies Record<'es' | 'en' | 'it', Record<string, string>>;
 
 export type PublishPageTexts = (typeof TEXTS)['es'];
 
-export const publishPageTexts = (locale: Locale): PublishPageTexts => (locale === 'es' ? TEXTS.es : TEXTS.en);
+export const publishPageTexts = (locale: Locale): PublishPageTexts => (locale in TEXTS ? TEXTS[locale as keyof typeof TEXTS] : TEXTS.en);
 
 export const fill = (text: string, values: Record<string, string | number>) =>
   text.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? ''));
