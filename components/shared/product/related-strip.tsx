@@ -9,6 +9,8 @@ export interface RelatedListing {
   image: string;
   /** Missing for services and when the shop shows no prices. */
   price?: string;
+  /** Said before the price, e.g. "Budget" on a wanted ad. */
+  priceLabel?: string;
 }
 
 interface RelatedStripProps {
@@ -43,6 +45,7 @@ export default function RelatedStrip({ title, listings, seeAllHref, seeAllLabel 
               />
               {listing.price && (
                 <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-4 text-[0.7rem] font-semibold tabular-nums text-white'>
+                  {listing.priceLabel && <span className='mr-1 font-normal text-white/80'>{listing.priceLabel}</span>}
                   {formatCurrency(listing.price)}
                 </span>
               )}

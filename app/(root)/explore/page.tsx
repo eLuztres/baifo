@@ -126,6 +126,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   name={localizeProduct(listing, locale).name}
                   images={listing.images}
                   price={listing.price}
+                  priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
                   badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : undefined}
                   note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
                   isReserved={listing.isReserved}

@@ -1,5 +1,5 @@
 import { prisma } from '@/db/prisma';
-import { SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
+import { SHOWCASE_MODE, SHOWS_PRICES, WANTED_CATEGORY_SLUG } from '@/lib/constants';
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/category';
 
@@ -18,6 +18,8 @@ export interface CollectionRing {
   price?: string;
   /** A service (babysitter, gardener …) rather than an item for sale. */
   isService: boolean;
+  /** A wanted ad ("Busco …"): its price is the budget of the person looking. */
+  isWanted?: boolean;
   /** An item whose picture the AI made from words alone (no photo of the real thing): buyers see a note. */
   isIllustrative?: boolean;
   isReserved: boolean;
@@ -49,21 +51,26 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       condition: true,
       translations: true,
       kind: true,
-      categories: { select: { id: true } },
+      categories: { select: { id: true, slug: true } },
       submission: { select: { rawImages: true, isWanted: true } },
     },
   });
 
-  return products.map(({ images, reservedUntil, categories, kind, price, submission, ...product }) => ({
-    ...product,
-    // A service has no price to show; it stays in the database as 0.
-    price: kind === 'service' ? undefined : price,
-    isService: kind === 'service',
-    // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
-    isIllustrative: kind !== 'service' && Boolean(submission && !submission.isWanted && submission.rawImages.length === 0),
-    image: images[0],
-    images,
-    isReserved: isReservationActive({ reservedUntil }),
-    categoryIds: categories.map((category) => category.id),
-  }));
+  return products.map(({ images, reservedUntil, categories, kind, price, submission, ...product }) => {
+    // Started as Busco, or sorted into it by the AI: both sit in the Busco category.
+    const isWanted = categories.some((category) => category.slug === WANTED_CATEGORY_SLUG);
+    return {
+      ...product,
+      // A service has no price to show; it stays in the database as 0.
+      price: kind === 'service' ? undefined : price,
+      isService: kind === 'service',
+      isWanted,
+      // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
+      isIllustrative: kind !== 'service' && !isWanted && Boolean(submission && submission.rawImages.length === 0),
+      image: images[0],
+      images,
+      isReserved: isReservationActive({ reservedUntil }),
+      categoryIds: categories.map((category) => category.id),
+    };
+  });
 }

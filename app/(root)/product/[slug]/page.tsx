@@ -77,6 +77,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const hasSellerContact = Boolean(product.contactPhone);
   const isService = product.kind === 'service';
   const isIllustrative = rings.some((ring) => ring.slug === slug && ring.isIllustrative);
+  const priceLabel = rings.some((ring) => ring.slug === slug && ring.isWanted) ? t('WANTED_BUDGET') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
@@ -95,6 +96,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         name: localizeProduct(ring, locale).name,
         image: ring.image,
         price: ring.price,
+        priceLabel: ring.isWanted ? t('WANTED_BUDGET') : undefined,
       };
     });
 
@@ -161,7 +163,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
             {SHOWCASE_MODE || isService ? (
               <>
-                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} />}
+                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} label={priceLabel} />}
                 {hasSellerContact ? (
                   <ContactSellerButton productId={product.id} productName={name} className='w-full' />
                 ) : (
@@ -177,7 +179,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             ) : (
               <>
                 <div className='flex shrink-0 flex-wrap items-center gap-3'>
-                  <ProductPrice value={Number(product.price)} />
+                  <ProductPrice value={Number(product.price)} label={priceLabel} />
                   {!inStock ? (
                     <span className='rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground'>
                       {t('SOLD_OUT')}
