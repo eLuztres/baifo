@@ -197,6 +197,25 @@ export async function markAdminListingSold(id: string) {
   return { success: true, message: 'Marcado como vendido' };
 }
 
+/** Removes a listing for good: its product leaves the shop and the listing leaves Anuncios. */
+export async function deleteAdminListing(id: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { productId: true } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  try {
+    await prisma.$transaction([
+      ...(submission.productId ? [prisma.product.delete({ where: { id: submission.productId } })] : []),
+      prisma.submission.delete({ where: { id } }),
+    ]);
+  } catch (error) {
+    // E.g. a product that is already in an order can't be removed.
+    console.error(`Listing ${id} not deleted`, error);
+    return { success: false, message: 'No se pudo eliminar este anuncio' };
+  }
+  revalidatePath('/', 'layout');
+  return { success: true, message: 'Anuncio eliminado' };
+}
+
 /** The AI failed: start the work again from where it stopped. */
 export async function retryAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
