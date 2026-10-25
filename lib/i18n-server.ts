@@ -23,6 +23,9 @@ function getDefaultLocale(enabled: Locale[]): Locale {
   return enabled.includes(DEFAULT_LOCALE) ? DEFAULT_LOCALE : enabled[0];
 }
 
+/** The shop's own language (DEFAULT_LOCALE), e.g. the one its texts are first written in. */
+export const getShopLocale = (): Locale => getDefaultLocale(getEnabledLocales());
+
 /**
  * The visitor's language: their saved choice (cookie) first, then the
  * browser's preferred languages, then the shop's default.

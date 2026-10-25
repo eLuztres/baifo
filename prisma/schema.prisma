@@ -42,6 +42,8 @@ model Product {
   contactPhone   String?
   // Second-hand: how the item is (new, like_new, good, fair; PRODUCT_CONDITIONS); shown when set.
   condition      String?
+  // Name and description in other languages: { "en": { "name": "…", "description": "…" } }; a missing one shows name and description.
+  translations   Json      @default("{}")
   // Baifo: the private seller who listed it by WhatsApp, and when the listing goes offline.
   sellerId       String?   @db.Uuid
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
@@ -240,7 +242,9 @@ model Submission {
   rawText           String           @default("")
   title             String?
   description       String?
-  descriptionEn     String?
+  // Title and description in the shop's other languages: { "en": { "title": "…", "description": "…" } }.
+  translations      Json             @default("{}")
+  // The store category's slug, as the AI recognized it or the admin chose it.
   category          String?
   // How the item is, as the AI saw it (PRODUCT_CONDITIONS); the product takes it over.
   condition         String?

@@ -22,6 +22,7 @@ import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/
 import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
+import { localizeProduct } from '@/lib/category';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
 
@@ -36,8 +37,8 @@ interface ProductPageProps {
 
 export async function generateMetadata(props: ProductPageProps) {
   const { slug } = await props.params;
-  const [product, { t }] = await Promise.all([getProduct(slug), getT()]);
-  return { title: product?.name ?? t('PRODUCT_FALLBACK_TITLE') };
+  const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
+  return { title: product ? localizeProduct(product, locale).name : t('PRODUCT_FALLBACK_TITLE') };
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
@@ -62,6 +63,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
   const condition = conditionKey(product.condition);
+  const { name, description } = localizeProduct(product, locale);
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
@@ -77,7 +79,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       {/* Phones stack photo and details; the photo keeps at least half and a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         <div className='min-h-[50%] flex-1 lg:min-h-0'>
-          <ProductImages images={product.images} alt={product.name} />
+          <ProductImages images={product.images} alt={name} />
         </div>
 
         <div className='flex min-h-0 flex-col lg:justify-center'>
@@ -87,13 +89,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               aria-hidden='true'
               className='absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent'
             />
-            <h1 className='shrink-0 text-xl leading-tight sm:text-3xl'>{product.name}</h1>
+            <h1 className='shrink-0 text-xl leading-tight sm:text-3xl'>{name}</h1>
             {condition && (
               <p className='w-fit shrink-0 rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>
             )}
-            {product.description && (
+            {description && (
               <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
-                {product.description}
+                {description}
               </p>
             )}
             {/* Showcase mode: no stock or buying, only a way to reach the maker, or the seller of a classified ad. */}
@@ -101,11 +103,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <>
                 {SHOWS_PRICES && <ProductPrice value={Number(product.price)} />}
                 {hasSellerContact ? (
-                  <ContactSellerButton productId={product.id} productName={product.name} className='w-full' />
+                  <ContactSellerButton productId={product.id} productName={name} className='w-full' />
                 ) : (
                   <InterestButton
                     productId={product.id}
-                    productName={product.name}
+                    productName={name}
                     image={product.images[0]}
                     userName={session?.user?.name ?? undefined}
                     className='w-full'
@@ -138,7 +140,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                   <div className='flex gap-3'>
                     <ReserveButton
                       productId={product.id}
-                      productName={product.name}
+                      productName={name}
                       userName={session?.user?.name ?? undefined}
                       hours={RESERVATION_HOURS}
                       variant='outline'

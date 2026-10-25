@@ -17,15 +17,16 @@ const ICONS: Record<StepStatus, typeof Circle> = { waiting: Circle, working: Loa
 /** The AI's two jobs and where each stands, so the wait never looks like nothing happens. */
 export default function AiProgress({ listing, texts }: AiProgressProps) {
   const hasFailed = Boolean(listing.lastError) && listing.status === 'PROCESSING';
-  const photos: StepStatus = listing.images.length > 0 ? 'done' : hasFailed ? 'failed' : 'working';
-  const text: StepStatus = listing.title ? 'done' : photos !== 'done' ? 'waiting' : hasFailed ? 'failed' : 'working';
+  // The text (with the category) comes first, then the pictures.
+  const text: StepStatus = listing.title ? 'done' : hasFailed ? 'failed' : 'working';
+  const photos: StepStatus = listing.images.length > 0 ? 'done' : text !== 'done' ? 'waiting' : hasFailed ? 'failed' : 'working';
   const labels: Record<StepStatus, string> = { waiting: texts.aiWaiting, working: texts.aiWorking, done: texts.aiDone, failed: texts.aiFailed };
 
   return (
     <ol className='grid gap-3 sm:grid-cols-2'>
       {[
-        { label: texts.aiPhotos, status: photos },
         { label: texts.aiText, status: text },
+        { label: texts.aiPhotos, status: photos },
       ].map(({ label, status }) => {
         const Icon = ICONS[status];
         return (

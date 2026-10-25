@@ -4,6 +4,7 @@ import { prisma } from '@/db/prisma';
 import ProductImages from '@/components/shared/product/product-images';
 import ProductPrice from '@/components/shared/product/product-price';
 import { Button } from '@/components/ui/button';
+import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { LISTING_DAYS, LISTING_PRICES } from '@/lib/marketplace/config';
 import { publishPageTexts } from '@/lib/marketplace/page-texts';
 import { getLocale } from '@/lib/i18n-server';
@@ -32,18 +33,21 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   }
 
   const isLive = submission.status === 'LIVE';
-  const description = locale === 'es' ? submission.description : (submission.descriptionEn ?? submission.description);
+  // The seller sees the listing in their language; the shop language's text is the fallback.
+  const translation = (submission.translations as ListingTranslations)[locale];
+  const title = translation?.title || submission.title || '';
+  const description = translation?.description || submission.description;
 
   return (
     <section className='mx-auto grid max-w-5xl gap-8 py-6 lg:grid-cols-2 lg:gap-12'>
       <div className='aspect-square'>
-        <ProductImages images={submission.images.length > 0 ? submission.images : submission.rawImages} alt={submission.title ?? ''} />
+        <ProductImages images={submission.images.length > 0 ? submission.images : submission.rawImages} alt={title} />
       </div>
 
       <div className='space-y-6'>
         <div className='space-y-3'>
           <p className='eyebrow'>{texts.title}</p>
-          <h1 className='text-3xl leading-tight'>{submission.title}</h1>
+          <h1 className='text-3xl leading-tight'>{title}</h1>
           {submission.price && <ProductPrice value={Number(submission.price)} />}
           {description && <p className='whitespace-pre-line text-foreground/85'>{description}</p>}
         </div>

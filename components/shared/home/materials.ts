@@ -1,10 +1,10 @@
-import { localize } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/category';
 import type { Locale } from '@/lib/i18n-core';
 import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CollectionRing } from './in-stock-rings';
 
 /** A ring in the store's banner; it goes to the client, so its category links stay behind. */
-export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition'>;
+export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition' | 'translations'>;
 
 export interface MaterialGroup {
   /** The category's slug, used in links (`?c=lava`). */
@@ -28,7 +28,7 @@ export function groupByCategory(
       text: localize(category.text, locale),
       rings: rings
         .filter((ring) => ring.categoryIds.includes(category.id))
-        .map(({ id, slug, name, image, price, isReserved }) => ({ id, slug, name, image, price, isReserved })),
+        .map((ring) => ({ id: ring.id, slug: ring.slug, name: localizeProduct(ring, locale).name, image: ring.image, price: ring.price, isReserved: ring.isReserved })),
     }))
     .filter((group) => shouldKeepEmpty || group.rings.length > 0);
 }

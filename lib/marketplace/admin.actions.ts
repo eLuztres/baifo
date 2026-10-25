@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { PRODUCT_CONDITIONS } from '@/lib/constants';
+import { getShopLocale } from '@/lib/i18n-server';
+import { categoryName, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { HOUSE_SELLER } from './config';
 import { processSubmission } from './processing';
 import { publishByAdmin, takeDown } from './publish';
@@ -80,10 +82,13 @@ export async function getAdminListing(id: string) {
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
 
+const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000) });
+
 const editSchema = z.object({
   title: z.string().trim().min(2).max(120),
   description: z.string().trim().max(3000),
-  descriptionEn: z.string().trim().max(3000),
+  // The other shop languages; the shop language's text is title and description.
+  translations: z.record(z.string(), textSchema),
   category: z.string().trim().max(60),
   // Empty: the admin took the condition away.
   condition: z.union([z.enum(PRODUCT_CONDITIONS), z.literal('')]).transform((value) => value || null).optional(),
@@ -100,13 +105,43 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
-  const submission = await prisma.submission.update({ where: { id }, data: parsed.data });
+  const category = findCategory(await getListingCategories(), parsed.data.category);
+  if (!category) return { success: false, message: 'Elige una de las categorías' };
+  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true } });
+  // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
+  const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
+  const submission = await prisma.submission.update({ where: { id }, data: { ...parsed.data, translations, category: category.slug } });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, description, descriptionEn, price, images, category, condition } = parsed.data;
+    const { title, description, price, images, condition } = parsed.data;
     await prisma.product.update({
       where: { id: submission.productId },
-      data: { name: title, price, images, category, condition, description: [description, descriptionEn && `🇬🇧 ${descriptionEn}`].filter(Boolean).join('\n\n') },
+      data: {
+        name: title,
+        description,
+        translations: toProductTranslations(translations),
+        price,
+        images,
+        condition,
+        category: categoryName(category, getShopLocale()),
+        categories: { set: [{ id: category.id }] },
+      },
+    });
+    revalidatePath('/');
+  }
+  return { success: true, message: 'Guardado' };
+}
+
+/** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
+export async function setAdminListingCategory(id: string, slug: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const category = findCategory(await getListingCategories(), slug);
+  if (!category) return { success: false, message: 'Elige una de las categorías' };
+  const submission = await prisma.submission.update({ where: { id }, data: { category: category.slug } });
+  if (submission.productId) {
+    await prisma.product.update({
+      where: { id: submission.productId },
+      data: { category: categoryName(category, getShopLocale()), categories: { set: [{ id: category.id }] } },
     });
     revalidatePath('/');
   }

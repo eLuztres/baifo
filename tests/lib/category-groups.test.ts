@@ -1,12 +1,22 @@
 import { groupByCategory } from '@/components/shared/home/materials';
 import type { StoreCategory } from '@/lib/actions/category.actions';
-import { localize } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/category';
 
 describe('localize', () => {
   it('falls back to another language when the visitor\'s is missing', () => {
     expect(localize({ es: 'Lava y arena', en: 'Lava and sand' }, 'en')).toBe('Lava and sand');
     expect(localize({ es: 'Lava y arena' }, 'fr')).toBe('Lava y arena');
     expect(localize(null, 'es')).toBe('');
+  });
+});
+
+describe('localizeProduct', () => {
+  const product = { name: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { name: 'City bike', description: 'Comfy bike.' } } };
+
+  it("shows a product's name and description in the visitor's language, else its own", () => {
+    expect(localizeProduct(product, 'en')).toEqual({ name: 'City bike', description: 'Comfy bike.' });
+    expect(localizeProduct(product, 'it')).toEqual({ name: 'Bici de paseo', description: 'Bici cómoda.' });
+    expect(localizeProduct({ name: 'Anillo', translations: {} }, 'en')).toEqual({ name: 'Anillo', description: '' });
   });
 });
 
@@ -32,6 +42,7 @@ describe('groupByCategory', () => {
     categoryIds,
     createdAt: new Date(0),
     condition: null,
+    translations: {},
   });
   const categories = [category('c1', 'lava'), category('c2', 'wood'), category('c3', 'carbon')];
   const rings = [ring('a', ['c1', 'c2']), ring('b', ['c2'])];

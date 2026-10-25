@@ -525,11 +525,15 @@
   "CONTACT_SELLER_MESSAGE": "Hi! I am interested in \"{name}\": {url}",
   "CONTACT_SELLER_UNAVAILABLE": "This seller can no longer be reached here.",
   "CATEGORY_ALL": "All categories",
-  "CATEGORY_EMPTY": "Nothing here yet. Have a look at the other categories.",
   "CATEGORY_SEE_ALL": "See all",
   "CATEGORY_SORT": "Sort",
   "CONDITION_NEW": "New",
   "CONDITION_LIKE_NEW": "Like new",
   "CONDITION_GOOD": "Good condition",
-  "CONDITION_FAIR": "Fair condition"
+  "CONDITION_FAIR": "Fair condition",
+  "VOICE_START": "Speak instead of typing",
+  "VOICE_STOP": "Stop recording",
+  "VOICE_TRANSCRIBING": "Turning your words into text…",
+  "VOICE_NO_MIC": "No microphone access. Allow the microphone for this site in your browser settings.",
+  "VOICE_FAILED": "The recording could not be turned into text. Please try again."
 }

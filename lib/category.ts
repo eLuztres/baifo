@@ -13,6 +13,15 @@ export function localize(value: unknown, locale: Locale, fallbackLocale?: Locale
   return texts[locale] || (fallbackLocale && texts[fallbackLocale]) || Object.values(texts).find(Boolean) || '';
 }
 
+/** Per-language texts of a product: { en: { name, description } }. */
+export type ProductTranslations = Partial<Record<Locale, { name?: string; description?: string }>>;
+
+/** A product's name and description in the visitor's language, else its own. */
+export function localizeProduct<T extends { name: string; description?: string; translations?: unknown }>(product: T, locale: Locale) {
+  const text = ((product.translations ?? {}) as ProductTranslations)[locale];
+  return { name: text?.name || product.name, description: text?.description || product.description || '' };
+}
+
 /** What the category editor needs; only admins get it. */
 export interface EditableCategory {
   id: string;

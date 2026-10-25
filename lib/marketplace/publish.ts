@@ -1,10 +1,11 @@
 import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
-import { localize } from '@/lib/category';
+import { getShopLocale } from '@/lib/i18n-server';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
+import { categoryName, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
 
@@ -20,20 +21,6 @@ export interface ListingPayment {
 
 export type PublishOutcome = 'published' | 'already-published' | 'wrong-amount' | 'not-found';
 
-// Spanish first, the English description for visitors from abroad below it.
-const productDescription = (es: string | null, en: string | null) => [es, en && `🇬🇧 ${en}`].filter(Boolean).join('\n\n');
-
-// The showroom only shows products in a store category, so an unknown one goes to "otros".
-const FALLBACK_CATEGORY_SLUG = 'otros';
-
-async function findStoreCategoryIds(name: string | null) {
-  const categories = await prisma.category.findMany({ select: { id: true, slug: true, name: true } });
-  const match =
-    categories.find((category) => name && localize(category.name, 'es').toLowerCase() === name.toLowerCase()) ??
-    categories.find((category) => category.slug === FALLBACK_CATEGORY_SLUG);
-  return match ? [{ id: match.id }] : [];
-}
-
 type SubmissionWithSeller = Submission & { seller: Seller };
 
 /** Only real phone numbers get WhatsApp messages (the house seller of admin listings has none). */
@@ -47,7 +34,8 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const plan = (submission.plan ?? 'normal') as ListingPlan;
   const expiresAt = new Date(Date.now() + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
-  const categories = await findStoreCategoryIds(submission.category);
+  const categories = await getListingCategories();
+  const category = findCategory(categories, submission.category) ?? findCategory(categories, FALLBACK_CATEGORY_SLUG);
   const contactPhone = submission.hasContactConsent && isPhoneNumber(submission.seller.waId) ? `+${submission.seller.waId}` : null;
 
   const product = await prisma.$transaction(async (tx) => {
@@ -60,18 +48,19 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
       data: {
         name: title,
         slug: `${slugify(title, { lower: true, strict: true })}-${submission.id.slice(0, 6)}`,
-        category: submission.category ?? 'Varios',
+        category: categoryName(category, getShopLocale()) || 'Varios',
         condition: submission.condition,
         images: submission.images.length > 0 ? submission.images : submission.rawImages,
         brand: submission.seller.name ?? 'Particular',
-        description: productDescription(submission.description, submission.descriptionEn),
+        description: submission.description ?? '',
+        translations: toProductTranslations(submission.translations),
         stock: 1,
         price: submission.price ?? 0,
         isFeatured: plan === 'big',
         contactPhone,
         sellerId: submission.sellerId,
         expiresAt,
-        categories: { connect: categories },
+        categories: { connect: category ? [{ id: category.id }] : [] },
       },
     });
     await tx.submission.update({ where: { id: submission.id }, data: { productId: created.id } });

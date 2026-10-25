@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import ListingCard from '@/components/shared/product/listing-card';
 import { getInStockRings, type CollectionRing } from '@/components/shared/home/in-stock-rings';
 import { SECTION_IDS } from '@/components/shared/home/one-page';
 import { getStoreCategories } from '@/lib/actions/category.actions';
-import { localize } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/category';
 import { conditionKey, SHOWS_PRICES } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
@@ -37,7 +37,9 @@ const readSort = (value?: string): Sort => (SHOWS_PRICES && SORTS.some(({ id }) 
 const chipClass = (isActive: boolean) =>
   cn(
     'shrink-0 rounded-full border px-4 py-2 text-sm transition',
-    isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+    isActive
+      ? 'border-primary bg-primary text-primary-foreground'
+      : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
   );
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
@@ -60,6 +62,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
   const sort = readSort(sortParam);
   const listings = products.filter((product) => product.categoryIds.includes(category.id)).sort(SORTERS[sort]);
+  // Empty categories are never shown: an old link to one goes back to the categories.
+  if (listings.length === 0) redirect(`/#${SECTION_IDS.showroom}`);
+  const filledCategories = categories.filter((item) => products.some((product) => product.categoryIds.includes(item.id)));
   const now = new Date();
   const text = localize(category.text, locale);
 
@@ -81,8 +86,13 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       </header>
 
       <nav aria-label={t('CATEGORY_ALL')} className='-mx-4 flex gap-2 overflow-x-auto px-4 pb-1'>
-        {categories.map((item) => (
-          <Link key={item.id} href={`/category/${item.slug}`} aria-current={item.id === category.id ? 'page' : undefined} className={chipClass(item.id === category.id)}>
+        {filledCategories.map((item) => (
+          <Link
+            key={item.id}
+            href={`/category/${item.slug}`}
+            aria-current={item.id === category.id ? 'page' : undefined}
+            className={chipClass(item.id === category.id)}
+          >
             {localize(item.name, locale)}
           </Link>
         ))}
@@ -95,7 +105,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
               key={id}
               href={id === 'newest' ? `/category/${category.slug}` : `/category/${category.slug}?sort=${id}`}
               aria-current={id === sort ? 'true' : undefined}
-              className={cn('rounded-full px-3 py-1.5 text-sm transition', id === sort ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-sm transition',
+                id === sort ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
             >
               {t(label)}
             </Link>
@@ -103,15 +116,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         </div>
       )}
 
-      {listings.length > 0 ? (
-        <ul className='grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 xl:grid-cols-5'>
-          {listings.map((listing) => {
-            const condition = conditionKey(listing.condition);
-            return (
+      <ul className='grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 xl:grid-cols-5'>
+        {listings.map((listing) => {
+          const condition = conditionKey(listing.condition);
+          return (
             <li key={listing.id}>
               <ListingCard
                 href={`/product/${listing.slug}?c=${category.slug}`}
-                name={listing.name}
+                name={localizeProduct(listing, locale).name}
                 image={listing.image}
                 price={listing.price}
                 isReserved={listing.isReserved}
@@ -120,12 +132,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 listedAgo={timeAgo(listing.createdAt, locale, now)}
               />
             </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className='rounded-3xl border border-dashed border-border p-10 text-center text-muted-foreground'>{t('CATEGORY_EMPTY')}</p>
-      )}
+          );
+        })}
+      </ul>
     </div>
   );
 }

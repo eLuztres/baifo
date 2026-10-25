@@ -525,11 +525,15 @@
   "CONTACT_SELLER_MESSAGE": "Ciao! Mi interessa «{name}»: {url}",
   "CONTACT_SELLER_UNAVAILABLE": "Questo venditore non è più raggiungibile qui.",
   "CATEGORY_ALL": "Tutte le categorie",
-  "CATEGORY_EMPTY": "Qui non c'è ancora niente. Dai un'occhiata alle altre categorie.",
   "CATEGORY_SEE_ALL": "Vedi tutto",
   "CATEGORY_SORT": "Ordina",
   "CONDITION_NEW": "Nuovo",
   "CONDITION_LIKE_NEW": "Come nuovo",
   "CONDITION_GOOD": "Buone condizioni",
-  "CONDITION_FAIR": "Condizioni discrete"
+  "CONDITION_FAIR": "Condizioni discrete",
+  "VOICE_START": "Parla invece di scrivere",
+  "VOICE_STOP": "Ferma la registrazione",
+  "VOICE_TRANSCRIBING": "Trasformo la tua voce in testo…",
+  "VOICE_NO_MIC": "Nessun accesso al microfono. Consentilo per questo sito nelle impostazioni del browser.",
+  "VOICE_FAILED": "Non è stato possibile trasformare la registrazione in testo. Riprova."
 }

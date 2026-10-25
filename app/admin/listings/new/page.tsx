@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
+import ListingSteps from '@/components/marketplace/listing-steps';
 import NewListingForm from '@/components/marketplace/new-listing-form';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
@@ -19,6 +20,7 @@ export default async function NewListingPage() {
       <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
+      <ListingSteps current={0} texts={texts} />
       <NewListingForm texts={texts} />
     </div>
   );

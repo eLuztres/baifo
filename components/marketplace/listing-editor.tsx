@@ -21,14 +21,24 @@ import {
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import type { ListingTranslations } from '@/lib/marketplace/catalog';
+import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
+import type { CategoryOption } from './category-step';
 import ListingStage from './listing-stage';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
 
+/** One of the shop's other languages, with its name in that language. */
+export interface EditorLanguage {
+  id: Locale;
+  name: string;
+}
+
 interface ListingEditorProps {
   listing: AdminListing;
-  categories: string[];
+  categories: CategoryOption[];
+  languages: EditorLanguage[];
   texts: AdminTexts;
   houseSeller: string;
   /** Called once "Publish now" worked, so the workspace can show the done moment. */
@@ -37,14 +47,13 @@ interface ListingEditorProps {
 
 type Plan = 'normal' | 'big';
 
-const FIELD_CLASS = 'rounded-2xl bg-background';
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
 // Long enough to save once per pause in typing, not once per key.
 const AUTOSAVE_MS = 800;
 
 /** Everything the AI made, editable, with the ways to put it online. */
-export default function ListingEditor({ listing, categories, texts, houseSeller, onPublished }: ListingEditorProps) {
+export default function ListingEditor({ listing, categories, languages, texts, houseSeller, onPublished }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -52,7 +61,12 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
   const [fields, setFields] = useState({
     title: listing.title ?? '',
     description: listing.description ?? '',
-    descriptionEn: listing.descriptionEn ?? '',
+    translations: Object.fromEntries(
+      languages.map(({ id }) => {
+        const text = (listing.translations as ListingTranslations)[id];
+        return [id, { title: text?.title ?? '', description: text?.description ?? '' }];
+      })
+    ),
     category: listing.category ?? '',
     price: listing.price ?? '',
     // An unknown value from older data counts as none.
@@ -67,8 +81,14 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
   const hasSellerPhone = listing.seller.waId !== houseSeller;
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
 
-  const set = (name: keyof typeof fields) => (event: { target: { value: string } }) =>
+  const set = (name: 'title' | 'description' | 'price') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
+  const setTranslation = (locale: Locale, name: 'title' | 'description') => (event: { target: { value: string } }) =>
+    setFields((current) => ({
+      ...current,
+      translations: { ...current.translations, [locale]: { ...current.translations[locale], [name]: event.target.value } },
+    }));
+  const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
 
   useEffect(() => {
     const snapshot = JSON.stringify({ ...fields, images });
@@ -141,6 +161,24 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
         )}
       </ListingStage>
 
+      {images.length > 1 && (
+        <ul className='flex gap-3 overflow-x-auto p-1'>
+          {images.map((url, index) => (
+            <li key={url} className='shrink-0'>
+              <button
+                type='button'
+                onClick={() => makeMain(url)}
+                aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
+                aria-pressed={index === 0}
+                className={cn('relative block size-16 overflow-hidden rounded-2xl border-2 bg-muted', index === 0 ? 'border-primary' : 'border-transparent')}
+              >
+                <ProductMedia src={url} alt='' fill sizes='4rem' />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className='space-y-3'>
         <Label htmlFor='title' className='sr-only'>
           {texts.titleLabel}
@@ -153,18 +191,6 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
           <div className='relative w-36'>
             <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className={`${INLINE_CLASS} h-12 pr-8 text-2xl font-semibold text-primary md:text-2xl`} />
             <span className='absolute right-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground'>€</span>
-          </div>
-          <Label htmlFor='category' className='sr-only'>
-            {texts.categoryLabel}
-          </Label>
-          <div className='relative min-w-0 flex-1'>
-            <Tag className='absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
-            <Input id='category' list='listing-categories' value={fields.category} onChange={set('category')} className='h-10 rounded-full bg-card pl-9' />
-            <datalist id='listing-categories'>
-              {categories.map((category) => (
-                <option key={category} value={category} />
-              ))}
-            </datalist>
           </div>
         </div>
         {/* The AI picks it; one tap changes it, a tap on the chosen one clears it. */}
@@ -192,6 +218,31 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
           {texts.descriptionLabel}
         </Label>
         <Textarea id='description' value={fields.description} onChange={set('description')} className={`${INLINE_CLASS} field-sizing-content min-h-24 resize-none text-base leading-relaxed md:text-base`} />
+        <div className='space-y-2 px-1 pt-2'>
+          <p className='flex items-center gap-2 text-sm font-medium'>
+            <Tag className='size-4 text-muted-foreground' aria-hidden /> {texts.categoryLabel}
+          </p>
+          <div role='radiogroup' aria-label={texts.categoryLabel} className='flex flex-wrap gap-2'>
+            {categories.map((category) => {
+              const isChosen = fields.category === category.slug;
+              return (
+                <button
+                  key={category.slug}
+                  type='button'
+                  role='radio'
+                  aria-checked={isChosen}
+                  onClick={() => setFields((current) => ({ ...current, category: category.slug }))}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-sm transition',
+                    isChosen ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {listing.rawText && (
           <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
             <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
@@ -199,16 +250,32 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
         )}
       </div>
 
+      {languages.map(({ id, name }) => (
+        <section key={id} lang={id} className='space-y-3 rounded-3xl border border-border bg-card p-5'>
+          <h2 className='text-sm font-medium text-muted-foreground'>{name}</h2>
+          <Label htmlFor={`title-${id}`} className='sr-only'>
+            {texts.titleLabel} ({name})
+          </Label>
+          <Input id={`title-${id}`} value={fields.translations[id]?.title ?? ''} onChange={setTranslation(id, 'title')} placeholder={texts.titleLabel} className={`${INLINE_CLASS} h-auto py-1 font-display text-xl md:text-xl`} />
+          <Label htmlFor={`description-${id}`} className='sr-only'>
+            {texts.descriptionLabel} ({name})
+          </Label>
+          <Textarea
+            id={`description-${id}`}
+            value={fields.translations[id]?.description ?? ''}
+            onChange={setTranslation(id, 'description')}
+            placeholder={texts.descriptionLabel}
+            className={`${INLINE_CLASS} field-sizing-content min-h-20 resize-none text-sm leading-relaxed md:text-sm`}
+          />
+        </section>
+      ))}
+
       <details className='group rounded-3xl border border-border bg-card'>
         <summary className='flex cursor-pointer list-none items-center justify-between gap-3 p-5 font-medium'>
           {texts.moreOptions}
           <ChevronDown className='size-4 transition-transform group-open:rotate-180' />
         </summary>
         <div className='space-y-6 px-5 pb-5'>
-          <div className='space-y-2'>
-            <Label htmlFor='descriptionEn'>{texts.descriptionEnLabel}</Label>
-            <Textarea id='descriptionEn' rows={4} value={fields.descriptionEn} onChange={set('descriptionEn')} className={FIELD_CLASS} />
-          </div>
           <div className='space-y-2'>
             <p className='text-sm font-medium'>{texts.photosLabel}</p>
             <PhotoUpload photos={images} onChange={setImages} texts={texts} max={12} />

@@ -1,7 +1,8 @@
 import { prisma } from '@/db/prisma';
-import { getCategoryOptions } from '@/lib/actions/category.actions';
+import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enhancePhoto, writeListing } from './ai';
+import { getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { parsePrice } from './price';
@@ -38,6 +39,27 @@ export async function processSubmission(submissionId: string) {
     if (originals.length === 0) throw new Error('No photo to work with');
     const firstPhoto = await fetchImage(originals[0]);
 
+    // The text goes first: it takes seconds, so the admin sees the category while the pictures are made.
+    if (!submission.title) {
+      const shopLocale = getShopLocale();
+      const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
+      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(), locales);
+      const { [shopLocale]: own, ...others } = text.texts;
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: {
+          title: own?.title,
+          description: own?.description,
+          translations: others,
+          category: text.category,
+          condition: text.condition,
+          // What the seller asked for wins over the AI's suggestion.
+          price: submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
+        },
+      });
+      submission = (await findSubmission(submissionId))!;
+    }
+
     if (submission.images.length === 0) {
       // Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting).
       const enhanced = await Promise.all(
@@ -51,23 +73,6 @@ export async function processSubmission(submissionId: string) {
         data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)] },
       });
       submission = (await findSubmission(submissionId))!;
-    }
-
-    if (!submission.title) {
-      const categories = (await getCategoryOptions('es')).map((category) => category.name);
-      const text = await writeListing(firstPhoto, submission.rawText, categories);
-      await prisma.submission.update({
-        where: { id: submissionId },
-        data: {
-          title: text.title,
-          description: text.descriptionEs,
-          descriptionEn: text.descriptionEn,
-          category: text.category,
-          condition: text.condition,
-          // What the seller asked for wins over the AI's suggestion.
-          price: submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
-        },
-      });
     }
 
     submission = await prisma.submission.update({

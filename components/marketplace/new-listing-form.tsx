@@ -4,10 +4,12 @@ import { useRef, useState, useTransition, type DragEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera, ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { createAdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { preparePhotos } from '@/lib/prepare-photos';
@@ -22,7 +24,7 @@ interface NewListingFormProps {
 // What the photosUploader route takes at once.
 const MAX_PHOTOS = 8;
 
-/** Like a WhatsApp message: a photo, a few optional words (the price too), send. The AI does the rest. */
+/** Step 1: photos and one text with everything about the item (the price too). The AI does the rest. */
 export default function NewListingForm({ texts }: NewListingFormProps) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -74,7 +76,7 @@ export default function NewListingForm({ texts }: NewListingFormProps) {
         sellerPhone: phone || undefined,
         hasContactConsent: Boolean(phone) && hasConsent,
       });
-      if ('id' in result && result.id) router.push(`/admin/listings/${result.id}`);
+      if ('id' in result && result.id) router.push(`/admin/listings/${result.id}?paso=categoria`);
       else setError(result.message);
     });
   };
@@ -98,7 +100,7 @@ export default function NewListingForm({ texts }: NewListingFormProps) {
         }}
       />
 
-      <ListingStage src={photos[0]} onDragOver={(event) => event.preventDefault()} onDrop={dropPhotos}>
+      <ListingStage src={photos[0]} className='aspect-[4/3]' onDragOver={(event) => event.preventDefault()} onDrop={dropPhotos}>
         {photos.length === 0 && (
           <button
             type='button'
@@ -159,27 +161,32 @@ export default function NewListingForm({ texts }: NewListingFormProps) {
         </ul>
       )}
 
-      <div className='flex justify-center'>
+      <div className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+        <div className='flex items-center justify-between gap-3'>
+          <Label htmlFor='notes' className='font-display text-xl'>
+            {texts.tellLabel}
+          </Label>
+          {/* Spoken words land in the field, where they can still be corrected before sending. */}
+          <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />
+        </div>
+        <Textarea
+          id='notes'
+          rows={4}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder={texts.tellPlaceholder}
+          className='field-sizing-content min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
+        />
         <button
           type='button'
           onClick={() => setIsForSeller((current) => !current)}
           aria-expanded={isForSeller}
-          className='rounded-full px-3 py-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
+          className='rounded-full py-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
         >
           {texts.forSeller}
         </button>
-      </div>
-
-      {error && (
-        <p role='alert' className='text-center text-sm text-destructive'>
-          {error}
-        </p>
-      )}
-
-      {/* Stays under the thumb while scrolling, like a chat's message box. */}
-      <div className='sticky bottom-4 z-10 rounded-[1.75rem] border border-border bg-card/95 p-2 shadow-xl backdrop-blur'>
         {isForSeller && (
-          <div className='space-y-2 px-3 pb-3 pt-2'>
+          <div className='space-y-2 pt-1'>
             <Label htmlFor='seller'>{texts.sellerLabel}</Label>
             <Input
               id='seller'
@@ -199,32 +206,19 @@ export default function NewListingForm({ texts }: NewListingFormProps) {
             )}
           </div>
         )}
-        <div className='flex items-end gap-1'>
-          <Button type='button' variant='ghost' size='icon' className='size-12 shrink-0 rounded-full' onClick={pickPhotos} disabled={isUploading} aria-label={texts.addPhoto}>
-            <ImagePlus className='size-5' />
-          </Button>
-          <label htmlFor='notes' className='sr-only'>
-            {texts.composerLabel}
-          </label>
-          <textarea
-            id='notes'
-            rows={1}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            placeholder={texts.composerPlaceholder}
-            className='field-sizing-content max-h-40 min-h-12 flex-1 resize-none bg-transparent px-2 py-3 text-base outline-none placeholder:text-muted-foreground'
-          />
-          <Button type='button' className='h-12 shrink-0 rounded-full px-4' disabled={!canSend} onClick={send} aria-label={texts.send}>
-            {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />}
-            <span className='hidden sm:inline'>{isPending ? texts.creating : texts.send}</span>
-          </Button>
-        </div>
+      </div>
+
+      {error && (
+        <p role='alert' className='text-center text-sm text-destructive'>
+          {error}
+        </p>
+      )}
+
+      {/* One thumb-sized button; it stays in reach while the text grows. */}
+      <div className='sticky bottom-4 z-10'>
+        <Button type='button' className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={!canSend} onClick={send}>
+          {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {isPending ? texts.creating : texts.send}
+        </Button>
       </div>
     </div>
   );

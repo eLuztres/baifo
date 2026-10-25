@@ -23,6 +23,8 @@ export interface CollectionRing {
   createdAt: Date;
   /** How a second-hand item is (PRODUCT_CONDITIONS), if known. */
   condition: string | null;
+  /** Server only: its name in other languages (localizeProduct). */
+  translations: unknown;
 }
 
 /** The rings in stock that have a photo, in the admin's order; the opening scene and the store are both built from them.
@@ -41,6 +43,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       reservedUntil: !SHOWCASE_MODE,
       createdAt: true,
       condition: true,
+      translations: true,
       categories: { select: { id: true } },
     },
   });

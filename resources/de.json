@@ -525,11 +525,15 @@
   "CONTACT_SELLER_MESSAGE": "Hallo! Ich interessiere mich für „{name}“: {url}",
   "CONTACT_SELLER_UNAVAILABLE": "Dieser Verkäufer ist hier nicht mehr erreichbar.",
   "CATEGORY_ALL": "Alle Kategorien",
-  "CATEGORY_EMPTY": "Hier ist noch nichts. Schau dich in den anderen Kategorien um.",
   "CATEGORY_SEE_ALL": "Alle ansehen",
   "CATEGORY_SORT": "Sortieren",
   "CONDITION_NEW": "Neu",
   "CONDITION_LIKE_NEW": "Wie neu",
   "CONDITION_GOOD": "Guter Zustand",
-  "CONDITION_FAIR": "Akzeptabler Zustand"
+  "CONDITION_FAIR": "Akzeptabler Zustand",
+  "VOICE_START": "Sprechen statt tippen",
+  "VOICE_STOP": "Aufnahme beenden",
+  "VOICE_TRANSCRIBING": "Deine Worte werden zu Text…",
+  "VOICE_NO_MIC": "Kein Zugriff aufs Mikrofon. Erlaube es für diese Seite in den Browser-Einstellungen.",
+  "VOICE_FAILED": "Die Aufnahme konnte nicht in Text umgewandelt werden. Bitte versuch es noch einmal."
 }

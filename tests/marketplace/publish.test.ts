@@ -10,7 +10,7 @@ jest.mock('@/db/prisma', () => {
     prisma: {
       submission,
       product,
-      category: { findMany: jest.fn(async () => [{ id: 'cat-1', name: { es: 'Bicis' } }]) },
+      category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'bicis', name: { es: 'Bicis', en: 'Bikes' }, keywords: [] }]) },
       $transaction: jest.fn((run: (tx: unknown) => unknown) => run({ submission, product })),
     },
   };
@@ -30,7 +30,7 @@ const SUBMISSION = {
   plan: 'big',
   title: 'Bici de paseo',
   description: 'Bici cómoda.',
-  descriptionEn: 'Comfy bike.',
+  translations: { en: { title: 'City bike', description: 'Comfy bike.' } },
   category: 'bicis',
   price: '70.00',
   images: ['https://utfs.io/f/bike.jpg'],
@@ -59,7 +59,9 @@ describe('publishSubmission', () => {
       data: expect.objectContaining({
         name: 'Bici de paseo',
         slug: 'bici-de-paseo-abcdef',
-        description: 'Bici cómoda.\n\n🇬🇧 Comfy bike.',
+        description: 'Bici cómoda.',
+        translations: { en: { name: 'City bike', description: 'Comfy bike.' } },
+        category: 'Bicis',
         isFeatured: true,
         contactPhone: '+34600111222',
         stock: 1,
