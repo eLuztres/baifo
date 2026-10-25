@@ -528,6 +528,10 @@
   "CONTACT_SELLER_UNAVAILABLE": "Dieser Verkäufer ist hier nicht mehr erreichbar.",
   "CATEGORY_ALL": "Alle Kategorien",
   "CATEGORY_SEE_ALL": "Alle ansehen",
+  "EXPLORE_TITLE": "Alle Anzeigen",
+  "EXPLORE_INTRO": "Alles auf {shop} an einem Ort, Sachen und Dienstleistungen gemischt. Scroll und entdecke.",
+  "EXPLORE_ALL": "Alles",
+  "EXPLORE_SERVICE_BADGE": "Dienstleistung",
   "CATEGORY_SORT": "Sortieren",
   "CONDITION_NEW": "Neu",
   "CONDITION_LIKE_NEW": "Wie neu",
@@ -546,5 +550,8 @@
   "SUBCATEGORIES_MANAGE": "Arten von Dienstleistungen bearbeiten",
   "SUBCATEGORIES_NEW": "Neue Art von Dienstleistung",
   "SUBCATEGORIES_ADD": "Hinzufügen",
-  "SUBCATEGORIES_SAVE": "Speichern"
+  "SUBCATEGORIES_SAVE": "Speichern",
+  "SHARE": "Teilen",
+  "SHARE_COPIED": "Link kopiert – füge ihn ein, wo du möchtest",
+  "SHARE_FAILED": "Der Link konnte nicht kopiert werden"
 }

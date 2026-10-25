@@ -4,7 +4,7 @@ import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CollectionRing } from './in-stock-rings';
 
 /** A ring in the store's banner; it goes to the client, so its category links stay behind. */
-export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition' | 'translations'>;
+export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'isService' | 'createdAt' | 'condition' | 'translations'>;
 
 export interface MaterialGroup {
   /** The category's slug, used in links (`?c=lava`). */

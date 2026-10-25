@@ -39,6 +39,7 @@ describe('groupByCategory', () => {
     images: [`/${slug}.jpg`],
     price: '70.00',
     isReserved: false,
+    isService: false,
     categoryIds,
     createdAt: new Date(0),
     condition: null,

@@ -8,6 +8,7 @@ import ProductImages from '@/components/shared/product/product-images';
 import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
+import ShareButton from '@/components/shared/product/share-button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
@@ -20,7 +21,6 @@ import {
 import { getSession } from '@/lib/auth-guard';
 import { BRAND } from '@/lib/brand';
 import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
-import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
@@ -71,7 +71,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
-        href={categoryId ? `/?category=${encodeURIComponent(categoryId)}#${SECTION_IDS.showroom}` : sectionHref(SECTION_IDS.showroom)}
+        href={categoryId ? `/explore?c=${encodeURIComponent(categoryId)}` : '/explore'}
         className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
       >
         <ChevronLeft className='h-4 w-4' />
@@ -91,7 +91,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               aria-hidden='true'
               className='absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent'
             />
-            <h1 className='shrink-0 text-xl leading-tight sm:text-3xl'>{name}</h1>
+            <div className='flex shrink-0 items-start justify-between gap-2'>
+              <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
+              <ShareButton title={name} className='-mr-2 -mt-1' />
+            </div>
             {condition && (
               <p className='w-fit shrink-0 rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>
             )}

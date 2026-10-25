@@ -16,6 +16,8 @@ export interface CollectionRing {
   images: string[];
   /** Missing in showcase mode (the price is never read from the database) and for services. */
   price?: string;
+  /** A service (babysitter, gardener …) rather than an item for sale. */
+  isService: boolean;
   isReserved: boolean;
   /** Server only: the store categories it shows up in. */
   categoryIds: string[];
@@ -53,6 +55,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
     ...product,
     // A service has no price to show; it stays in the database as 0.
     price: kind === 'service' ? undefined : price,
+    isService: kind === 'service',
     image: images[0],
     images,
     isReserved: isReservationActive({ reservedUntil }),

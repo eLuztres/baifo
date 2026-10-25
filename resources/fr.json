@@ -528,6 +528,10 @@
   "CONTACT_SELLER_UNAVAILABLE": "Ce vendeur n’est plus joignable ici.",
   "CATEGORY_ALL": "Toutes les catégories",
   "CATEGORY_SEE_ALL": "Tout voir",
+  "EXPLORE_TITLE": "Toutes les annonces",
+  "EXPLORE_INTRO": "Tout {shop} au même endroit, objets et services mélangés. Fais défiler et découvre.",
+  "EXPLORE_ALL": "Tout",
+  "EXPLORE_SERVICE_BADGE": "Service",
   "CATEGORY_SORT": "Trier",
   "CONDITION_NEW": "Neuf",
   "CONDITION_LIKE_NEW": "Comme neuf",
@@ -546,5 +550,8 @@
   "SUBCATEGORIES_MANAGE": "Modifier les types de service",
   "SUBCATEGORIES_NEW": "Nouveau type de service",
   "SUBCATEGORIES_ADD": "Ajouter",
-  "SUBCATEGORIES_SAVE": "Enregistrer"
+  "SUBCATEGORIES_SAVE": "Enregistrer",
+  "SHARE": "Partager",
+  "SHARE_COPIED": "Lien copié – colle-le où tu veux",
+  "SHARE_FAILED": "Le lien n'a pas pu être copié"
 }

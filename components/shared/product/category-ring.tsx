@@ -276,7 +276,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyer, figures 
         <p className='sr-only'>{front.name}</p>
         <p className='line-clamp-2 text-balance text-sm leading-5 text-muted-foreground'>{front.text}</p>
         <Link
-          href={`/category/${front.id}`}
+          href={`/explore?c=${front.id}`}
           className='inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline'
         >
           {t('CATEGORY_SEE_ALL')} <ChevronRight className='size-3.5' aria-hidden />
