@@ -22,11 +22,23 @@ export interface RingCategory {
   products: MaterialRing[];
 }
 
+export interface RingFigure {
+  image: string;
+  /** Turns about the picture's middle a little with every turn of the ring, like a windmill's sails. */
+  spinner?: string;
+  /** Where its foot stands on the center picture, as shares of its width and height. */
+  at: { x: number; y: number };
+}
+
 interface CategoryRingProps {
   categories: RingCategory[];
   label: string;
   /** The category turned to the front first. */
   initialCategoryId?: string;
+  /** What turns in the ring's middle: 'band' (the gold band), 'none', or a picture's URL shown as a 3D piece. */
+  center?: string;
+  /** A picture standing on the center picture. */
+  figure?: RingFigure;
   /** Only for admins: edit categories and rings right here. */
   admin?: CategoryRingAdmin;
 }
@@ -47,6 +59,8 @@ const TURN_MS = 1400;
 // soft curve), and take their exact place once the ring has settled (a turn, or the 1.4s entrance on load).
 const ARROWS_APPEAR_MS = 900;
 const SETTLE_MS = 1400;
+// Copies of the center picture stacked below it give it its thickness.
+const PIECE_LAYERS = 10;
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
@@ -58,8 +72,32 @@ const subscribeToWideScreen = (onChange: () => void) => {
 const isWideScreen = () => window.matchMedia(WIDE_SCREEN_QUERY).matches;
 const isWideOnServer = () => false;
 
+interface CenterPieceProps {
+  src: string;
+  figure?: RingFigure;
+}
+
+/** A picture lying in the ring's middle with some thickness, turning along with the cards. */
+const CenterPiece = ({ src, figure }: CenterPieceProps) => (
+  <div className={styles.centerPiece} style={{ '--piece': `url("${src}")` } as CSSProperties} aria-hidden='true'>
+    <span className={styles.pieceGlow} />
+    {Array.from({ length: PIECE_LAYERS }, (_, index) => (
+      <span key={index} className={styles.pieceSide} style={{ '--layer': index / PIECE_LAYERS } as CSSProperties} />
+    ))}
+    <span className={styles.pieceTop} />
+    {figure && (
+      <span
+        className={styles.pieceFigure}
+        style={{ '--figure': `url("${figure.image}")`, left: `${figure.at.x * 100}%`, top: `${figure.at.y * 100}%` } as CSSProperties}
+      >
+        {figure.spinner && <span className={styles.figureSpinner} style={{ '--spinner': `url("${figure.spinner}")` } as CSSProperties} />}
+      </span>
+    )}
+  </div>
+);
+
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, initialCategoryId, admin }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', figure, admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState(() => Math.max(0, categories.findIndex((category) => category.id === initialCategoryId)));
   const { t } = useI18n();
@@ -72,6 +110,7 @@ const CategoryRing = ({ categories, label, initialCategoryId, admin }: CategoryR
   const frontAdminCategory = admin?.categories.find((category) => category.slug === front.id);
   // Ring radius per unit of card spacing for this many cards; the spacing itself grows with the screen (CSS).
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
+  const hasPiece = center !== 'band' && center !== 'none';
   const dragHandlers = useRingDrag({ setStep });
   const neighbourSpots = useNeighbourSpots(stageRef, frontIndex, count, ARROWS_APPEAR_MS, SETTLE_MS);
 
@@ -89,7 +128,7 @@ const CategoryRing = ({ categories, label, initialCategoryId, admin }: CategoryR
         ref={stageRef}
         role='region'
         aria-label={label}
-        className={cn(styles.stage, styles.categoryStage)}
+        className={cn(styles.stage, styles.categoryStage, hasPiece && styles.pieceStage)}
         {...dragHandlers}
         style={
           {
@@ -100,11 +139,14 @@ const CategoryRing = ({ categories, label, initialCategoryId, admin }: CategoryR
         }
       >
         {/* The band is a scene of its own behind the cards, so the vine laid over it never fights it over which face shows. */}
+        {center === 'band' && (
+          <div className={styles.tilt}>
+            <GoldBand className={styles.centerBand} />
+          </div>
+        )}
         <div className={styles.tilt}>
-          <GoldBand className={styles.centerBand} />
-        </div>
-        <div className={styles.tilt}>
-          <GoldEngraving className={cn(styles.centerBand, styles.turning)} />
+          {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
+          {hasPiece && <CenterPiece src={center} figure={figure} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
               const category = categories[index % categories.length];
