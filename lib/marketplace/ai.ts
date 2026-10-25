@@ -72,6 +72,17 @@ const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
 const categoryLine = ({ slug, name, keywords }: ListingCategory) =>
   `  - ${slug}: ${localize(name, 'es')} / ${localize(name, 'en')}` + (keywords.length > 0 ? ` (e.g. ${keywords.join(', ')})` : '');
 
+// Wanted categories are the only subcategories an item can go in (see getListingCategories).
+const wantedRule = (wanted: ListingCategory[]) =>
+  wanted.length === 0
+    ? ''
+    : '- A WANTED AD is different: the person is LOOKING FOR something (busco, estoy buscando, looking for, cerco, suche …) ' +
+      'instead of selling it. Then the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", ' +
+      '"Looking for a surfboard"), the description says what they need and when, condition is the worst they accept ' +
+      '(good if unsaid), price is their budget (or a fair second-hand price if unsaid), and category is one of these:\n' +
+      wanted.map(categoryLine).join('\n') +
+      '\n';
+
 const listingPrompt = (sellerText: string, categories: ListingCategory[], locales: Locale[]) =>
   'You write second-hand listings for Baifo, a local marketplace in Fuerteventura. Look at the item and return JSON:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–6 words ` +
@@ -80,8 +91,9 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   'or defects that are not visible or stated.\n' +
   '- category: the slug of the ONE store category a buyer would look in for this item. Decide by what the main ' +
   'item is, not by the background or the props around it. The categories:\n' +
-  categories.map(categoryLine).join('\n') +
+  categories.filter(({ parentId }) => !parentId).map(categoryLine).join('\n') +
   `\n  Use ${FALLBACK_CATEGORY_SLUG} only if none of the others fits.\n` +
+  wantedRule(categories.filter(({ parentId }) => parentId)) +
   '- condition: exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
   '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
   'never rate it better than you can see.\n' +

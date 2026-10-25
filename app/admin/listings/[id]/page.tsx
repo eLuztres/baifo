@@ -46,7 +46,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <h1 className='sr-only'>{listing.title ?? texts.newListing}</h1>
       <ListingWorkspace
         initial={listing}
-        categories={categories.map(({ slug, name }) => ({ slug, name: localize(name, locale) }))}
+        // "Busco · Muebles y casa": a wanted subcategory would read like the store category it mirrors.
+        categories={categories.map(({ slug, name, parent }) => ({ slug, name: [parent?.name, name].filter(Boolean).map((text) => localize(text, locale)).join(' · ') }))}
         languages={languages}
         shopLanguage={languageOf(shopLocale)}
         texts={texts}

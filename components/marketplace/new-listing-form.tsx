@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, RotateCw, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { createAdminListing, getAdminListing, retryAdminListing, swapListingPicture, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { ProductKind } from '@/lib/constants';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
@@ -32,6 +33,8 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   const [listing, setListing] = useState<AdminListing | null>(null);
   const [shownIndex, setShownIndex] = useState(0);
   const [progress, setProgress] = useState<number | null>(null);
+  // After each photo: another one, or straight on to the AI? Asked right away, so nothing needs scrolling.
+  const [isAskingMore, setIsAskingMore] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const { startUpload } = useUploadThing('photosUploader', {
@@ -60,7 +63,10 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
     setProgress(0);
     try {
       const uploaded = await startUpload(await preparePhotos(files.slice(0, free)));
-      if (uploaded) setPhotos((current) => [...current, ...uploaded.map((file) => file.ufsUrl)].slice(0, MAX_PHOTOS));
+      if (uploaded) {
+        setPhotos((current) => [...current, ...uploaded.map((file) => file.ufsUrl)].slice(0, MAX_PHOTOS));
+        setIsAskingMore(true);
+      }
     } finally {
       setProgress(null);
     }
@@ -250,6 +256,44 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
           )}
         </div>
       )}
+
+      <Drawer open={isAskingMore && !listing} onOpenChange={setIsAskingMore}>
+        <DrawerContent>
+          <DrawerHeader className='items-center text-center'>
+            <DrawerTitle className='font-display text-2xl'>{texts.anotherPhotoTitle}</DrawerTitle>
+            <DrawerDescription>{fillText(texts.anotherPhotoCount, { count: photos.length, max: MAX_PHOTOS })}</DrawerDescription>
+          </DrawerHeader>
+          <ul className='flex justify-center gap-2 overflow-x-auto px-4'>
+            {photos.map((url) => (
+              <li key={url} className='relative size-14 shrink-0 overflow-hidden rounded-xl bg-muted'>
+                <ProductMedia src={url} alt='' fill sizes='3.5rem' />
+              </li>
+            ))}
+          </ul>
+          <div className='grid grid-cols-2 gap-3 p-4 pb-8'>
+            <Button
+              variant='outline'
+              className='h-14 rounded-full text-base'
+              disabled={photos.length >= MAX_PHOTOS}
+              onClick={() => {
+                setIsAskingMore(false);
+                pickPhotos();
+              }}
+            >
+              <Camera /> {texts.anotherPhotoYes}
+            </Button>
+            <Button
+              className='h-14 rounded-full text-base shadow-xl shadow-primary/20'
+              onClick={() => {
+                setIsAskingMore(false);
+                makePictures();
+              }}
+            >
+              <Sparkles /> {texts.anotherPhotoNo}
+            </Button>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <div className='sticky bottom-4 z-10'>
         {listing && pictures.length > 0 ? (

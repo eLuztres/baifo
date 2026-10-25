@@ -15,6 +15,7 @@ import {
   STUDIO_LOOK,
   STYLE_REFERENCE_NOTE,
   categoryCoverPrompt,
+  categoryCoverLikeOthersPrompt,
   categoryLook,
   seedOf,
 } from '@/lib/studio/prompts.mjs';
@@ -87,7 +88,11 @@ const VIEWS = viewSchema.options;
 const PORTRAIT = { size: '1152x1536', output_format: 'jpeg' };
 
 async function uploadImage(image: Uint8Array, name: string) {
-  const [upload] = await new UTApi().uploadFiles([new UTFile([image], `${name}-${Date.now()}.jpg`)]);
+  // UploadThing unreachable (e.g. a blocked network) rejects instead of answering: same friendly message.
+  const [upload] = await new UTApi().uploadFiles([new UTFile([image], `${name}-${Date.now()}.jpg`)]).catch((error) => {
+    console.error('Studio upload failed', error);
+    throw studioError('STUDIO_UPLOAD_FAILED');
+  });
   if (!upload.data) {
     console.error('Studio upload failed', upload.error);
     throw studioError('STUDIO_UPLOAD_FAILED');
@@ -153,11 +158,31 @@ export async function regenerateRingViews(productId: string) {
 }
 
 /** A cover picture for a store category from its scene, not saved until the category is. */
-export async function generateCategoryCover(scene: string) {
+// Covers of other categories the new one is made to match.
+const MAX_COVER_REFERENCES = 2;
+
+/** A cover for a category: like the other categories' covers when there are some, else from the words alone. */
+export async function generateCategoryCover(description: string, name = '') {
   try {
     await requireStudioAccess();
-    const text = z.string().trim().min(10, 'VALIDATION_CATEGORY_SCENE' satisfies TranslationKey).max(600).parse(scene);
-    const image = await generateImage(categoryCoverPrompt(text), PORTRAIT);
+    const text = z.string().trim().max(600).parse(description);
+    const title = z.string().trim().max(60).parse(name);
+    if (text.length < 3 && title.length < 2) throw studioError('VALIDATION_CATEGORY_SCENE');
+    const others = await prisma.category.findMany({
+      where: { image: { not: null } },
+      orderBy: { sortOrder: 'asc' },
+      take: MAX_COVER_REFERENCES,
+      select: { image: true },
+    });
+    // A cover that can't be loaded is just left out of the references.
+    const references = await Promise.all(
+      others.flatMap(({ image }) => (image ? [download(absoluteUrl(image, SERVER_URL)).catch(() => null)] : []))
+    );
+    const styles = references.flatMap((image) => (image ? [image] : []));
+    const image =
+      styles.length > 0
+        ? await editImage(categoryCoverLikeOthersPrompt(title, text), styles, PORTRAIT)
+        : await generateImage(categoryCoverPrompt(text || title), PORTRAIT);
     return { success: true, message: '', url: await uploadImage(image, 'category') };
   } catch (error) {
     return { success: false, message: formatError(error) };

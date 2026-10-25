@@ -8,13 +8,13 @@ jest.mock('@/lib/studio/openai.mjs', () => ({ draftText: jest.fn(), editImage: j
 const draft = draftText as jest.Mock;
 
 const CATEGORIES = [
-  { id: 'c1', slug: 'motor', name: { es: 'Bicis y motor', en: 'Bikes and vehicles' }, keywords: ['bicicleta', 'patinete'], parentId: null },
-  { id: 'c2', slug: 'otros', name: { es: 'Otros', en: 'Other' }, keywords: [], parentId: null },
+  { id: 'c1', slug: 'motor', name: { es: 'Bicis y motor', en: 'Bikes and vehicles' }, keywords: ['bicicleta', 'patinete'], parentId: null, parent: null },
+  { id: 'c2', slug: 'otros', name: { es: 'Otros', en: 'Other' }, keywords: [], parentId: null, parent: null },
 ];
 
 const SERVICE_CATEGORIES = [
-  { id: 's1', slug: 'ninos-y-mayores', name: { es: 'Niños y mayores', en: 'Children and elderly care' }, keywords: [], parentId: 'servicios' },
-  { id: 's2', slug: 'clases', name: { es: 'Clases', en: 'Lessons' }, keywords: [], parentId: 'servicios' },
+  { id: 's1', slug: 'ninos-y-mayores', name: { es: 'Niños y mayores', en: 'Children and elderly care' }, keywords: [], parentId: 'servicios', parent: { name: { es: 'Servicios' } } },
+  { id: 's2', slug: 'clases', name: { es: 'Clases', en: 'Lessons' }, keywords: [], parentId: 'servicios', parent: { name: { es: 'Servicios' } } },
 ];
 
 const TEXTS = { es: { title: 'Bici de paseo', description: 'Bici cómoda.' }, en: { title: 'City bike', description: 'Comfy bike.' } };
@@ -53,6 +53,18 @@ describe('writeListing', () => {
     expect(schema.properties.category.enum).toEqual(['motor', 'otros']);
     expect(schema.properties.texts.required).toEqual(['es', 'en']);
     expect(prompt).toContain('motor: Bicis y motor / Bikes and vehicles (e.g. bicicleta, patinete)');
+  });
+
+  it('offers the wanted categories only for a wanted ad, and only when the shop has them', async () => {
+    const wanted = { id: 'w1', slug: 'busco-motor', name: { es: 'Bicis, motos y coches', en: 'Bikes' }, keywords: [], parentId: 'busco', parent: { name: { es: 'Busco' } } };
+    draft.mockResolvedValue({ texts: TEXTS, category: 'busco-motor', condition: 'good', price: 50 });
+
+    expect((await writeListing(Buffer.from(''), 'busco bici', [...CATEGORIES, wanted], ['es', 'en'])).category).toBe('busco-motor');
+    expect(draft.mock.calls[0][3].prompt).toMatch(/WANTED AD[\s\S]*busco-motor/);
+    expect(draft.mock.calls[0][3].schema.properties.category.enum).toContain('busco-motor');
+
+    await writeListing(Buffer.from(''), 'bici', CATEGORIES, ['es', 'en']);
+    expect(draft.mock.calls[1][3].prompt).not.toContain('WANTED AD');
   });
 
   it('puts a listing in "otros" when the category no longer exists', async () => {

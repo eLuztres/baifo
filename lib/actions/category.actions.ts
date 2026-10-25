@@ -8,7 +8,8 @@ import { localize, RING_ORDER } from '@/lib/category';
 import type { Locale, TranslationKey } from '@/lib/i18n-core';
 import { formatError } from '@/lib/utils';
 import slugify from 'slugify';
-import { getShopLocale } from '@/lib/i18n-server';
+import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { translateText } from '@/lib/marketplace/ai';
 import {
   categorySchema,
   idSchema,
@@ -69,6 +70,7 @@ export async function getCatalogRings() {
       reservedUntil: true,
       categories: { select: { id: true } },
       submission: { select: { id: true } },
+      kind: true,
     },
   });
 }
@@ -168,6 +170,38 @@ export async function deleteCategory(id: string) {
     await prisma.category.delete({ where: { id: idSchema.parse(id) } });
     revalidateStore();
     return { success: true, message: 'CATEGORY_DELETED' satisfies TranslationKey };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+const categoryTextsSchema = z.object({ name: z.string().trim().min(1).max(60), text: z.string().trim().max(300) });
+
+/** The name and text the admin wrote in the shop's language, in every other language of the shop; never improved, only translated. */
+export async function translateCategory(data: z.infer<typeof categoryTextsSchema>) {
+  try {
+    if (!(await isAdmin())) return adminOnly();
+    const { name, text } = categoryTextsSchema.parse(data);
+    const from = getShopLocale();
+    const made = await translateText({ title: name, description: text }, from, getEnabledLocales().filter((locale) => locale !== from));
+    const texts = Object.fromEntries(Object.entries(made).map(([locale, item]) => [locale, { name: item?.title ?? '', text: item?.description ?? '' }]));
+    return { success: true, message: '', texts: texts as Partial<Record<Locale, { name: string; text: string }>> };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+/** Puts a product or service into a category, or takes it out; one listing can be in several categories. */
+export async function setProductCategory(productId: string, categoryId: string, isIn: boolean) {
+  try {
+    if (!(await isAdmin())) return adminOnly();
+    const [product, category] = [idSchema.parse(productId), idSchema.parse(categoryId)];
+    await prisma.product.update({
+      where: { id: product },
+      data: { categories: isIn ? { connect: { id: category } } : { disconnect: { id: category } } },
+    });
+    revalidateStore();
+    return { success: true, message: '' };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }

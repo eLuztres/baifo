@@ -51,6 +51,8 @@ export const PRODUCT_KINDS = ['product', 'service'] as const;
 export type ProductKind = (typeof PRODUCT_KINDS)[number];
 // The store category that holds the services; its subcategories are the kinds of service.
 export const SERVICES_CATEGORY_SLUG = process.env.SERVICES_CATEGORY_SLUG || 'servicios';
+// The category of wanted ads ("Busco …"); its subcategories are what people look for. A shop without it has none.
+export const WANTED_CATEGORY_SLUG = process.env.WANTED_CATEGORY_SLUG || 'busco';
 // How a second-hand item is, best first; a product without one shows none.
 export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair'] as const;
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];

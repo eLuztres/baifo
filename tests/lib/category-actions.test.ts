@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/db/prisma';
-import { createCategory, deleteCategory, updateCategory } from '@/lib/actions/category.actions';
+import { createCategory, deleteCategory, setProductCategory, translateCategory, updateCategory } from '@/lib/actions/category.actions';
+import { translateText } from '@/lib/marketplace/ai';
 
 jest.mock('@/auth', () => ({ auth: jest.fn(), signIn: jest.fn(), signOut: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
@@ -12,8 +13,10 @@ jest.mock('@/db/prisma', () => ({
       delete: jest.fn(),
       aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 7 } }),
     },
+    product: { update: jest.fn() },
   },
 }));
+jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('next/headers', () => ({ cookies: jest.fn(), headers: jest.fn() }));
 
@@ -71,5 +74,55 @@ describe('category actions', () => {
 
     const newScene = await updateCategory({ ...CATEGORY, id: CATEGORY_ID, sceneVariants: ['cold blue rim light'] });
     expect(newScene).toMatchObject({ success: true, ringIds: ['p1', 'p2'] });
+  });
+});
+
+describe('a category without the jewellery extras', () => {
+  it('is saved with only a name: no text and no photo scene', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    const plain = { ...CATEGORY, text: {}, scene: '', sceneVariants: [], keywords: [] };
+    await expect(createCategory(plain)).resolves.toMatchObject({ success: true });
+  });
+
+  it('still refuses a photo scene too short to say anything', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    await expect(createCategory({ ...CATEGORY, scene: 'beach' })).resolves.toMatchObject({ success: false });
+  });
+});
+
+describe('translateCategory', () => {
+  it('turns the translated title and description into name and text per language', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    (translateText as jest.Mock).mockResolvedValue({ it: { title: 'Servizi', description: 'Aiuto a casa' } });
+    await expect(translateCategory({ name: 'Servicios', text: 'Ayuda en casa' })).resolves.toEqual({
+      success: true,
+      message: '',
+      texts: { it: { name: 'Servizi', text: 'Aiuto a casa' } },
+    });
+  });
+
+  it('refuses non-admins', async () => {
+    mockAuth.mockResolvedValue(CUSTOMER);
+    await expect(translateCategory({ name: 'Servicios', text: '' })).resolves.toMatchObject({ success: false });
+    expect(translateText).not.toHaveBeenCalled();
+  });
+});
+
+describe('setProductCategory', () => {
+  const PRODUCT_ID = '1a2b3c4d-1b2c-4d3e-8f90-123456789abc';
+  const products = (prisma as unknown as { product: Record<string, jest.Mock> }).product;
+
+  it('connects a listing to a category and takes it out again', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    await setProductCategory(PRODUCT_ID, CATEGORY_ID, true);
+    expect(products.update).toHaveBeenCalledWith({ where: { id: PRODUCT_ID }, data: { categories: { connect: { id: CATEGORY_ID } } } });
+    await setProductCategory(PRODUCT_ID, CATEGORY_ID, false);
+    expect(products.update).toHaveBeenLastCalledWith({ where: { id: PRODUCT_ID }, data: { categories: { disconnect: { id: CATEGORY_ID } } } });
+  });
+
+  it('refuses non-admins', async () => {
+    mockAuth.mockResolvedValue(CUSTOMER);
+    await expect(setProductCategory(PRODUCT_ID, CATEGORY_ID, true)).resolves.toMatchObject({ success: false });
+    expect(products.update).not.toHaveBeenCalled();
   });
 });

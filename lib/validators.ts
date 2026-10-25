@@ -51,6 +51,8 @@ const categoryTextSchema = (key: TranslationKey, max: number) =>
     .refine((texts) => Object.values(texts).some(Boolean), message(key));
 
 const sceneTextSchema = z.string().trim().max(600, message('VALIDATION_CATEGORY_SCENE'));
+// Optional: a marketplace category needs no photo scene, but a scene that is there must say something.
+const optionalSceneSchema = sceneTextSchema.refine((scene) => scene === '' || scene.length >= 10, message('VALIDATION_CATEGORY_SCENE'));
 
 // A category of the store's ring; the name and text are given per language.
 export const categorySchema = z.object({
@@ -59,10 +61,11 @@ export const categorySchema = z.object({
     .trim()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, message('VALIDATION_SLUG_MIN')),
   name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60),
-  text: categoryTextSchema('VALIDATION_CATEGORY_TEXT', 300),
+  // Optional: a category can be just a name.
+  text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_CATEGORY_TEXT'))),
   image: z.string().nullable(),
   keywords: z.array(z.string().trim().toLowerCase().min(2).max(40)).max(20),
-  scene: sceneTextSchema.min(10, message('VALIDATION_CATEGORY_SCENE')),
+  scene: optionalSceneSchema,
   sceneVariants: z.array(sceneTextSchema.min(3, message('VALIDATION_CATEGORY_SCENE'))).max(6),
 });
 

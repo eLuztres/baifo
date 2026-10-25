@@ -7,6 +7,7 @@ import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
 import CategoryTree from './category-tree';
 import CatalogRingCard from './catalog-ring-card';
+import CategoryListingsPicker from './category-listings-picker';
 import { UNCATEGORIZED, type CatalogBranch } from './catalog-types';
 
 interface ProductCatalogProps {
@@ -71,11 +72,27 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
               <p className='text-xs uppercase tracking-[0.2em] text-primary'>{t('STORE_CATEGORY_RINGS', { count: selected.rings.length })}</p>
             </div>
           )}
-          <CategoryToolbar
-            admin={admin}
-            frontSlug={selected?.slug === UNCATEGORIZED ? undefined : selected?.slug}
-            className='justify-start px-0'
-          />
+          <div className='flex flex-wrap items-center gap-2'>
+            <CategoryToolbar
+              admin={admin}
+              frontSlug={selected?.slug === UNCATEGORIZED ? undefined : selected?.slug}
+              className='justify-start px-0'
+            />
+            {selected?.categoryId && (
+              <CategoryListingsPicker
+                key={selected.categoryId}
+                categoryId={selected.categoryId}
+                categoryName={selected.name}
+                listings={rings.map((ring) => ({
+                  id: ring.id,
+                  name: ring.name,
+                  image: ring.images[0],
+                  isService: ring.kind === 'service',
+                  categoryIds: ring.categoryIds,
+                }))}
+              />
+            )}
+          </div>
           <ul className='grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4'>
             {selected?.categoryId && (
               <li className='aspect-[4/5]'>

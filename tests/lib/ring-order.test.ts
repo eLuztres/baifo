@@ -9,6 +9,7 @@ jest.mock('@/db/prisma', () => ({
     $transaction: jest.fn(),
   },
 }));
+jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('next/headers', () => ({ cookies: jest.fn(), headers: jest.fn() }));
 
