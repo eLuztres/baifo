@@ -45,6 +45,9 @@ export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
 // The AI product studio needs an OpenAI key; without one, new products use the plain product form.
 export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
+// Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
+export const NEW_PRODUCT_PATH =
+  process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
