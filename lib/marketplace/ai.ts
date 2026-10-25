@@ -100,26 +100,62 @@ const servicePrompt = (adminText: string, categories: ListingCategory[], locales
   '\n' +
   (adminText ? `What the admin wrote about the person (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
+/** The admin's own words, used as they are: the AI only translates them, and names a missing title. */
+export interface KeptText {
+  title?: string;
+  description: string;
+}
+
+// Added after the usual prompt, so category, condition and price are still read from the text.
+const keptTextRule = (kept: KeptText, locales: Locale[]) =>
+  `IMPORTANT: the admin wants their own words, so the texts rule above does not apply. In ${locales[0]}, the ` +
+  (kept.title ? `title is exactly "${kept.title}"` : 'title is 2–6 words taken from their text') +
+  ' and the description is exactly their text, word for word. Every other language gets a faithful translation of ' +
+  'that title and description, adding and leaving out nothing.\n';
+
+const translatePrompt = (from: Locale, locales: Locale[]) =>
+  `Translate this listing's title and description from ${LANGUAGE_NAMES[from]} into ` +
+  `${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}. Translate faithfully and naturally, ` +
+  'keep the tone, add and leave out nothing, and keep names, places and numbers as they are. Return JSON with texts.\n';
+
 /** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. */
 export const enhancePhoto = (photo: Buffer, kind: ProductKind = 'product') =>
   editImage(kind === 'service' ? SERVICE_PHOTO_PROMPT : PHOTO_PROMPT, [photo], { size: '1024x1024' });
 
-/** Title and description in every shop language and the category for a listing; an item also gets condition and price. */
+/** Title and description in every shop language (the first one is the shop's) and the category for a listing; an item
+    also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated. */
 export async function writeListing(
   photo: Buffer,
   sellerText: string,
   categories: ListingCategory[],
   locales: Locale[],
-  kind: ProductKind = 'product'
+  kind: ProductKind = 'product',
+  kept?: KeptText
 ): Promise<ListingText> {
   const slugs = categories.map((category) => category.slug);
   const isService = kind === 'service';
+  const prompt = isService ? servicePrompt(sellerText, categories, locales) : listingPrompt(sellerText, categories, locales);
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
-      prompt: isService ? servicePrompt(sellerText, categories, locales) : listingPrompt(sellerText, categories, locales),
+      prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
       schema: isService ? serviceJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs),
     })
   );
+  // The AI may still tidy the admin's words; their own text wins.
+  if (kept) {
+    const own = result.texts[locales[0]];
+    result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description };
+  }
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   return slugs.includes(result.category) ? result : { ...result, category: isService ? slugs[0] : FALLBACK_CATEGORY_SLUG };
+}
+
+/** The same title and description in other languages, translated, not rewritten. */
+export async function translateText(text: { title: string; description: string }, from: Locale, locales: Locale[]) {
+  if (locales.length === 0) return {};
+  const result = await draftText(null, '', null, {
+    prompt: translatePrompt(from, locales) + `Title: ${text.title}\nDescription: ${text.description}\n`,
+    schema: { type: 'object', properties: { texts: textsJsonSchema(locales) }, required: ['texts'] },
+  });
+  return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
 }

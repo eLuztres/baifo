@@ -532,6 +532,10 @@
   "EXPLORE_INTRO": "Todo lo de {shop} en un solo sitio, cosas y servicios mezclados. Desliza y descubre.",
   "EXPLORE_ALL": "Todo",
   "EXPLORE_SERVICE_BADGE": "Servicio",
+  "EXPLORE_NEW_BADGE": "Nuevo",
+  "EXPLORE_END_TITLE": "Ya lo has visto todo",
+  "EXPLORE_END_TEXT": "Vuelve mañana: cada día llegan cosas nuevas. ¿Tienes algo que vender o un servicio que ofrecer? {shop} lo publica por ti.",
+  "PRODUCT_RELATED_TITLE": "También te puede gustar",
   "CATEGORY_SORT": "Ordenar",
   "CONDITION_NEW": "Nuevo",
   "CONDITION_LIKE_NEW": "Como nuevo",
@@ -553,5 +557,10 @@
   "SUBCATEGORIES_SAVE": "Guardar",
   "SHARE": "Compartir",
   "SHARE_COPIED": "Enlace copiado: pégalo donde quieras",
-  "SHARE_FAILED": "No se pudo copiar el enlace"
+  "SHARE_FAILED": "No se pudo copiar el enlace",
+  "HOME_SEO_TITLE": "{shop}",
+  "PRODUCT_SEO_TITLE": "{name}",
+  "SERVICE_SEO_TITLE": "{name}",
+  "EXPLORE_SEO_TITLE": "Todos los anuncios",
+  "EXPLORE_SEO_DESCRIPTION": "Todo lo de {shop} en un solo sitio, cosas y servicios mezclados. Desliza y descubre."
 }

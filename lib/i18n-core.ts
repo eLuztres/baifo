@@ -25,6 +25,8 @@ const LOCALE_IDS: string[] = LOCALES.map((locale) => locale.id);
 
 export const DEFAULT_LOCALE: Locale = 'en';
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
+// The middleware copies `?lang=` into this request header: a language in the URL is one Google can index.
+export const URL_LOCALE_HEADER = 'x-url-locale';
 
 export function isLocale(value: string | undefined | null): value is Locale {
   return !!value && LOCALE_IDS.includes(value);

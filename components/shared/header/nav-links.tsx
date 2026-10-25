@@ -3,7 +3,7 @@
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { focusSection, ONE_PAGE_PATH, scrollToSection } from '@/components/shared/home/one-page';
+import { focusSection, ONE_PAGE_PATH, scrollToSection, SECTION_IDS } from '@/components/shared/home/one-page';
 import { cn } from '@/lib/utils';
 import type { NavLink } from './nav-items';
 import { useActiveNavIndex } from './use-active-section';
@@ -52,6 +52,9 @@ export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
   const pathname = usePathname();
   const activeIndex = useActiveNavIndex(links);
   const isRowShown = useIsShownOnPartChange(activeIndex);
+  // The feed and the listings belong to the showroom, so its tab stays lit there; only the look, not the swipe.
+  const isInShowroom = pathname.startsWith('/explore') || pathname.startsWith('/product/');
+  const litIndex = activeIndex === -1 && isInShowroom ? links.findIndex((link) => link.section === SECTION_IDS.showroom) : activeIndex;
 
   // On the one-page home a tab glides to its part instead of jumping there; a new-tab or middle click stays a plain link.
   const handleClick = (event: MouseEvent<HTMLAnchorElement>, link: NavLink) => {
@@ -73,7 +76,7 @@ export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
         )}
       >
         {links.map((link, index) => {
-          const isActive = index === activeIndex;
+          const isActive = index === litIndex;
           return (
             <Link
               key={link.href}
@@ -97,7 +100,7 @@ export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
   return (
     <nav className='hidden items-center gap-1 rounded-full border border-border bg-card/70 p-1 lg:flex'>
       {links.map((link, index) => {
-        const isActive = index === activeIndex;
+        const isActive = index === litIndex;
         return (
           <Link
             key={link.href}

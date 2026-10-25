@@ -10,6 +10,7 @@ import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
+import RelatedStrip from '@/components/shared/product/related-strip';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
@@ -24,8 +25,13 @@ import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
+import { composeFeed } from '@/lib/feed';
+import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
+
+/** How many similar listings the strip under a listing shows. */
+const RELATED_COUNT = 8;
 
 // generateMetadata and the page need the same row: one query per request.
 const getProduct = cache(getProductBySlug);
@@ -39,7 +45,13 @@ interface ProductPageProps {
 export async function generateMetadata(props: ProductPageProps) {
   const { slug } = await props.params;
   const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
-  return { title: product ? localizeProduct(product, locale).name : t('PRODUCT_FALLBACK_TITLE') };
+  if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
+  const { name, description } = localizeProduct(product, locale);
+  return {
+    title: t(product.kind === 'service' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
+    description: metaDescription(description) || undefined,
+    alternates: await pageAlternates(`/product/${slug}`),
+  };
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
@@ -66,12 +78,49 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const isService = product.kind === 'service';
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
+  // The category the visitor came through, else the listing's own: the strip and the way back open with it.
+  const focusCategory =
+    categories.find((category) => category.slug === categoryId) ??
+    categories.find((category) => rings.some((ring) => ring.slug === slug && ring.categoryIds.includes(category.id)));
+  const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
+  const ownCategorySlug = (categoryIds: string[]) => categories.find((category) => categoryIds.includes(category.id))?.slug;
+  const related = composeFeed(rings.filter((ring) => ring.slug !== slug), focusCategory?.id, slug)
+    .slice(0, RELATED_COUNT)
+    .map((ring) => {
+      // Its own category, so the next page's way back and swipe stay in it.
+      const ringCategory = ownCategorySlug(ring.categoryIds);
+      return {
+        href: ringCategory ? `/product/${ring.slug}?c=${ringCategory}` : `/product/${ring.slug}`,
+        name: localizeProduct(ring, locale).name,
+        image: ring.image,
+        price: ring.price,
+      };
+    });
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
+      <script
+        type='application/ld+json'
+        // Safe: jsonLd escapes `<`, so the listing's own text can't end the script tag.
+        dangerouslySetInnerHTML={{
+          __html: jsonLd(
+            listingJsonLd({
+              name,
+              description,
+              images: product.images,
+              category: product.category,
+              path: `/product/${slug}`,
+              isService,
+              price: SHOWS_PRICES ? product.price?.toString() : undefined,
+              condition: product.condition,
+              isAvailable: SHOWCASE_MODE || inStock,
+            })
+          ),
+        }}
+      />
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
-        href={categoryId ? `/explore?c=${encodeURIComponent(categoryId)}` : '/explore'}
+        href={feedHref}
         className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
       >
         <ChevronLeft className='h-4 w-4' />
@@ -84,7 +133,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           <ProductImages images={product.images} alt={name} />
         </div>
 
-        <div className='flex min-h-0 flex-col lg:justify-center'>
+        <div className='flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5'>
           <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
             {/* A thin gold light along the top edge, like the rim of a jewellery box. */}
             <span
@@ -168,6 +217,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </>
             )}
           </div>
+          <RelatedStrip title={t('PRODUCT_RELATED_TITLE')} listings={related} seeAllHref={feedHref} seeAllLabel={t('CATEGORY_SEE_ALL')} />
         </div>
       </div>
     </section>

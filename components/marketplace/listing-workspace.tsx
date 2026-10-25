@@ -78,7 +78,7 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
     return (
       <div className='space-y-4'>
         {steps}
-        <DescriptionStep listing={listing} texts={texts} onSent={setListing} />
+        <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} />
       </div>
     );
   }

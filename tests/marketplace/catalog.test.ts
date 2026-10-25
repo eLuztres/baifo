@@ -1,5 +1,5 @@
 import { categoryRefs, findCategory, toProductTranslations } from '@/lib/marketplace/catalog';
-import { writeListing } from '@/lib/marketplace/ai';
+import { translateText, writeListing } from '@/lib/marketplace/ai';
 import { draftText } from '@/lib/studio/openai.mjs';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
@@ -76,6 +76,49 @@ describe('writeListing', () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'jardineria' });
 
     expect((await writeListing(Buffer.from(''), '', SERVICE_CATEGORIES, ['es', 'en'], 'service')).category).toBe('ninos-y-mayores');
+  });
+});
+
+describe('writeListing with the admin\'s own text', () => {
+  beforeEach(() => draft.mockReset());
+
+  it('keeps title and description word for word in the shop language and only translates them', async () => {
+    // The AI tidied the words anyway; the admin's own text must win.
+    draft.mockResolvedValue({ texts: { es: { title: 'Bici', description: 'Bici muy cómoda.' }, en: TEXTS.en }, category: 'motor', condition: 'good', price: 80 });
+
+    const listing = await writeListing(Buffer.from(''), 'bici comoda 80€', CATEGORIES, ['es', 'en'], 'product', { title: 'Mi bici', description: 'bici comoda 80€' });
+
+    expect(listing.texts.es).toEqual({ title: 'Mi bici', description: 'bici comoda 80€' });
+    expect(listing.texts.en).toEqual(TEXTS.en);
+    expect(listing).toMatchObject({ category: 'motor', condition: 'good', price: 80 });
+    expect(draft.mock.calls[0][3].prompt).toContain('title is exactly "Mi bici"');
+  });
+
+  it('lets the AI name the title when the admin gave none', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', condition: 'good', price: null });
+
+    const listing = await writeListing(Buffer.from(''), 'bici comoda', CATEGORIES, ['es', 'en'], 'product', { description: 'bici comoda' });
+
+    expect(listing.texts.es).toEqual({ title: 'Bici de paseo', description: 'bici comoda' });
+  });
+});
+
+describe('translateText', () => {
+  beforeEach(() => draft.mockReset());
+
+  it('translates one text into the other languages without a photo', async () => {
+    draft.mockResolvedValue({ texts: { en: TEXTS.en } });
+
+    expect(await translateText(TEXTS.es, 'es', ['en'])).toEqual({ en: TEXTS.en });
+    const [photo, , , { prompt, schema }] = draft.mock.calls[0];
+    expect(photo).toBeNull();
+    expect(prompt).toContain('Bici cómoda.');
+    expect(schema.properties.texts.required).toEqual(['en']);
+  });
+
+  it('asks nothing when the shop has no other language', async () => {
+    expect(await translateText(TEXTS.es, 'es', [])).toEqual({});
+    expect(draft).not.toHaveBeenCalled();
   });
 });
 

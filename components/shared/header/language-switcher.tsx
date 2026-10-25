@@ -23,7 +23,14 @@ function useChooseLocale() {
   const choose = (next: Locale) => {
     if (next === locale) return;
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-    startTransition(() => router.refresh());
+    // A language in the URL (from Google) wins over the cookie, so it has to go.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('lang')) {
+      url.searchParams.delete('lang');
+      startTransition(() => router.replace(`${url.pathname}${url.search}${url.hash}`));
+    } else {
+      startTransition(() => router.refresh());
+    }
   };
 
   return { locale, choose, isPending };

@@ -27,7 +27,8 @@ async function makeShopPictures(submissionId: string, originals: string[], kind:
   );
   await prisma.submission.update({
     where: { id: submissionId },
-    data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)], lastError: null },
+    // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
+    data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)], aiImages: enhanced, lastError: null },
   });
 }
 
@@ -73,7 +74,9 @@ export async function processSubmission(submissionId: string) {
       const shopLocale = getShopLocale();
       const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
       const kind = submission.kind as ProductKind;
-      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(kind), locales, kind);
+      // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
+      const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
+      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(kind), locales, kind, kept);
       const { [shopLocale]: own, ...others } = text.texts;
       await prisma.submission.update({
         where: { id: submissionId },
@@ -81,6 +84,7 @@ export async function processSubmission(submissionId: string) {
           title: own?.title,
           description: own?.description,
           translations: others,
+          textVersions: { [submission.textMode]: text.texts },
           category: text.category,
           condition: text.condition,
           // What the seller asked for wins over the AI's suggestion; a service never has a price, even if the notes name one.

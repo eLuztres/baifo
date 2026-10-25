@@ -63,4 +63,18 @@ describe('middleware', () => {
 
     expect(res.cookies.get('sessionCartId')?.value).toMatch(/^[0-9a-f-]{36}$/);
   });
+
+  // NextResponse.next({ request: { headers } }) hands overridden request headers on with this prefix.
+  it('passes the language from ?lang= on to the page', () => {
+    const res = middleware(request('/product/lamp?lang=en'));
+
+    expect(res.headers.get('x-middleware-request-x-url-locale')).toBe('en');
+  });
+
+  it('ignores a language header sent by the visitor', () => {
+    const req = request('/');
+    req.headers.set('x-url-locale', 'de');
+
+    expect(middleware(req).headers.get('x-middleware-request-x-url-locale')).toBeNull();
+  });
 });

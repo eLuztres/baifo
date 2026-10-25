@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ExternalLink, Loader2, Plus, Send, Sparkles, X } from 'lucide-react';
+import { Camera, ChevronDown, ExternalLink, Languages, Loader2, Plus, Send, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
@@ -13,19 +13,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import {
+  chooseListingText,
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
   sendAdminPaymentLink,
+  translateListingText,
   updateAdminListing,
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
-import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
+import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
+import TextModeSwitch from './text-mode-switch';
 
 /** A shop language, with its short label for the tabs (ES, EN, IT). */
 export interface EditorLanguage {
@@ -63,9 +67,9 @@ interface EditorFields {
   condition: ProductCondition | '';
 }
 
-// A service sends no price and no condition: it never has either.
-const toEdit = ({ price, condition, ...fields }: EditorFields, images: string[], isService: boolean) =>
-  isService ? { ...fields, images } : { ...fields, price, condition, images };
+// A service sends no price and no condition: it never has either. textMode says which of the two texts this is.
+const toEdit = ({ price, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
+  isService ? { ...fields, images, textMode } : { ...fields, price, condition, images, textMode };
 
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
@@ -98,6 +102,13 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState('');
+  const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
+  // What the AI is doing to the text right now: writing a version, or translating.
+  const [textWork, setTextWork] = useState<TextMode | 'translate' | null>(null);
+  // The shop-language text changed after the translations were made.
+  const [isTranslationStale, setIsTranslationStale] = useState(false);
+  // Only text the admin (or seller) wrote can be used as it is.
+  const hasOriginalText = listing.rawText.trim() !== '';
   // What the server has, so only real changes are saved (and React's double effects in dev save nothing).
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
   const hasSellerPhone = listing.seller.waId !== houseSeller;
@@ -110,12 +121,21 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const set = (name: 'price' | 'category' | 'condition') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
-  const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) =>
+  const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) => {
+    if (isShopLanguage && languages.length > 0) setIsTranslationStale(true);
     setFields((current) =>
       isShopLanguage
         ? { ...current, [name]: event.target.value }
         : { ...current, translations: { ...current.translations, [language]: { ...current.translations[language], [name]: event.target.value } } }
     );
+  };
+  // Every other language from the AI's texts; a language it left out keeps what it had.
+  const withTranslations = (current: EditorFields, made: ListingTexts): EditorFields => ({
+    ...current,
+    translations: Object.fromEntries(
+      languages.map(({ id }) => [id, made[id] ? { title: made[id].title, description: made[id].description } : current.translations[id]])
+    ),
+  });
   const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
 
   useEffect(() => {
@@ -123,19 +143,19 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     if (snapshot === savedSnapshot.current) return;
     setSaveState('saving');
     const timer = setTimeout(async () => {
-      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService));
+      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
       if (saved.success) savedSnapshot.current = snapshot;
       setSaveState(saved.success ? 'saved' : 'failed');
       setError(saved.success ? '' : saved.message);
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
-  }, [fields, images, listing.id, isService]);
+  }, [fields, images, listing.id, isService, textMode]);
 
   // Every action saves the edits first, so what goes online is what the admin sees.
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
     startTransition(async () => {
       setError('');
-      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService));
+      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
       if (!saved.success) return setError(saved.message);
       savedSnapshot.current = JSON.stringify({ ...fields, images });
       const result = await action();
@@ -146,6 +166,39 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     });
 
   const publish = () => run(() => publishAdminListing(listing.id, plan), onPublished);
+
+  // The edits so far stay with the current text; the other one comes back as it was, or is made once.
+  const switchText = async (mode: TextMode) => {
+    setError('');
+    setTextWork(mode);
+    await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+    const result = await chooseListingText(listing.id, mode);
+    setTextWork(null);
+    if (!('texts' in result && result.texts)) return setError(result.message);
+    const own = result.texts[shopLanguage.id];
+    setTextMode(mode);
+    setFields((current) => ({ ...withTranslations(current, result.texts), title: own?.title ?? '', description: own?.description ?? '' }));
+    setIsTranslationStale(false);
+  };
+
+  const updateTranslations = async () => {
+    setError('');
+    setTextWork('translate');
+    const result = await translateListingText(listing.id, { title: fields.title, description: fields.description });
+    setTextWork(null);
+    if (!('translations' in result && result.translations)) return setError(result.message);
+    setFields((current) => withTranslations(current, result.translations));
+    setIsTranslationStale(false);
+  };
+
+  // An AI picture and its original photo belong together, so either one can be shown in the shop.
+  const counterpartOf = (url: string) => {
+    const aiIndex = listing.aiImages.indexOf(url);
+    if (aiIndex >= 0) return { isAi: true, other: listing.rawImages[aiIndex] };
+    const ai = listing.aiImages[listing.rawImages.indexOf(url)];
+    return ai ? { isAi: false, other: ai } : undefined;
+  };
+  const swapPicture = (url: string, other: string) => setImages((current) => current.map((image) => (image === url ? other : image)));
 
   return (
     <div className='mx-auto w-full max-w-xl space-y-4'>
@@ -170,30 +223,67 @@ export default function ListingEditor({ listing, categories, languages, shopLang
         </div>
       )}
 
-      {/* The main picture a bit bigger; a tap on another one makes it the main picture. */}
-      <ul className='flex items-end gap-3 overflow-x-auto p-1'>
-        {images.map((url, index) => (
-          <li key={`${index}-${url}`} className='shrink-0'>
-            <button
-              type='button'
-              onClick={() => makeMain(url)}
-              aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
-              aria-pressed={index === 0}
-              className={cn(
-                'relative block overflow-hidden rounded-2xl border-2 bg-muted',
-                index === 0 ? 'size-24 border-primary' : 'size-16 border-transparent'
+      {/* The main picture a bit bigger; a tap on another one makes it the main picture. Under each, original or AI. */}
+      <ul className='flex items-start gap-3 overflow-x-auto p-1'>
+        {images.map((url, index) => {
+          const counterpart = counterpartOf(url);
+          const isAiPicture = listing.aiImages.length > 0 ? Boolean(counterpart?.isAi) : index === 0 && listing.images.length > 0;
+          return (
+            <li key={`${index}-${url}`} className={cn('flex shrink-0 flex-col items-center gap-1.5', index > 0 && 'pt-8')}>
+              <button
+                type='button'
+                onClick={() => makeMain(url)}
+                aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
+                aria-pressed={index === 0}
+                className={cn(
+                  'relative block overflow-hidden rounded-2xl border-2 bg-muted',
+                  index === 0 ? 'size-24 border-primary' : 'size-16 border-transparent'
+                )}
+              >
+                <ProductMedia src={url} alt='' fill sizes='6rem' />
+                {isAiPicture && (
+                  <Sparkles className='absolute left-1.5 top-1.5 size-4 rounded-full bg-background/90 p-0.5 text-primary' aria-label={texts.aiPicture} />
+                )}
+              </button>
+              {counterpart && (
+                <div role='radiogroup' aria-label={texts.photosLabel} className='flex rounded-full bg-muted p-0.5'>
+                  {[
+                    { isAi: false, icon: Camera, label: texts.useOriginalPicture },
+                    { isAi: true, icon: Sparkles, label: texts.useAiPicture },
+                  ].map(({ isAi, icon: Icon, label }) => {
+                    const isChecked = isAi === counterpart.isAi;
+                    return (
+                      <button
+                        key={label}
+                        type='button'
+                        role='radio'
+                        aria-checked={isChecked}
+                        aria-label={label}
+                        title={label}
+                        onClick={() => !isChecked && swapPicture(url, counterpart.other)}
+                        className={cn(
+                          'flex size-7 items-center justify-center rounded-full transition',
+                          isChecked ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        <Icon className='size-3.5' />
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            >
-              <ProductMedia src={url} alt='' fill sizes='6rem' />
-              {index === 0 && listing.images.length > 0 && (
-                <Sparkles className='absolute left-1.5 top-1.5 size-4 rounded-full bg-background/90 p-0.5 text-primary' aria-label={texts.aiPicture} />
-              )}
-            </button>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
 
-      <section className='space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
+      <section className='relative space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
+        {hasOriginalText && (
+          <div className='flex flex-wrap items-center justify-between gap-2 px-1'>
+            <span className='text-sm font-medium'>{texts.textLabel}</span>
+            <TextModeSwitch value={textMode} onChange={switchText} texts={texts} disabled={textWork !== null} isCompact />
+          </div>
+        )}
         <div role='tablist' aria-label={texts.languageLabel} className='flex gap-1'>
           {[shopLanguage, ...languages].map(({ id, label }) => (
             <button
@@ -211,7 +301,15 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             </button>
           ))}
         </div>
-        <div role='tabpanel' lang={language} className='space-y-1'>
+        {isTranslationStale && (
+          <div className='flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-muted px-3 py-2 text-sm'>
+            <span className='text-muted-foreground'>{fillText(texts.translationsStale, { language: shopLanguage.label })}</span>
+            <Button size='sm' variant='outline' className='rounded-full' disabled={textWork !== null} onClick={updateTranslations}>
+              <Languages /> {texts.updateTranslations}
+            </Button>
+          </div>
+        )}
+        <div role='tabpanel' lang={language} aria-busy={textWork !== null} className='space-y-1'>
           <Label htmlFor='title' className='sr-only'>
             {texts.titleLabel}
           </Label>
@@ -233,6 +331,11 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             className={`${INLINE_CLASS} field-sizing-content max-h-[28svh] min-h-16 resize-none overflow-y-auto text-base leading-relaxed md:text-base`}
           />
         </div>
+        {textWork && (
+          <div className='absolute inset-0 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium backdrop-blur-sm'>
+            <Loader2 className='size-4 animate-spin text-primary' /> {textWork === 'ai' ? texts.improvingNow : texts.translatingNow}
+          </div>
+        )}
       </section>
 
       <div className='grid grid-cols-2 gap-3'>

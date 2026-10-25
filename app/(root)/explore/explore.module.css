@@ -25,6 +25,8 @@
   /* Tiles far below the fold are not laid out until they come near. */
   content-visibility: auto;
   contain-intrinsic-size: auto 20rem;
+  /* A tile reached with the keyboard stops below the sticky header and chips, not under them. */
+  scroll-margin-top: 10rem;
 }
 
 .large {

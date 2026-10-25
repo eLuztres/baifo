@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
+import { URL_LOCALE_HEADER } from '@/lib/i18n-core';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
 const PROTECTED_PATHS = [
@@ -27,14 +28,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(signInUrl, request.method === 'GET' ? 307 : 303);
   }
 
+  // `?lang=` reaches getLocale as a header; unknown values are ignored there.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(URL_LOCALE_HEADER);
+  const urlLocale = request.nextUrl.searchParams.get('lang');
+  if (urlLocale) requestHeaders.set(URL_LOCALE_HEADER, urlLocale);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+
   // Guests get a cart id so they can shop before signing in.
   if (!SHOWCASE_MODE && !request.cookies.get('sessionCartId')) {
-    const response = NextResponse.next({ request: { headers: new Headers(request.headers) } });
     response.cookies.set('sessionCartId', crypto.randomUUID());
-    return response;
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 // Pages and server-action posts only: they need the sign-in guard and the sessionCartId cookie.

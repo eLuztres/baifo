@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Loader2, RotateCw, Sparkles } from 'lucide-react';
+import { Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
@@ -10,23 +10,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
-import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import type { TextMode } from '@/lib/marketplace/text-versions';
+import type { EditorLanguage } from './listing-editor';
+import TextModeSwitch from './text-mode-switch';
 
 interface DescriptionStepProps {
   listing: AdminListing;
+  /** The shop's other languages, which the text is translated into. */
+  languages: EditorLanguage[];
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   onSent: (listing: AdminListing) => void;
 }
 
 /** Step 2: everything the admin knows about the item in one text; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, texts, onSent }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, texts, onSent }: DescriptionStepProps) {
   // A service always belongs to the person offering it, so their WhatsApp is asked for right away.
   const isService = listing.kind === 'service';
   const [notes, setNotes] = useState(listing.rawText);
   const [isForSeller, setIsForSeller] = useState(isService);
   const [sellerPhone, setSellerPhone] = useState('');
   const [hasConsent, setHasConsent] = useState(false);
+  // Chosen before the AI runs: improve the text, or keep the admin's words and only translate them.
+  const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
+  const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
+  const isOriginal = textMode === 'original';
+  const languageList = languages.map(({ label }) => label).join(', ');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
@@ -35,9 +45,15 @@ export default function DescriptionStep({ listing, texts, onSent }: DescriptionS
     startTransition(async () => {
       setError('');
       const phone = isForSeller ? sellerPhone.trim() : '';
-      const result = await describeAdminListing(listing.id, { notes, sellerPhone: phone || undefined, hasContactConsent: Boolean(phone) && hasConsent });
+      const result = await describeAdminListing(listing.id, {
+        notes,
+        sellerPhone: phone || undefined,
+        hasContactConsent: Boolean(phone) && hasConsent,
+        textMode,
+        originalTitle,
+      });
       if (!result.success) return setError(result.message);
-      onSent({ ...listing, status: 'PROCESSING', rawText: notes, lastError: null });
+      onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null });
     });
 
   const retry = () =>
@@ -64,15 +80,39 @@ export default function DescriptionStep({ listing, texts, onSent }: DescriptionS
           {/* Spoken words land in the field, where they can still be corrected before sending. */}
           {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
         </div>
+        {isOriginal && (
+          <div className='space-y-1'>
+            <Label htmlFor='original-title' className='px-1 text-xs text-muted-foreground'>
+              {texts.originalTitleLabel}
+            </Label>
+            <Input
+              id='original-title'
+              value={originalTitle}
+              readOnly={isWriting}
+              onChange={(event) => setOriginalTitle(event.target.value)}
+              placeholder={texts.originalTitlePlaceholder}
+              className='h-12 rounded-2xl bg-background font-display text-lg md:text-lg'
+            />
+          </div>
+        )}
         <Textarea
           id='notes'
           rows={5}
           value={notes}
           readOnly={isWriting}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder={isService ? texts.tellServicePlaceholder : texts.tellPlaceholder}
+          placeholder={isOriginal ? texts.tellOriginalPlaceholder : isService ? texts.tellServicePlaceholder : texts.tellPlaceholder}
           className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
         />
+        <div className='space-y-2 pt-2'>
+          <p className='text-sm font-medium'>{texts.textModeQuestion}</p>
+          <TextModeSwitch value={textMode} onChange={setTextMode} texts={texts} disabled={isWriting} />
+          {languageList && (
+            <p className='px-1 text-xs text-muted-foreground'>
+              {fillText(isOriginal ? texts.textModeOriginalResult : texts.textModeAiResult, { languages: languageList })}
+            </p>
+          )}
+        </div>
         {!isWriting && !isService && (
           <button
             type='button'
@@ -118,8 +158,9 @@ export default function DescriptionStep({ listing, texts, onSent }: DescriptionS
       )}
 
       <div className='sticky bottom-4 z-10'>
-        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || isWriting} onClick={send}>
-          {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Sparkles />} {isWriting ? texts.writing : texts.writeListing}
+        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || isWriting || (isOriginal && !notes.trim())} onClick={send}>
+          {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
+          {isWriting ? (isOriginal ? texts.translatingNow : texts.writing) : isOriginal ? texts.translateButton : texts.writeListing}
         </Button>
       </div>
     </div>

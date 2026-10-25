@@ -272,6 +272,14 @@ model Submission {
   createdByAdmin    Boolean          @default(false)
   // 'product' or 'service' (PRODUCT_KINDS); the product it becomes takes it over.
   kind              String           @default("product")
+  // Which text is in use: 'original' (the admin's own words, only translated) or 'ai' (improved by the AI).
+  textMode          String           @default("ai")
+  // The admin's own title for 'original'; the original description is rawText.
+  originalTitle     String?
+  // Both texts in every shop language, so switching never pays the AI twice: { "ai": { "es": { "title", "description" } } }.
+  textVersions      Json             @default("{}")
+  // The AI picture of each original photo, at the same index as rawImages ('' where the AI made none).
+  aiImages          String[]         @default([])
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)

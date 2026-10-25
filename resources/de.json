@@ -532,6 +532,10 @@
   "EXPLORE_INTRO": "Alles auf {shop} an einem Ort, Sachen und Dienstleistungen gemischt. Scroll und entdecke.",
   "EXPLORE_ALL": "Alles",
   "EXPLORE_SERVICE_BADGE": "Dienstleistung",
+  "EXPLORE_NEW_BADGE": "Neu",
+  "EXPLORE_END_TITLE": "Du hast alles gesehen",
+  "EXPLORE_END_TEXT": "Schau morgen wieder vorbei: Jeden Tag kommen neue Sachen dazu. Hast du etwas zu verkaufen oder eine Dienstleistung anzubieten? {shop} stellt es für dich online.",
+  "PRODUCT_RELATED_TITLE": "Das könnte dir gefallen",
   "CATEGORY_SORT": "Sortieren",
   "CONDITION_NEW": "Neu",
   "CONDITION_LIKE_NEW": "Wie neu",
@@ -553,5 +557,10 @@
   "SUBCATEGORIES_SAVE": "Speichern",
   "SHARE": "Teilen",
   "SHARE_COPIED": "Link kopiert – füge ihn ein, wo du möchtest",
-  "SHARE_FAILED": "Der Link konnte nicht kopiert werden"
+  "SHARE_FAILED": "Der Link konnte nicht kopiert werden",
+  "HOME_SEO_TITLE": "{shop}",
+  "PRODUCT_SEO_TITLE": "{name}",
+  "SERVICE_SEO_TITLE": "{name}",
+  "EXPLORE_SEO_TITLE": "Alle Anzeigen",
+  "EXPLORE_SEO_DESCRIPTION": "Alles auf {shop} an einem Ort, Sachen und Dienstleistungen gemischt. Scroll und entdecke."
 }

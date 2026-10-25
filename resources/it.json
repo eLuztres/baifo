@@ -532,6 +532,10 @@
   "EXPLORE_INTRO": "Tutto quello che c'è su {shop} in un unico posto, oggetti e servizi insieme. Scorri e scopri.",
   "EXPLORE_ALL": "Tutto",
   "EXPLORE_SERVICE_BADGE": "Servizio",
+  "EXPLORE_NEW_BADGE": "Nuovo",
+  "EXPLORE_END_TITLE": "Hai visto tutto",
+  "EXPLORE_END_TEXT": "Torna domani: ogni giorno arrivano cose nuove. Hai qualcosa da vendere o un servizio da offrire? Lo pubblica {shop} per te.",
+  "PRODUCT_RELATED_TITLE": "Ti potrebbe piacere",
   "CATEGORY_SORT": "Ordina",
   "CONDITION_NEW": "Nuovo",
   "CONDITION_LIKE_NEW": "Come nuovo",
@@ -553,5 +557,10 @@
   "SUBCATEGORIES_SAVE": "Salva",
   "SHARE": "Condividi",
   "SHARE_COPIED": "Link copiato – incollalo dove vuoi",
-  "SHARE_FAILED": "Non è stato possibile copiare il link"
+  "SHARE_FAILED": "Non è stato possibile copiare il link",
+  "HOME_SEO_TITLE": "{shop}",
+  "PRODUCT_SEO_TITLE": "{name}",
+  "SERVICE_SEO_TITLE": "{name}",
+  "EXPLORE_SEO_TITLE": "Tutti gli annunci",
+  "EXPLORE_SEO_DESCRIPTION": "Tutto quello che c'è su {shop} in un unico posto, oggetti e servizi insieme. Scorri e scopri."
 }

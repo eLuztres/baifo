@@ -6,9 +6,12 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
-import { getShopLocale } from '@/lib/i18n-server';
+import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
+import { translateText, writeListing } from './ai';
 import { HOUSE_SELLER } from './config';
+import { fetchImage } from './media';
+import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { publishByAdmin, takeDown } from './publish';
 import { approveSubmission, rejectSubmission } from './review';
@@ -50,6 +53,9 @@ const descriptionSchema = z.object({
     .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15))
     .optional(),
   hasContactConsent: z.boolean().default(false),
+  // 'original': the notes are the description as they are, only translated.
+  textMode: z.enum(TEXT_MODES).default('ai'),
+  originalTitle: z.string().trim().max(120).optional(),
 });
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
@@ -59,7 +65,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
-  const { notes, sellerPhone, hasContactConsent } = parsed.data;
+  const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
+  if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true } });
   // A service is nothing without the person's WhatsApp, and that number goes public.
   if (listing?.kind === 'service' && !(sellerPhone && hasContactConsent)) {
@@ -72,7 +79,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // Only once the pictures are there, so the AI never makes them twice.
   const { count } = await prisma.submission.updateMany({
     where: { id, status: 'COLLECTING', createdByAdmin: true, images: { isEmpty: false } },
-    data: { status: 'PROCESSING', rawText: notes, sellerId: seller.id, hasContactConsent: Boolean(sellerPhone) && hasContactConsent },
+    data: {
+      status: 'PROCESSING',
+      rawText: notes,
+      sellerId: seller.id,
+      hasContactConsent: Boolean(sellerPhone) && hasContactConsent,
+      textMode,
+      originalTitle: (textMode === 'original' && originalTitle) || null,
+    },
   });
   if (count === 0) return { success: false, message: 'Las fotos todavía no están listas' };
   after(() => processSubmission(id));
@@ -112,6 +126,8 @@ const editSchema = z.object({
     .transform((value) => Number(value.replace(',', '.')).toFixed(2))
     .optional(),
   images: z.array(photoUrlSchema).min(1).max(12),
+  // Which of the two texts these title and description are.
+  textMode: z.enum(TEXT_MODES).optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
@@ -119,14 +135,25 @@ export type ListingEdit = z.input<typeof editSchema>;
 export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = editSchema.safeParse(input);
-  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true, kind: true } });
+  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true, kind: true, textMode: true, textVersions: true } });
   const isService = current?.kind === 'service';
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   const category = findCategory(await getListingCategories(current?.kind as ProductKind), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const submission = await prisma.submission.update({ where: { id }, data: { ...parsed.data, translations, category: category.slug } });
+  const { textMode = current?.textMode as TextMode, ...edit } = parsed.data;
+  const versions = (current?.textVersions ?? {}) as TextVersions;
+  const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description } };
+  // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
+  if (textMode !== current?.textMode) {
+    await prisma.submission.update({ where: { id }, data: { textVersions: { ...versions, [textMode]: editedVersion } } });
+    return { success: true, message: 'Guardado' };
+  }
+  const submission = await prisma.submission.update({
+    where: { id },
+    data: { ...edit, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+  });
   // A live listing's product follows the edit.
   if (submission.productId) {
     const { title, description, price, images, condition } = parsed.data;
@@ -146,6 +173,56 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     revalidatePath('/');
   }
   return { success: true, message: 'Guardado' };
+}
+
+const textModeSchema = z.enum(TEXT_MODES);
+
+/** The shop's languages, its own first, as the AI writes them. */
+const listingLocales = () => {
+  const shopLocale = getShopLocale();
+  return [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
+};
+
+/** Switches between the admin's own text and the AI's. A version made before comes back at once; a missing one is
+    written now (AI) or translated now (original), once. The editor saves what it gets back. */
+export async function chooseListingText(id: string, mode: TextMode) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !textModeSchema.safeParse(mode).success) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  const versions = submission.textVersions as TextVersions;
+  const [shopLocale, ...otherLocales] = listingLocales();
+  let texts = versions[mode];
+  try {
+    if (!texts && mode === 'original') {
+      if (!submission.rawText.trim()) return { success: false, message: 'No hay texto original' };
+      const own = { title: submission.originalTitle || submission.title || '', description: submission.rawText };
+      texts = { [shopLocale]: own, ...(await translateText(own, shopLocale, otherLocales)) };
+    }
+    if (!texts) {
+      const kind = submission.kind as ProductKind;
+      const photo = await fetchImage(submission.rawImages[0]);
+      texts = (await writeListing(photo, submission.rawText, await getListingCategories(kind), [shopLocale, ...otherLocales], kind)).texts;
+    }
+  } catch (error) {
+    console.error(`Text of listing ${id} not made`, error);
+    return { success: false, message: 'La IA no pudo hacer el texto. Inténtalo otra vez.' };
+  }
+  await prisma.submission.update({ where: { id }, data: { textMode: mode, textVersions: { ...versions, [mode]: texts } } });
+  return { success: true, message: '', texts };
+}
+
+/** The shop-language title and description translated again into every other language, after the admin changed them. */
+export async function translateListingText(id: string, text: { title: string; description: string }) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = textSchema.safeParse(text);
+  if (!parsed.success) return { success: false, message: 'Revisa el título y la descripción' };
+  const [shopLocale, ...otherLocales] = listingLocales();
+  try {
+    return { success: true, message: '', translations: await translateText(parsed.data, shopLocale, otherLocales) };
+  } catch (error) {
+    console.error(`Listing ${id} not translated`, error);
+    return { success: false, message: 'No se pudo traducir. Inténtalo otra vez.' };
+  }
 }
 
 /** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
