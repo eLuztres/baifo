@@ -1,5 +1,4 @@
 import CategoryRing from '@/components/shared/product/category-ring';
-import CategoryToolbar from '@/components/admin/category-admin/category-toolbar';
 import { groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { showsAdminTools } from '@/lib/auth-guard';
@@ -39,12 +38,9 @@ export default async function ShowroomSection({ rings, material }: ShowroomSecti
       {categories.length > 0 ? (
         <CategoryRing categories={categories} label={t('RING_TITLE')} initialCategoryId={material} center={BRAND.ringCenter} figure={figure || undefined} admin={admin} />
       ) : (
-        <div className='space-y-4'>
-          {admin && <CategoryToolbar admin={admin} />}
-          <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
-            {t('STORE_EMPTY')}
-          </p>
-        </div>
+        <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
+          {t('STORE_EMPTY')}
+        </p>
       )}
     </section>
   );

@@ -39,12 +39,11 @@ interface CategoryRingProps {
   center?: string;
   /** A picture standing on the center picture. */
   figure?: RingFigure;
-  /** Only for admins: edit categories and rings right here. */
+  /** Only for admins: edit rings right here (categories are edited in the admin catalog). */
   admin?: CategoryRingAdmin;
 }
 
 // Loaded only when an admin looks, so visitors never download the editors.
-const CategoryToolbar = dynamic(() => import('@/components/admin/category-admin/category-toolbar'));
 const RingTileActions = dynamic(() => import('@/components/admin/category-admin/ring-tile-actions'));
 const AddRingTile = dynamic(() => import('@/components/admin/category-admin/add-ring-tile'));
 
@@ -123,7 +122,6 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', f
   return (
     // data-swipe-owner: sideways swipes here browse the categories and rings, never turn the page to another part.
     <section className={cn('flex min-h-0 flex-1 flex-col justify-center gap-4', styles.categorySection)} data-swipe-owner=''>
-      {admin && <CategoryToolbar admin={admin} frontSlug={front.id} />}
       <div
         ref={stageRef}
         role='region'
