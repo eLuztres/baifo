@@ -1,8 +1,6 @@
 // WhatsApp Cloud API (Meta Graph API) calls for the Baifo number. Plain fetch, no SDK.
 // Env is read on each call so tests and scripts can set it late.
 
-import { isSimulatedNumber, recordSimulated, toSimulatedLine } from '@/lib/marketplace/simulator';
-
 const GRAPH_URL = 'https://graph.facebook.com';
 
 export interface ReplyButton {
@@ -49,11 +47,6 @@ async function graph<T>(path: string, body?: unknown): Promise<T> {
 }
 
 async function sendMessage(to: string, message: Record<string, unknown>) {
-  // The admin simulator's numbers get their messages in the database instead of on a phone.
-  if (isSimulatedNumber(to)) {
-    await recordSimulated(toSimulatedLine(to, message));
-    return { messages: [{ id: `simulated-${Date.now()}` }] };
-  }
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   if (!phoneNumberId) throw new WhatsappError('WHATSAPP_PHONE_NUMBER_ID is missing in .env');
   return graph<{ messages: { id: string }[] }>(`${phoneNumberId}/messages`, {

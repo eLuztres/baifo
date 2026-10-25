@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Eye, LogOut, Pencil, UserIcon } from 'lucide-react';
-import { getSession, isCustomerView } from '@/lib/auth-guard';
-import { signOutUser, toggleCustomerView } from '@/lib/actions/user.actions';
+import { LogOut, UserIcon } from 'lucide-react';
+import { getSession } from '@/lib/auth-guard';
+import { signOutUser } from '@/lib/actions/user.actions';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
 import { SHOWCASE_MODE } from '@/lib/constants';
@@ -14,7 +14,7 @@ export const MENU_ROW_CLASS = 'rounded-lg px-3 py-3 text-lg text-foreground/80 t
 
 /** The account part of the phone menu: who is signed in and every account link, without a second dropdown. */
 const MenuAccount = async () => {
-  const [session, { t }, isCustomer] = await Promise.all([getSession(), getT(), isCustomerView()]);
+  const [session, { t }] = await Promise.all([getSession(), getT()]);
   const isAdminUser = session?.user?.role === 'admin';
 
   if (!session?.user) {
@@ -47,16 +47,6 @@ const MenuAccount = async () => {
           </Link>
         </SheetClose>
       ))}
-      {isAdminUser && (
-        <form action={toggleCustomerView}>
-          <SheetClose asChild>
-            <button type='submit' className={cn(MENU_ROW_CLASS, 'flex w-full items-center gap-3 text-left')}>
-              {isCustomer ? <Pencil className='size-5' /> : <Eye className='size-5' />}
-              {t(isCustomer ? 'VIEW_AS_ADMIN' : 'VIEW_AS_CUSTOMER')}
-            </button>
-          </SheetClose>
-        </form>
-      )}
       <form action={signOutUser}>
         <SheetClose asChild>
           <button type='submit' className={cn(MENU_ROW_CLASS, 'flex w-full items-center gap-3 text-left text-muted-foreground')}>

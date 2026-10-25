@@ -2,6 +2,8 @@
 
 import { CSSProperties, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
@@ -28,6 +30,8 @@ export interface RingFigure {
   spinner?: string;
   /** Where its foot stands on the center picture, as shares of its width and height. */
   at: { x: number; y: number };
+  /** Its width as a share of the center picture's (default 0.3). */
+  scale?: number;
 }
 
 interface CategoryRingProps {
@@ -37,8 +41,10 @@ interface CategoryRingProps {
   initialCategoryId?: string;
   /** What turns in the ring's middle: 'band' (the gold band), 'none', or a picture's URL shown as a 3D piece. */
   center?: string;
-  /** A picture standing on the center picture. */
-  figure?: RingFigure;
+  /** A picture lying under the center picture, 1.5 times its size. */
+  sea?: string;
+  /** Pictures standing on the center picture. */
+  figures?: RingFigure[];
   /** Only for admins: edit rings right here (categories are edited in the admin catalog). */
   admin?: CategoryRingAdmin;
 }
@@ -73,31 +79,41 @@ const isWideOnServer = () => false;
 
 interface CenterPieceProps {
   src: string;
-  figure?: RingFigure;
+  sea?: string;
+  figures: RingFigure[];
 }
 
 /** A picture lying in the ring's middle with some thickness, turning along with the cards. */
-const CenterPiece = ({ src, figure }: CenterPieceProps) => (
+const CenterPiece = ({ src, sea, figures }: CenterPieceProps) => (
   <div className={styles.centerPiece} style={{ '--piece': `url("${src}")` } as CSSProperties} aria-hidden='true'>
-    <span className={styles.pieceGlow} />
+    {sea ? <span className={styles.pieceSea} style={{ '--sea': `url("${sea}")` } as CSSProperties} /> : <span className={styles.pieceGlow} />}
     {Array.from({ length: PIECE_LAYERS }, (_, index) => (
       <span key={index} className={styles.pieceSide} style={{ '--layer': index / PIECE_LAYERS } as CSSProperties} />
     ))}
     <span className={styles.pieceTop} />
-    {figure && (
+    {figures.map((figure) => (
       <span
+        key={`${figure.image}@${figure.at.x},${figure.at.y}`}
         className={styles.pieceFigure}
-        style={{ '--figure': `url("${figure.image}")`, left: `${figure.at.x * 100}%`, top: `${figure.at.y * 100}%` } as CSSProperties}
+        style={
+          {
+            '--figure': `url("${figure.image}")`,
+            '--figure-scale': figure.scale,
+            left: `${figure.at.x * 100}%`,
+            top: `${figure.at.y * 100}%`,
+          } as CSSProperties
+        }
       >
         {figure.spinner && <span className={styles.figureSpinner} style={{ '--spinner': `url("${figure.spinner}")` } as CSSProperties} />}
       </span>
-    )}
+    ))}
   </div>
 );
 
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', figure, admin }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', sea, figures = [], admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [step, setStep] = useState(() => Math.max(0, categories.findIndex((category) => category.id === initialCategoryId)));
   const { t } = useI18n();
   const isWide = useSyncExternalStore(subscribeToWideScreen, isWideScreen, isWideOnServer);
@@ -113,10 +129,11 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', f
   const dragHandlers = useRingDrag({ setStep });
   const neighbourSpots = useNeighbourSpots(stageRef, frontIndex, count, ARROWS_APPEAR_MS, SETTLE_MS);
 
-  // A card at the side turns to the front; the rings of the front category show in the row below.
+  // A card at the side turns to the front; the front card opens its category as a grid.
   const handleCardClick = (index: number) => {
     const offset = mod(index - frontIndex + Math.floor(count / 2), count) - Math.floor(count / 2);
-    setStep((current) => current + offset);
+    if (offset === 0) router.push(`/category/${front.id}`);
+    else setStep((current) => current + offset);
   };
 
   return (
@@ -144,7 +161,7 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', f
         )}
         <div className={styles.tilt}>
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
-          {hasPiece && <CenterPiece src={center} figure={figure} />}
+          {hasPiece && <CenterPiece src={center} sea={sea} figures={figures} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
               const category = categories[index % categories.length];
@@ -204,7 +221,12 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', f
       <div className='mx-auto flex h-14 max-w-2xl shrink-0 flex-col items-center justify-start gap-1 px-4 text-center' aria-live='polite'>
         <p className='sr-only'>{front.name}</p>
         <p className='line-clamp-2 text-balance text-sm leading-5 text-muted-foreground'>{front.text}</p>
-        <p className='text-[0.65rem] uppercase tracking-[0.25em] text-primary/80'>{t('STORE_CATEGORY_RINGS', { count: front.products.length })}</p>
+        <Link
+          href={`/category/${front.id}`}
+          className='inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline'
+        >
+          {t('CATEGORY_SEE_ALL')} <ChevronRight className='size-3.5' aria-hidden />
+        </Link>
       </div>
     </section>
   );

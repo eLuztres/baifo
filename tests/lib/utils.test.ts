@@ -6,6 +6,7 @@ import {
   formatId,
   formatNumberWithDecimal,
   round2,
+  timeAgo,
 } from '@/lib/utils';
 import { CURRENCY, NUMBER_LOCALE } from '@/lib/constants/currency';
 
@@ -69,5 +70,21 @@ describe('formatError', () => {
 
   it("passes the app's own error messages through", () => {
     expect(formatError(new Error('Boom'))).toBe('Boom');
+  });
+});
+
+describe('timeAgo', () => {
+  const now = new Date('2026-10-25T12:00:00Z');
+  const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 60 * 60 * 1000);
+
+  it('says how long ago in the visitor\'s language', () => {
+    expect(timeAgo(hoursAgo(3), 'en', now)).toBe('3 hours ago');
+    expect(timeAgo(hoursAgo(72), 'es', now)).toBe('hace 3 días');
+    expect(timeAgo(hoursAgo(24), 'it', now)).toBe('ieri');
+  });
+
+  it('counts anything under a minute, or in the future, as now', () => {
+    expect(timeAgo(now, 'en', now)).toBe('this minute');
+    expect(timeAgo(hoursAgo(-1), 'en', now)).toBe('this minute');
   });
 });

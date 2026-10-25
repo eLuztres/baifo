@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
+import { PRODUCT_CONDITIONS } from '@/lib/constants';
 import { HOUSE_SELLER } from './config';
 import { processSubmission } from './processing';
 import { publishByAdmin, takeDown } from './publish';
@@ -84,6 +85,8 @@ const editSchema = z.object({
   description: z.string().trim().max(3000),
   descriptionEn: z.string().trim().max(3000),
   category: z.string().trim().max(60),
+  // Empty: the admin took the condition away.
+  condition: z.union([z.enum(PRODUCT_CONDITIONS), z.literal('')]).transform((value) => value || null).optional(),
   price: z
     .string()
     .regex(/^\d{1,6}([.,]\d{1,2})?$/)
@@ -100,10 +103,10 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const submission = await prisma.submission.update({ where: { id }, data: parsed.data });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, description, descriptionEn, price, images, category } = parsed.data;
+    const { title, description, descriptionEn, price, images, category, condition } = parsed.data;
     await prisma.product.update({
       where: { id: submission.productId },
-      data: { name: title, price, images, category, description: [description, descriptionEn && `🇬🇧 ${descriptionEn}`].filter(Boolean).join('\n\n') },
+      data: { name: title, price, images, category, condition, description: [description, descriptionEn && `🇬🇧 ${descriptionEn}`].filter(Boolean).join('\n\n') },
     });
     revalidatePath('/');
   }

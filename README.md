@@ -210,6 +210,7 @@ BRAND_DECORATION=dunes              # or: soft drifting sand dunes and a low sun
 BRAND_LOADER_IMAGE=/brand/loader.png   # a picture that hops while pages load, instead of the turning ring
 BRAND_RING_CENTER=/brand/ring-center.svg  # middle of the category ring: band (gold band, default), none, or a picture shown as a turning 3D piece
 BRAND_RING_FIGURE=/brand/ring-figure.svg  # a picture standing on that piece (e.g. a windmill), with BRAND_RING_FIGURE_SPINNER (sails turning with the ring) and BRAND_RING_FIGURE_AT=x,y
+# more standing pictures (e.g. volcanoes): brand/ring-figures.json, a list of { image, at: { x, y }, scale }
 SHOWCASE_MODE=true                  # no prices, no cart: visitors send "I'm interested" instead
 SHOWCASE_SHOW_PRICES=true           # showcase with prices (classifieds); a product's contactPhone adds "Contact the seller"
 ```

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getSession, isCustomerView } from '@/lib/auth-guard';
-import { signOutUser, toggleCustomerView } from '@/lib/actions/user.actions';
+import { getSession } from '@/lib/auth-guard';
+import { signOutUser } from '@/lib/actions/user.actions';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -43,7 +43,6 @@ const UserButton = async () => {
 
   const firstInitial = getInitial(session.user?.name);
   const isAdminUser = session.user?.role === 'admin';
-  const isCustomer = await isCustomerView();
 
   return (
     <div className='flex gap-2 items-center'>
@@ -75,16 +74,6 @@ const UserButton = async () => {
               <Link href={link.href}>{link.label}</Link>
             </DropdownMenuItem>
           ))}
-
-          {isAdminUser && (
-            <form action={toggleCustomerView}>
-              <DropdownMenuItem asChild>
-                <button type='submit' className='w-full'>
-                  {t(isCustomer ? 'VIEW_AS_ADMIN' : 'VIEW_AS_CUSTOMER')}
-                </button>
-              </DropdownMenuItem>
-            </form>
-          )}
 
           <form action={signOutUser}>
             <DropdownMenuItem asChild>

@@ -177,3 +177,19 @@ export function formUrlQuery({
     }
   );
 }
+
+const TIME_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 365 * 24 * 60 * 60],
+  ['month', 30 * 24 * 60 * 60],
+  ['week', 7 * 24 * 60 * 60],
+  ['day', 24 * 60 * 60],
+  ['hour', 60 * 60],
+  ['minute', 60],
+];
+
+/** How long ago, in the visitor's language: "2 days ago", "hace 2 días", "ieri". */
+export function timeAgo(date: Date, locale: string, now = new Date()) {
+  const seconds = Math.max(0, (now.getTime() - date.getTime()) / 1000);
+  const [unit, size] = TIME_UNITS.find(([, unitSeconds]) => seconds >= unitSeconds) ?? TIME_UNITS[TIME_UNITS.length - 1];
+  return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-Math.floor(seconds / size), unit);
+}

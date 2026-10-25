@@ -61,6 +61,5 @@ Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `mess
 - **/admin/listings**: every listing by status (to review first), with photo, price, seller and end date.
 - **/admin/listings/new**: one or several photos, optionally a few words, a price and the seller's WhatsApp → "Crear con IA" → the AI cleans up to four photos and writes title, ES/EN description, category and price → edit → "Publicar ahora" (free) or "Enviar enlace de pago".
 - **/admin/listings/[id]**: the same editor for any listing, plus reject and mark as sold.
-- **/admin/simulator**: the WhatsApp flow without Meta. Simulated numbers start with 34000 (no real Spanish phone does); their messages are stored in `SimulatedMessage` instead of sent, and run through exactly the same code as real WhatsApp (`lib/marketplace/inbound.ts`). "Empezar de cero" deletes the simulated seller and its listings.
 
 The admin menu links come from `brand/admin-links.json`.

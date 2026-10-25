@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MessageCircle, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { SubmissionStatus } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import ProductMedia from '@/components/ProductMedia';
@@ -50,11 +50,6 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           <p className='text-muted-foreground'>{texts.listingsIntro}</p>
         </div>
         <div className='flex gap-2'>
-          <Button asChild variant='outline' className='rounded-full'>
-            <Link href='/admin/simulator'>
-              <MessageCircle /> {texts.simulator}
-            </Link>
-          </Button>
           <Button asChild className='rounded-full'>
             <Link href='/admin/listings/new'>
               <Plus /> {texts.newListing}

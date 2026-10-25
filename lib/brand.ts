@@ -7,6 +7,7 @@
 
 import workshop from '@/brand/workshop.json';
 import adminLinks from '@/brand/admin-links.json';
+import ringFigures from '@/brand/ring-figures.json';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -101,6 +102,8 @@ export const BRAND = {
   loaderImage: env('BRAND_LOADER_IMAGE'),
   /** The middle of the category ring: the gold band, nothing, or a picture shown as a turning 3D piece. */
   ringCenter: env('BRAND_RING_CENTER') ?? 'band',
+  /** A picture lying flat under that piece, 1.5 times its size and centered on it (e.g. a sea around an island). */
+  ringCenterSea: env('BRAND_RING_CENTER_SEA'),
   /** A picture standing on that 3D piece (its foot at the bottom middle), with an optional part turning about its middle. */
   ringFigure: env('BRAND_RING_FIGURE'),
   ringFigureSpinner: env('BRAND_RING_FIGURE_SPINNER'),
@@ -140,6 +143,9 @@ export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length 
 
 /** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */
 export const ADMIN_LINKS: { href: string; label: Record<string, string> }[] = adminLinks;
+
+/** More pictures standing on the ring's center piece (brand/ring-figures.json), next to BRAND_RING_FIGURE. */
+export const RING_FIGURES: { image: string; spinner?: string; at: { x: number; y: number }; scale?: number }[] = ringFigures;
 
 /** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
 export const EMAIL_COLORS = {

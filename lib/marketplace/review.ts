@@ -5,7 +5,6 @@ import { sendButtons, sendText } from '@/lib/whatsapp-cloud/client';
 import { ADMIN_WHATSAPP_NUMBER, publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { parsePrice } from './price';
-import { SIMULATED_ADMIN, SIMULATED_PREFIX, isSimulatedNumber } from './simulator';
 
 // Button ids carry the action and the submission, e.g. "approve:<uuid>".
 const ACTIONS = ['approve', 'edit', 'reject'] as const;
@@ -33,14 +32,9 @@ const reviewCaption = (submission: Submission) =>
 
 type SubmissionWithSeller = Submission & { seller: Seller };
 
-/** Who reviews a seller's listings: the simulated admin for simulated sellers, otherwise ADMIN_WHATSAPP_NUMBER. */
-export function reviewerOf(sellerWaId: string) {
-  return isSimulatedNumber(sellerWaId) ? SIMULATED_ADMIN : ADMIN_WHATSAPP_NUMBER;
-}
-
 /** Shows the admin the listing as the AI made it, with approve / edit / reject buttons. */
 export async function sendForReview(submission: SubmissionWithSeller) {
-  const reviewer = reviewerOf(submission.seller.waId);
+  const reviewer = ADMIN_WHATSAPP_NUMBER;
   if (!reviewer) throw new Error('ADMIN_WHATSAPP_NUMBER is missing in .env');
   await sendButtons(
     reviewer,
@@ -108,11 +102,7 @@ export function parseEdit(text: string): { field: ListingField; value: string } 
 /** A text from the admin: an edit of the listing most recently sent to this admin for review. */
 export async function handleAdminText(text: string, adminWaId: string) {
   const edit = parseEdit(text);
-  // The simulated admin only edits simulated listings, the real admin only real ones.
-  const where = {
-    status: 'IN_REVIEW' as const,
-    seller: { waId: isSimulatedNumber(adminWaId) ? { startsWith: SIMULATED_PREFIX } : { not: { startsWith: SIMULATED_PREFIX } } },
-  };
+  const where = { status: 'IN_REVIEW' as const };
   const submission = await prisma.submission.findFirst({ where, orderBy: { updatedAt: 'desc' } });
   if (!edit || !submission) {
     const pending = await prisma.submission.count({ where });

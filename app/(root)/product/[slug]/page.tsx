@@ -18,7 +18,7 @@ import {
   ReserveButton,
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
-import { RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
+import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
@@ -61,6 +61,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const nextRing = findNextRing(groupByCategory(categories, rings, locale), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
+  const condition = conditionKey(product.condition);
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
@@ -87,6 +88,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               className='absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent'
             />
             <h1 className='shrink-0 text-xl leading-tight sm:text-3xl'>{product.name}</h1>
+            {condition && (
+              <p className='w-fit shrink-0 rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>
+            )}
             {product.description && (
               <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
                 {product.description}

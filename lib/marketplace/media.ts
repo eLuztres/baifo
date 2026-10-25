@@ -1,6 +1,5 @@
 import { UTApi, UTFile } from 'uploadthing/server';
 import { downloadMedia } from '@/lib/whatsapp-cloud/client';
-import { SIMULATED_MEDIA_PREFIX } from './simulator';
 
 const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/webp': 'webp' };
 
@@ -14,7 +13,6 @@ export async function uploadImage(data: Buffer, name: string, mimeType = 'image/
 
 /** WhatsApp media expires within minutes of the message, so the photos are copied right away. */
 export async function storeWhatsappPhoto(mediaId: string, submissionId: string) {
-  if (mediaId.startsWith(SIMULATED_MEDIA_PREFIX)) return mediaId.slice(SIMULATED_MEDIA_PREFIX.length);
   const { data, mimeType } = await downloadMedia(mediaId);
   return uploadImage(data, `submission-${submissionId}`, mimeType);
 }

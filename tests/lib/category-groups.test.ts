@@ -30,6 +30,8 @@ describe('groupByCategory', () => {
     price: '70.00',
     isReserved: false,
     categoryIds,
+    createdAt: new Date(0),
+    condition: null,
   });
   const categories = [category('c1', 'lava'), category('c2', 'wood'), category('c3', 'carbon')];
   const rings = [ring('a', ['c1', 'c2']), ring('b', ['c2'])];

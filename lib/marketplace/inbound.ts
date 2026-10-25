@@ -4,7 +4,7 @@ import { handleSellerMessage } from './conversation';
 import { processSubmission } from './processing';
 import { handleAdminText, handleReviewButton, parseReviewButton } from './review';
 
-/** One WhatsApp message, from the real webhook or the admin simulator: the admin reviews, everyone else sells. */
+/** One WhatsApp message, from the WhatsApp webhook: the admin reviews, everyone else sells. */
 export async function handleInbound(message: InboundMessage) {
   if (isAdminNumber(message.from)) {
     const review = message.buttonId ? parseReviewButton(message.buttonId) : null;

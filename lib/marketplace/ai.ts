@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRODUCT_CONDITIONS } from '@/lib/constants';
 import { draftText, editImage } from '@/lib/studio/openai.mjs';
 
 // Keeps the seller's actual item: a used product must look like itself, wear included.
@@ -14,6 +15,7 @@ const listingSchema = z.object({
   descriptionEs: z.string(),
   descriptionEn: z.string(),
   category: z.string(),
+  condition: z.enum(PRODUCT_CONDITIONS),
   price: z.number().nullable(),
 });
 
@@ -27,9 +29,10 @@ const LISTING_JSON_SCHEMA = {
     descriptionEs: { type: 'string' },
     descriptionEn: { type: 'string' },
     category: { type: 'string' },
+    condition: { type: 'string', enum: PRODUCT_CONDITIONS },
     price: { type: ['number', 'null'] },
   },
-  required: ['title', 'descriptionEs', 'descriptionEn', 'category', 'price'],
+  required: ['title', 'descriptionEs', 'descriptionEn', 'category', 'condition', 'price'],
 };
 
 const listingPrompt = (sellerText: string, categories: string[]) =>
@@ -41,6 +44,9 @@ const listingPrompt = (sellerText: string, categories: string[]) =>
   (categories.length > 0
     ? `- category: exactly one of: ${categories.join(', ')}.\n`
     : '- category: one or two Spanish words for the kind of item, e.g. "Muebles".\n') +
+  '- condition: exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
+  '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
+  'never rate it better than you can see.\n' +
   '- price: the price in euros the seller asked for, or a fair second-hand price for Fuerteventura if they named none.\n' +
   (sellerText ? `What the seller wrote (trust it): ${sellerText}\n` : 'The seller wrote nothing.\n');
 

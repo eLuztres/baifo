@@ -2,10 +2,10 @@ import { prisma } from '@/db/prisma';
 import { getCategoryOptions } from '@/lib/actions/category.actions';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enhancePhoto, writeListing } from './ai';
-import { MAX_PROCESSING_ATTEMPTS } from './config';
+import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { parsePrice } from './price';
-import { reviewerOf, sendForReview } from './review';
+import { sendForReview } from './review';
 
 // A submission still PROCESSING after this long counts as stuck, so the cron starts it again.
 export const STUCK_AFTER_MS = 10 * 60 * 1000;
@@ -63,6 +63,7 @@ export async function processSubmission(submissionId: string) {
           description: text.descriptionEs,
           descriptionEn: text.descriptionEn,
           category: text.category,
+          condition: text.condition,
           // What the seller asked for wins over the AI's suggestion.
           price: submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null),
         },
@@ -82,7 +83,7 @@ export async function processSubmission(submissionId: string) {
       data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) },
     });
     console.error(`Submission ${submissionId} failed (attempt ${failed.attempts})`, error);
-    const reviewer = reviewerOf(submission.seller.waId);
+    const reviewer = ADMIN_WHATSAPP_NUMBER;
     if (failed.attempts >= MAX_PROCESSING_ATTEMPTS && reviewer && !submission.createdByAdmin) {
       await sendText(reviewer, `⚠️ No pude preparar el anuncio ${submissionId}: ${message.slice(0, 300)}`).catch(() => {});
     }

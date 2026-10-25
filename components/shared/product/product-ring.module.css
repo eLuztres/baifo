@@ -723,7 +723,8 @@
 
 .pieceTop,
 .pieceSide,
-.pieceGlow {
+.pieceGlow,
+.pieceSea {
     position: absolute;
     inset: 0;
 }
@@ -746,10 +747,17 @@
     transform: translateZ(calc(var(--piece-d) * -1.2));
 }
 
+/* The shop's own sea picture instead of the glow, its middle under the piece's middle. */
+.pieceSea {
+    inset: -25%;
+    background: var(--sea) center / contain no-repeat;
+    transform: translateZ(calc(var(--piece-d) * -1.05));
+}
+
 /* Stands up from the piece at its foot, and turns back as much as the piece turns, so it always faces the viewer
    instead of showing its thin edge. */
 .pieceFigure {
-    --figure-w: calc(var(--piece-w) * 0.3);
+    --figure-w: calc(var(--piece-w) * var(--figure-scale, 0.3));
     position: absolute;
     width: var(--figure-w);
     aspect-ratio: 1;

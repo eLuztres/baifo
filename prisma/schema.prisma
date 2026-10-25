@@ -40,6 +40,8 @@ model Product {
   sortOrder      Int       @default(0)
   // Classifieds: the seller's phone (WhatsApp) that buyers get on "Contact seller" instead of a cart.
   contactPhone   String?
+  // Second-hand: how the item is (new, like_new, good, fair; PRODUCT_CONDITIONS); shown when set.
+  condition      String?
   // Baifo: the private seller who listed it by WhatsApp, and when the listing goes offline.
   sellerId       String?   @db.Uuid
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
@@ -240,6 +242,8 @@ model Submission {
   description       String?
   descriptionEn     String?
   category          String?
+  // How the item is, as the AI saw it (PRODUCT_CONDITIONS); the product takes it over.
+  condition         String?
   price             Decimal?         @db.Decimal(12, 2)
   plan              String?
   crossPostFacebook Boolean          @default(false)
@@ -268,21 +272,6 @@ model Submission {
 model WhatsappMessage {
   id        String   @id
   createdAt DateTime @default(now()) @db.Timestamp(6)
-}
-
-// The admin simulator's WhatsApp messages (numbers starting with 34000): stored instead of sent.
-model SimulatedMessage {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  // The simulated phone: the seller's or the admin's number.
-  waId      String
-  direction String
-  text      String   @default("")
-  image     String?
-  // Reply buttons of a bot message: [{ "id": "...", "title": "..." }].
-  buttons   Json?
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-
-  @@index([waId, createdAt])
 }
 
 // Baifo's own admin settings (one row, id "default").

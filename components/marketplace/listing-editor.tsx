@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ExternalLink, Loader2, Plus, Send, Sparkles, Tag, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import { PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ import {
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import { cn } from '@/lib/utils';
 import ListingStage from './listing-stage';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
@@ -53,6 +55,8 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
     descriptionEn: listing.descriptionEn ?? '',
     category: listing.category ?? '',
     price: listing.price ?? '',
+    // An unknown value from older data counts as none.
+    condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
   });
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
   const [isShowingOriginal, setIsShowingOriginal] = useState(false);
@@ -162,6 +166,27 @@ export default function ListingEditor({ listing, categories, texts, houseSeller,
               ))}
             </datalist>
           </div>
+        </div>
+        {/* The AI picks it; one tap changes it, a tap on the chosen one clears it. */}
+        <div role='radiogroup' aria-label={texts.conditionLabel} className='flex flex-wrap gap-2 px-1'>
+          {PRODUCT_CONDITIONS.map((condition) => {
+            const isChosen = fields.condition === condition;
+            return (
+              <button
+                key={condition}
+                type='button'
+                role='radio'
+                aria-checked={isChosen}
+                onClick={() => setFields((current) => ({ ...current, condition: isChosen ? '' : condition }))}
+                className={cn(
+                  'rounded-full border px-3 py-1.5 text-sm transition',
+                  isChosen ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {texts[`condition_${condition}`]}
+              </button>
+            );
+          })}
         </div>
         <Label htmlFor='description' className='sr-only'>
           {texts.descriptionLabel}

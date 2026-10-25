@@ -23,8 +23,8 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
 import type { TranslationKey } from '@/lib/i18n-core';
-import { CUSTOMER_VIEW_COOKIE, getSession, getSessionUserId, isAdmin, isCustomerView } from '@/lib/auth-guard';
-import { cookies, headers } from 'next/headers';
+import { getSession, getSessionUserId, isAdmin } from '@/lib/auth-guard';
+import { headers } from 'next/headers';
 import { safeCallbackUrl } from '@/lib/safe-callback-url';
 
 // Without a target, the sign-in page sends signed-in visitors on to their home (admins to ADMIN_HOME_PATH).
@@ -94,19 +94,6 @@ export async function signOutUser() {
   }
   await authServer.api.signOut({ headers: await headers() });
   redirect('/');
-}
-
-// Switch an admin between their edit tools and the shop as customers see it, landing where each one starts
-export async function toggleCustomerView() {
-  if (!(await isAdmin())) return;
-  const cookieStore = await cookies();
-  if (await isCustomerView()) {
-    cookieStore.delete(CUSTOMER_VIEW_COOKIE);
-    redirect('/admin/products');
-  }
-  cookieStore.set(CUSTOMER_VIEW_COOKIE, '1', { path: '/', sameSite: 'lax', httpOnly: true });
-  // /store forwards to the shop section; a server action's redirect would lose a #hash.
-  redirect('/store');
 }
 
 // Sign up user

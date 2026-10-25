@@ -43,6 +43,20 @@ const envNumber = (key: string, fallback: number) => {
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 // A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
+// How a second-hand item is, best first; a product without one shows none.
+export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair'] as const;
+export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
+
+const CONDITION_KEYS = {
+  new: 'CONDITION_NEW',
+  like_new: 'CONDITION_LIKE_NEW',
+  good: 'CONDITION_GOOD',
+  fair: 'CONDITION_FAIR',
+} as const satisfies Record<ProductCondition, string>;
+
+/** The text key of a product's condition, or none for a missing or unknown one. */
+export const conditionKey = (condition?: string | null) =>
+  PRODUCT_CONDITIONS.includes(condition as ProductCondition) ? CONDITION_KEYS[condition as ProductCondition] : undefined;
 // The AI product studio needs an OpenAI key; without one, new products use the plain product form.
 export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.

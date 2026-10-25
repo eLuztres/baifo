@@ -523,5 +523,13 @@
   "CONTACT_SELLER": "Contactar al vendedor",
   "CONTACT_SELLER_WHATSAPP": "Escribir por WhatsApp",
   "CONTACT_SELLER_MESSAGE": "¡Hola! Me interesa «{name}»: {url}",
-  "CONTACT_SELLER_UNAVAILABLE": "Ya no se puede contactar con este vendedor aquí."
+  "CONTACT_SELLER_UNAVAILABLE": "Ya no se puede contactar con este vendedor aquí.",
+  "CATEGORY_ALL": "Todas las categorías",
+  "CATEGORY_EMPTY": "Todavía no hay nada aquí. Echa un vistazo a las otras categorías.",
+  "CATEGORY_SEE_ALL": "Ver todo",
+  "CATEGORY_SORT": "Ordenar",
+  "CONDITION_NEW": "Nuevo",
+  "CONDITION_LIKE_NEW": "Como nuevo",
+  "CONDITION_GOOD": "Buen estado",
+  "CONDITION_FAIR": "Estado aceptable"
 }

@@ -4,8 +4,7 @@ import { prisma } from '@/db/prisma';
 import { localize } from '@/lib/category';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
-import { LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
-import { reviewerOf } from './review';
+import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
 
@@ -62,6 +61,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         name: title,
         slug: `${slugify(title, { lower: true, strict: true })}-${submission.id.slice(0, 6)}`,
         category: submission.category ?? 'Varios',
+        condition: submission.condition,
         images: submission.images.length > 0 ? submission.images : submission.rawImages,
         brand: submission.seller.name ?? 'Particular',
         description: productDescription(submission.description, submission.descriptionEn),
@@ -82,7 +82,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   revalidatePath('/');
   const url = productUrl(product.slug);
   const sellerWaId = submission.seller.waId;
-  const reviewer = reviewerOf(sellerWaId);
+  const reviewer = ADMIN_WHATSAPP_NUMBER;
   // Telling people is best effort: the listing is live either way.
   await Promise.allSettled([
     isPhoneNumber(sellerWaId) && sendText(sellerWaId, botText(localeOf(sellerWaId), 'live', { days: LISTING_DAYS, url })),

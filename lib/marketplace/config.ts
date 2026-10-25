@@ -1,5 +1,4 @@
 import { SERVER_URL } from '@/lib/constants';
-import { SIMULATED_ADMIN } from './simulator';
 
 // Baifo's marketplace settings, all from .env (see .env.example).
 const env = (key: string) => process.env[key]?.trim() || undefined;
@@ -30,5 +29,4 @@ export const productUrl = (slug: string) => `${SERVER_URL}/product/${slug}`;
 /** The seller of listings the admin makes without a seller's WhatsApp (no phone, so never messaged). */
 export const HOUSE_SELLER = 'baifo';
 
-export const isAdminNumber = (waId: string) =>
-  waId === SIMULATED_ADMIN || (Boolean(ADMIN_WHATSAPP_NUMBER) && waId === ADMIN_WHATSAPP_NUMBER);
+export const isAdminNumber = (waId: string) => Boolean(ADMIN_WHATSAPP_NUMBER) && waId === ADMIN_WHATSAPP_NUMBER;

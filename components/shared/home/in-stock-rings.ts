@@ -19,6 +19,10 @@ export interface CollectionRing {
   isReserved: boolean;
   /** Server only: the store categories it shows up in. */
   categoryIds: string[];
+  /** When it went into the shop, for "2 days ago" and the newest first. */
+  createdAt: Date;
+  /** How a second-hand item is (PRODUCT_CONDITIONS), if known. */
+  condition: string | null;
 }
 
 /** The rings in stock that have a photo, in the admin's order; the opening scene and the store are both built from them.
@@ -35,6 +39,8 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       images: true,
       price: SHOWS_PRICES,
       reservedUntil: !SHOWCASE_MODE,
+      createdAt: true,
+      condition: true,
       categories: { select: { id: true } },
     },
   });
