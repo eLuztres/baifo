@@ -31,12 +31,13 @@ export default async function ShowroomSection({ rings, material }: ShowroomSecti
     products: group.rings,
   }));
   const admin = isAdminUser ? toRingAdmin(storeCategories, rings) : undefined;
+  const figure = BRAND.ringFigure && { image: BRAND.ringFigure, spinner: BRAND.ringFigureSpinner, at: BRAND.ringFigureAt };
 
   return (
     <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen, styles.noVerticalPan)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
-        <CategoryRing categories={categories} label={t('RING_TITLE')} initialCategoryId={material} admin={admin} />
+        <CategoryRing categories={categories} label={t('RING_TITLE')} initialCategoryId={material} center={BRAND.ringCenter} figure={figure || undefined} admin={admin} />
       ) : (
         <div className='space-y-4'>
           {admin && <CategoryToolbar admin={admin} />}

@@ -676,3 +676,103 @@
         mask-image: linear-gradient(to right, transparent, black 6rem, black calc(100% - 6rem), transparent);
     }
 }
+
+/* Taller and seen from higher up, so the center piece has room above the front card. */
+.pieceStage {
+    --tilt: -20deg;
+    height: calc(var(--card-w) * 2.4);
+    /* The front name sits low here, so the bottom fades later. */
+    mask-image:
+        linear-gradient(to right, transparent, black 8%, black 92%, transparent),
+        linear-gradient(to bottom, black 96%, transparent);
+}
+
+.pieceStage > .tilt {
+    translate: 0 calc(var(--card-w) * 0.34);
+}
+
+/* Big screens: the wider ring's middle lies further back, so the piece is bigger and the ring flatter. */
+@media (min-width: 1024px) {
+    .pieceStage {
+        --tilt: -14deg;
+        --piece-scale: 2;
+        --piece-lift: -0.3;
+    }
+
+    .pieceStage > .tilt {
+        translate: 0 calc(var(--card-w) * 0.1);
+    }
+}
+
+/* A picture (BRAND_RING_CENTER) lying in the ring's middle, raised above the front card and turning with the ring like
+   a turntable. Stacked masked copies of it make its thickness: cheap for the GPU, so the turn stays smooth on phones. */
+.centerPiece {
+    --piece-w: calc(var(--card-w) * var(--piece-scale, 1.6));
+    --piece-d: calc(var(--piece-w) * 0.045);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--piece-w);
+    aspect-ratio: 1;
+    margin: calc(var(--piece-w) / -2) 0 0 calc(var(--piece-w) / -2);
+    transform-style: preserve-3d;
+    transform: translateY(calc(var(--card-w) * var(--piece-lift, -0.62))) rotateX(60deg) rotateZ(calc(var(--spin) * -360deg));
+    transition: transform var(--turn-ms) var(--turn-ease);
+    pointer-events: none;
+}
+
+.pieceTop,
+.pieceSide,
+.pieceGlow {
+    position: absolute;
+    inset: 0;
+}
+
+.pieceTop {
+    background: var(--piece) center / contain no-repeat;
+}
+
+/* The sides darken toward the bottom, like rock under the sun. */
+.pieceSide {
+    background: color-mix(in srgb, var(--foreground) calc(35% + var(--layer) * 40%), var(--secondary));
+    mask: var(--piece) center / contain no-repeat;
+    transform: translateZ(calc(var(--piece-d) * (var(--layer) - 1)));
+}
+
+/* A shallow sea around the piece. */
+.pieceGlow {
+    inset: -12%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--primary) 35%, transparent), transparent);
+    transform: translateZ(calc(var(--piece-d) * -1.2));
+}
+
+/* Stands up from the piece at its foot, and turns back as much as the piece turns, so it always faces the viewer
+   instead of showing its thin edge. */
+.pieceFigure {
+    --figure-w: calc(var(--piece-w) * 0.3);
+    position: absolute;
+    width: var(--figure-w);
+    aspect-ratio: 1;
+    margin: calc(var(--figure-w) * -1) 0 0 calc(var(--figure-w) / -2);
+    background: var(--figure) center / contain no-repeat;
+    transform-origin: 50% 100%;
+    transform: rotateZ(calc(var(--spin) * 360deg)) rotateX(calc(-60deg - var(--tilt, -8deg)));
+    transition: transform var(--turn-ms) var(--turn-ease);
+}
+
+/* Half a turn per card, so the sails clearly move with the ring. */
+.figureSpinner {
+    position: absolute;
+    inset: 0;
+    background: var(--spinner) center / contain no-repeat;
+    transform: rotate(calc(var(--spin) * -1080deg));
+    transition: transform var(--turn-ms) var(--turn-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .centerPiece,
+    .pieceFigure,
+    .figureSpinner {
+        transition: none;
+    }
+}

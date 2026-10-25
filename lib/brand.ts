@@ -99,6 +99,12 @@ export const BRAND = {
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),
+  /** The middle of the category ring: the gold band, nothing, or a picture shown as a turning 3D piece. */
+  ringCenter: env('BRAND_RING_CENTER') ?? 'band',
+  /** A picture standing on that 3D piece (its foot at the bottom middle), with an optional part turning about its middle. */
+  ringFigure: env('BRAND_RING_FIGURE'),
+  ringFigureSpinner: env('BRAND_RING_FIGURE_SPINNER'),
+  ringFigureAt: readPoint('BRAND_RING_FIGURE_AT') ?? { x: 0.5, y: 0.5 },
   /** A picture (e.g. the logo) instead of the drawn genie lamp; its bottom edge must be the lamp's foot. */
   lampImage: env('BRAND_LAMP_IMAGE'),
   lampSpout: readPoint('BRAND_LAMP_SPOUT'),
