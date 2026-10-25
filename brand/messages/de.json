@@ -2,7 +2,7 @@
   "ADMIN": "Erweiterter Admin-Bereich",
   "ADMIN_PRODUCTS": "Kategorien",
   "ADMIN_NEW_PRODUCT": "Neue Anzeige",
-  "BRAND_DESCRIPTION": "Second Hand und Dienstleistungen auf Fuerteventura: Finde, was du suchst, und schreib direkt dem Anbieter.",
+  "BRAND_DESCRIPTION": "Die Kleinanzeigen von Fuerteventura, wie früher in der Zeitung. Ein organisches soziales Netzwerk ohne Algorithmen, von Nachbar zu Nachbar.",
   "NAV_SHOWROOM": "Anzeigen",
   "NAV_WORKSHOP": "So funktioniert's",
   "HOME_HERO_WORD_1": "Finden",
@@ -34,9 +34,9 @@
   "PRIVACY_TEXT": "Diese Erklärung beschreibt, welche personenbezogenen Daten {shop} verarbeitet, wozu und welche Rechte du nach der Datenschutz-Grundverordnung (DSGVO) und dem spanischen Datenschutzgesetz (Ley Orgánica 3/2018, LOPDGDD) hast.\n\n## Verantwortlicher\nJose Miralles, NIE Z1111174A, C. Juan Sebastián Elcano, 12, 35660 Corralejo, Las Palmas, Spanien. E-Mail: hola@baifo.es\n\n## Wenn du bei uns verkaufst\nWenn du uns per WhatsApp schreibst, um etwas anzubieten, verarbeiten wir deinen Namen, deine WhatsApp-Nummer, die Fotos und was du uns über die Sache erzählst. Wir nutzen sie, um deine Anzeige vorzubereiten und zu veröffentlichen (Art. 6 Abs. 1 lit. b DSGVO). Die Fotos verbessern und den Text schreiben wir mit künstlicher Intelligenz (OpenAI).\nDeine WhatsApp-Nummer erscheint nur dann auf der Website und in der Anzeigenliste, wenn du einwilligst (Art. 6 Abs. 1 lit. a DSGVO); Käufer sehen sie, wenn sie auf „Verkäufer kontaktieren“ tippen. Du kannst deine Einwilligung jederzeit widerrufen.\nJede Anzeige ist höchstens 3 Monate online. Danach, oder wenn du uns sagst, dass sie verkauft ist, nehmen wir sie offline. Wir löschen deine Daten, wenn du uns darum bittest, sofern kein Gesetz uns zur Aufbewahrung verpflichtet.\n\n## Wenn du die Website besuchst oder bei einem Verkäufer kaufst\nUm die Website anzuzeigen, speichert der Server technische Daten (IP-Adresse, Seite, Uhrzeit, Browser) aus Sicherheitsgründen (Art. 6 Abs. 1 lit. f DSGVO) und löscht sie nach kurzer Zeit. Wenn du einen Verkäufer per WhatsApp kontaktierst, bleibt dieses Gespräch zwischen dir und dem Verkäufer.\n\n## Cookies\nWir verwenden nur technisch notwendige Cookies: eines für deine Sprache und, für Administratoren, ein Sitzungs-Cookie. Wir verwenden keine Analyse-, Tracking- oder Werbe-Cookies.\n\n## Wer Daten in unserem Auftrag verarbeitet\n- Vercel Inc. (Hosting der Website)\n- Neon Inc. (Datenbank)\n- UploadThing / Ping Labs Inc. (Speicherung der Fotos)\n- OpenAI (Verbesserung von Fotos und Texten mit KI)\n- Resend Inc. (Versand von E-Mails)\n- ImprovMX (Weiterleitung von E-Mails an hola@baifo.es)\n- WhatsApp / Meta Platforms Ireland (Nachrichten)\nEinige davon sitzen in den USA; diese Übermittlungen stützen sich auf das EU-US Data Privacy Framework oder die Standardvertragsklauseln der EU.\n\n## Deine Rechte\nDu kannst Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Widerspruch und Datenübertragbarkeit verlangen, indem du an hola@baifo.es schreibst. Außerdem kannst du dich bei der spanischen Datenschutzbehörde beschweren (Agencia Española de Protección de Datos, www.aepd.es).",
   "FOOTER_DISCLAIMER": "{shop} bringt nur Käufer und Verkäufer zusammen, wie ein Schwarzes Brett oder ein soziales Netzwerk. Wir verkaufen, prüfen und garantieren keine Artikel, Dienstleistungen oder Geschäfte und übernehmen dafür keinerlei Haftung: Jede Vereinbarung besteht allein zwischen Käufer und Verkäufer.",
   "SERVICE_AREA_NOTICE": "📍 Wir starten in {area} – der Rest von Fuerteventura folgt bald!",
-  "HOME_SEO_TITLE": "{shop} – Second Hand auf Fuerteventura",
-  "PRODUCT_SEO_TITLE": "{name} – gebraucht auf Fuerteventura",
-  "SERVICE_SEO_TITLE": "{name} auf Fuerteventura",
-  "EXPLORE_SEO_TITLE": "Second-Hand-Anzeigen auf Fuerteventura",
-  "EXPLORE_SEO_DESCRIPTION": "Gebrauchtes und Dienstleistungen von privat auf Fuerteventura: Corralejo, Puerto del Rosario, Morro Jable, Caleta de Fuste und die ganze Insel. Schreib dem Verkäufer direkt auf WhatsApp."
+  "HOME_SEO_TITLE": "{shop} – die Kleinanzeigen von Fuerteventura",
+  "PRODUCT_SEO_TITLE": "{name} – Kleinanzeigen Fuerteventura",
+  "SERVICE_SEO_TITLE": "{name} – Kleinanzeigen Fuerteventura",
+  "EXPLORE_SEO_TITLE": "Kleinanzeigen auf Fuerteventura",
+  "EXPLORE_SEO_DESCRIPTION": "Ein organisches soziales Netzwerk: Kleinanzeigen von Nachbarn auf Fuerteventura, wie in der Zeitung. Corralejo, Puerto del Rosario, Morro Jable, Caleta de Fuste…"
 }

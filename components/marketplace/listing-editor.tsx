@@ -26,6 +26,7 @@ import {
 } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
+import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
@@ -237,13 +238,6 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     setIsTranslationStale(false);
   };
 
-  // An AI picture and its original photo belong together, so either one can be shown in the shop.
-  const counterpartOf = (url: string) => {
-    const aiIndex = listing.aiImages.indexOf(url);
-    if (aiIndex >= 0) return { isAi: true, other: listing.rawImages[aiIndex] };
-    const ai = listing.aiImages[listing.rawImages.indexOf(url)];
-    return ai ? { isAi: false, other: ai } : undefined;
-  };
   const swapPicture = (url: string, other: string) => setImages((current) => current.map((image) => (image === url ? other : image)));
 
   return (
@@ -272,7 +266,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
       {/* The main picture a bit bigger; a tap opens a picture full screen, the star makes it the main one. Under each, original or AI. */}
       <ul className='flex items-start gap-3 overflow-x-auto p-1'>
         {images.map((url, index) => {
-          const counterpart = counterpartOf(url);
+          const counterpart = pictureCounterpart(listing, url);
           const isAiPicture = listing.aiImages.length > 0 ? Boolean(counterpart?.isAi) : index === 0 && listing.images.length > 0;
           return (
             <li key={`${index}-${url}`} className={cn('flex shrink-0 flex-col items-center gap-1.5', index > 0 && 'pt-8')}>
@@ -308,9 +302,9 @@ export default function ListingEditor({ listing, categories, languages, shopLang
               {counterpart && (
                 <div role='radiogroup' aria-label={texts.photosLabel} className='flex rounded-full bg-muted p-0.5'>
                   {[
-                    { isAi: false, icon: Camera, label: texts.useOriginalPicture },
-                    { isAi: true, icon: Sparkles, label: texts.useAiPicture },
-                  ].map(({ isAi, icon: Icon, label }) => {
+                    { isAi: false, icon: Camera, label: texts.useOriginalPicture, short: texts.original },
+                    { isAi: true, icon: Sparkles, label: texts.useAiPicture, short: texts.aiPicture },
+                  ].map(({ isAi, icon: Icon, label, short }) => {
                     const isChecked = isAi === counterpart.isAi;
                     return (
                       <button
@@ -322,11 +316,11 @@ export default function ListingEditor({ listing, categories, languages, shopLang
                         title={label}
                         onClick={() => !isChecked && swapPicture(url, counterpart.other)}
                         className={cn(
-                          'flex size-7 items-center justify-center rounded-full transition',
+                          'flex h-7 items-center gap-1 rounded-full px-2 text-xs font-medium transition',
                           isChecked ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         )}
                       >
-                        <Icon className='size-3.5' />
+                        <Icon className='size-3.5' aria-hidden /> {short}
                       </button>
                     );
                   })}
