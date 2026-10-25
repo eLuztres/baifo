@@ -36,7 +36,7 @@ const Header = async () => {
           <Menu />
         </div>
       </div>
-      <NavLinks links={navLinks} variant='row' />
+      {BRAND.hasNavRow && <NavLinks links={navLinks} variant='row' />}
       <TabSwipe links={navLinks} />
     </header>
   );

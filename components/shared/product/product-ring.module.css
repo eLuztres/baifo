@@ -225,7 +225,7 @@
 
 /* The new front card only grows once the turn has nearly brought it to the middle, with a little bounce. */
 .card[aria-current] {
-    scale: 1.1;
+    scale: 1.265;
     transition: scale var(--grow-ms) var(--grow-ease) var(--grow-delay);
 }
 
@@ -407,7 +407,7 @@
 
 /* The store's category selector: just tall enough for the ring and the front name, so the banner sits close below it. */
 .categoryStage {
-    --card-w: clamp(7rem, min(26vw, 26svh), 20rem);
+    --card-w: clamp(8rem, min(29vw, 30svh), 22rem);
     /* Distance between neighbouring cards, in card widths: phones keep a tight ring with some air between the cards,
        big screens a ring of smaller steps (category-ring.tsx) with five cards side by side. */
     --card-spacing: 1.2;
@@ -421,7 +421,7 @@
 
 @media (max-width: 1023px) {
     .categoryStage {
-        --card-w: min(44vw, 24svh);
+        --card-w: min(50vw, 27svh);
         /* Seen from higher up, so the back of the ring shows above the front card on a small screen too. */
         --tilt: -18deg;
         /* The tight phone ring is flatter, so it needs less height. */
@@ -433,6 +433,19 @@
     .categoryStage {
         --card-spacing: 1.4;
     }
+}
+
+/* Category cards: rounder, with a light rim and a soft sheen over the photo, so they read as polished glass. */
+.categoryStage .glassCard {
+    border-radius: 1.6rem;
+}
+
+.categoryStage .glass {
+    border-radius: inherit;
+    background:
+        linear-gradient(155deg, color-mix(in srgb, var(--background) 30%, transparent), transparent 38%),
+        linear-gradient(to top, color-mix(in srgb, var(--primary) 22%, transparent), transparent 45%);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--background) 40%, transparent);
 }
 
 /* Big screens: the ring reaches past the page's content width to the screen edges, where it fades out. */
@@ -683,7 +696,8 @@
     --tilt: -20deg;
     --piece-scale: 1.15;
     --piece-lift: -0.5;
-    height: calc(var(--card-w) * 2.1);
+    /* Room below for the bigger front card's name, so it stays clear of the bottom fade. */
+    height: calc(var(--card-w) * 2.3);
     /* The front name sits low here, so the bottom fades later; the top fades too, where the sea reaches the edge. */
     mask-image:
         linear-gradient(to right, transparent, black 8%, black 92%, transparent),
@@ -691,7 +705,7 @@
 }
 
 .pieceStage > .tilt {
-    translate: 0 calc(var(--card-w) * 0.24);
+    translate: 0 calc(var(--card-w) * 0.14);
 }
 
 /* Big screens: the wider ring's middle lies further back, so the piece is bigger and the ring flatter. */
@@ -700,11 +714,11 @@
         --tilt: -14deg;
         --piece-scale: 1.7;
         --piece-lift: -0.3;
-        height: calc(var(--card-w) * 2.4);
+        height: calc(var(--card-w) * 2.6);
     }
 
     .pieceStage > .tilt {
-        translate: 0 calc(var(--card-w) * 0.1);
+        translate: 0 0;
     }
 }
 
@@ -755,11 +769,6 @@
 .pieceSea {
     inset: -100%;
     background: var(--sea) center / contain no-repeat;
-}
-
-/* The standing figures' own scene lies over the cards: taps must still reach the cards below. */
-.figureScene {
-    pointer-events: none;
 }
 
 /* Stands up from the piece at its foot, and turns back as much as the piece turns, so it always faces the viewer
