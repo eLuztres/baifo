@@ -46,7 +46,7 @@ const TURN_BUTTON_CLASS =
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
-/** One ring in the row under the selector: photo, name and price, opening the ring's page. */
+/** One ring in the row under the selector: only its photo; the front ring's name and price show below the row. */
 const BannerTile = ({ product, categoryId }: BannerTileProps) => {
   const { t } = useI18n();
 
@@ -69,10 +69,6 @@ const BannerTile = ({ product, categoryId }: BannerTileProps) => {
           {t('RESERVE_BADGE')}
         </span>
       )}
-      <div className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-10 text-white'>
-        <p className={cn(styles.tileName, 'truncate font-display text-sm transition-[font-size,color] duration-700 sm:text-base')}>{product.name}</p>
-        {product.price && <ProductPrice value={Number(product.price)} className='text-sm font-normal sm:text-base' />}
-      </div>
     </Link>
   );
 };
@@ -97,6 +93,7 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
   const frontIndex = mod(step, count);
   const hasBefore = isEndless || step > 0;
   const hasAfter = isEndless || step < tiles.length - 1;
+  const frontProduct = tiles[frontIndex]?.product;
 
   // A short ring stops at its first and last ring.
   const setStep: Dispatch<SetStateAction<number>> = (update) =>
@@ -138,65 +135,83 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
   }, [hasBefore, hasAfter]);
 
   return (
-    <div className={styles.bannerFrame}>
-      <div
-        ref={stageRef}
-        className={styles.rowStage}
-        {...dragHandlers}
-        style={{ '--ring-tan': ringTan, '--spin': step / count, '--turn-ms': `${TURN_MS}ms` } as CSSProperties}
-      >
-        <div className={styles.rowTilt}>
-          <ul className={cn(styles.rowRing, styles.turning)}>
-            {tiles.map((tile, index) => (
-              <li
-                key={tile.key}
-                className={styles.rowSlot}
-                // Negative, so the next ring sits on the right on a ring seen from the inside.
-                style={{ '--angle': `${-index * stepAngle}deg` } as CSSProperties}
-                aria-current={index === frontIndex || undefined}
-              >
-                {Math.abs(offsetFromFront(index)) <= BUILT_SIDE_RINGS && (
-                  <div className={styles.rowCard} style={{ '--tile': Math.min(index, MAX_STAGGERED_TILES) } as CSSProperties}>
-                    <div className={styles.rowFocus} onClickCapture={(event) => handleTileClick(event, index)}>
-                      {tile.content}
-                      {tile.product && renderActions?.(tile.product)}
+    <>
+      <div className={styles.bannerFrame}>
+        <div
+          ref={stageRef}
+          className={styles.rowStage}
+          {...dragHandlers}
+          style={{ '--ring-tan': ringTan, '--spin': step / count, '--turn-ms': `${TURN_MS}ms` } as CSSProperties}
+        >
+          <div className={styles.rowTilt}>
+            <ul className={cn(styles.rowRing, styles.turning)}>
+              {tiles.map((tile, index) => (
+                <li
+                  key={tile.key}
+                  className={styles.rowSlot}
+                  // Negative, so the next ring sits on the right on a ring seen from the inside.
+                  style={{ '--angle': `${-index * stepAngle}deg` } as CSSProperties}
+                  aria-current={index === frontIndex || undefined}
+                >
+                  {Math.abs(offsetFromFront(index)) <= BUILT_SIDE_RINGS && (
+                    <div className={styles.rowCard} style={{ '--tile': Math.min(index, MAX_STAGGERED_TILES) } as CSSProperties}>
+                      <div className={styles.rowFocus} onClickCapture={(event) => handleTileClick(event, index)}>
+                        {tile.content}
+                        {tile.product && renderActions?.(tile.product)}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+        {/* Only the rings near the front are built, so every photo of the category loads here right away instead. */}
+        <div className='hidden' aria-hidden>
+          {products.map((product) => (
+            <ProductMedia key={product.slug} src={product.image} fill sizes={TILE_SIZES} loading='eager' />
+          ))}
+        </div>
+        {hasBefore && (
+          <Button
+            variant='outline'
+            size='icon'
+            className={cn(TURN_BUTTON_CLASS, 'absolute left-0 top-1/2 z-10 -translate-y-1/2 lg:left-[calc(50%-50vw+1.5rem)]')}
+            aria-label={t('STORE_RINGS_PREVIOUS')}
+            onClick={() => setStep((current) => current - 1)}
+          >
+            <ChevronLeft />
+          </Button>
+        )}
+        {hasAfter && (
+          <Button
+            variant='outline'
+            size='icon'
+            className={cn(TURN_BUTTON_CLASS, 'absolute right-0 top-1/2 z-10 -translate-y-1/2 lg:right-[calc(50%-50vw+1.5rem)]')}
+            aria-label={t('STORE_RINGS_NEXT')}
+            onClick={() => setStep((current) => current + 1)}
+          >
+            <ChevronRight />
+          </Button>
+        )}
       </div>
-      {/* Only the rings near the front are built, so every photo of the category loads here right away instead. */}
-      <div className='hidden' aria-hidden>
-        {products.map((product) => (
-          <ProductMedia key={product.slug} src={product.image} fill sizes={TILE_SIZES} loading='eager' />
-        ))}
+      {/* A fixed height keeps the row from jumping; keyed, so each front ring's name fades in as its tile grows. */}
+      <div className='flex h-8 shrink-0 items-center justify-center px-4' aria-live='polite'>
+        {frontProduct && (
+          <Link
+            key={frontProduct.slug}
+            href={`/product/${frontProduct.slug}?c=${categoryId}`}
+            className='flex min-w-0 items-baseline gap-3 duration-500 animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards'
+            style={{ animationDelay: `${TURN_MS * 0.6}ms` }}
+          >
+            <span className='truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.name}</span>
+            {frontProduct.price && (
+              <ProductPrice value={Number(frontProduct.price)} className='shrink-0 text-base font-medium text-foreground sm:text-lg' />
+            )}
+          </Link>
+        )}
       </div>
-      {hasBefore && (
-        <Button
-          variant='outline'
-          size='icon'
-          className={cn(TURN_BUTTON_CLASS, 'absolute left-0 top-1/2 z-10 -translate-y-1/2 lg:left-[calc(50%-50vw+1.5rem)]')}
-          aria-label={t('STORE_RINGS_PREVIOUS')}
-          onClick={() => setStep((current) => current - 1)}
-        >
-          <ChevronLeft />
-        </Button>
-      )}
-      {hasAfter && (
-        <Button
-          variant='outline'
-          size='icon'
-          className={cn(TURN_BUTTON_CLASS, 'absolute right-0 top-1/2 z-10 -translate-y-1/2 lg:right-[calc(50%-50vw+1.5rem)]')}
-          aria-label={t('STORE_RINGS_NEXT')}
-          onClick={() => setStep((current) => current + 1)}
-        >
-          <ChevronRight />
-        </Button>
-      )}
-    </div>
+    </>
   );
 };
 

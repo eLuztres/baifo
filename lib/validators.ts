@@ -40,6 +40,18 @@ export const insertProductSchema = z.object({
   categoryIds: z.array(z.string().uuid(message('VALIDATION_ID_INVALID'))).optional(),
 });
 
+// A service an admin publishes: a person and their contact, never a price.
+export const insertServiceSchema = z.object({
+  name: z.string().trim().min(3, message('VALIDATION_NAME_MIN')),
+  description: z.string().trim().min(3, message('VALIDATION_DESCRIPTION_MIN')),
+  image: z.string().url(message('VALIDATION_IMAGES_REQUIRED')),
+  subcategoryId: idSchema,
+  // With the country code (+34 …), since it becomes a WhatsApp link.
+  contactPhone: z.string().trim().regex(/^\+[\d ]{9,20}$/, message('VALIDATION_PHONE_INVALID')),
+  // The number goes public, so the person must have agreed to it.
+  hasContactConsent: z.literal(true, { errorMap: () => ({ message: message('VALIDATION_CONTACT_CONSENT') }) }),
+});
+
 // Schema for updating products
 export const updateProductSchema = insertProductSchema.extend({
   id: z.string().min(1, message('VALIDATION_ID_REQUIRED')),
@@ -67,6 +79,9 @@ export const categorySchema = z.object({
 });
 
 export const updateCategorySchema = categorySchema.extend({ id: idSchema });
+// A subcategory, e.g. a kind of service: only its name per language.
+export const subcategorySchema = z.object({ name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60) });
+export const updateSubcategorySchema = subcategorySchema.extend({ id: idSchema });
 // The rings of one category in their new order.
 export const ringOrderSchema = z.array(idSchema).min(2).max(500);
 

@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Globe } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LOCALE_COOKIE, LOCALES, type Locale } from '@/lib/i18n-core';
 import { useI18n } from '@/components/i18n-provider';
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import LocaleIcon from './locale-icon';
 
 function useChooseLocale() {
   const { locale } = useI18n();
@@ -29,7 +30,7 @@ function useChooseLocale() {
 }
 
 interface LanguageSwitcherProps {
-  /** `compact`: a globe button with a dropdown (header on desktop). `pills`: all languages side by side (mobile menu). */
+  /** `compact`: a symbol button with a dropdown (header on desktop). `pills`: all languages side by side (mobile menu). */
   variant?: 'compact' | 'pills';
   className?: string;
 }
@@ -48,26 +49,27 @@ export default function LanguageSwitcher({ variant = 'pills', className }: Langu
         <DropdownMenuTrigger asChild>
           <Button
             variant='ghost'
-            className={cn('h-9 gap-1.5 rounded-full px-3 text-xs tracking-wider', isPending && 'opacity-60', className)}
+            className={cn('h-12 gap-2.5 rounded-full border border-border bg-background/60 pl-1.5 pr-4 text-base font-semibold tracking-wider', isPending && 'opacity-60', className)}
             aria-label={`${t('LANGUAGE_LABEL')}: ${current.name}`}
           >
-            <Globe className='!size-4' />
+            <LocaleIcon locale={current.id} />
             {current.label}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='min-w-40'>
+        <DropdownMenuContent align='end' className='min-w-60 p-1.5'>
           {options.map((l) => (
             <DropdownMenuItem
               key={l.id}
               lang={l.id}
               onSelect={() => choose(l.id)}
-              className='flex items-center justify-between gap-4'
+              className='flex items-center gap-3 px-3 py-2.5 text-base'
             >
-              <span>{l.name}</span>
+              <LocaleIcon locale={l.id} />
+              <span className='flex-1'>{l.name}</span>
               {l.id === locale ? (
-                <Check className='h-4 w-4 text-accent' />
+                <Check className='size-5 text-primary' />
               ) : (
-                <span className='text-xs text-muted-foreground'>{l.label}</span>
+                <span className='text-sm text-muted-foreground'>{l.label}</span>
               )}
             </DropdownMenuItem>
           ))}
@@ -81,7 +83,7 @@ export default function LanguageSwitcher({ variant = 'pills', className }: Langu
       role='group'
       aria-label={t('LANGUAGE_LABEL')}
       className={cn(
-        'inline-flex items-center gap-0.5 rounded-full border border-border p-1 transition-opacity',
+        'inline-flex flex-wrap items-center gap-1 rounded-3xl border border-border p-1 transition-opacity',
         isPending && 'opacity-60',
         className
       )}
@@ -95,10 +97,11 @@ export default function LanguageSwitcher({ variant = 'pills', className }: Langu
           title={l.name}
           lang={l.id}
           className={cn(
-            'rounded-full px-3 py-1.5 text-xs font-medium tracking-wider text-foreground/55 transition hover:text-foreground',
+            'inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-base font-semibold tracking-wider text-foreground/60 transition hover:text-foreground',
             locale === l.id && 'bg-muted text-foreground'
           )}
         >
+          <LocaleIcon locale={l.id} />
           {l.label}
         </button>
       ))}

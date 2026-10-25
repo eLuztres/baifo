@@ -63,6 +63,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const nextRing = findNextRing(groupByCategory(categories, rings, locale), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
+  const isService = product.kind === 'service';
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
 
@@ -99,10 +100,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {description}
               </p>
             )}
-            {/* Showcase mode: no stock or buying, only a way to reach the maker, or the seller of a classified ad. */}
-            {SHOWCASE_MODE ? (
+            {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
+            {SHOWCASE_MODE || isService ? (
               <>
-                {SHOWS_PRICES && <ProductPrice value={Number(product.price)} />}
+                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} />}
                 {hasSellerContact ? (
                   <ContactSellerButton productId={product.id} productName={name} className='w-full' />
                 ) : (

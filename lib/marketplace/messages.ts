@@ -1,14 +1,24 @@
 // What the Baifo bot writes on WhatsApp. Sellers never open the website before the payment link,
 // so these texts live here and not in the shop's i18n files.
 
-export type BotLocale = 'es' | 'en' | 'it';
+export type BotLocale = 'es' | 'en' | 'it' | 'fr' | 'de';
 
-/** Spanish for Spanish numbers, Italian for Italian ones, English for everyone else (tourists and residents from abroad). */
-export const localeOf = (waId: string): BotLocale => (waId.startsWith('34') ? 'es' : waId.startsWith('39') ? 'it' : 'en');
+// Country calling codes; Switzerland and Belgium are left out because they speak more than one of these.
+const PREFIX_LOCALES: [string, BotLocale][] = [
+  ['34', 'es'],
+  ['39', 'it'],
+  ['33', 'fr'],
+  ['49', 'de'],
+  ['43', 'de'],
+];
+
+/** The seller's language from their number's country, English for everyone else (tourists and residents from abroad). */
+export const localeOf = (waId: string): BotLocale => PREFIX_LOCALES.find(([prefix]) => waId.startsWith(prefix))?.[1] ?? 'en';
 
 const TEXTS = {
   es: {
     welcome: '¡Hola! 👋 Soy Baifo. Mándame una foto de lo que quieres vender y, si quieres, el precio y unas palabras.',
+    serviceArea: '📍 De momento solo publicamos cosas que se puedan entregar en {area}. ¡Pronto llegamos al resto de Fuerteventura!',
     photoReceived: '📸 ¡Foto recibida! Puedes mandar más fotos, el precio y una descripción. Cuando termines, pulsa ✅ Listo.',
     askPhoto: 'Mándame primero una foto de lo que quieres vender 📸',
     textReceived: 'Apuntado ✍️ Cuando termines, pulsa ✅ Listo.',
@@ -28,6 +38,7 @@ const TEXTS = {
   },
   en: {
     welcome: "Hi! 👋 I'm Baifo. Send me a photo of what you want to sell and, if you like, the price and a few words.",
+    serviceArea: '📍 For now we only post items that can be handed over in {area}. The rest of Fuerteventura is coming soon!',
     photoReceived: '📸 Photo received! You can send more photos, the price and a description. When you are done, tap ✅ Done.',
     askPhoto: 'Please send me a photo of what you want to sell first 📸',
     textReceived: 'Got it ✍️ When you are done, tap ✅ Done.',
@@ -47,6 +58,7 @@ const TEXTS = {
   },
   it: {
     welcome: 'Ciao! 👋 Sono Baifo. Mandami una foto di quello che vuoi vendere e, se vuoi, il prezzo e qualche parola.',
+    serviceArea: '📍 Per ora pubblichiamo solo oggetti che si possono consegnare a {area}. Presto anche nel resto di Fuerteventura!',
     photoReceived: '📸 Foto ricevuta! Puoi mandare altre foto, il prezzo e una descrizione. Quando hai finito, tocca ✅ Fatto.',
     askPhoto: 'Prima mandami una foto di quello che vuoi vendere 📸',
     textReceived: 'Segnato ✍️ Quando hai finito, tocca ✅ Fatto.',
@@ -64,6 +76,46 @@ const TEXTS = {
     expired: 'Il tuo annuncio «{title}» è scaduto e non è più online. Lo pubblichiamo di nuovo? Mandaci le foto.',
     buttonDone: '✅ Fatto',
   },
+  fr: {
+    welcome: 'Salut ! 👋 Je suis Baifo. Envoie-moi une photo de ce que tu veux vendre et, si tu veux, le prix et quelques mots.',
+    serviceArea: "📍 Pour l'instant, nous publions seulement des objets à remettre à {area}. Le reste de Fuerteventura arrive bientôt !",
+    photoReceived: '📸 Photo reçue ! Tu peux envoyer d\'autres photos, le prix et une description. Quand tu as fini, appuie sur ✅ Terminé.',
+    askPhoto: 'Envoie-moi d\'abord une photo de ce que tu veux vendre 📸',
+    textReceived: 'C\'est noté ✍️ Quand tu as fini, appuie sur ✅ Terminé.',
+    done: 'Merci ! 🙌 On prépare ton annonce. On t\'envoie un lien dès qu\'elle est vérifiée.',
+    help: 'Comment ça marche : 1) envoie-moi des photos et, si tu veux, le prix et une description, 2) appuie sur ✅ Terminé, 3) on vérifie ton annonce et on t\'envoie un lien pour la publier pendant 3 mois.\nÉcris "supprimer" pour recommencer ou "vendu" une fois l\'objet vendu.',
+    cancelled: 'C\'est fait, j\'ai supprimé ce que tu m\'avais envoyé. Tu peux recommencer quand tu veux.',
+    nothingToCancel: 'Il n\'y a rien en attente à supprimer.',
+    busy: 'Ton annonce précédente est encore en préparation. On t\'écrit très vite.',
+    approved: 'Ton annonce est prête ! ✨ Jette un œil, choisis comment la publier et paie ici :\n{url}',
+    rejected: 'Désolé, nous ne pouvons pas publier cette annonce. Si tu as des questions, réponds-nous ici.',
+    live: '🎉 Ton annonce est en ligne pour {days} jours !\n{url}',
+    sold: 'Félicitations pour la vente ! 🎉 J\'ai retiré ton annonce.',
+    noLiveListing: 'Je ne trouve aucune annonce de toi en ligne.',
+    expiring: '⏳ Ton annonce « {title} » se termine le {date}. Si tu l\'as déjà vendu, écris "vendu". Pour la garder en ligne, renvoie-nous les photos quand elle se termine.',
+    expired: 'Ton annonce « {title} » est terminée et n\'est plus en ligne. On la republie ? Envoie-nous les photos.',
+    buttonDone: '✅ Terminé',
+  },
+  de: {
+    welcome: 'Hallo! 👋 Ich bin Baifo. Schick mir ein Foto von dem, was du verkaufen willst, und wenn du magst, den Preis und ein paar Worte.',
+    serviceArea: '📍 Vorerst veröffentlichen wir nur Sachen, die in {area} übergeben werden können. Der Rest von Fuerteventura folgt bald!',
+    photoReceived: '📸 Foto erhalten! Du kannst weitere Fotos, den Preis und eine Beschreibung schicken. Wenn du fertig bist, tippe auf ✅ Fertig.',
+    askPhoto: 'Schick mir zuerst ein Foto von dem, was du verkaufen willst 📸',
+    textReceived: 'Notiert ✍️ Wenn du fertig bist, tippe auf ✅ Fertig.',
+    done: 'Danke! 🙌 Wir bereiten deine Anzeige vor und schicken dir einen Link, sobald sie geprüft ist.',
+    help: 'So funktioniert\'s: 1) Schick mir Fotos und, wenn du magst, Preis und Beschreibung, 2) tippe auf ✅ Fertig, 3) wir prüfen deine Anzeige und schicken dir einen Link, um sie 3 Monate zu veröffentlichen.\nSchreib "löschen", um neu anzufangen, oder "verkauft", wenn es verkauft ist.',
+    cancelled: 'Erledigt, ich habe gelöscht, was du geschickt hattest. Du kannst jederzeit neu anfangen.',
+    nothingToCancel: 'Es gibt nichts Offenes zum Löschen.',
+    busy: 'Deine vorherige Anzeige wird noch vorbereitet. Wir melden uns gleich.',
+    approved: 'Deine Anzeige ist fertig! ✨ Schau sie dir an, wähle, wie du sie veröffentlichen willst, und bezahle hier:\n{url}',
+    rejected: 'Leider können wir diese Anzeige nicht veröffentlichen. Wenn du Fragen hast, antworte uns einfach hier.',
+    live: '🎉 Deine Anzeige ist jetzt {days} Tage online!\n{url}',
+    sold: 'Glückwunsch zum Verkauf! 🎉 Ich habe deine Anzeige entfernt.',
+    noLiveListing: 'Ich finde keine Anzeige von dir, die online ist.',
+    expiring: '⏳ Deine Anzeige „{title}“ endet am {date}. Wenn sie schon verkauft ist, schreib "verkauft". Um sie online zu halten, schick uns die Fotos noch einmal, wenn sie endet.',
+    expired: 'Deine Anzeige „{title}“ ist abgelaufen und nicht mehr online. Sollen wir sie neu veröffentlichen? Schick uns einfach die Fotos.',
+    buttonDone: '✅ Fertig',
+  },
 } satisfies Record<BotLocale, Record<string, string>>;
 
 export type BotText = keyof (typeof TEXTS)['es'];
@@ -74,14 +126,14 @@ export function botText(locale: BotLocale, key: BotText, values: Record<string, 
 
 /** Commands sellers can type, in any of the bot's languages. */
 export const COMMANDS = {
-  help: ['ayuda', 'help', 'hola', 'hi', 'hello', 'info', 'aiuto', 'ciao'],
-  cancel: ['borrar', 'cancelar', 'delete', 'cancel', 'cancella', 'annulla'],
-  sold: ['vendido', 'sold', 'venduto'],
+  help: ['ayuda', 'help', 'hola', 'hi', 'hello', 'info', 'aiuto', 'ciao', 'aide', 'bonjour', 'salut', 'hilfe', 'hallo'],
+  cancel: ['borrar', 'cancelar', 'delete', 'cancel', 'cancella', 'annulla', 'supprimer', 'annuler', 'löschen', 'abbrechen'],
+  sold: ['vendido', 'sold', 'venduto', 'vendu', 'verkauft'],
 } as const;
 
 export type Command = keyof typeof COMMANDS;
 
 export function commandOf(text: string): Command | undefined {
-  const word = text.trim().toLowerCase().replace(/[!.¡¿?]/g, '');
+  const word = text.toLowerCase().replace(/[!.¡¿?]/g, '').trim();
   return (Object.keys(COMMANDS) as Command[]).find((command) => (COMMANDS[command] as readonly string[]).includes(word));
 }

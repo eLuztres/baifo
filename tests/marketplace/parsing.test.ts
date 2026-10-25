@@ -24,17 +24,23 @@ describe('parsePrice', () => {
 });
 
 describe('commands and language', () => {
-  it('knows commands in both languages, ignoring case and punctuation', () => {
+  it('knows commands in every bot language, ignoring case and punctuation', () => {
     expect(commandOf('¡Vendido!')).toBe('sold');
     expect(commandOf('DELETE')).toBe('cancel');
     expect(commandOf('Ayuda')).toBe('help');
+    expect(commandOf('Löschen')).toBe('cancel');
+    expect(commandOf('Vendu !')).toBe('sold');
     expect(commandOf('vendo una mesa')).toBeUndefined();
   });
 
-  it('writes Spanish to Spanish numbers, Italian to Italian ones and English to others', () => {
+  it('writes to each number in its country language and English to others', () => {
     expect(localeOf('34600111222')).toBe('es');
     expect(localeOf('393331112222')).toBe('it');
-    expect(localeOf('49170111222')).toBe('en');
+    expect(localeOf('33612345678')).toBe('fr');
+    expect(localeOf('49170111222')).toBe('de');
+    expect(localeOf('436641112222')).toBe('de');
+    expect(localeOf('447700111222')).toBe('en');
+    expect(localeOf('41791112222')).toBe('en');
   });
 });
 

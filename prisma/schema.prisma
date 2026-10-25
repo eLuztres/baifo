@@ -49,6 +49,8 @@ model Product {
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   expiresAt      DateTime? @db.Timestamp(6)
   submission     Submission?
+  // 'product' or 'service' (PRODUCT_KINDS); a service never shows a price or a cart, only its contact.
+  kind           String    @default("product")
 }
 
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
@@ -66,6 +68,10 @@ model Category {
   sortOrder     Int       @default(0)
   createdAt     DateTime  @default(now()) @db.Timestamp(6)
   products      Product[]
+  // A subcategory, e.g. "clases" under "servicios"; the store's ring only shows categories without a parent.
+  parentId      String?    @db.Uuid
+  parent        Category?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Category[] @relation("Subcategories")
 }
 
 model User {

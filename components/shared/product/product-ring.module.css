@@ -656,12 +656,6 @@
     transition-duration: 300ms;
 }
 
-.rowSlot[aria-current] .tileName {
-    font-size: 1.15rem;
-    color: var(--primary);
-    transition-delay: var(--grow-delay);
-}
-
 @keyframes tile-in {
     from {
         opacity: 0;

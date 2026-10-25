@@ -14,7 +14,7 @@ export interface CollectionRing {
   image: string;
   /** Server only: all its pictures, for the previews in the shop's tree. */
   images: string[];
-  /** Missing in showcase mode: the price is never read from the database. */
+  /** Missing in showcase mode (the price is never read from the database) and for services. */
   price?: string;
   isReserved: boolean;
   /** Server only: the store categories it shows up in. */
@@ -44,12 +44,15 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       createdAt: true,
       condition: true,
       translations: true,
+      kind: true,
       categories: { select: { id: true } },
     },
   });
 
-  return products.map(({ images, reservedUntil, categories, ...product }) => ({
+  return products.map(({ images, reservedUntil, categories, kind, price, ...product }) => ({
     ...product,
+    // A service has no price to show; it stays in the database as 0.
+    price: kind === 'service' ? undefined : price,
     image: images[0],
     images,
     isReserved: isReservationActive({ reservedUntil }),

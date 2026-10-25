@@ -5,7 +5,7 @@ import { expireListings } from '@/lib/marketplace/expiry';
 
 jest.mock('@/db/prisma', () => {
   const submission = { findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() };
-  const product = { create: jest.fn(), delete: jest.fn(async () => ({})) };
+  const product = { create: jest.fn(), delete: jest.fn(async () => ({})), deleteMany: jest.fn(async () => ({ count: 0 })) };
   return {
     prisma: {
       submission,
@@ -21,7 +21,7 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 
 const db = prisma as unknown as {
   submission: Record<'findUnique' | 'findMany' | 'update' | 'updateMany', jest.Mock>;
-  product: Record<'create' | 'delete', jest.Mock>;
+  product: Record<'create' | 'delete' | 'deleteMany', jest.Mock>;
 };
 
 const SUBMISSION = {
@@ -117,5 +117,15 @@ describe('expireListings', () => {
     expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'product-old' } });
     expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'soon' }, data: { remindedAt: now } });
     expect(sendText).toHaveBeenCalledWith('34600111222', expect.stringContaining('27/10/2026'));
+  });
+
+  it('takes ended services down, which an admin published without a submission', async () => {
+    const now = new Date('2026-10-23T10:00:00Z');
+    db.submission.findMany.mockResolvedValue([]);
+    db.product.deleteMany.mockResolvedValueOnce({ count: 2 });
+
+    expect(await expireListings(now)).toEqual({ expired: 2, reminded: 0 });
+
+    expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { kind: 'service', submission: null, expiresAt: { lte: now } } });
   });
 });

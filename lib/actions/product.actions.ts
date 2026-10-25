@@ -189,16 +189,19 @@ export async function updateProduct(data: z.infer<typeof updateProductSchema>) {
     const { categoryIds, ...product } = withClassPrice(updateProductSchema.parse(data));
     const productExists = await prisma.product.findFirst({
       where: { id: product.id },
+      include: { categories: { where: { parentId: { not: null } }, select: { id: true } } },
     });
 
     if (!productExists) {
       return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
     }
+    // The form only lists store categories, so a service keeps its subcategory.
+    const subcategoryIds = productExists.categories.map((category) => category.id);
 
     await prisma.product.update({
       where: { id: product.id },
       // Without categoryIds (e.g. an older form) the ring keeps its categories.
-      data: { ...product, ...(categoryIds && { categories: { set: toCategoryRefs(categoryIds) } }) },
+      data: { ...product, ...(categoryIds && { categories: { set: toCategoryRefs([...categoryIds, ...subcategoryIds]) } }) },
     });
 
     revalidatePath('/admin/products');

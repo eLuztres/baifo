@@ -5,9 +5,9 @@ import { ChevronLeft } from 'lucide-react';
 import ListingCard from '@/components/shared/product/listing-card';
 import { getInStockRings, type CollectionRing } from '@/components/shared/home/in-stock-rings';
 import { SECTION_IDS } from '@/components/shared/home/one-page';
-import { getStoreCategories } from '@/lib/actions/category.actions';
+import { getStoreCategories, getSubcategories } from '@/lib/actions/category.actions';
 import { localize, localizeProduct } from '@/lib/category';
-import { conditionKey, SHOWS_PRICES } from '@/lib/constants';
+import { conditionKey, SERVICES_CATEGORY_SLUG, SHOWS_PRICES } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { cn, timeAgo } from '@/lib/utils';
@@ -28,7 +28,8 @@ const SORTERS: Record<Sort, (a: CollectionRing, b: CollectionRing) => number> = 
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort?: string }>;
+  /** `sub`: a subcategory's slug, e.g. one kind of service. */
+  searchParams: Promise<{ sort?: string; sub?: string }>;
 }
 
 // Links are shared and edited by hand: an unknown order falls back to the newest first.
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 /** Every product of one store category as a grid, newest first, with the other categories one tap away. */
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const [{ slug }, { sort: sortParam }, { t, locale }, categories, products] = await Promise.all([
+  const [{ slug }, { sort: sortParam, sub: subParam }, { t, locale }, categories, products] = await Promise.all([
     params,
     searchParams,
     getT(),
@@ -60,8 +61,16 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const category = categories.find((item) => item.slug === slug);
   if (!category) notFound();
 
-  const sort = readSort(sortParam);
-  const listings = products.filter((product) => product.categoryIds.includes(category.id)).sort(SORTERS[sort]);
+  const isServices = category.slug === SERVICES_CATEGORY_SLUG;
+  // Services have no price to sort by.
+  const sort = isServices ? 'newest' : readSort(sortParam);
+  const inCategory = products.filter((product) => product.categoryIds.includes(category.id));
+  const subcategories = (await getSubcategories(category.slug)).filter((item) =>
+    inCategory.some((product) => product.categoryIds.includes(item.id))
+  );
+  // An unknown or empty subcategory in a shared link shows the whole category.
+  const subcategory = subcategories.find((item) => item.slug === subParam);
+  const listings = inCategory.filter((product) => !subcategory || product.categoryIds.includes(subcategory.id)).sort(SORTERS[sort]);
   // Empty categories are never shown: an old link to one goes back to the categories.
   if (listings.length === 0) redirect(`/#${SECTION_IDS.showroom}`);
   const filledCategories = categories.filter((item) => products.some((product) => product.categoryIds.includes(item.id)));
@@ -98,7 +107,25 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         ))}
       </nav>
 
-      {SHOWS_PRICES && listings.length > 1 && (
+      {subcategories.length > 0 && (
+        <nav aria-label={localize(category.name, locale)} className='-mx-4 flex gap-2 overflow-x-auto border-t border-border px-4 pb-1 pt-4'>
+          <Link href={`/category/${category.slug}`} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
+            {t('CATEGORY_SUB_ALL')}
+          </Link>
+          {subcategories.map((item) => (
+            <Link
+              key={item.id}
+              href={`/category/${category.slug}?sub=${item.slug}`}
+              aria-current={item.id === subcategory?.id ? 'page' : undefined}
+              className={chipClass(item.id === subcategory?.id)}
+            >
+              {localize(item.name, locale)}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {SHOWS_PRICES && !isServices && listings.length > 1 && (
         <div role='group' aria-label={t('CATEGORY_SORT')} className='flex flex-wrap gap-2 border-t border-border pt-4'>
           {SORTS.map(({ id, label }) => (
             <Link

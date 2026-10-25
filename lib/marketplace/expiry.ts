@@ -1,3 +1,4 @@
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { botText, localeOf } from './messages';
@@ -18,6 +19,10 @@ export async function expireListings(now = new Date()) {
     await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'expired', { title: submission.title ?? '' })).catch(() => {});
   }
 
+  // Services are published by an admin, without a submission, so they leave the shop here.
+  const expiredServices = await prisma.product.deleteMany({ where: { kind: 'service', submission: null, expiresAt: { lte: now } } });
+  if (expiredServices.count > 0) revalidatePath('/');
+
   const ending = await prisma.submission.findMany({
     where: { status: 'LIVE', remindedAt: null, expiresAt: { gt: now, lte: new Date(now.getTime() + REMIND_BEFORE_MS) } },
     include: { seller: true },
@@ -27,5 +32,5 @@ export async function expireListings(now = new Date()) {
     const values = { title: submission.title ?? '', date: dateOf(submission.expiresAt!) };
     await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'expiring', values)).catch(() => {});
   }
-  return { expired: expired.length, reminded: ending.length };
+  return { expired: expired.length + expiredServices.count, reminded: ending.length };
 }

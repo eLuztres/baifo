@@ -7,11 +7,21 @@ import { isAdmin } from '@/lib/auth-guard';
 import { localize, RING_ORDER } from '@/lib/category';
 import type { Locale, TranslationKey } from '@/lib/i18n-core';
 import { formatError } from '@/lib/utils';
-import { categorySchema, idSchema, ringOrderSchema, updateCategorySchema } from '@/lib/validators';
+import slugify from 'slugify';
+import { getShopLocale } from '@/lib/i18n-server';
+import {
+  categorySchema,
+  idSchema,
+  ringOrderSchema,
+  subcategorySchema,
+  updateCategorySchema,
+  updateSubcategorySchema,
+} from '@/lib/validators';
 
-/** The store's categories in their ring order, with everything the circle and the editor need. */
+/** The store's categories in their ring order, with everything the circle and the editor need; subcategories stay out. */
 export async function getStoreCategories() {
   return prisma.category.findMany({
+    where: { parentId: null },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     select: {
       id: true,
@@ -27,6 +37,17 @@ export async function getStoreCategories() {
 }
 
 export type StoreCategory = Awaited<ReturnType<typeof getStoreCategories>>[number];
+
+/** The subcategories of a store category in their order, e.g. the kinds of service. */
+export async function getSubcategories(parentSlug: string) {
+  return prisma.category.findMany({
+    where: { parent: { slug: parentSlug } },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    select: { id: true, slug: true, name: true },
+  });
+}
+
+export type Subcategory = Awaited<ReturnType<typeof getSubcategories>>[number];
 
 /** The categories as admin forms list them: id and name in the admin's language. */
 export async function getCategoryOptions(locale: Locale) {
@@ -92,6 +113,48 @@ export async function updateCategory(data: z.infer<typeof updateCategorySchema>)
       message: 'CATEGORY_UPDATED' satisfies TranslationKey,
       ringIds: isSceneChanged ? before.products.map((product) => product.id) : [],
     };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+/** Adds a subcategory at the end, e.g. a new kind of service; its link name comes from the shop's language. */
+export async function createSubcategory(parentSlug: string, data: z.infer<typeof subcategorySchema>) {
+  try {
+    if (!(await isAdmin())) return adminOnly();
+    const { name } = subcategorySchema.parse(data);
+    const parent = await prisma.category.findUnique({ where: { slug: parentSlug }, select: { id: true } });
+    if (!parent) return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
+
+    const baseSlug = slugify(localize(name, getShopLocale()), { lower: true, strict: true });
+    // Slugs are shop-wide: a subcategory named like a store category gets its parent's slug in front.
+    const isTaken = await prisma.category.count({ where: { slug: baseSlug } });
+    const last = await prisma.category.aggregate({ where: { parentId: parent.id }, _max: { sortOrder: true } });
+    await prisma.category.create({
+      data: {
+        slug: isTaken ? `${parentSlug}-${baseSlug}` : baseSlug,
+        name,
+        text: {},
+        scene: '',
+        parentId: parent.id,
+        sortOrder: (last._max.sortOrder ?? -1) + 1,
+      },
+    });
+    revalidateStore();
+    return { success: true, message: 'CATEGORY_CREATED' satisfies TranslationKey };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+/** Renames a subcategory; its link name stays, so shared links keep working. */
+export async function updateSubcategory(data: z.infer<typeof updateSubcategorySchema>) {
+  try {
+    if (!(await isAdmin())) return adminOnly();
+    const { id, name } = updateSubcategorySchema.parse(data);
+    await prisma.category.update({ where: { id, parentId: { not: null } }, data: { name } });
+    revalidateStore();
+    return { success: true, message: 'CATEGORY_UPDATED' satisfies TranslationKey };
   } catch (error) {
     return { success: false, message: formatError(error) };
   }

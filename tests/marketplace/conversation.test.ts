@@ -93,8 +93,8 @@ describe('handleSellerMessage', () => {
   it('answers in English to foreign numbers', async () => {
     db.submission.findFirst.mockResolvedValue(openSubmission());
 
-    await handleSellerMessage(message({ from: '49170111222', type: 'image', mediaId: 'media-1' }));
+    await handleSellerMessage(message({ from: '447700111222', type: 'image', mediaId: 'media-1' }));
 
-    expect(sendButtons).toHaveBeenCalledWith('49170111222', expect.stringContaining('Photo received'), [{ id: 'done', title: '✅ Done' }]);
+    expect(sendButtons).toHaveBeenCalledWith('447700111222', expect.stringContaining('Photo received'), [{ id: 'done', title: '✅ Done' }]);
   });
 });

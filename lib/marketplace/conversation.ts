@@ -3,6 +3,7 @@ import { sendButtons as sendButtonsNow, sendText as sendTextNow } from '@/lib/wh
 import type { InboundMessage } from '@/lib/whatsapp-cloud/webhook';
 import { botText, commandOf, localeOf, type BotLocale } from './messages';
 import { markSold } from './listing';
+import { SERVICE_AREA } from '@/lib/constants';
 
 export const DONE_BUTTON_ID = 'done';
 
@@ -10,6 +11,10 @@ export const DONE_BUTTON_ID = 'done';
 const logFailure = (error: unknown) => console.error('WhatsApp reply failed', error);
 const sendText = (to: string, body: string) => sendTextNow(to, body).catch(logFailure);
 const sendButtons = (...args: Parameters<typeof sendButtonsNow>) => sendButtonsNow(...args).catch(logFailure);
+
+// While the shop only serves some places, new sellers hear it right away.
+const welcomeText = (locale: BotLocale) =>
+  [botText(locale, 'welcome'), SERVICE_AREA && botText(locale, 'serviceArea', { area: SERVICE_AREA })].filter(Boolean).join('\n\n');
 
 /** What a seller message changes, and whether the AI work can start. */
 export interface SellerReply {
@@ -90,10 +95,10 @@ export async function handleSellerMessage(message: InboundMessage): Promise<Sell
       data: { rawText: [submission.rawText, message.text].filter(Boolean).join('\n') },
     });
     if (hasPhotos) await askDone(message.from, locale, botText(locale, 'textReceived'));
-    else await sendText(message.from, botText(locale, submission.rawText ? 'askPhoto' : 'welcome'));
+    else await sendText(message.from, submission.rawText ? botText(locale, 'askPhoto') : welcomeText(locale));
     return {};
   }
 
-  await sendText(message.from, botText(locale, 'welcome'));
+  await sendText(message.from, welcomeText(locale));
   return {};
 }

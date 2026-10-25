@@ -19,6 +19,11 @@ const Footer = async () => {
           <p className='max-w-xs text-sm leading-6 text-muted-foreground'>
             {t('FOOTER_TAGLINE')}
           </p>
+          {t('FOOTER_DISCLAIMER') && (
+            <p className='max-w-sm text-xs leading-5 text-muted-foreground'>
+              {t('FOOTER_DISCLAIMER', { shop: BRAND.name })}
+            </p>
+          )}
           <p className='text-xs text-muted-foreground'>
             © {currentYear} {BRAND.name}. {t('FOOTER_RIGHTS')}
           </p>

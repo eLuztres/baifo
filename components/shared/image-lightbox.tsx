@@ -93,11 +93,11 @@ const ImageLightbox = ({ images, alt, captions, index, onIndexChange }: ImageLig
           {caption && (
             <div
               key={caption.title}
-              className='absolute inset-x-0 bottom-0 space-y-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-20 text-white animate-in fade-in duration-300 sm:px-10'
+              className='absolute inset-x-0 bottom-0 space-y-2 bg-gradient-to-t from-black/90 via-black/75 to-transparent px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-24 text-center text-white animate-in fade-in duration-300 sm:space-y-3 sm:px-10 sm:pb-12'
             >
               {caption.eyebrow && <p className='eyebrow'>{caption.eyebrow}</p>}
-              <p className='font-display text-2xl sm:text-3xl'>{caption.title}</p>
-              {caption.text && <p className='max-w-2xl text-sm leading-6 text-white/80 sm:text-base'>{caption.text}</p>}
+              <p className='font-display text-3xl sm:text-5xl 2xl:text-6xl'>{caption.title}</p>
+              {caption.text && <p className='mx-auto max-w-3xl text-lg leading-relaxed text-white/90 sm:text-2xl 2xl:max-w-4xl 2xl:text-3xl'>{caption.text}</p>}
             </div>
           )}
 

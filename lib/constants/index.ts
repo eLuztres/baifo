@@ -18,6 +18,9 @@ export const DEFAULT_PAYMENT_METHOD =
 
 export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 
+// Where the shop works for now, e.g. a launch in one town; blank means everywhere and hides the notice.
+export const SERVICE_AREA = process.env.SERVICE_AREA?.trim() || '';
+
 // Server-side only like the rest of this file: the admin user form gets it as a prop.
 export const USER_ROLES = envList('USER_ROLES', ['admin', 'user']);
 
@@ -43,6 +46,11 @@ const envNumber = (key: string, fallback: number) => {
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 // A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
+// A service (babysitter, gardener …) is listed like a product but never shows a price or a cart, only its contact.
+export const PRODUCT_KINDS = ['product', 'service'] as const;
+export type ProductKind = (typeof PRODUCT_KINDS)[number];
+// The store category that holds the services; its subcategories are the kinds of service.
+export const SERVICES_CATEGORY_SLUG = process.env.SERVICES_CATEGORY_SLUG || 'servicios';
 // How a second-hand item is, best first; a product without one shows none.
 export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair'] as const;
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
@@ -62,6 +70,7 @@ export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
 export const NEW_PRODUCT_PATH =
   process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
+export const NEW_SERVICE_PATH = '/admin/services/new';
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
