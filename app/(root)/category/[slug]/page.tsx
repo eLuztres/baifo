@@ -71,7 +71,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   return (
     <div className='mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:py-10'>
       <Link
-        href={`/?material=${category.slug}#${SECTION_IDS.showroom}`}
+        href={`/?category=${category.slug}#${SECTION_IDS.showroom}`}
         className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'
       >
         <ChevronLeft className='size-4' /> {t('CATEGORY_ALL')}

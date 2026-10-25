@@ -68,7 +68,7 @@ const SETTLE_MS = 1400;
 const PIECE_LAYERS = 10;
 const FLYER_COUNT = 3;
 // The home page's search param with the category in front, e.g. from a listing's way back.
-const CATEGORY_PARAM = 'material';
+const CATEGORY_PARAM = 'category';
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 

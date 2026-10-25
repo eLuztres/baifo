@@ -70,7 +70,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
-        href={categoryId ? `/?material=${encodeURIComponent(categoryId)}#${SECTION_IDS.showroom}` : sectionHref(SECTION_IDS.showroom)}
+        href={categoryId ? `/?category=${encodeURIComponent(categoryId)}#${SECTION_IDS.showroom}` : sectionHref(SECTION_IDS.showroom)}
         className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
       >
         <ChevronLeft className='h-4 w-4' />
