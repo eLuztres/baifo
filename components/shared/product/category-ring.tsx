@@ -41,8 +41,10 @@ interface CategoryRingProps {
   initialCategoryId?: string;
   /** What turns in the ring's middle: 'band' (the gold band), 'none', or a picture's URL shown as a 3D piece. */
   center?: string;
-  /** A picture lying under the center picture, 1.5 times its size. */
+  /** A picture lying under the center picture, three times its size. */
   sea?: string;
+  /** A small picture flying in loops above the center picture. */
+  flyer?: string;
   /** Pictures standing on the center picture. */
   figures?: RingFigure[];
   /** Only for admins: edit rings right here (categories are edited in the admin catalog). */
@@ -66,6 +68,7 @@ const ARROWS_APPEAR_MS = 900;
 const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 10;
+const FLYER_COUNT = 3;
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
@@ -86,7 +89,7 @@ interface CenterPieceProps {
 /** A picture lying in the ring's middle with some thickness, turning along with the cards. */
 const CenterPiece = ({ src, sea, figures }: CenterPieceProps) => (
   <div className={styles.centerPiece} style={{ '--piece': `url("${src}")` } as CSSProperties} aria-hidden='true'>
-    {sea ? <span className={styles.pieceSea} style={{ '--sea': `url("${sea}")` } as CSSProperties} /> : <span className={styles.pieceGlow} />}
+    {!sea && <span className={styles.pieceGlow} />}
     {Array.from({ length: PIECE_LAYERS }, (_, index) => (
       <span key={index} className={styles.pieceSide} style={{ '--layer': index / PIECE_LAYERS } as CSSProperties} />
     ))}
@@ -110,8 +113,37 @@ const CenterPiece = ({ src, sea, figures }: CenterPieceProps) => (
   </div>
 );
 
+interface SeaProps {
+  src: string;
+}
+
+/** The sea under the center piece, turning with it in a scene of its own behind the cards: in the cards' scene its
+    near edge would cut through the front card. */
+const Sea = ({ src }: SeaProps) => (
+  <div className={styles.tilt} aria-hidden='true'>
+    <div className={styles.centerPiece}>
+      <span className={styles.pieceSea} style={{ '--sea': `url("${src}")` } as CSSProperties} />
+    </div>
+  </div>
+);
+
+interface FlyersProps {
+  src: string;
+}
+
+/** A few copies of a picture looping above the center piece, each on its own path and pace. */
+const Flyers = ({ src }: FlyersProps) => (
+  <div className={styles.flyers} style={{ '--flyer': `url("${src}")` } as CSSProperties} aria-hidden='true'>
+    {Array.from({ length: FLYER_COUNT }, (_, index) => (
+      <span key={index} className={styles.flyerPath} style={{ '--flyer-i': index } as CSSProperties}>
+        <span className={styles.flyer} />
+      </span>
+    ))}
+  </div>
+);
+
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', sea, figures = [], admin }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', sea, flyer, figures = [], admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [step, setStep] = useState(() => Math.max(0, categories.findIndex((category) => category.id === initialCategoryId)));
@@ -159,9 +191,11 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', s
             <GoldBand className={styles.centerBand} />
           </div>
         )}
+        {hasPiece && sea && <Sea src={sea} />}
         <div className={styles.tilt}>
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
           {hasPiece && <CenterPiece src={center} sea={sea} figures={figures} />}
+          {hasPiece && flyer && <Flyers src={flyer} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
               const category = categories[index % categories.length];

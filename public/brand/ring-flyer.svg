@@ -5,9 +5,10 @@
     .wings { transform-origin: 60px 30px; animation: flap 2.6s ease-in-out infinite; }
   </style>
   <g class="wings" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 26 Q22 10 40 16 Q52 20 60 30 Q68 20 80 16 Q98 10 112 26" stroke="#1F2A2E" stroke-width="6"/>
-    <path d="M8 26 Q14 19 22 16 M112 26 Q106 19 98 16" stroke="#1F2A2E" stroke-width="7.5"/>
-    <path d="M30 18 Q44 17 58 28 M90 18 Q76 17 62 28" stroke="#FFFFFF" stroke-width="3"/>
+    <path d="M8 26 Q22 10 40 16 Q52 20 60 30 Q68 20 80 16 Q98 10 112 26" stroke="#1F2A2E" stroke-width="10"/>
+    <path d="M10 25 Q22 12 40 18 Q52 22 60 31 Q68 22 80 18 Q98 12 110 25" stroke="#FFFFFF" stroke-width="5"/>
+    <path d="M8 26 Q13 19 20 16 M112 26 Q107 19 100 16" stroke="#1F2A2E" stroke-width="9"/>
   </g>
-  <ellipse cx="60" cy="31" rx="6" ry="4.5" fill="#FFFFFF" stroke="#1F2A2E" stroke-width="2.5"/>
+  <ellipse cx="60" cy="31" rx="7" ry="5" fill="#FFFFFF" stroke="#1F2A2E" stroke-width="2.5"/>
+  <path d="M66 31 L71 30" stroke="#F4B942" stroke-width="2.5" stroke-linecap="round"/>
 </svg>

@@ -102,8 +102,10 @@ export const BRAND = {
   loaderImage: env('BRAND_LOADER_IMAGE'),
   /** The middle of the category ring: the gold band, nothing, or a picture shown as a turning 3D piece. */
   ringCenter: env('BRAND_RING_CENTER') ?? 'band',
-  /** A picture lying flat under that piece, 1.5 times its size and centered on it (e.g. a sea around an island). */
+  /** A picture lying flat under that piece, three times its size and centered on it (e.g. a sea around an island). */
   ringCenterSea: env('BRAND_RING_CENTER_SEA'),
+  /** A small picture (e.g. a seagull) that three copies of fly in loops above that piece. */
+  ringFlyer: env('BRAND_RING_FLYER'),
   /** A picture standing on that 3D piece (its foot at the bottom middle), with an optional part turning about its middle. */
   ringFigure: env('BRAND_RING_FIGURE'),
   ringFigureSpinner: env('BRAND_RING_FIGURE_SPINNER'),

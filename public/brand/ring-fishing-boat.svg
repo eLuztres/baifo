@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <style>
+    @keyframes rock { 0%, 100% { transform: rotate(2.5deg); } 50% { transform: rotate(-2.5deg); } }
+    .boat { transform-origin: 100px 185px; animation: rock 3.6s ease-in-out infinite; }
+  </style>
+  <g class="boat" stroke="#1F2A2E" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M78 150 V112 H122 V150" fill="#FBF6EE"/>
+    <path d="M86 124 H114" fill="none" stroke-width="4"/>
+    <path d="M118 112 V82" fill="none"/>
+    <path d="M20 148 H180 Q172 184 140 188 H60 Q30 184 20 148 Z" fill="#FBF6EE"/>
+    <path d="M24 162 H176" fill="none" stroke="#0E9F9A" stroke-width="8"/>
+    <path d="M30 174 H170" fill="none" stroke="#F4B942" stroke-width="6"/>
+  </g>
+  <path d="M30 193 Q65 186 100 193 T170 193" fill="none" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="5" stroke-linecap="round"/>
+</svg>

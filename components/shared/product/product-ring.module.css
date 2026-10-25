@@ -677,26 +677,30 @@
     }
 }
 
-/* Taller and seen from higher up, so the center piece has room above the front card. */
+/* Taller and seen from higher up, so the center piece has room above the front card. Phones get a smaller piece in
+   more sea, with the cards reaching up over its lower part. */
 .pieceStage {
     --tilt: -20deg;
-    height: calc(var(--card-w) * 2.4);
-    /* The front name sits low here, so the bottom fades later. */
+    --piece-scale: 1.15;
+    --piece-lift: -0.5;
+    height: calc(var(--card-w) * 2.1);
+    /* The front name sits low here, so the bottom fades later; the top fades too, where the sea reaches the edge. */
     mask-image:
         linear-gradient(to right, transparent, black 8%, black 92%, transparent),
-        linear-gradient(to bottom, black 96%, transparent);
+        linear-gradient(to bottom, transparent, black 22%, black 96%, transparent);
 }
 
 .pieceStage > .tilt {
-    translate: 0 calc(var(--card-w) * 0.34);
+    translate: 0 calc(var(--card-w) * 0.24);
 }
 
 /* Big screens: the wider ring's middle lies further back, so the piece is bigger and the ring flatter. */
 @media (min-width: 1024px) {
     .pieceStage {
         --tilt: -14deg;
-        --piece-scale: 2;
+        --piece-scale: 1.7;
         --piece-lift: -0.3;
+        height: calc(var(--card-w) * 2.4);
     }
 
     .pieceStage > .tilt {
@@ -707,7 +711,7 @@
 /* A picture (BRAND_RING_CENTER) lying in the ring's middle, raised above the front card and turning with the ring like
    a turntable. Stacked masked copies of it make its thickness: cheap for the GPU, so the turn stays smooth on phones. */
 .centerPiece {
-    --piece-w: calc(var(--card-w) * var(--piece-scale, 1.6));
+    --piece-w: calc(var(--card-w) * var(--piece-scale));
     --piece-d: calc(var(--piece-w) * 0.045);
     position: absolute;
     top: 50%;
@@ -716,7 +720,7 @@
     aspect-ratio: 1;
     margin: calc(var(--piece-w) / -2) 0 0 calc(var(--piece-w) / -2);
     transform-style: preserve-3d;
-    transform: translateY(calc(var(--card-w) * var(--piece-lift, -0.62))) rotateX(60deg) rotateZ(calc(var(--spin) * -360deg));
+    transform: translateY(calc(var(--card-w) * var(--piece-lift))) rotateX(60deg) rotateZ(calc(var(--spin) * -360deg));
     transition: transform var(--turn-ms) var(--turn-ease);
     pointer-events: none;
 }
@@ -749,9 +753,8 @@
 
 /* The shop's own sea picture instead of the glow, its middle under the piece's middle. */
 .pieceSea {
-    inset: -25%;
+    inset: -100%;
     background: var(--sea) center / contain no-repeat;
-    transform: translateZ(calc(var(--piece-d) * -1.05));
 }
 
 /* Stands up from the piece at its foot, and turns back as much as the piece turns, so it always faces the viewer
@@ -777,10 +780,59 @@
     transition: transform var(--turn-ms) var(--turn-ease);
 }
 
+/* Above the piece's middle, facing the viewer; each copy loops on an ellipse made of two swings a quarter turn apart,
+   transforms only, so it costs the phone next to nothing. */
+.flyers {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateY(calc(var(--card-w) * (var(--piece-lift) - 0.3)));
+    pointer-events: none;
+}
+
+.flyerPath {
+    --flyer-s: calc(1 - var(--flyer-i) * 0.22);
+    --flyer-t: calc(9s + var(--flyer-i) * 3.5s);
+    position: absolute;
+    animation: flyer-x var(--flyer-t) ease-in-out calc(var(--flyer-i) * -5s) infinite alternate;
+}
+
+.flyer {
+    position: absolute;
+    width: calc(var(--card-w) * 0.3 * var(--flyer-s));
+    aspect-ratio: 2;
+    translate: -50% -50%;
+    background: var(--flyer) center / contain no-repeat;
+    animation: flyer-y var(--flyer-t) ease-in-out calc(var(--flyer-i) * -5s - var(--flyer-t) / 2) infinite alternate;
+}
+
+@keyframes flyer-x {
+    from {
+        transform: translateX(calc(var(--card-w) * -0.85 * var(--flyer-s)));
+    }
+    to {
+        transform: translateX(calc(var(--card-w) * 0.85 * var(--flyer-s)));
+    }
+}
+
+@keyframes flyer-y {
+    from {
+        transform: translateY(calc(var(--card-w) * -0.22 * var(--flyer-s)));
+    }
+    to {
+        transform: translateY(calc(var(--card-w) * 0.22 * var(--flyer-s)));
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .centerPiece,
     .pieceFigure,
     .figureSpinner {
         transition: none;
+    }
+
+    .flyerPath,
+    .flyer {
+        animation: none;
     }
 }
