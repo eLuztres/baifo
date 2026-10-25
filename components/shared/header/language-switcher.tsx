@@ -38,7 +38,8 @@ interface LanguageSwitcherProps {
 export default function LanguageSwitcher({ variant = 'pills', className }: LanguageSwitcherProps) {
   const { t, locales } = useI18n();
   const { locale, choose, isPending } = useChooseLocale();
-  const options = LOCALES.filter((l) => locales.includes(l.id));
+  // In the shop's own order (LOCALES in .env), not the built-in one.
+  const options = LOCALES.filter((l) => locales.includes(l.id)).sort((a, b) => locales.indexOf(a.id) - locales.indexOf(b.id));
   const current = options.find((l) => l.id === locale) ?? options[0];
 
   if (options.length < 2) return null;

@@ -2,6 +2,7 @@
 import { type ReactNode, useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/components/i18n-provider';
+import { translateMessage } from '@/lib/i18n-core';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -36,12 +37,12 @@ const DeleteDialog = ({ id, action, description, trigger }: DeleteDialogProps) =
       if (!res.success) {
         toast({
           variant: 'destructive',
-          description: res.message,
+          description: translateMessage(t, res.message),
         });
       } else {
         setOpen(false);
         toast({
-          description: res.message,
+          description: translateMessage(t, res.message),
         });
       }
     });

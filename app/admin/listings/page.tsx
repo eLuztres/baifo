@@ -6,6 +6,7 @@ import { prisma } from '@/db/prisma';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import { Button } from '@/components/ui/button';
+import { deleteProduct } from '@/lib/actions/product.actions';
 import { deleteAdminListing } from '@/lib/marketplace/admin.actions';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
@@ -44,7 +45,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
   const kindParam = tipo && tipo in KINDS ? (tipo as KindParam) : undefined;
   const kind = kindParam && KINDS[kindParam];
 
-  const [listings, counts, settings] = await Promise.all([
+  const [listings, counts, settings, unlisted] = await Promise.all([
     prisma.submission.findMany({
       where: { ...(status ? { status } : { status: { not: 'COLLECTING' } }), ...(kind && { kind }) },
       orderBy: { updatedAt: 'desc' },
@@ -53,8 +54,45 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
     }),
     prisma.submission.groupBy({ by: ['status'], where: kind && { kind }, _count: true }),
     getMarketplaceSettings(),
+    // Products made without a listing (e.g. services from the first services form) are online too and need managing here.
+    prisma.product.findMany({
+      where: { submission: null, ...(kind && { kind }) },
+      orderBy: { createdAt: 'desc' },
+      take: 120,
+      select: { id: true, name: true, images: true, price: true, kind: true, contactPhone: true, expiresAt: true },
+    }),
   ]);
-  const countOf = (value: SubmissionStatus) => counts.find((count) => count.status === value)?._count ?? 0;
+  const countOf = (value: SubmissionStatus) =>
+    (counts.find((count) => count.status === value)?._count ?? 0) + (value === 'LIVE' ? unlisted.length : 0);
+
+  const cards = [
+    ...listings.map((listing) => ({
+      id: listing.id,
+      href: `/admin/listings/${listing.id}`,
+      image: listing.images[0] ?? listing.rawImages[0],
+      title: listing.title,
+      status: listing.status,
+      isService: listing.kind === 'service',
+      price: listing.price?.toString(),
+      seller: listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (listing.seller.name ?? `+${listing.seller.waId}`),
+      expiresAt: listing.expiresAt,
+      deleteAction: deleteAdminListing,
+    })),
+    ...(!status || status === 'LIVE'
+      ? unlisted.map((product) => ({
+          id: product.id,
+          href: `/admin/products/${product.id}`,
+          image: product.images[0],
+          title: product.name,
+          status: 'LIVE' as const,
+          isService: product.kind === 'service',
+          price: Number(product.price) > 0 ? product.price.toString() : undefined,
+          seller: product.contactPhone ?? texts.houseSeller,
+          expiresAt: product.expiresAt,
+          deleteAction: deleteProduct,
+        }))
+      : []),
+  ];
 
   return (
     <div className='space-y-8'>
@@ -114,16 +152,16 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
         })}
       </nav>
 
-      {listings.length === 0 ? (
+      {cards.length === 0 ? (
         <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>{texts.empty}</p>
       ) : (
         <ul className='grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4'>
-          {listings.map((listing) => {
-            const image = listing.images[0] ?? listing.rawImages[0];
+          {cards.map((listing) => {
+            const image = listing.image;
             return (
               <li key={listing.id} className='relative'>
                 <Link
-                  href={`/admin/listings/${listing.id}`}
+                  href={listing.href}
                   className='group block overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10'
                 >
                   <div className='relative aspect-square bg-muted'>
@@ -134,9 +172,9 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                   </div>
                   <div className='space-y-1 p-4'>
                     <p className='truncate font-medium'>{listing.title ?? texts.noTitle}</p>
-                    <p className='text-primary'>{listing.kind === 'service' ? texts.service : listing.price ? formatCurrency(listing.price.toString()) : texts.noPrice}</p>
+                    <p className='text-primary'>{listing.isService ? texts.service : listing.price ? formatCurrency(listing.price) : texts.noPrice}</p>
                     <p className='truncate text-xs text-muted-foreground'>
-                      {listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (listing.seller.name ?? `+${listing.seller.waId}`)}
+                      {listing.seller}
                       {listing.expiresAt && listing.status === 'LIVE' && ` · ${fillText(texts.until, { date: listing.expiresAt.toLocaleDateString(locale) })}`}
                     </p>
                   </div>
@@ -145,7 +183,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 <div className='absolute right-3 top-3'>
                   <DeleteDialog
                     id={listing.id}
-                    action={deleteAdminListing}
+                    action={listing.deleteAction}
                     description={texts.deleteHint}
                     trigger={
                       <Button size='icon' variant='secondary' aria-label={texts.delete} className='size-9 rounded-full bg-background/90 shadow hover:bg-destructive hover:text-destructive-foreground'>
