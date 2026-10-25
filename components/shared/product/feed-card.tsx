@@ -10,6 +10,8 @@ interface FeedCardProps {
   price?: string;
   /** Shown instead of a price, e.g. "Service". */
   badge?: string;
+  /** A quiet note on the picture, e.g. that the AI made it. */
+  note?: string;
   isReserved: boolean;
   reservedLabel: string;
   /** Set on fresh listings: the "New" label to show. */
@@ -21,7 +23,7 @@ interface FeedCardProps {
 }
 
 /** A tile of the marketplace feed: the photo fills it (the next one on hover), name and price over a dark fade. */
-export default function FeedCard({ href, name, images, price, badge, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
+export default function FeedCard({ href, name, images, price, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
   const sizes = isLarge ? '(min-width: 1024px) 40vw, 100vw' : '(min-width: 1024px) 20vw, 50vw';
 
   return (
@@ -53,6 +55,7 @@ export default function FeedCard({ href, name, images, price, badge, isReserved,
           </span>
         )}
         {badge && <span className='rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-sm'>{badge}</span>}
+        {note && <span className='rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>{note}</span>}
         {isReserved && <span className='rounded-full bg-background/90 px-2.5 py-1 text-xs font-medium shadow-sm'>{reservedLabel}</span>}
       </div>
       <div className={cn('absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent text-white', isLarge ? 'p-4 pt-20 sm:p-5 sm:pt-24' : 'p-3 pt-12')}>

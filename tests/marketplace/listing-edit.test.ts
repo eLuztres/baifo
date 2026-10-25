@@ -1,18 +1,23 @@
 import { prisma } from '@/db/prisma';
 import {
   chooseListingText,
+  createAdminListing,
+  createAdminListingPicture,
   describeAdminListing,
   retryAdminListing,
   setAdminListingCategory,
   updateAdminListing,
 } from '@/lib/marketplace/admin.actions';
-import { translateText, writeListing } from '@/lib/marketplace/ai';
+import { createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
-jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn(), writeListing: jest.fn() }));
-jest.mock('@/lib/marketplace/media', () => ({ fetchImage: jest.fn(async () => Buffer.from('')) }));
+jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn(), writeListing: jest.fn(), createPicture: jest.fn(async () => Buffer.from('')) }));
+jest.mock('@/lib/marketplace/media', () => ({
+  fetchImage: jest.fn(async () => Buffer.from('')),
+  uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
+}));
 jest.mock('@/lib/marketplace/processing', () => ({ processSubmission: jest.fn(), makeListingPictures: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishByAdmin: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ approveSubmission: jest.fn(), rejectSubmission: jest.fn() }));
@@ -20,7 +25,7 @@ jest.mock('next/server', () => ({ after: jest.fn((run: () => void) => run()) }))
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
   prisma: {
-    submission: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    submission: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(async () => ({ id: 'new-1' })) },
     seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
     product: { update: jest.fn() },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
@@ -28,7 +33,7 @@ jest.mock('@/db/prisma', () => ({
 }));
 
 const db = prisma as unknown as {
-  submission: Record<'findUnique' | 'update' | 'updateMany', jest.Mock>;
+  submission: Record<'findUnique' | 'update' | 'updateMany' | 'create', jest.Mock>;
   product: Record<'update', jest.Mock>;
 };
 
@@ -78,13 +83,27 @@ describe('setAdminListingCategory', () => {
 });
 
 describe('describeAdminListing', () => {
+  beforeEach(() => db.submission.findUnique.mockResolvedValue({ kind: 'product', rawImages: ['https://utfs.io/f/bike.jpg'] }));
+
   it('starts the text only once the pictures are there', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
 
-    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true, images: { isEmpty: false } });
+    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({
+      id: ID,
+      status: 'COLLECTING',
+      createdByAdmin: true,
+      OR: [{ images: { isEmpty: false } }, { rawImages: { isEmpty: true } }],
+    });
     expect(processSubmission).toHaveBeenCalledWith(ID);
+  });
+
+  it('needs a description when there is no photo, because the AI makes the picture from it', async () => {
+    db.submission.findUnique.mockResolvedValue({ kind: 'product', rawImages: [] });
+
+    expect((await describeAdminListing(ID, { notes: '' })).success).toBe(false);
+    expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 
   it('waits while the AI still makes the pictures', async () => {
@@ -92,6 +111,39 @@ describe('describeAdminListing', () => {
 
     expect((await describeAdminListing(ID, { notes: 'Bici' })).success).toBe(false);
     expect(processSubmission).not.toHaveBeenCalled();
+  });
+});
+
+describe('createAdminListing', () => {
+  it('starts a wanted ad without photos: a product marked wanted, and no pictures to make yet', async () => {
+    const result = await createAdminListing({ photos: [], kind: 'wanted' });
+
+    expect(result).toMatchObject({ success: true, id: 'new-1' });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], kind: 'product', isWanted: true });
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('makes the pictures right away when there are photos', async () => {
+    await createAdminListing({ photos: ['https://utfs.io/f/bike.jpg'], kind: 'service' });
+
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ kind: 'service', isWanted: false });
+    expect(makeListingPictures).toHaveBeenCalledWith('new-1');
+  });
+});
+
+describe('createAdminListingPicture', () => {
+  it('makes a picture from the listing text when the admin typed nothing', async () => {
+    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', kind: 'product', isWanted: true });
+
+    expect(await createAdminListingPicture(ID)).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'product', true);
+  });
+
+  it('uses what the admin typed instead', async () => {
+    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', kind: 'service', isWanted: false });
+
+    await createAdminListingPicture(ID, 'surf lesson at sunrise');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'service', false);
   });
 });
 

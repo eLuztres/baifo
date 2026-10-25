@@ -28,7 +28,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const listing = await getAdminListing(id);
   if (!listing) notFound();
   // A service is sorted into a kind of service instead of a store category.
-  const categories = await getListingCategories(listing.kind as ProductKind);
+  const categories = await getListingCategories(listing.kind as ProductKind, listing.isWanted);
   const texts = adminTexts(locale);
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });

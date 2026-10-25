@@ -27,9 +27,10 @@ const POLL_MS = 2500;
 export default function ListingWorkspace({ initial, categories, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
+  // Still collecting with photos but no pictures yet: the AI is making them. Without photos it waits for the description.
+  const isMakingPictures = listing.status === 'COLLECTING' && listing.images.length === 0 && listing.rawImages.length > 0;
   // The AI is busy: on the pictures (still collecting) or on the text.
-  const isWaiting =
-    !listing.lastError && (listing.status === 'PROCESSING' || (listing.status === 'COLLECTING' && listing.images.length === 0));
+  const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures);
 
   // Server renders (after an action's refresh) bring a newer listing.
   useEffect(() => setListing(initial), [initial]);
@@ -60,7 +61,7 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
   const steps = listing.createdByAdmin && listing.status !== 'LIVE' && <ListingSteps current={1} texts={texts} />;
 
   // Opened again before the pictures were done (e.g. a reload on step 1).
-  if (listing.status === 'COLLECTING' && listing.images.length === 0) {
+  if (isMakingPictures) {
     return (
       <div className='mx-auto w-full max-w-xl space-y-4'>
         <ListingSteps current={0} texts={texts} />

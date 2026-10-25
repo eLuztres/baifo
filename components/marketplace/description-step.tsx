@@ -40,6 +40,15 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
+  // No photo: the AI makes the picture from this text, so the text can't be empty.
+  const hasNoPhoto = listing.rawImages.length === 0;
+  const placeholder = isOriginal
+    ? texts.tellOriginalPlaceholder
+    : isService
+      ? texts.tellServicePlaceholder
+      : listing.isWanted
+        ? texts.tellWantedPlaceholder
+        : texts.tellPlaceholder;
 
   const send = () =>
     startTransition(async () => {
@@ -64,7 +73,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
 
   return (
     <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
-      <ul className='flex gap-3 overflow-x-auto p-1'>
+      {hasNoPhoto && (
+        <p className='flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground'>
+          <Sparkles className='size-4 shrink-0 text-primary' aria-hidden /> {texts.noPhotoHint}
+        </p>
+      )}
+      <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
         {listing.images.map((url, index) => (
           <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
             <ProductMedia src={url} alt='' fill sizes='6rem' />
@@ -101,7 +115,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
           value={notes}
           readOnly={isWriting}
           onChange={(event) => setNotes(event.target.value)}
-          placeholder={isOriginal ? texts.tellOriginalPlaceholder : isService ? texts.tellServicePlaceholder : texts.tellPlaceholder}
+          placeholder={placeholder}
           className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
         />
         <div className='space-y-2 pt-2'>
@@ -158,7 +172,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
       )}
 
       <div className='sticky bottom-4 z-10'>
-        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || isWriting || (isOriginal && !notes.trim())} onClick={send}>
+        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || isWriting || ((isOriginal || hasNoPhoto) && !notes.trim())} onClick={send}>
           {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
           {isWriting ? (isOriginal ? texts.translatingNow : texts.writing) : isOriginal ? texts.translateButton : texts.writeListing}
         </Button>

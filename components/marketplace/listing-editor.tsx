@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import {
   chooseListingText,
+  createAdminListingPicture,
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
@@ -78,6 +79,8 @@ const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-n
 const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 // Long enough to save once per pause in typing, not once per key.
 const AUTOSAVE_MS = 800;
+// What editSchema takes (images max 12).
+const MAX_PICTURES = 12;
 
 /** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
 export default function ListingEditor({ listing, categories, languages, shopLanguage, texts, houseSeller, onPublished }: ListingEditorProps) {
@@ -87,6 +90,10 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const [images, setImages] = useState(listing.images.length > 0 ? listing.images : listing.rawImages);
   // The picture open full screen, to judge it before choosing original or AI.
   const [viewedIndex, setViewedIndex] = useState<number | null>(null);
+  // "Create picture with AI": open with what it should show, and busy while the AI makes it.
+  const [isAskingPicture, setIsAskingPicture] = useState(false);
+  const [picturePrompt, setPicturePrompt] = useState('');
+  const [isMakingPicture, setIsMakingPicture] = useState(false);
   const [fields, setFields] = useState({
     title: listing.title ?? '',
     description: listing.description ?? '',
@@ -180,6 +187,17 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   }[saveState];
 
   // Every action saves the edits first, so what goes online is what the admin sees.
+  // The new picture joins the others, and the autosave stores it like any added photo.
+  const makePicture = async () => {
+    setIsMakingPicture(true);
+    const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined);
+    setIsMakingPicture(false);
+    if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
+    setImages((current) => [...current, result.url]);
+    setPicturePrompt('');
+    setIsAskingPicture(false);
+  };
+
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
     startTransition(async () => {
       setError('');
@@ -241,7 +259,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             </Button>
           )}
           <Button asChild variant='outline' className='rounded-full'>
-            <Link href={isService ? '/admin/listings/new?kind=service' : '/admin/listings/new'}>
+            <Link href={isService ? '/admin/listings/new?kind=service' : listing.isWanted ? '/admin/listings/new?kind=wanted' : '/admin/listings/new'}>
               <Plus /> {texts.newAnother}
             </Link>
           </Button>
@@ -317,7 +335,37 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             </li>
           );
         })}
+        {images.length < MAX_PICTURES && (
+          <li className='shrink-0 pt-8'>
+            <button
+              type='button'
+              onClick={() => setIsAskingPicture((current) => !current)}
+              aria-expanded={isAskingPicture}
+              className='flex size-24 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-border p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:text-primary'
+            >
+              {isMakingPicture ? <Loader2 className='size-5 animate-spin text-primary' /> : <Sparkles className='size-5' />}
+              {isMakingPicture ? texts.newPictureWorking : texts.newPicture}
+            </button>
+          </li>
+        )}
       </ul>
+      {isAskingPicture && (
+        <div className='flex gap-2'>
+          <Input
+            value={picturePrompt}
+            onChange={(event) => setPicturePrompt(event.target.value)}
+            onKeyDown={(event) => event.key === 'Enter' && !isMakingPicture && makePicture()}
+            placeholder={texts.newPicturePlaceholder}
+            aria-label={texts.newPicture}
+            maxLength={500}
+            disabled={isMakingPicture}
+            className='h-11 rounded-full bg-card'
+          />
+          <Button className='h-11 shrink-0 rounded-full' disabled={isMakingPicture} onClick={makePicture}>
+            {isMakingPicture ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.newPicture}
+          </Button>
+        </div>
+      )}
       <ImageLightbox images={images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
 
       <section className='relative space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
@@ -443,7 +491,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
           )}
           <div className='space-y-2'>
             <p className='text-sm font-medium'>{texts.photosLabel}</p>
-            <PhotoUpload photos={images} onChange={setImages} texts={texts} max={12} />
+            <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} />
           </div>
           {listing.rawImages.length > 0 && (
             <div className='space-y-2'>

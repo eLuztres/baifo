@@ -577,5 +577,6 @@
   "PRODUCT_SEO_TITLE": "{name}",
   "SERVICE_SEO_TITLE": "{name}",
   "EXPLORE_SEO_TITLE": "Toutes les annonces",
-  "EXPLORE_SEO_DESCRIPTION": "Tout {shop} au même endroit, objets et services mélangés. Fais défiler et découvre."
+  "EXPLORE_SEO_DESCRIPTION": "Tout {shop} au même endroit, objets et services mélangés. Fais défiler et découvre.",
+  "PRODUCT_ILLUSTRATIVE": "Image d’illustration"
 }

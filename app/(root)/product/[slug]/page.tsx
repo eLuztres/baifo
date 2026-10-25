@@ -76,6 +76,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
   const isService = product.kind === 'service';
+  const isIllustrative = rings.some((ring) => ring.slug === slug && ring.isIllustrative);
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
@@ -129,8 +130,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
       {/* Phones stack photo and details; the photo keeps at least half and a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
-        <div className='min-h-[50%] flex-1 lg:min-h-0'>
+        <div className='relative min-h-[50%] flex-1 lg:min-h-0'>
           <ProductImages images={product.images} alt={name} />
+          {isIllustrative && (
+            <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
+              {t('PRODUCT_ILLUSTRATIVE')}
+            </span>
+          )}
         </div>
 
         <div className='flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5'>

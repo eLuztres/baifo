@@ -2,6 +2,17 @@ import type { Locale } from '@/lib/i18n-core';
 
 // Texts of Baifo's admin pages (listings, new listing). Baifo-only, so outside the template's i18n.
 const ES = {
+  kindLabel: 'Qué es',
+  kindProduct: 'Producto',
+  kindService: 'Servicio',
+  kindWanted: 'Busco',
+  newWantedIntro: 'Alguien busca algo: descríbelo y la IA escribe el anuncio y crea la foto. El precio es su presupuesto.',
+  noPhoto: 'Sin foto: la IA la crea',
+  noPhotoHint: 'Escribe la descripción y la IA crea la foto a partir de ella.',
+  tellWantedPlaceholder: 'Qué busca, cómo debe ser, para cuándo, cuánto quiere pagar…',
+  newPicture: 'Crear foto con IA',
+  newPicturePlaceholder: 'Qué debe mostrar (vacío: la descripción)',
+  newPictureWorking: 'Creando la foto…',
   listingsTitle: 'Anuncios',
   listingsIntro: 'Todo lo que llega por WhatsApp o creas aquí, de la foto al anuncio online.',
   newListing: 'Nuevo anuncio',
@@ -136,6 +147,17 @@ const ES = {
 };
 
 const EN: typeof ES = {
+  kindLabel: 'What is it',
+  kindProduct: 'Product',
+  kindService: 'Service',
+  kindWanted: 'Wanted',
+  newWantedIntro: 'Someone is looking for something: describe it and the AI writes the listing and creates the picture. The price is their budget.',
+  noPhoto: 'No photo: the AI makes it',
+  noPhotoHint: 'Write the description and the AI creates the picture from it.',
+  tellWantedPlaceholder: 'What they are looking for, what it should be like, by when, how much they want to pay…',
+  newPicture: 'Create picture with AI',
+  newPicturePlaceholder: 'What it should show (empty: the description)',
+  newPictureWorking: 'Creating the picture…',
   listingsTitle: 'Listings',
   listingsIntro: 'Everything that arrives on WhatsApp or you create here, from photo to live listing.',
   newListing: 'New listing',
@@ -270,6 +292,17 @@ const EN: typeof ES = {
 };
 
 const IT: typeof ES = {
+  kindLabel: 'Cos’è',
+  kindProduct: 'Prodotto',
+  kindService: 'Servizio',
+  kindWanted: 'Cerco',
+  newWantedIntro: 'Qualcuno cerca qualcosa: descrivilo e l’IA scrive l’annuncio e crea la foto. Il prezzo è il suo budget.',
+  noPhoto: 'Senza foto: la crea l’IA',
+  noPhotoHint: 'Scrivi la descrizione e l’IA crea la foto partendo da quella.',
+  tellWantedPlaceholder: 'Cosa cerca, come deve essere, per quando, quanto vuole spendere…',
+  newPicture: 'Crea foto con IA',
+  newPicturePlaceholder: 'Cosa deve mostrare (vuoto: la descrizione)',
+  newPictureWorking: 'Creo la foto…',
   listingsTitle: 'Annunci',
   listingsIntro: 'Tutto quello che arriva su WhatsApp o che crei qui, dalla foto all’annuncio online.',
   newListing: 'Nuovo annuncio',

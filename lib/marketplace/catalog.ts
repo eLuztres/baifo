@@ -10,13 +10,16 @@ export const FALLBACK_CATEGORY_SLUG = 'otros';
 export type ListingTranslations = Partial<Record<Locale, { title: string; description: string }>>;
 
 /** The categories a listing can go in, with what the AI needs to sort it into one: the store categories for an item,
-    and what people look for (subcategories of Busco), or the kinds of service (subcategories of Servicios) for a service. */
-export const getListingCategories = (kind: ProductKind = 'product') =>
+    and what people look for (subcategories of Busco), or the kinds of service (subcategories of Servicios) for a service.
+    A wanted ad started as one only goes in the Busco subcategories. */
+export const getListingCategories = (kind: ProductKind = 'product', isWanted = false) =>
   prisma.category.findMany({
     where:
       kind === 'service'
         ? { parent: { slug: SERVICES_CATEGORY_SLUG } }
-        : { OR: [{ parentId: null, slug: { notIn: [SERVICES_CATEGORY_SLUG, WANTED_CATEGORY_SLUG] } }, { parent: { slug: WANTED_CATEGORY_SLUG } }] },
+        : isWanted
+          ? { parent: { slug: WANTED_CATEGORY_SLUG } }
+          : { OR: [{ parentId: null, slug: { notIn: [SERVICES_CATEGORY_SLUG, WANTED_CATEGORY_SLUG] } }, { parent: { slug: WANTED_CATEGORY_SLUG } }] },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     select: { id: true, slug: true, name: true, keywords: true, parentId: true, parent: { select: { name: true } } },
   });

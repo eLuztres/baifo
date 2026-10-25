@@ -577,5 +577,6 @@
   "PRODUCT_SEO_TITLE": "{name}",
   "SERVICE_SEO_TITLE": "{name}",
   "EXPLORE_SEO_TITLE": "Todos los anuncios",
-  "EXPLORE_SEO_DESCRIPTION": "Todo lo de {shop} en un solo sitio, cosas y servicios mezclados. Desliza y descubre."
+  "EXPLORE_SEO_DESCRIPTION": "Todo lo de {shop} en un solo sitio, cosas y servicios mezclados. Desliza y descubre.",
+  "PRODUCT_ILLUSTRATIVE": "Imagen ilustrativa"
 }

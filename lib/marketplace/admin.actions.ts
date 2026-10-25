@@ -8,9 +8,9 @@ import { isAdmin } from '@/lib/auth-guard';
 import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
-import { translateText, writeListing } from './ai';
+import { createPicture, translateText, writeListing } from './ai';
 import { HOUSE_SELLER } from './config';
-import { fetchImage } from './media';
+import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { pictureCounterpart } from './pictures';
@@ -27,11 +27,12 @@ const photoUrlSchema = z.string().refine((value) => {
   return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
 });
 
-const newListingSchema = z.object({ photos: z.array(photoUrlSchema).min(1).max(8), kind: z.enum(PRODUCT_KINDS).default('product') });
+// 'wanted' is a product someone looks for ("Busco …"). No photos: the AI makes the picture from the description later.
+const newListingSchema = z.object({ photos: z.array(photoUrlSchema).max(8), kind: z.enum([...PRODUCT_KINDS, 'wanted']).default('product') });
 
 export type NewListingInput = z.input<typeof newListingSchema>;
 
-/** Step 1: the photos alone; the AI makes the shop pictures while the admin looks on. */
+/** Step 1: the photos alone; the AI makes the shop pictures while the admin looks on. Without photos it goes straight to the description. */
 export async function createAdminListing(input: NewListingInput) {
   if (!(await isAdmin())) return NOT_ALLOWED;
   const parsed = newListingSchema.safeParse(input);
@@ -39,10 +40,12 @@ export async function createAdminListing(input: NewListingInput) {
 
   const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
   // COLLECTING until the description arrives: only the pictures are made now.
+  const { photos, kind } = parsed.data;
+  const isWanted = kind === 'wanted';
   const submission = await prisma.submission.create({
-    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: parsed.data.photos, kind: parsed.data.kind },
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, kind: isWanted ? 'product' : kind, isWanted },
   });
-  after(() => makeListingPictures(submission.id));
+  if (photos.length > 0) after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
@@ -68,7 +71,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, rawImages: true } });
+  if (listing?.rawImages.length === 0 && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
   // A service is nothing without the person's WhatsApp, and that number goes public.
   if (listing?.kind === 'service' && !(sellerPhone && hasContactConsent)) {
     return { success: false, message: 'Un servicio necesita el WhatsApp de la persona y su permiso para mostrarlo' };
@@ -77,9 +81,9 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // A Spanish mobile without country code gets +34.
   const waId = sellerPhone ? (sellerPhone.length === 9 ? `34${sellerPhone}` : sellerPhone) : HOUSE_SELLER;
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
-  // Only once the pictures are there, so the AI never makes them twice.
+  // Only once the pictures are there (or there's no photo to make them from), so the AI never makes them twice.
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true, images: { isEmpty: false } },
+    where: { id, status: 'COLLECTING', createdByAdmin: true, OR: [{ images: { isEmpty: false } }, { rawImages: { isEmpty: true } }] },
     data: {
       status: 'PROCESSING',
       rawText: notes,
@@ -150,10 +154,13 @@ export type ListingEdit = z.input<typeof editSchema>;
 export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = editSchema.safeParse(input);
-  const current = await prisma.submission.findUnique({ where: { id }, select: { translations: true, kind: true, textMode: true, textVersions: true } });
+  const current = await prisma.submission.findUnique({
+    where: { id },
+    select: { translations: true, kind: true, isWanted: true, textMode: true, textVersions: true },
+  });
   const isService = current?.kind === 'service';
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
-  const category = findCategory(await getListingCategories(current?.kind as ProductKind), parsed.data.category);
+  const category = findCategory(await getListingCategories(current?.kind as ProductKind, current?.isWanted), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
@@ -215,8 +222,9 @@ export async function chooseListingText(id: string, mode: TextMode) {
     }
     if (!texts) {
       const kind = submission.kind as ProductKind;
-      const photo = await fetchImage(submission.rawImages[0]);
-      texts = (await writeListing(photo, submission.rawText, await getListingCategories(kind), [shopLocale, ...otherLocales], kind)).texts;
+      const photo = submission.rawImages[0] ? await fetchImage(submission.rawImages[0]) : null;
+      const categories = await getListingCategories(kind, submission.isWanted);
+      texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], kind, undefined, submission.isWanted)).texts;
     }
   } catch (error) {
     console.error(`Text of listing ${id} not made`, error);
@@ -243,8 +251,8 @@ export async function translateListingText(id: string, text: { title: string; de
 /** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
 export async function setAdminListingCategory(id: string, slug: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true } });
-  const category = findCategory(await getListingCategories(listing?.kind as ProductKind), slug);
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, isWanted: true } });
+  const category = findCategory(await getListingCategories(listing?.kind as ProductKind, listing?.isWanted), slug);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   const submission = await prisma.submission.update({ where: { id }, data: { category: category.slug } });
   if (submission.productId) {
@@ -255,6 +263,26 @@ export async function setAdminListingCategory(id: string, slug: string) {
     revalidatePath('/');
   }
   return { success: true, message: 'Guardado' };
+}
+
+const picturePromptSchema = z.string().trim().max(500).optional();
+
+/** One more picture made by the AI, from what the admin typed or else the listing's own text. The editor adds it and saves. */
+export async function createAdminListingPicture(id: string, prompt?: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = picturePromptSchema.safeParse(prompt);
+  if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, kind: true, isWanted: true } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  const text = parsed.data ? { title: parsed.data, description: '' } : { title: submission.title ?? '', description: submission.description ?? '' };
+  if (!text.title && !text.description) return { success: false, message: 'Describe la foto que quieres' };
+  try {
+    const picture = await createPicture(text, submission.kind as ProductKind, submission.isWanted);
+    return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
+  } catch (error) {
+    console.error(`Picture of listing ${id} not made`, error);
+    return { success: false, message: 'La IA no pudo crear la foto. Inténtalo otra vez.' };
+  }
 }
 
 const planSchema = z.enum(['normal', 'big']);

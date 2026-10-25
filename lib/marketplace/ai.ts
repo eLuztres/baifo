@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { localize } from '@/lib/category';
 import { PRODUCT_CONDITIONS, type ProductKind } from '@/lib/constants';
 import type { Locale } from '@/lib/i18n-core';
-import { draftText, editImage } from '@/lib/studio/openai.mjs';
+import { draftText, editImage, generateImage } from '@/lib/studio/openai.mjs';
 import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
 // Keeps the seller's actual item: a used product must look like itself, wear included.
@@ -125,6 +125,14 @@ const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   ' and the description is exactly their text, word for word. Every other language gets a faithful translation of ' +
   'that title and description, adding and leaving out nothing.\n';
 
+// Added when the admin started the listing as "Busco": the wanted rule above is the one that applies.
+const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad, follow the WANTED AD rule for texts, condition, price and category.\n';
+
+// Without a photo, everything comes from the words; the picture is made from the text afterwards.
+const NO_PHOTO_RULE =
+  'There is no photo: take everything from what was written. Never describe a look, color or condition that is not stated; ' +
+  'condition is good if unsaid.\n';
+
 const translatePrompt = (from: Locale, locales: Locale[]) =>
   `Translate this listing's title and description from ${LANGUAGE_NAMES[from]} into ` +
   `${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}. Translate faithfully and naturally, ` +
@@ -134,19 +142,44 @@ const translatePrompt = (from: Locale, locales: Locale[]) =>
 export const enhancePhoto = (photo: Buffer, kind: ProductKind = 'product') =>
   editImage(kind === 'service' ? SERVICE_PHOTO_PROMPT : PHOTO_PROMPT, [photo], { size: '1024x1024' });
 
+// The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
+const PICTURE_STYLE =
+  'Square photo, photorealistic, soft warm daylight, calm sand and sea tones like a local Fuerteventura marketplace. ' +
+  'No text, no logos, no watermark.';
+
+const picturePrompt = ({ title, description }: { title: string; description: string }, kind: ProductKind, isWanted: boolean) =>
+  (kind === 'service'
+    ? 'A friendly photo that shows this local service being done in Fuerteventura. People only from behind, from afar or ' +
+      'as hands at work, never a recognisable face, because it is not the real person. '
+    : isWanted
+      ? 'A clean photo of the kind of thing someone is looking for, alone on a warm sand-colored surface with a soft plain ' +
+        'background, as an example of what they want. '
+      : 'A clean marketplace photo of this second-hand item, alone on a warm sand-colored surface with a soft plain ' +
+        'background and a gentle contact shadow, the whole item visible and centered. ') +
+  `${PICTURE_STYLE}\nThe listing: ${title}. ${description}`;
+
+/** A picture made from the listing's text alone, for a listing without any photo. */
+export const createPicture = (text: { title: string; description: string }, kind: ProductKind = 'product', isWanted = false) =>
+  generateImage(picturePrompt(text, kind, isWanted), { size: '1024x1024' });
+
 /** Title and description in every shop language (the first one is the shop's) and the category for a listing; an item
-    also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated. */
+    also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.
+    Without a photo the AI goes by the text alone; `isWanted` makes it a wanted ad. */
 export async function writeListing(
-  photo: Buffer,
+  photo: Buffer | null,
   sellerText: string,
   categories: ListingCategory[],
   locales: Locale[],
   kind: ProductKind = 'product',
-  kept?: KeptText
+  kept?: KeptText,
+  isWanted = false
 ): Promise<ListingText> {
   const slugs = categories.map((category) => category.slug);
   const isService = kind === 'service';
-  const prompt = isService ? servicePrompt(sellerText, categories, locales) : listingPrompt(sellerText, categories, locales);
+  const prompt =
+    (isService ? servicePrompt(sellerText, categories, locales) : listingPrompt(sellerText, categories, locales)) +
+    (isWanted && !isService ? WANTED_ONLY_RULE : '') +
+    (photo ? '' : NO_PHOTO_RULE);
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
@@ -159,7 +192,7 @@ export async function writeListing(
     result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description };
   }
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
-  return slugs.includes(result.category) ? result : { ...result, category: isService ? slugs[0] : FALLBACK_CATEGORY_SLUG };
+  return slugs.includes(result.category) ? result : { ...result, category: isService || isWanted ? slugs[0] : FALLBACK_CATEGORY_SLUG };
 }
 
 /** The same title and description in other languages, translated, not rewritten. */

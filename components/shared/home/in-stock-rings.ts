@@ -18,6 +18,8 @@ export interface CollectionRing {
   price?: string;
   /** A service (babysitter, gardener …) rather than an item for sale. */
   isService: boolean;
+  /** An item whose picture the AI made from words alone (no photo of the real thing): buyers see a note. */
+  isIllustrative?: boolean;
   isReserved: boolean;
   /** Server only: the store categories it shows up in. */
   categoryIds: string[];
@@ -48,14 +50,17 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       translations: true,
       kind: true,
       categories: { select: { id: true } },
+      submission: { select: { rawImages: true, isWanted: true } },
     },
   });
 
-  return products.map(({ images, reservedUntil, categories, kind, price, ...product }) => ({
+  return products.map(({ images, reservedUntil, categories, kind, price, submission, ...product }) => ({
     ...product,
     // A service has no price to show; it stays in the database as 0.
     price: kind === 'service' ? undefined : price,
     isService: kind === 'service',
+    // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
+    isIllustrative: kind !== 'service' && Boolean(submission && !submission.isWanted && submission.rawImages.length === 0),
     image: images[0],
     images,
     isReserved: isReservationActive({ reservedUntil }),

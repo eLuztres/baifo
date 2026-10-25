@@ -272,6 +272,8 @@ model Submission {
   createdByAdmin    Boolean          @default(false)
   // 'product' or 'service' (PRODUCT_KINDS); the product it becomes takes it over.
   kind              String           @default("product")
+  // A wanted ad ("Busco …"): a product someone looks for, only in the Busco subcategories.
+  isWanted          Boolean          @default(false)
   // Which text is in use: 'original' (the admin's own words, only translated) or 'ai' (improved by the AI).
   textMode          String           @default("ai")
   // The admin's own title for 'original'; the original description is rawText.

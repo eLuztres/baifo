@@ -2,7 +2,7 @@ import { prisma } from '@/db/prisma';
 import type { ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { sendText } from '@/lib/whatsapp-cloud/client';
-import { enhancePhoto, writeListing } from './ai';
+import { createPicture, enhancePhoto, writeListing } from './ai';
 import { getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
@@ -30,6 +30,12 @@ async function makeShopPictures(submissionId: string, originals: string[], kind:
     // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
     data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)], aiImages: enhanced, lastError: null },
   });
+}
+
+/** No photo at all: the AI makes one picture from the written listing. It has no original, so nothing to switch back to. */
+async function makeTextPicture(submissionId: string, text: { title: string; description: string }, kind: ProductKind, isWanted: boolean) {
+  const picture = await uploadImage(await createPicture(text, kind, isWanted), `listing-${submissionId}-0`);
+  await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture], lastError: null } });
 }
 
 /** Step 1 of a listing the admin creates: only the shop pictures; the text waits for the admin's description. */
@@ -66,8 +72,9 @@ export async function processSubmission(submissionId: string) {
     }
 
     const originals = submission.rawImages;
-    if (originals.length === 0) throw new Error('No photo to work with');
-    const firstPhoto = await fetchImage(originals[0]);
+    // Only the admin starts a listing without a photo (described step by step); the bot always has one.
+    if (originals.length === 0 && !submission.createdByAdmin) throw new Error('No photo to work with');
+    const firstPhoto = originals.length > 0 ? await fetchImage(originals[0]) : null;
 
     // The text goes first: it takes seconds, so the admin sees the category while the pictures are made.
     if (!submission.title) {
@@ -76,7 +83,8 @@ export async function processSubmission(submissionId: string) {
       const kind = submission.kind as ProductKind;
       // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
       const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
-      const text = await writeListing(firstPhoto, submission.rawText, await getListingCategories(kind), locales, kind, kept);
+      const categories = await getListingCategories(kind, submission.isWanted);
+      const text = await writeListing(firstPhoto, submission.rawText, categories, locales, kind, kept, submission.isWanted);
       const { [shopLocale]: own, ...others } = text.texts;
       await prisma.submission.update({
         where: { id: submissionId },
@@ -95,7 +103,8 @@ export async function processSubmission(submissionId: string) {
     }
 
     if (submission.images.length === 0) {
-      await makeShopPictures(submissionId, originals, submission.kind as ProductKind, firstPhoto);
+      if (firstPhoto) await makeShopPictures(submissionId, originals, submission.kind as ProductKind, firstPhoto);
+      else await makeTextPicture(submissionId, { title: submission.title ?? '', description: submission.description ?? '' }, submission.kind as ProductKind, submission.isWanted);
       submission = (await findSubmission(submissionId))!;
     }
 

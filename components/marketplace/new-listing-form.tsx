@@ -6,8 +6,14 @@ import { ArrowRight, Camera, ImagePlus, Loader2, RotateCw, Sparkles, X } from 'l
 import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
-import { createAdminListing, getAdminListing, retryAdminListing, swapListingPicture, type AdminListing } from '@/lib/marketplace/admin.actions';
-import type { ProductKind } from '@/lib/constants';
+import {
+  createAdminListing,
+  getAdminListing,
+  retryAdminListing,
+  swapListingPicture,
+  type AdminListing,
+  type NewListingInput,
+} from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
@@ -17,8 +23,8 @@ import ListingStage from './listing-stage';
 
 interface NewListingFormProps {
   texts: AdminTexts;
-  /** A service gets retouched photos of the person instead of clean item photos. */
-  kind: ProductKind;
+  /** A service gets retouched photos of the person instead of clean item photos; a wanted ad usually has no photo at all. */
+  kind: NonNullable<NewListingInput['kind']>;
 }
 
 // What the photosUploader route takes at once.
@@ -90,6 +96,15 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
       const created = await getAdminListing(result.id);
       if (created) setListing(created);
       setShownIndex(0);
+    });
+
+  // No photo at all: straight to the description, from which the AI makes the picture.
+  const startWithoutPhoto = () =>
+    startTransition(async () => {
+      setError('');
+      const result = await createAdminListing({ photos: [], kind });
+      if (!('id' in result && result.id)) return setError(result.message);
+      router.push(`/admin/listings/${result.id}`);
     });
 
   const retry = () =>
@@ -300,10 +315,22 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
           <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' onClick={() => router.push(`/admin/listings/${listing.id}`)}>
             {texts.toDescription} <ArrowRight />
           </Button>
+        ) : photos.length === 0 ? (
+          <div className='space-y-2 text-center'>
+            <Button
+              variant={kind === 'wanted' ? 'default' : 'outline'}
+              className={cn('h-14 w-full rounded-full text-base shadow-xl', kind === 'wanted' ? 'shadow-primary/20' : 'bg-background shadow-primary/10')}
+              disabled={isUploading || isPending}
+              onClick={startWithoutPhoto}
+            >
+              {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.noPhoto}
+            </Button>
+            <p className='text-xs text-muted-foreground'>{texts.noPhotoHint}</p>
+          </div>
         ) : (
           <Button
             className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
-            disabled={photos.length === 0 || isUploading || isPending || isMaking}
+            disabled={isUploading || isPending || isMaking}
             onClick={makePictures}
           >
             {isPending || isMaking ? <Loader2 className='animate-spin' /> : <Sparkles />} {isMaking ? texts.picturesWorking : texts.makePictures}
