@@ -1,9 +1,9 @@
 'use client';
 
-import { CSSProperties, useRef, useState, useSyncExternalStore } from 'react';
+import { CSSProperties, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
@@ -37,8 +37,6 @@ export interface RingFigure {
 interface CategoryRingProps {
   categories: RingCategory[];
   label: string;
-  /** The category turned to the front first. */
-  initialCategoryId?: string;
   /** What turns in the ring's middle: 'band' (the gold band), 'none', or a picture's URL shown as a 3D piece. */
   center?: string;
   /** A picture lying under the center picture, three times its size. */
@@ -69,6 +67,8 @@ const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 10;
 const FLYER_COUNT = 3;
+// The home page's search param with the category in front, e.g. from a listing's way back.
+const CATEGORY_PARAM = 'material';
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
@@ -152,9 +152,11 @@ const Flyers = ({ src }: FlyersProps) => (
 );
 
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', sea, flyer, figures = [], admin }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, center = 'band', sea, flyer, figures = [], admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  // From the live URL, not a server prop: the back button restores the first server render, not the category turned to since.
+  const initialCategoryId = useSearchParams().get(CATEGORY_PARAM);
   const [step, setStep] = useState(() => Math.max(0, categories.findIndex((category) => category.id === initialCategoryId)));
   const { t } = useI18n();
   const isWide = useSyncExternalStore(subscribeToWideScreen, isWideScreen, isWideOnServer);
@@ -169,6 +171,14 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', s
   const hasPiece = center !== 'band' && center !== 'none';
   const dragHandlers = useRingDrag({ setStep });
   const neighbourSpots = useNeighbourSpots(stageRef, frontIndex, count, ARROWS_APPEAR_MS, SETTLE_MS);
+
+  // The front category goes into the URL, so the back button and shared links return to it. A fresh visit keeps a clean URL.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if ((url.searchParams.get(CATEGORY_PARAM) ?? categories[0].id) === front.id) return;
+    url.searchParams.set(CATEGORY_PARAM, front.id);
+    window.history.replaceState(null, '', url);
+  }, [front.id, categories]);
 
   // A card at the side turns to the front; the front card opens its category as a grid.
   const handleCardClick = (index: number) => {

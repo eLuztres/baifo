@@ -11,12 +11,10 @@ import styles from './one-page.module.css';
 interface ShowroomSectionProps {
   /** The rings in stock, in the store's order (fetched once by the home page). */
   rings: CollectionRing[];
-  /** A category to show first, from old `/store?material=…` links. */
-  material?: string;
 }
 
 /** The exposition: the category ring with the rings of the category in front. */
-export default async function ShowroomSection({ rings, material }: ShowroomSectionProps) {
+export default async function ShowroomSection({ rings }: ShowroomSectionProps) {
   const [{ t, locale }, storeCategories] = await Promise.all([getT(), getStoreCategories()]);
   const groups = groupByCategory(storeCategories, rings, locale);
   const images = new Map(storeCategories.map((category) => [category.slug, category.image]));
@@ -35,7 +33,7 @@ export default async function ShowroomSection({ rings, material }: ShowroomSecti
     <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen, styles.noVerticalPan)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
-        <CategoryRing categories={categories} label={t('RING_TITLE')} initialCategoryId={material} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyer={BRAND.ringFlyer} figures={figures} />
+        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyer={BRAND.ringFlyer} figures={figures} />
       ) : (
         <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
           {t('STORE_EMPTY')}

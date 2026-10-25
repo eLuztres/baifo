@@ -15,11 +15,7 @@ import cutouts from '@/brand/cutouts.json';
 const MIN_SPACE_RINGS = 4;
 const CUTOUT_SLUGS = new Set<string>(cutouts);
 
-interface HomePageProps {
-  material?: string;
-}
-
-export default async function HomePage({ material }: HomePageProps) {
+export default async function HomePage() {
   // One query feeds the opening scene, the showroom and the shop.
   const rings = await getInStockRings();
 
@@ -43,7 +39,7 @@ export default async function HomePage({ material }: HomePageProps) {
           <DarkRoomHero image={BRAND.heroImage} />
         )}
       </section>
-      <ShowroomSection rings={rings} material={material} />
+      <ShowroomSection rings={rings} />
       <WorkshopSection />
       <ContactSection />
     </div>

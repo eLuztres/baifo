@@ -32,7 +32,7 @@ const getProduct = cache(getProductBySlug);
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
-  /** The store category the visitor is going through (`c`), for the next ring. */
+  /** The store category the visitor is going through (`c`), for the next ring and the way back to it. */
   searchParams: Promise<{ c?: string }>;
 }
 
@@ -70,7 +70,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
-        href={sectionHref(SECTION_IDS.showroom)}
+        href={categoryId ? `/?material=${encodeURIComponent(categoryId)}#${SECTION_IDS.showroom}` : sectionHref(SECTION_IDS.showroom)}
         className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
       >
         <ChevronLeft className='h-4 w-4' />
