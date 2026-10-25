@@ -1,23 +1,25 @@
 import { prisma } from '@/db/prisma';
-import { setAdminListingCategory, updateAdminListing } from '@/lib/marketplace/admin.actions';
+import { describeAdminListing, retryAdminListing, setAdminListingCategory, updateAdminListing } from '@/lib/marketplace/admin.actions';
+import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es' }));
-jest.mock('@/lib/marketplace/processing', () => ({ processSubmission: jest.fn() }));
+jest.mock('@/lib/marketplace/processing', () => ({ processSubmission: jest.fn(), makeListingPictures: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishByAdmin: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ approveSubmission: jest.fn(), rejectSubmission: jest.fn() }));
-jest.mock('next/server', () => ({ after: jest.fn() }));
+jest.mock('next/server', () => ({ after: jest.fn((run: () => void) => run()) }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
   prisma: {
-    submission: { findUnique: jest.fn(), update: jest.fn() },
+    submission: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+    seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
     product: { update: jest.fn() },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
   },
 }));
 
 const db = prisma as unknown as {
-  submission: Record<'findUnique' | 'update', jest.Mock>;
+  submission: Record<'findUnique' | 'update' | 'updateMany', jest.Mock>;
   product: Record<'update', jest.Mock>;
 };
 
@@ -63,5 +65,34 @@ describe('setAdminListingCategory', () => {
   it('saves the slug of the chosen category', async () => {
     await setAdminListingCategory(ID, 'Bicis y motor');
     expect(db.submission.update).toHaveBeenCalledWith({ where: { id: ID }, data: { category: 'motor' } });
+  });
+});
+
+describe('describeAdminListing', () => {
+  it('starts the text only once the pictures are there', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
+
+    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true, images: { isEmpty: false } });
+    expect(processSubmission).toHaveBeenCalledWith(ID);
+  });
+
+  it('waits while the AI still makes the pictures', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 0 });
+
+    expect((await describeAdminListing(ID, { notes: 'Bici' })).success).toBe(false);
+    expect(processSubmission).not.toHaveBeenCalled();
+  });
+});
+
+describe('retryAdminListing', () => {
+  it('only redoes the pictures while the listing is still on the photos step', async () => {
+    db.submission.findUnique.mockResolvedValue({ status: 'COLLECTING' });
+
+    await retryAdminListing(ID);
+
+    expect(makeListingPictures).toHaveBeenCalledWith(ID);
+    expect(processSubmission).not.toHaveBeenCalled();
   });
 });

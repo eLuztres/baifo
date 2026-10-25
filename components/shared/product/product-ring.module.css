@@ -757,6 +757,11 @@
     background: var(--sea) center / contain no-repeat;
 }
 
+/* The standing figures' own scene lies over the cards: taps must still reach the cards below. */
+.figureScene {
+    pointer-events: none;
+}
+
 /* Stands up from the piece at its foot, and turns back as much as the piece turns, so it always faces the viewer
    instead of showing its thin edge. */
 .pieceFigure {

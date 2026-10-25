@@ -83,33 +83,45 @@ const isWideOnServer = () => false;
 interface CenterPieceProps {
   src: string;
   sea?: string;
-  figures: RingFigure[];
 }
 
 /** A picture lying in the ring's middle with some thickness, turning along with the cards. */
-const CenterPiece = ({ src, sea, figures }: CenterPieceProps) => (
+const CenterPiece = ({ src, sea }: CenterPieceProps) => (
   <div className={styles.centerPiece} style={{ '--piece': `url("${src}")` } as CSSProperties} aria-hidden='true'>
     {!sea && <span className={styles.pieceGlow} />}
     {Array.from({ length: PIECE_LAYERS }, (_, index) => (
       <span key={index} className={styles.pieceSide} style={{ '--layer': index / PIECE_LAYERS } as CSSProperties} />
     ))}
     <span className={styles.pieceTop} />
-    {figures.map((figure) => (
-      <span
-        key={`${figure.image}@${figure.at.x},${figure.at.y}`}
-        className={styles.pieceFigure}
-        style={
-          {
-            '--figure': `url("${figure.image}")`,
-            '--figure-scale': figure.scale,
-            left: `${figure.at.x * 100}%`,
-            top: `${figure.at.y * 100}%`,
-          } as CSSProperties
-        }
-      >
-        {figure.spinner && <span className={styles.figureSpinner} style={{ '--spinner': `url("${figure.spinner}")` } as CSSProperties} />}
-      </span>
-    ))}
+  </div>
+);
+
+interface FiguresProps {
+  figures: RingFigure[];
+}
+
+/** The pictures standing on the center piece, in a scene of their own in front of the cards: in the cards' scene a
+    turn could sort them behind a card, and they should always stay in sight, like the flyers. */
+const Figures = ({ figures }: FiguresProps) => (
+  <div className={cn(styles.tilt, styles.figureScene)} aria-hidden='true'>
+    <div className={styles.centerPiece}>
+      {figures.map((figure) => (
+        <span
+          key={`${figure.image}@${figure.at.x},${figure.at.y}`}
+          className={styles.pieceFigure}
+          style={
+            {
+              '--figure': `url("${figure.image}")`,
+              '--figure-scale': figure.scale,
+              left: `${figure.at.x * 100}%`,
+              top: `${figure.at.y * 100}%`,
+            } as CSSProperties
+          }
+        >
+          {figure.spinner && <span className={styles.figureSpinner} style={{ '--spinner': `url("${figure.spinner}")` } as CSSProperties} />}
+        </span>
+      ))}
+    </div>
   </div>
 );
 
@@ -194,7 +206,7 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', s
         {hasPiece && sea && <Sea src={sea} />}
         <div className={styles.tilt}>
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
-          {hasPiece && <CenterPiece src={center} sea={sea} figures={figures} />}
+          {hasPiece && <CenterPiece src={center} sea={sea} />}
           {hasPiece && flyer && <Flyers src={flyer} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
@@ -225,6 +237,7 @@ const CategoryRing = ({ categories, label, initialCategoryId, center = 'band', s
             })}
           </ul>
         </div>
+        {hasPiece && figures.length > 0 && <Figures figures={figures} />}
         {/* An arrow on each neighbour card, so it's clear that tapping there turns the ring. */}
         {neighbourSpots.map(({ offset, x, y }) => (
           <button

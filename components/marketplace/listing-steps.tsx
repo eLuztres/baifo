@@ -3,14 +3,14 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
 interface ListingStepsProps {
-  /** 0 tell me everything, 1 category, 2 check and publish. */
+  /** 0 photos, 1 description (and the listing to publish). */
   current: number;
   texts: AdminTexts;
 }
 
-/** Where the admin is in creating a listing: three steps, the current one named. */
+/** Where the admin is in creating a listing: photos, then the description. */
 export default function ListingSteps({ current, texts }: ListingStepsProps) {
-  const steps = [texts.stepTell, texts.stepCategory, texts.stepCheck];
+  const steps = [texts.stepPhotos, texts.stepDetails];
   return (
     <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-2 text-sm'>
       {steps.map((label, index) => (
@@ -26,7 +26,7 @@ export default function ListingSteps({ current, texts }: ListingStepsProps) {
             >
               {index < current ? <Check className='size-3.5' /> : index + 1}
             </span>
-            <span className={cn(index !== current && 'hidden sm:inline', index === current && 'font-medium')}>{label}</span>
+            <span className={cn(index === current && 'font-medium')}>{label}</span>
           </span>
         </li>
       ))}

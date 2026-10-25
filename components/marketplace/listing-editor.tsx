@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ExternalLink, Loader2, Plus, Send, Sparkles, Tag, X } from 'lucide-react';
+import { ChevronDown, ExternalLink, Loader2, Plus, Send, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
@@ -24,21 +24,28 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
-import type { CategoryOption } from './category-step';
-import ListingStage from './listing-stage';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
 
-/** One of the shop's other languages, with its name in that language. */
+/** A shop language, with its short label for the tabs (ES, EN, IT). */
 export interface EditorLanguage {
   id: Locale;
+  label: string;
+}
+
+/** A store category as the editor offers it: its slug and its name in the admin's language. */
+export interface CategoryOption {
+  slug: string;
   name: string;
 }
 
 interface ListingEditorProps {
   listing: AdminListing;
   categories: CategoryOption[];
+  /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
+  /** The shop's own language: the listing's title and description. */
+  shopLanguage: EditorLanguage;
   texts: AdminTexts;
   houseSeller: string;
   /** Called once "Publish now" worked, so the workspace can show the done moment. */
@@ -49,11 +56,13 @@ type Plan = 'normal' | 'big';
 
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
+// Native selects: on a phone they open the system's own picker.
+const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 // Long enough to save once per pause in typing, not once per key.
 const AUTOSAVE_MS = 800;
 
-/** Everything the AI made, editable, with the ways to put it online. */
-export default function ListingEditor({ listing, categories, languages, texts, houseSeller, onPublished }: ListingEditorProps) {
+/** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
+export default function ListingEditor({ listing, categories, languages, shopLanguage, texts, houseSeller, onPublished }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -72,22 +81,26 @@ export default function ListingEditor({ listing, categories, languages, texts, h
     // An unknown value from older data counts as none.
     condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
   });
+  const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
-  const [isShowingOriginal, setIsShowingOriginal] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState('');
   // What the server has, so only real changes are saved (and React's double effects in dev save nothing).
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
   const hasSellerPhone = listing.seller.waId !== houseSeller;
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
+  const isShopLanguage = language === shopLanguage.id;
+  const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
 
-  const set = (name: 'title' | 'description' | 'price') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'category' | 'condition') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
-  const setTranslation = (locale: Locale, name: 'title' | 'description') => (event: { target: { value: string } }) =>
-    setFields((current) => ({
-      ...current,
-      translations: { ...current.translations, [locale]: { ...current.translations[locale], [name]: event.target.value } },
-    }));
+  // The shop language is the listing's own title and description; the others are its translations.
+  const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) =>
+    setFields((current) =>
+      isShopLanguage
+        ? { ...current, [name]: event.target.value }
+        : { ...current, translations: { ...current.translations, [language]: { ...current.translations[language], [name]: event.target.value } } }
+    );
   const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
 
   useEffect(() => {
@@ -117,11 +130,10 @@ export default function ListingEditor({ listing, categories, languages, texts, h
       router.refresh();
     });
 
-  const hasAiPicture = listing.images.length > 0 && listing.rawImages.length > 0;
   const publish = () => run(() => publishAdminListing(listing.id, plan), onPublished);
 
   return (
-    <div className='mx-auto w-full max-w-xl space-y-6'>
+    <div className='mx-auto w-full max-w-xl space-y-4'>
       <ListingStatus status={listing.status} saveState={saveState} texts={texts} />
       {listing.status === 'LIVE' && (
         <div className='flex flex-wrap gap-3'>
@@ -143,139 +155,120 @@ export default function ListingEditor({ listing, categories, languages, texts, h
         </div>
       )}
 
-      <ListingStage src={isShowingOriginal ? listing.rawImages[0] : images[0]} alt={fields.title}>
-        {hasAiPicture && !isShowingOriginal && (
-          <span className='absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow'>
-            <Sparkles className='size-3.5 text-primary' /> {texts.aiPicture}
-          </span>
-        )}
-        {hasAiPicture && (
-          <button
-            type='button'
-            aria-pressed={isShowingOriginal}
-            onClick={() => setIsShowingOriginal((current) => !current)}
-            className='absolute bottom-4 right-4 rounded-full bg-background/90 px-4 py-2 text-sm font-medium shadow transition hover:bg-background'
-          >
-            {isShowingOriginal ? texts.showAi : texts.showOriginal}
-          </button>
-        )}
-      </ListingStage>
+      {/* The main picture a bit bigger; a tap on another one makes it the main picture. */}
+      <ul className='flex items-end gap-3 overflow-x-auto p-1'>
+        {images.map((url, index) => (
+          <li key={`${index}-${url}`} className='shrink-0'>
+            <button
+              type='button'
+              onClick={() => makeMain(url)}
+              aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
+              aria-pressed={index === 0}
+              className={cn(
+                'relative block overflow-hidden rounded-2xl border-2 bg-muted',
+                index === 0 ? 'size-24 border-primary' : 'size-16 border-transparent'
+              )}
+            >
+              <ProductMedia src={url} alt='' fill sizes='6rem' />
+              {index === 0 && listing.images.length > 0 && (
+                <Sparkles className='absolute left-1.5 top-1.5 size-4 rounded-full bg-background/90 p-0.5 text-primary' aria-label={texts.aiPicture} />
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
 
-      {images.length > 1 && (
-        <ul className='flex gap-3 overflow-x-auto p-1'>
-          {images.map((url, index) => (
-            <li key={url} className='shrink-0'>
-              <button
-                type='button'
-                onClick={() => makeMain(url)}
-                aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
-                aria-pressed={index === 0}
-                className={cn('relative block size-16 overflow-hidden rounded-2xl border-2 bg-muted', index === 0 ? 'border-primary' : 'border-transparent')}
-              >
-                <ProductMedia src={url} alt='' fill sizes='4rem' />
-              </button>
-            </li>
+      <section className='space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
+        <div role='tablist' aria-label={texts.languageLabel} className='flex gap-1'>
+          {[shopLanguage, ...languages].map(({ id, label }) => (
+            <button
+              key={id}
+              type='button'
+              role='tab'
+              aria-selected={id === language}
+              onClick={() => setLanguage(id)}
+              className={cn(
+                'min-w-11 rounded-full px-3 py-1.5 text-sm font-medium transition',
+                id === language ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {label}
+            </button>
           ))}
-        </ul>
-      )}
-
-      <div className='space-y-3'>
-        <Label htmlFor='title' className='sr-only'>
-          {texts.titleLabel}
-        </Label>
-        <Input id='title' value={fields.title} onChange={set('title')} className={`${INLINE_CLASS} h-auto py-1 font-display text-3xl md:text-3xl`} />
-        <div className='flex flex-wrap items-center gap-3'>
-          <Label htmlFor='price' className='sr-only'>
-            {texts.priceShort}
+        </div>
+        <div role='tabpanel' lang={language} className='space-y-1'>
+          <Label htmlFor='title' className='sr-only'>
+            {texts.titleLabel}
           </Label>
-          <div className='relative w-36'>
-            <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className={`${INLINE_CLASS} h-12 pr-8 text-2xl font-semibold text-primary md:text-2xl`} />
-            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground'>€</span>
-          </div>
-        </div>
-        {/* The AI picks it; one tap changes it, a tap on the chosen one clears it. */}
-        <div role='radiogroup' aria-label={texts.conditionLabel} className='flex flex-wrap gap-2 px-1'>
-          {PRODUCT_CONDITIONS.map((condition) => {
-            const isChosen = fields.condition === condition;
-            return (
-              <button
-                key={condition}
-                type='button'
-                role='radio'
-                aria-checked={isChosen}
-                onClick={() => setFields((current) => ({ ...current, condition: isChosen ? '' : condition }))}
-                className={cn(
-                  'rounded-full border px-3 py-1.5 text-sm transition',
-                  isChosen ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {texts[`condition_${condition}`]}
-              </button>
-            );
-          })}
-        </div>
-        <Label htmlFor='description' className='sr-only'>
-          {texts.descriptionLabel}
-        </Label>
-        <Textarea id='description' value={fields.description} onChange={set('description')} className={`${INLINE_CLASS} field-sizing-content min-h-24 resize-none text-base leading-relaxed md:text-base`} />
-        <div className='space-y-2 px-1 pt-2'>
-          <p className='flex items-center gap-2 text-sm font-medium'>
-            <Tag className='size-4 text-muted-foreground' aria-hidden /> {texts.categoryLabel}
-          </p>
-          <div role='radiogroup' aria-label={texts.categoryLabel} className='flex flex-wrap gap-2'>
-            {categories.map((category) => {
-              const isChosen = fields.category === category.slug;
-              return (
-                <button
-                  key={category.slug}
-                  type='button'
-                  role='radio'
-                  aria-checked={isChosen}
-                  onClick={() => setFields((current) => ({ ...current, category: category.slug }))}
-                  className={cn(
-                    'rounded-full border px-3 py-1.5 text-sm transition',
-                    isChosen ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        {listing.rawText && (
-          <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
-            <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
-          </p>
-        )}
-      </div>
-
-      {languages.map(({ id, name }) => (
-        <section key={id} lang={id} className='space-y-3 rounded-3xl border border-border bg-card p-5'>
-          <h2 className='text-sm font-medium text-muted-foreground'>{name}</h2>
-          <Label htmlFor={`title-${id}`} className='sr-only'>
-            {texts.titleLabel} ({name})
-          </Label>
-          <Input id={`title-${id}`} value={fields.translations[id]?.title ?? ''} onChange={setTranslation(id, 'title')} placeholder={texts.titleLabel} className={`${INLINE_CLASS} h-auto py-1 font-display text-xl md:text-xl`} />
-          <Label htmlFor={`description-${id}`} className='sr-only'>
-            {texts.descriptionLabel} ({name})
+          <Input
+            id='title'
+            value={text?.title ?? ''}
+            onChange={setText('title')}
+            placeholder={texts.titleLabel}
+            className={`${INLINE_CLASS} h-auto py-1 font-display text-2xl md:text-2xl`}
+          />
+          <Label htmlFor='description' className='sr-only'>
+            {texts.descriptionLabel}
           </Label>
           <Textarea
-            id={`description-${id}`}
-            value={fields.translations[id]?.description ?? ''}
-            onChange={setTranslation(id, 'description')}
+            id='description'
+            value={text?.description ?? ''}
+            onChange={setText('description')}
             placeholder={texts.descriptionLabel}
-            className={`${INLINE_CLASS} field-sizing-content min-h-20 resize-none text-sm leading-relaxed md:text-sm`}
+            className={`${INLINE_CLASS} field-sizing-content max-h-[28svh] min-h-16 resize-none overflow-y-auto text-base leading-relaxed md:text-base`}
           />
-        </section>
-      ))}
+        </div>
+      </section>
+
+      <div className='grid grid-cols-2 gap-3'>
+        <div className='space-y-1'>
+          <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
+            {texts.priceShort}
+          </Label>
+          <div className='relative'>
+            <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
+            <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+          </div>
+        </div>
+        <div className='space-y-1'>
+          <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
+            {texts.conditionLabel}
+          </Label>
+          <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
+            <option value=''>–</option>
+            {PRODUCT_CONDITIONS.map((condition) => (
+              <option key={condition} value={condition}>
+                {texts[`condition_${condition}`]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className='col-span-2 space-y-1'>
+          <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
+            {texts.categoryLabel}
+          </Label>
+          <select id='category' value={fields.category} onChange={set('category')} className={SELECT_CLASS}>
+            {!fields.category && <option value=''>–</option>}
+            {categories.map((category) => (
+              <option key={category.slug} value={category.slug}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <details className='group rounded-3xl border border-border bg-card'>
-        <summary className='flex cursor-pointer list-none items-center justify-between gap-3 p-5 font-medium'>
+        <summary className='flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-medium'>
           {texts.moreOptions}
           <ChevronDown className='size-4 transition-transform group-open:rotate-180' />
         </summary>
-        <div className='space-y-6 px-5 pb-5'>
+        <div className='space-y-6 px-4 pb-4'>
+          {listing.rawText && (
+            <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
+              <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
+            </p>
+          )}
           <div className='space-y-2'>
             <p className='text-sm font-medium'>{texts.photosLabel}</p>
             <PhotoUpload photos={images} onChange={setImages} texts={texts} max={12} />

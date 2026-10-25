@@ -100,6 +100,8 @@ export const BRAND = {
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),
+  /** On a product page, swiping up (or the wheel down) opens the next product. */
+  hasSwipeToNext: env('BRAND_SWIPE_TO_NEXT') !== 'false',
   /** The middle of the category ring: the gold band, nothing, or a picture shown as a turning 3D piece. */
   ringCenter: env('BRAND_RING_CENTER') ?? 'band',
   /** A picture lying flat under that piece, three times its size and centered on it (e.g. a sea around an island). */

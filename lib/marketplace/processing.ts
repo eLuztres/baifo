@@ -16,6 +16,34 @@ export const MAX_ENHANCED_PHOTOS = 4;
 
 const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
 
+/** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting). */
+async function makeShopPictures(submissionId: string, originals: string[], firstPhoto?: Buffer) {
+  const enhanced = await Promise.all(
+    originals.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
+      const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
+      return uploadImage(await enhancePhoto(photo), `listing-${submissionId}-${index}`);
+    })
+  );
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)], lastError: null },
+  });
+}
+
+/** Step 1 of a listing the admin creates: only the shop pictures; the text waits for the admin's description. */
+export async function makeListingPictures(submissionId: string) {
+  const submission = await findSubmission(submissionId);
+  if (!submission || submission.status !== 'COLLECTING' || submission.images.length > 0) return;
+  try {
+    if (submission.rawImages.length === 0) throw new Error('No photo to work with');
+    await makeShopPictures(submissionId, submission.rawImages);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await prisma.submission.update({ where: { id: submissionId }, data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) } });
+    console.error(`Pictures of submission ${submissionId} failed`, error);
+  }
+}
+
 /**
  * Photos → UploadThing → AI pictures → AI text → review. Every step saves its result, so a retry
  * (after a crash or timeout) continues where the last run stopped instead of paying the AI twice.
@@ -61,17 +89,7 @@ export async function processSubmission(submissionId: string) {
     }
 
     if (submission.images.length === 0) {
-      // Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting).
-      const enhanced = await Promise.all(
-        originals.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
-          const photo = index === 0 ? firstPhoto : await fetchImage(url);
-          return uploadImage(await enhancePhoto(photo), `listing-${submissionId}-${index}`);
-        })
-      );
-      await prisma.submission.update({
-        where: { id: submissionId },
-        data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)] },
-      });
+      await makeShopPictures(submissionId, originals, firstPhoto);
       submission = (await findSubmission(submissionId))!;
     }
 

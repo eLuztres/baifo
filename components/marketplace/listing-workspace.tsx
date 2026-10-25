@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { RotateCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { getAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
-import CategoryStep, { type CategoryOption } from './category-step';
-import ListingEditor, { type EditorLanguage } from './listing-editor';
+import DescriptionStep from './description-step';
+import ListingEditor, { type CategoryOption, type EditorLanguage } from './listing-editor';
+import ListingStage from './listing-stage';
 import ListingSteps from './listing-steps';
 import PublishedView from './published-view';
 
@@ -16,36 +15,33 @@ interface ListingWorkspaceProps {
   categories: CategoryOption[];
   /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
+  /** The shop's own language, the first tab in the editor. */
+  shopLanguage: EditorLanguage;
   texts: AdminTexts;
   houseSeller: string;
-  /** Just created: show the category step even once the AI is done. */
-  startsOnCategory: boolean;
 }
 
 const POLL_MS = 2500;
 
-/** Steps 2 and 3 of a new listing: the category while the AI works (polled), then everything to check and publish. */
-export default function ListingWorkspace({ initial, categories, languages, texts, houseSeller, startsOnCategory }: ListingWorkspaceProps) {
-  const router = useRouter();
-  const pathname = usePathname();
+/** Step 2 of a new listing (the description, then the listing to check and publish), or any listing to edit. */
+export default function ListingWorkspace({ initial, categories, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
-  const [isPending, startTransition] = useTransition();
-  const [isOnCategory, setIsOnCategory] = useState(startsOnCategory);
   const [isJustPublished, setIsJustPublished] = useState(false);
-  const isWorking = listing.status === 'PROCESSING' && !listing.lastError;
+  // The AI is busy: on the pictures (still collecting) or on the text.
+  const isWaiting =
+    !listing.lastError && (listing.status === 'PROCESSING' || (listing.status === 'COLLECTING' && listing.images.length === 0));
 
   // Server renders (after an action's refresh) bring a newer listing.
   useEffect(() => setListing(initial), [initial]);
 
   useEffect(() => {
-    if (!isWorking) return;
+    if (!isWaiting) return;
     const timer = setInterval(async () => {
       const next = await getAdminListing(listing.id);
-      // The admin may already have changed the category the AI picked.
-      if (next) setListing((current) => ({ ...next, category: current.category ?? next.category }));
+      if (next) setListing(next);
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [isWorking, listing.id]);
+  }, [isWaiting, listing.id]);
 
   // Shown once the refresh brings the LIVE listing, so the done screen never shows a listing that isn't online.
   if (isJustPublished && listing.status === 'LIVE') {
@@ -61,41 +57,28 @@ export default function ListingWorkspace({ initial, categories, languages, texts
     );
   }
 
-  const showsSteps = listing.createdByAdmin && listing.status !== 'LIVE';
+  const steps = listing.createdByAdmin && listing.status !== 'LIVE' && <ListingSteps current={1} texts={texts} />;
 
-  if (listing.status === 'PROCESSING' || isOnCategory) {
+  // Opened again before the pictures were done (e.g. a reload on step 1).
+  if (listing.status === 'COLLECTING' && listing.images.length === 0) {
     return (
-      <div className='space-y-6'>
-        {showsSteps && <ListingSteps current={1} texts={texts} />}
-        <CategoryStep
-          listing={listing}
-          categories={categories}
-          texts={texts}
-          onCategoryChange={(slug) => setListing((current) => ({ ...current, category: slug }))}
-          onNext={() => {
-            setIsOnCategory(false);
-            router.replace(pathname);
-            window.scrollTo({ top: 0 });
-          }}
-        />
-        {listing.lastError && (
-          <div className='mx-auto max-w-xl space-y-3 rounded-2xl border border-destructive/40 p-4'>
-            <p className='text-sm text-destructive'>{listing.lastError}</p>
-            <Button
-              variant='outline'
-              className='rounded-full'
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  await retryAdminListing(listing.id);
-                  setListing({ ...listing, lastError: null });
-                })
-              }
-            >
-              <RotateCw /> {texts.retry}
-            </Button>
-          </div>
-        )}
+      <div className='mx-auto w-full max-w-xl space-y-4'>
+        <ListingSteps current={0} texts={texts} />
+        <ListingStage src={listing.rawImages[0]} className='mx-auto aspect-square max-h-[52svh] max-w-[52svh] sm:max-h-none sm:max-w-none'>
+          {!listing.lastError && <span className='absolute inset-0 animate-pulse bg-primary/15 motion-reduce:animate-none' />}
+        </ListingStage>
+        <p className='flex items-center justify-center gap-2 text-sm text-muted-foreground'>
+          <Loader2 className='size-4 animate-spin text-primary' /> {listing.lastError ? texts.errorGeneric : texts.picturesWorking}
+        </p>
+      </div>
+    );
+  }
+
+  if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING') {
+    return (
+      <div className='space-y-4'>
+        {steps}
+        <DescriptionStep listing={listing} texts={texts} onSent={setListing} />
       </div>
     );
   }
@@ -106,13 +89,14 @@ export default function ListingWorkspace({ initial, categories, languages, texts
   };
 
   return (
-    <div className='space-y-6'>
-      {showsSteps && <ListingSteps current={2} texts={texts} />}
+    <div className='space-y-4'>
+      {steps}
       <ListingEditor
         key={listing.status}
         listing={listing}
         categories={categories}
         languages={languages}
+        shopLanguage={shopLanguage}
         texts={texts}
         houseSeller={houseSeller}
         onPublished={handlePublished}

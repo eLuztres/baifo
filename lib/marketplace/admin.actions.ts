@@ -9,7 +9,7 @@ import { PRODUCT_CONDITIONS } from '@/lib/constants';
 import { getShopLocale } from '@/lib/i18n-server';
 import { categoryName, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { HOUSE_SELLER } from './config';
-import { processSubmission } from './processing';
+import { makeListingPictures, processSubmission } from './processing';
 import { publishByAdmin, takeDown } from './publish';
 import { approveSubmission, rejectSubmission } from './review';
 
@@ -23,14 +23,27 @@ const photoUrlSchema = z.string().refine((value) => {
   return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
 });
 
-const newListingSchema = z.object({
-  photos: z.array(photoUrlSchema).min(1).max(8),
-  notes: z.string().max(2000).default(''),
-  price: z
-    .string()
-    .regex(/^\d{1,6}([.,]\d{1,2})?$/)
-    .transform((value) => Number(value.replace(',', '.')).toFixed(2))
-    .optional(),
+const newListingSchema = z.object({ photos: z.array(photoUrlSchema).min(1).max(8) });
+
+export type NewListingInput = z.input<typeof newListingSchema>;
+
+/** Step 1: the photos alone; the AI makes the shop pictures while the admin looks on. */
+export async function createAdminListing(input: NewListingInput) {
+  if (!(await isAdmin())) return NOT_ALLOWED;
+  const parsed = newListingSchema.safeParse(input);
+  if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
+
+  const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
+  // COLLECTING until the description arrives: only the pictures are made now.
+  const submission = await prisma.submission.create({
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: parsed.data.photos },
+  });
+  after(() => makeListingPictures(submission.id));
+  return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
+}
+
+const descriptionSchema = z.object({
+  notes: z.string().trim().max(2000),
   sellerPhone: z
     .string()
     .transform((value) => value.replace(/\D/g, ''))
@@ -39,31 +52,26 @@ const newListingSchema = z.object({
   hasContactConsent: z.boolean().default(false),
 });
 
-export type NewListingInput = z.input<typeof newListingSchema>;
+export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 
-/** Photos (+ optional words, price and seller) → a listing the AI prepares in the background. */
-export async function createAdminListing(input: NewListingInput) {
-  if (!(await isAdmin())) return NOT_ALLOWED;
-  const parsed = newListingSchema.safeParse(input);
-  if (!parsed.success) return { success: false, message: 'Revisa las fotos, el precio y el teléfono' };
-  const { photos, notes, price, sellerPhone, hasContactConsent } = parsed.data;
+/** Step 2: everything the admin knows about the item; the AI writes the listing from it and the pictures. */
+export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = descriptionSchema.safeParse(input);
+  if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
+  const { notes, sellerPhone, hasContactConsent } = parsed.data;
 
   // A Spanish mobile without country code gets +34.
   const waId = sellerPhone ? (sellerPhone.length === 9 ? `34${sellerPhone}` : sellerPhone) : HOUSE_SELLER;
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
-  const submission = await prisma.submission.create({
-    data: {
-      sellerId: seller.id,
-      status: 'PROCESSING',
-      createdByAdmin: true,
-      rawImages: photos,
-      rawText: notes,
-      price,
-      hasContactConsent: Boolean(sellerPhone) && hasContactConsent,
-    },
+  // Only once the pictures are there, so the AI never makes them twice.
+  const { count } = await prisma.submission.updateMany({
+    where: { id, status: 'COLLECTING', createdByAdmin: true, images: { isEmpty: false } },
+    data: { status: 'PROCESSING', rawText: notes, sellerId: seller.id, hasContactConsent: Boolean(sellerPhone) && hasContactConsent },
   });
-  after(() => processSubmission(submission.id));
-  return { success: true, message: 'La IA está preparando el anuncio', id: submission.id };
+  if (count === 0) return { success: false, message: 'Las fotos todavía no están listas' };
+  after(() => processSubmission(id));
+  return { success: true, message: 'La IA está escribiendo el anuncio' };
 }
 
 const idSchema = z.string().uuid();
@@ -183,7 +191,14 @@ export async function markAdminListingSold(id: string) {
 /** The AI failed: start the work again from where it stopped. */
 export async function retryAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  await prisma.submission.update({ where: { id }, data: { status: 'PROCESSING', attempts: 0, lastError: null } });
-  after(() => processSubmission(id));
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true } });
+  // Still on the photos step: only the pictures are tried again.
+  if (submission?.status === 'COLLECTING') {
+    await prisma.submission.update({ where: { id }, data: { attempts: 0, lastError: null } });
+    after(() => makeListingPictures(id));
+  } else {
+    await prisma.submission.update({ where: { id }, data: { status: 'PROCESSING', attempts: 0, lastError: null } });
+    after(() => processSubmission(id));
+  }
   return { success: true, message: 'La IA lo intenta otra vez' };
 }

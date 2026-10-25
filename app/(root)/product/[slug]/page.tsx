@@ -18,6 +18,7 @@ import {
   ReserveButton,
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
+import { BRAND } from '@/lib/brand';
 import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { getT } from '@/lib/i18n-server';
@@ -67,7 +68,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
-      {nextRing && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
+      {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
         href={sectionHref(SECTION_IDS.showroom)}
         className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
