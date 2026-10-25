@@ -1,0 +1,26 @@
+[
+  {
+    "image": "/brand/ring-volcano.svg",
+    "at": {
+      "x": 0.787,
+      "y": 0.194
+    },
+    "scale": 0.11
+  },
+  {
+    "image": "/brand/ring-caldera.svg",
+    "at": {
+      "x": 0.78,
+      "y": 0.3
+    },
+    "scale": 0.12
+  },
+  {
+    "image": "/brand/ring-caldera.svg",
+    "at": {
+      "x": 0.66,
+      "y": 0.66
+    },
+    "scale": 0.1
+  }
+]
