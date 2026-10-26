@@ -1,15 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Search, X } from 'lucide-react';
 import FeedCard from '@/components/shared/product/feed-card';
 import { Button } from '@/components/ui/button';
-import { getInStockRings } from '@/components/shared/home/in-stock-rings';
+import { Input } from '@/components/ui/input';
+import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
 import { getStoreCategories, getSubcategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
 import { APP_NAME } from '@/lib/constants';
 import { composeFeed } from '@/lib/feed';
 import { getT } from '@/lib/i18n-server';
+import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import { metaDescription, pageAlternates } from '@/lib/seo';
+import { findMatchingListingIds } from '@/lib/search';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
 
@@ -17,10 +22,12 @@ import styles from './explore.module.css';
 const BLOCK_SIZE = 9;
 /** Listings younger than this get the "New" badge. */
 const NEW_LISTING_MS = 2 * 24 * 60 * 60 * 1000;
+/** Longer queries are cut; nobody types more to find a bike. */
+const MAX_QUERY_LENGTH = 80;
 
 interface ExplorePageProps {
-  /** `c`: the category the visitor came from (its slug), whose listings open the feed; `sub`: one of its subcategories. */
-  searchParams: Promise<{ c?: string; sub?: string }>;
+  /** `c`: the category the visitor came from (its slug), whose listings open the feed; `sub`: one of its subcategories; `q`: the search text. */
+  searchParams: Promise<{ c?: string; sub?: string; q?: string }>;
 }
 
 const chipClass = (isActive: boolean) =>
@@ -45,12 +52,23 @@ const todayOnTheIsland = () => new Date().toLocaleDateString('en-CA', { timeZone
 
 /** The whole marketplace in one read-only feed: products and services mixed, the visitor's category first. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ c: focusSlug, sub: subSlug }, { t, locale }, categories, listings] = await Promise.all([
+  const [{ c: focusSlug, sub: subSlug, q }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
     getInStockRings(),
+    getVisitorPlaceIds(),
   ]);
+  const placedListings = inPlaces(allListings, placeIds);
+  // The search looks through everything in the visitor's places; categories then narrow the results.
+  const query = q?.trim().slice(0, MAX_QUERY_LENGTH) ?? '';
+  const matchingIds = query ? await findMatchingListingIds(placedListings.map((listing) => listing.id), query) : null;
+  const listings = matchingIds ? placedListings.filter((listing) => matchingIds.has(listing.id)) : placedListings;
+  // Every link on the page keeps the search, so a category chip narrows the results instead of losing them.
+  const withQuery = (href: string) => (query ? `${href}${href.includes('?') ? '&' : '?'}q=${encodeURIComponent(query)}` : href);
+  const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
+  // The town on each card only tells something once there's more than one.
+  const placeName = new Map(livePlaces.length > 1 ? livePlaces.map((place) => [place.id, place.name]) : []);
   const filledCategories = categories.filter((category) => listings.some((listing) => listing.categoryIds.includes(category.id)));
   const focus = filledCategories.find((category) => category.slug === focusSlug);
   // Only kinds that have listings, e.g. the services someone offers right now.
@@ -75,14 +93,40 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
       {/* Stays under the header while scrolling, so another category is always one tap away. */}
       <div className='sticky top-[calc(4rem+1px)] z-10 -mx-4 space-y-2 bg-background/85 px-4 py-3 backdrop-blur-md sm:top-[calc(5rem+1px)]'>
+        <form action='/explore' role='search' className='relative'>
+          <Search className='pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' aria-hidden />
+          <Input
+            type='search'
+            name='q'
+            defaultValue={query}
+            maxLength={MAX_QUERY_LENGTH}
+            placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
+            aria-label={t('EXPLORE_SEARCH_LABEL')}
+            className='h-12 rounded-full border-border bg-card pl-12 pr-28 text-base shadow-sm'
+          />
+          <Button type='submit' className='absolute right-1.5 top-1/2 h-9 -translate-y-1/2 rounded-full px-5'>
+            {t('EXPLORE_SEARCH_SUBMIT')}
+          </Button>
+        </form>
+        {query && (
+          <p className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
+            <span>{t('EXPLORE_SEARCH_RESULTS', { query })}</span>
+            <Link
+              href={subcategory ? `/explore?c=${focus?.slug}&sub=${subcategory.slug}` : focus ? `/explore?c=${focus.slug}` : '/explore'}
+              className='inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-foreground transition-colors hover:border-primary/40'
+            >
+              <X className='size-3.5' aria-hidden /> {t('EXPLORE_SEARCH_CLEAR')}
+            </Link>
+          </p>
+        )}
         <nav aria-label={t('CATEGORY_ALL')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-          <Link href='/explore' aria-current={!focus ? 'page' : undefined} className={chipClass(!focus)}>
+          <Link href={withQuery('/explore')} aria-current={!focus ? 'page' : undefined} className={chipClass(!focus)}>
             {t('EXPLORE_ALL')}
           </Link>
           {filledCategories.map((category) => (
             <Link
               key={category.id}
-              href={`/explore?c=${category.slug}`}
+              href={withQuery(`/explore?c=${category.slug}`)}
               aria-current={category.id === focus?.id && !subcategory ? 'page' : undefined}
               className={chipClass(category.id === focus?.id)}
             >
@@ -92,13 +136,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </nav>
         {focus && subcategories.length > 0 && (
           <nav aria-label={localize(focus.name, locale)} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-            <Link href={`/explore?c=${focus.slug}`} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
+            <Link href={withQuery(`/explore?c=${focus.slug}`)} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
               {t('CATEGORY_SUB_ALL')}
             </Link>
             {subcategories.map((item) => (
               <Link
                 key={item.id}
-                href={`/explore?c=${focus.slug}&sub=${item.slug}`}
+                href={withQuery(`/explore?c=${focus.slug}&sub=${item.slug}`)}
                 aria-current={item.id === subcategory?.id ? 'page' : undefined}
                 className={chipClass(item.id === subcategory?.id)}
               >
@@ -109,7 +153,19 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         )}
       </div>
 
-      {feed.length === 0 ? (
+      {feed.length === 0 && query ? (
+        <div className='space-y-4 py-16 text-center'>
+          <p className='text-muted-foreground'>{t('EXPLORE_SEARCH_EMPTY', { query })}</p>
+          <Button asChild variant='outline' className='rounded-full'>
+            <Link href='/explore'>{t('EXPLORE_SEARCH_CLEAR')}</Link>
+          </Button>
+        </div>
+      ) : feed.length === 0 && placedListings.length < allListings.length ? (
+        <div className='space-y-4 py-16 text-center'>
+          <p className='text-muted-foreground'>{t('PLACES_EMPTY')}</p>
+          <ShowAllPlacesButton slugs={livePlaces.map((place) => place.slug)} label={t('PLACES_SHOW_ALL')} />
+        </div>
+      ) : feed.length === 0 ? (
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : (
         <ul className={styles.grid}>
@@ -132,7 +188,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}
                   newLabel={isNew ? t('EXPLORE_NEW_BADGE') : undefined}
-                  listedAgo={timeAgo(listing.createdAt, locale, now)}
+                  listedAgo={[timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
                   isLarge={isLarge}
                 />
               </li>

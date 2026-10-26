@@ -19,6 +19,9 @@ import { roleLabel } from '@/components/admin/role-label';
 import { requireAdmin } from '@/lib/auth-guard';
 import { canManageUser, isOwner } from '@/lib/owner';
 import { getT } from '@/lib/i18n-server';
+import { SIGN_UP_BY_INVITE } from '@/lib/constants';
+import { getOpenInvites, INVITE_DAYS } from '@/lib/invites';
+import InviteLinks from '@/components/admin/invite-links';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -36,9 +39,10 @@ const AdminUserPage = async (props: {
   const { page: pageParam, query: searchText } = await props.searchParams;
   const page = Number(pageParam) || 1;
 
-  const [{ t }, users] = await Promise.all([
+  const [{ t }, users, invites] = await Promise.all([
     getT(),
     getAllUsers({ page, query: searchText ?? '' }),
+    SIGN_UP_BY_INVITE ? getOpenInvites() : null,
   ]);
 
   return (
@@ -47,6 +51,7 @@ const AdminUserPage = async (props: {
         <h1 className='h2-bold'>{t('ADMIN_USERS')}</h1>
         <FilterNotice query={searchText} clearHref='/admin/users' />
       </div>
+      {invites && <InviteLinks invites={invites} days={INVITE_DAYS} />}
       <div className='overflow-x-auto'>
         <Table>
           <TableHeader>

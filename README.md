@@ -192,6 +192,8 @@ PAGE_SIZE=12                        # products per page
 RESERVATION_HOURS=48                # how long "Show interest" reserves a product
 PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in a class takes its price
 OWNER_EMAIL=owner@example.com       # the owner: only they can make, change or delete admins, and no admin can remove them
+SIGN_UP_BY_INVITE=true              # nobody signs up alone: admins create one-time invite links in Admin → Users
+SERVICE_AREA=Corralejo              # for now only here: a notice above the header says so (remove it to serve everywhere)
 ```
 
 ### Home page

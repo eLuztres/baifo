@@ -51,6 +51,50 @@ model Product {
   submission     Submission?
   // 'product' or 'service' (PRODUCT_KINDS); a service never shows a price or a cart, only its contact.
   kind           String    @default("product")
+  // Where it is handed over or offered; visitors filter the shop by places.
+  placeId        String?   @db.Uuid
+  place          Place?    @relation(fields: [placeId], references: [id], onDelete: SetNull)
+}
+
+// A town on the island the shop is in (or will be: not live yet shows as "soon"); the name is per language.
+model Place {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String       @unique
+  name        Json
+  // Where its pin sits on public/brand/island.svg, in % of the picture's width and height.
+  x           Float
+  y           Float
+  isLive      Boolean      @default(false)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  products    Product[]
+  submissions Submission[]
+  corral      Corral?
+}
+
+// A place's "Corral": the real spot where people hand things over, get help and meet. Texts are per language.
+model Corral {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  placeId   String   @unique @db.Uuid
+  place     Place    @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  name      String
+  // A few welcoming words and the opening times: { "es": "…", "en": "…" }.
+  text      Json     @default("{}")
+  hours     Json     @default("{}")
+  // The business that hosts it, e.g. a coworking.
+  venue     String?
+  address   String
+  // For the map on its page; directions use the address.
+  lat       Float?
+  lng       Float?
+  hostName  String?
+  hostImage String?
+  image     String?
+  whatsapp  String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
 }
 
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
@@ -274,6 +318,9 @@ model Submission {
   kind              String           @default("product")
   // A wanted ad ("Busco …"): a product someone looks for, only in the Busco subcategories.
   isWanted          Boolean          @default(false)
+  // Its place; the product it becomes takes it over.
+  placeId           String?          @db.Uuid
+  place             Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
   // Which text is in use: 'original' (the admin's own words, only translated) or 'ai' (improved by the AI).
   textMode          String           @default("ai")
   // The admin's own title for 'original'; the original description is rawText.
@@ -329,4 +376,17 @@ model AiUsage {
   createdAt    DateTime @default(now()) @db.Timestamp(6)
 
   @@index([createdAt])
+}
+
+// A link the admin gives someone so they can create an account (SIGN_UP_BY_INVITE); it works once.
+model Invite {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // The secret part of /invite/<token>.
+  token       String    @unique
+  // Who it is for, so the admin recognizes it in the list.
+  note        String?
+  createdAt   DateTime  @default(now()) @db.Timestamp(6)
+  expiresAt   DateTime  @db.Timestamp(6)
+  usedAt      DateTime? @db.Timestamp(6)
+  usedByEmail String?
 }

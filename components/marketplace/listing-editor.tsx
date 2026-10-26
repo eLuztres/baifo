@@ -40,6 +40,12 @@ export interface EditorLanguage {
   label: string;
 }
 
+/** A place as the editor offers it: its id and its name in the admin's language. */
+export interface PlaceOption {
+  id: string;
+  name: string;
+}
+
 /** A store category as the editor offers it: its slug and its name in the admin's language. */
 export interface CategoryOption {
   slug: string;
@@ -49,6 +55,8 @@ export interface CategoryOption {
 interface ListingEditorProps {
   listing: AdminListing;
   categories: CategoryOption[];
+  /** The live places, plus the listing's own if it isn't live; empty in a shop without places. */
+  places: PlaceOption[];
   /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
   /** The shop's own language: the listing's title and description. */
@@ -68,6 +76,7 @@ interface EditorFields {
   category: string;
   price: string;
   condition: ProductCondition | '';
+  placeId: string;
 }
 
 // A service sends no price and no condition: it never has either. textMode says which of the two texts this is.
@@ -82,7 +91,7 @@ const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 
 const MAX_PICTURES = 12;
 
 /** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
-export default function ListingEditor({ listing, categories, languages, shopLanguage, texts, houseSeller, onPublished }: ListingEditorProps) {
+export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, houseSeller, onPublished }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -106,6 +115,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
     price: listing.price ?? '',
     // An unknown value from older data counts as none.
     condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
+    placeId: listing.placeId ?? '',
   });
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
@@ -127,7 +137,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
 
-  const set = (name: 'price' | 'category' | 'condition') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'category' | 'condition' | 'placeId') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) => {
@@ -458,6 +468,21 @@ export default function ListingEditor({ listing, categories, languages, shopLang
             ))}
           </select>
         </div>
+        {places.length > 0 && (
+          <div className='col-span-2 space-y-1'>
+            <Label htmlFor='place' className='px-1 text-xs text-muted-foreground'>
+              {texts.placeLabel}
+            </Label>
+            <select id='place' value={fields.placeId} onChange={set('placeId')} className={SELECT_CLASS}>
+              {!fields.placeId && <option value=''>–</option>}
+              {places.map((place) => (
+                <option key={place.id} value={place.id}>
+                  {place.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <details className='group rounded-3xl border border-border bg-card'>

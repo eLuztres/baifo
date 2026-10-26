@@ -18,13 +18,14 @@ import { prisma } from '@/db/prisma';
 import { formatError } from '@/lib/utils';
 import { ShippingAddress } from '@/types';
 import { z } from 'zod';
-import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, USER_ROLES } from '@/lib/constants';
+import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, SIGN_UP_BY_INVITE, USER_ROLES } from '@/lib/constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getSession, getSessionUserId, isAdmin } from '@/lib/auth-guard';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { findOpenInvite, INVITE_COOKIE } from '@/lib/invites';
 import { safeCallbackUrl } from '@/lib/safe-callback-url';
 import { canGiveRole, canManageUser } from '@/lib/owner';
 import { clearFailedSignIns, clientIp, isSignInBlocked, recordFailedSignIn } from '@/lib/sign-in-limit';
@@ -122,6 +123,11 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
     });
     if (existingUser) {
       return { success: false, message: 'ERROR_EMAIL_EXISTS' satisfies TranslationKey };
+    }
+
+    // The auth hook enforces it too; checking first gives a clear message instead of a generic failure.
+    if (SIGN_UP_BY_INVITE && !(await findOpenInvite((await cookies()).get(INVITE_COOKIE)?.value))) {
+      return { success: false, message: 'ERROR_INVITE_REQUIRED' satisfies TranslationKey };
     }
 
     // Creates the user and signs them in; the welcome email is sent from the user-create hook in auth.ts.

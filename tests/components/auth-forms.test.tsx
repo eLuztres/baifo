@@ -21,16 +21,22 @@ function submittedData(mock: jest.Mock) {
 
 describe('CredentialsSignInForm', () => {
   it('renders required email and password fields', () => {
-    renderWithI18n(<CredentialsSignInForm callbackUrl='' />);
+    renderWithI18n(<CredentialsSignInForm callbackUrl='' canSignUp />);
 
     expect(screen.getByLabelText(t('FIELD_EMAIL'))).toBeRequired();
     expect(screen.getByLabelText(t('FIELD_PASSWORD'))).toHaveAttribute('type', 'password');
     expect(screen.getByRole('link', { name: t('AUTH_SIGN_UP') })).toHaveAttribute('href', '/sign-up');
   });
 
+  it('has no sign-up link when the shop only signs up by invite', () => {
+    renderWithI18n(<CredentialsSignInForm callbackUrl='' canSignUp={false} />);
+
+    expect(screen.queryByRole('link', { name: t('AUTH_SIGN_UP') })).not.toBeInTheDocument();
+  });
+
   it('submits the credentials and the callback URL', async () => {
     mockSignIn.mockResolvedValue({ success: true, message: '' });
-    renderWithI18n(<CredentialsSignInForm callbackUrl='/cart' />);
+    renderWithI18n(<CredentialsSignInForm callbackUrl='/cart' canSignUp />);
 
     await userEvent.type(screen.getByLabelText(t('FIELD_EMAIL')), 'ana@example.com');
     await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'secret123');
@@ -46,7 +52,7 @@ describe('CredentialsSignInForm', () => {
 
   it('shows the error returned by the server', async () => {
     mockSignIn.mockResolvedValue({ success: false, message: 'AUTH_INVALID_CREDENTIALS' });
-    renderWithI18n(<CredentialsSignInForm callbackUrl='' />);
+    renderWithI18n(<CredentialsSignInForm callbackUrl='' canSignUp />);
 
     await userEvent.type(screen.getByLabelText(t('FIELD_EMAIL')), 'ana@example.com');
     await userEvent.type(screen.getByLabelText(t('FIELD_PASSWORD')), 'wrong-pass');

@@ -6,6 +6,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
 import { compare, hash } from '@/lib/encrypt';
 import { claimUnverifiedUser, rehashLegacyPassword } from '@/lib/auth-account';
+import { claimInviteForSignUp, INVITE_COOKIE } from '@/lib/invites';
 import { sendWelcomeEmail } from '@/email';
 import { getLocale } from '@/lib/i18n-server';
 import { GOOGLE_AUTH_ENABLED, SERVER_URL } from '@/lib/constants';
@@ -51,7 +52,11 @@ export const authServer = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        before: async (user) => ({ data: { ...user, name: user.name || user.email.split('@')[0] } }),
+        before: async (user, ctx) => {
+          // Email and Google sign-ups both pass here; server code without a request (scripts) may still create users.
+          if (ctx && !(await claimInviteForSignUp(ctx.getCookie(INVITE_COOKIE) ?? undefined, user.email))) return false;
+          return { data: { ...user, name: user.name || user.email.split('@')[0] } };
+        },
         // Awaited (capped at 5 s) so the email goes out before the redirect that follows sign-up.
         after: async (user) => {
           await sendWelcomeEmail({ email: user.email, name: user.name }, await getLocale());

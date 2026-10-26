@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import DescriptionStep from './description-step';
-import ListingEditor, { type CategoryOption, type EditorLanguage } from './listing-editor';
+import ListingEditor, { type CategoryOption, type EditorLanguage, type PlaceOption } from './listing-editor';
 import ListingStage from './listing-stage';
 import ListingSteps from './listing-steps';
 import PublishedView from './published-view';
@@ -13,6 +13,7 @@ import PublishedView from './published-view';
 interface ListingWorkspaceProps {
   initial: AdminListing;
   categories: CategoryOption[];
+  places: PlaceOption[];
   /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
   /** The shop's own language, the first tab in the editor. */
@@ -24,7 +25,7 @@ interface ListingWorkspaceProps {
 const POLL_MS = 2500;
 
 /** Step 2 of a new listing (the description, then the listing to check and publish), or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
   // Still collecting with photos but no pictures yet: the AI is making them. Without photos it waits for the description.
@@ -96,6 +97,7 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
         key={listing.status}
         listing={listing}
         categories={categories}
+        places={places}
         languages={languages}
         shopLanguage={shopLanguage}
         texts={texts}

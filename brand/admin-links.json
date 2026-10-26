@@ -1,3 +1,4 @@
 [
-  { "href": "/admin/listings", "label": { "es": "Anuncios", "en": "Listings" } }
+  {"href": "/admin/listings", "label": {"es": "Anuncios", "en": "Listings", "it": "Annunci", "fr": "Annonces", "de": "Anzeigen"}},
+  {"href": "/admin/places", "label": {"es": "Lugares", "en": "Places", "it": "Luoghi", "fr": "Lieux", "de": "Orte"}}
 ]

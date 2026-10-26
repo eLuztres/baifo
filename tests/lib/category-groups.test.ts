@@ -40,6 +40,7 @@ describe('groupByCategory', () => {
     price: '70.00',
     isReserved: false,
     isService: false,
+    placeId: null,
     categoryIds,
     createdAt: new Date(0),
     condition: null,

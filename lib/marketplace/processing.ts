@@ -1,6 +1,7 @@
 import { prisma } from '@/db/prisma';
 import type { ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { getShopPlaces } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { createPicture, enhancePhoto, writeListing } from './ai';
 import { getListingCategories } from './catalog';
@@ -83,8 +84,11 @@ export async function processSubmission(submissionId: string) {
       const kind = submission.kind as ProductKind;
       // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
       const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
-      const categories = await getListingCategories(kind, submission.isWanted);
-      const text = await writeListing(firstPhoto, submission.rawText, categories, locales, kind, kept, submission.isWanted);
+      const [categories, places] = await Promise.all([getListingCategories(kind, submission.isWanted), getShopPlaces(shopLocale)]);
+      const livePlaces = places.filter((place) => place.isLive);
+      const text = await writeListing(firstPhoto, submission.rawText, categories, locales, kind, kept, submission.isWanted, livePlaces);
+      // A place the admin already set stays; else the town the AI read, else the first live place.
+      const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? livePlaces[0])?.id ?? null;
       const { [shopLocale]: own, ...others } = text.texts;
       await prisma.submission.update({
         where: { id: submissionId },
@@ -95,6 +99,7 @@ export async function processSubmission(submissionId: string) {
           textVersions: { [submission.textMode]: text.texts },
           category: text.category,
           condition: text.condition,
+          placeId,
           // What the seller asked for wins over the AI's suggestion; a service never has a price, even if the notes name one.
           price: kind === 'service' ? null : (submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null)),
         },

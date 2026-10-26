@@ -2,6 +2,7 @@ import type { Locale } from '@/lib/i18n-core';
 
 // Texts of Baifo's admin pages (listings, new listing). Baifo-only, so outside the template's i18n.
 const ES = {
+  placeLabel: 'Lugar',
   kindLabel: 'Qué es',
   kindProduct: 'Producto',
   kindService: 'Servicio',
@@ -148,6 +149,7 @@ const ES = {
 };
 
 const EN: typeof ES = {
+  placeLabel: 'Place',
   kindLabel: 'What is it',
   kindProduct: 'Product',
   kindService: 'Service',
@@ -294,6 +296,7 @@ const EN: typeof ES = {
 };
 
 const IT: typeof ES = {
+  placeLabel: 'Luogo',
   kindLabel: 'Cos’è',
   kindProduct: 'Prodotto',
   kindService: 'Servizio',

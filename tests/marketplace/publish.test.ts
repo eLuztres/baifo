@@ -18,6 +18,7 @@ jest.mock('@/db/prisma', () => {
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn(async () => {}) }));
 jest.mock('@/lib/marketplace/listings-email', () => ({ sendListingsEmail: jest.fn(async () => {}) }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
+jest.mock('@/lib/places', () => ({ getDefaultPlaceId: jest.fn(async () => 'place-corralejo') }));
 
 const db = prisma as unknown as {
   submission: Record<'findUnique' | 'findMany' | 'update' | 'updateMany', jest.Mock>;
@@ -57,6 +58,8 @@ describe('publishSubmission', () => {
 
     expect(db.product.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
+        // A listing from before places goes to the first live place.
+        placeId: 'place-corralejo',
         name: 'Bici de paseo',
         slug: 'bici-de-paseo-abcdef',
         description: 'Bici cómoda.',

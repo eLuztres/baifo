@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
 import { getShopLocale } from '@/lib/i18n-server';
+import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
@@ -38,6 +39,8 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const isService = submission.kind === 'service';
   const categories = await getListingCategories(submission.kind as ProductKind);
   const category = findCategory(categories, submission.category) ?? findCategory(categories, isService ? categories[0]?.slug : FALLBACK_CATEGORY_SLUG);
+  // Listings from before places, or made while none was live, go to the first live place.
+  const placeId = submission.placeId ?? (await getDefaultPlaceId());
   const contactPhone = submission.hasContactConsent && isPhoneNumber(submission.seller.waId) ? `+${submission.seller.waId}` : null;
 
   const product = await prisma.$transaction(async (tx) => {
@@ -59,6 +62,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         stock: 1,
         price: isService ? 0 : (submission.price ?? 0),
         kind: submission.kind,
+        placeId,
         isFeatured: plan === 'big',
         contactPhone,
         sellerId: submission.sellerId,

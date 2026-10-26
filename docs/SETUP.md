@@ -82,7 +82,12 @@ Then **Deployments → Redeploy**. Changing `NEXT_PUBLIC_*` values always needs 
    npm run make-admin -- customer@example.com
    ```
 3. Sign out and in again. **/admin** now shows the admin panel.
-4. Set `OWNER_EMAIL` to the same email in Vercel. Then only the owner can make or remove admins, and no other admin can lock them out.
+4. Set `OWNER_EMAIL` to the same email in Vercel. Then only the owner can make or remove admins, and no other admin can lock them out. If another admin ever deletes the owner's account or takes away its admin rights anyway (e.g. before `OWNER_EMAIL` was set), the owner gets it back from the shop folder:
+   ```shell
+   vercel env run -e production -- npm run make-admin -- customer@example.com
+   ```
+   It makes the account admin again, or creates it again as admin if it was deleted; then sign in with Google using that email.
+5. Optional, for a shop where nobody signs up alone: set `SIGN_UP_BY_INVITE=true` in Vercel now that the admin exists. From then on, accounts come only from the invite links the admin creates in **Admin → Users**.
 
 ## 5. Google login
 

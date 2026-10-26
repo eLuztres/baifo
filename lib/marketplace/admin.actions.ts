@@ -147,6 +147,11 @@ const editSchema = z.object({
   images: z.array(photoUrlSchema).min(1).max(12),
   // Which of the two texts these title and description are.
   textMode: z.enum(TEXT_MODES).optional(),
+  // Where it is; empty or missing in a shop without places.
+  placeId: z
+    .union([z.string().uuid(), z.literal('')])
+    .transform((value) => value || undefined)
+    .optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
@@ -162,6 +167,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   const category = findCategory(await getListingCategories(current?.kind as ProductKind, current?.isWanted), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
+  if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
+    return { success: false, message: 'Elige uno de los lugares' };
+  }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, ...edit } = parsed.data;
@@ -178,7 +186,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, description, price, images, condition } = parsed.data;
+    const { title, description, price, images, condition, placeId } = parsed.data;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -188,6 +196,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         price: isService ? 0 : price,
         images,
         condition,
+        placeId,
         category: categoryName(category, getShopLocale()),
         categories: { set: categoryRefs(category) },
       },

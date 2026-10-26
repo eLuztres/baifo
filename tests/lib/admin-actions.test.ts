@@ -37,6 +37,8 @@ jest.mock('@/db/prisma', () => {
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('next/headers', () => ({ cookies: jest.fn(), headers: jest.fn() }));
 jest.mock('@/email', () => ({ sendWelcomeEmail: jest.fn(), sendPurchaseReceipt: jest.fn() }));
+// A shop without an owner, whatever .env says; the owner rules are tested in owner.test.ts.
+jest.mock('@/lib/constants', () => ({ ...jest.requireActual('@/lib/constants'), OWNER_EMAIL: '' }));
 
 const mockAuth = auth as unknown as jest.Mock;
 const db = prisma as unknown as Record<'user' | 'order' | 'product', Record<string, jest.Mock>>;

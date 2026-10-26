@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, MapPin } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
@@ -11,7 +11,7 @@ import ContactSellerButton from '@/components/shared/product/contact-seller-butt
 import ShareButton from '@/components/shared/product/share-button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import RelatedStrip from '@/components/shared/product/related-strip';
-import { getInStockRings } from '@/components/shared/home/in-stock-rings';
+import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
 import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import {
@@ -23,6 +23,7 @@ import { getSession } from '@/lib/auth-guard';
 import { BRAND } from '@/lib/brand';
 import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { composeFeed } from '@/lib/feed';
@@ -57,14 +58,18 @@ export async function generateMetadata(props: ProductPageProps) {
 const ProductDetailsPage = async (props: ProductPageProps) => {
   const [{ slug }, { c: categoryId }] = await Promise.all([props.params, props.searchParams]);
 
-  const [product, session, { t, locale }, rings, categories] = await Promise.all([
+  const [product, session, { t, locale }, rings, categories, placeIds] = await Promise.all([
     getProduct(slug),
     getSession(),
     getT(),
     getInStockRings(),
     getStoreCategories(),
+    getVisitorPlaceIds(),
   ]);
   if (!product) notFound();
+  // The page itself always opens (a shared link); what it suggests next stays in the visitor's places.
+  const visibleRings = inPlaces(rings, placeIds);
+  const place = product.placeId ? (await getShopPlaces(locale)).find((item) => item.id === product.placeId) : undefined;
 
   const inStock = product.stock > 0;
   const isReserved = inStock && isReservationActive(product);
@@ -72,7 +77,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const reservedUntil = product.reservedUntil?.toISOString() ?? '';
   // Only what the buttons need goes to the browser (not e.g. who reserved the ring).
   const buyProduct = { id: product.id, stock: product.stock };
-  const nextRing = findNextRing(groupByCategory(categories, rings, locale), slug, categoryId);
+  const nextRing = findNextRing(groupByCategory(categories, visibleRings, locale), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
   const isService = product.kind === 'service';
@@ -86,7 +91,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     categories.find((category) => rings.some((ring) => ring.slug === slug && ring.categoryIds.includes(category.id)));
   const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
   const ownCategorySlug = (categoryIds: string[]) => categories.find((category) => categoryIds.includes(category.id))?.slug;
-  const related = composeFeed(rings.filter((ring) => ring.slug !== slug), focusCategory?.id, slug)
+  const related = composeFeed(visibleRings.filter((ring) => ring.slug !== slug), focusCategory?.id, slug)
     .slice(0, RELATED_COUNT)
     .map((ring) => {
       // Its own category, so the next page's way back and swipe stay in it.
@@ -152,8 +157,24 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
               <ShareButton title={name} className='-mr-2 -mt-1' />
             </div>
-            {condition && (
-              <p className='w-fit shrink-0 rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>
+            {(condition || place) && (
+              <div className='flex shrink-0 flex-wrap gap-2'>
+                {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
+                {place?.corralName ? (
+                  <Link
+                    href={`/corral/${place.slug}`}
+                    className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm text-primary transition hover:bg-primary/15'
+                  >
+                    <MapPin className='size-3.5' aria-hidden /> {t('CORRAL_PICKUP', { name: place.corralName })}
+                  </Link>
+                ) : (
+                  place && (
+                    <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
+                      <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
+                    </p>
+                  )
+                )}
+              </div>
             )}
             {description && (
               <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>

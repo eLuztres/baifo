@@ -12,7 +12,7 @@ import CredentialsSignInForm from './credentials-signin-form';
 import { redirect } from 'next/navigation';
 import GoogleSignInButton from '@/components/shared/google-sign-in-button';
 import { getT } from '@/lib/i18n-server';
-import { ADMIN_HOME_PATH, APP_NAME, SHOWCASE_MODE } from '@/lib/constants';
+import { ADMIN_HOME_PATH, APP_NAME, SHOWCASE_MODE, SIGN_UP_BY_INVITE } from '@/lib/constants';
 import { getSession } from '@/lib/auth-guard';
 import { safeCallbackUrl } from '@/lib/safe-callback-url';
 
@@ -57,7 +57,7 @@ const SignInPage = async (props: {
             </p>
           )}
           <GoogleSignInButton callbackUrl={callbackUrl} />
-          <CredentialsSignInForm callbackUrl={callbackUrl} />
+          <CredentialsSignInForm callbackUrl={callbackUrl} canSignUp={!SIGN_UP_BY_INVITE} />
         </CardContent>
       </Card>
     </div>

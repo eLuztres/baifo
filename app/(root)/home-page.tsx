@@ -7,8 +7,9 @@ import { SECTION_IDS } from '@/components/shared/home/one-page';
 import OnePageScroller from '@/components/shared/home/one-page-scroller';
 import onePage from '@/components/shared/home/one-page.module.css';
 import room from '@/components/shared/home/dark-room.module.css';
-import { getInStockRings } from '@/components/shared/home/in-stock-rings';
+import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
 import { BRAND } from '@/lib/brand';
+import { getVisitorPlaceIds } from '@/lib/places';
 import { cn, formatPriceTag } from '@/lib/utils';
 import cutouts from '@/brand/cutouts.json';
 
@@ -16,8 +17,9 @@ const MIN_SPACE_RINGS = 4;
 const CUTOUT_SLUGS = new Set<string>(cutouts);
 
 export default async function HomePage() {
-  // One query feeds the opening scene, the showroom and the shop.
-  const rings = await getInStockRings();
+  // One query feeds the opening scene, the showroom and the shop; only the visitor's places.
+  const [allRings, placeIds] = await Promise.all([getInStockRings(), getVisitorPlaceIds()]);
+  const rings = inPlaces(allRings, placeIds);
 
   // Only rings with a cut-out picture (transparent background) can float in the opening scene.
   const spaceRings = rings

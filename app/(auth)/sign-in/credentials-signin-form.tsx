@@ -12,9 +12,11 @@ import SubmitButton from '../submit-button';
 interface CredentialsSignInFormProps {
   /** Where to go after signing in, already checked to be on this site ('' for the visitor's home). */
   callbackUrl: string;
+  /** Invite-only shops: nobody can sign up from here. */
+  canSignUp: boolean;
 }
 
-const CredentialsSignInForm = ({ callbackUrl }: CredentialsSignInFormProps) => {
+const CredentialsSignInForm = ({ callbackUrl, canSignUp }: CredentialsSignInFormProps) => {
   const { t } = useI18n();
   const translateMessage = useTranslateMessage();
   const [data, action] = useActionState(signInWithCredentials, {
@@ -56,16 +58,18 @@ const CredentialsSignInForm = ({ callbackUrl }: CredentialsSignInFormProps) => {
           <div className='text-center text-destructive'>{translateMessage(data.message)}</div>
         )}
 
-        <div className='text-sm text-center text-muted-foreground'>
-          {t('AUTH_NO_ACCOUNT')}{' '}
-          <Link
-            href={callbackUrl ? `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/sign-up'}
-            target='_self'
-            className='link'
-          >
-            {t('AUTH_SIGN_UP')}
-          </Link>
-        </div>
+        {canSignUp && (
+          <div className='text-sm text-center text-muted-foreground'>
+            {t('AUTH_NO_ACCOUNT')}{' '}
+            <Link
+              href={callbackUrl ? `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/sign-up'}
+              target='_self'
+              className='link'
+            >
+              {t('AUTH_SIGN_UP')}
+            </Link>
+          </div>
+        )}
       </div>
     </form>
   );

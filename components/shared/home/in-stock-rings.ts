@@ -31,7 +31,13 @@ export interface CollectionRing {
   condition: string | null;
   /** Server only: its name in other languages (localizeProduct). */
   translations: unknown;
+  /** Server only: where it is, for the visitor's place filter. */
+  placeId: string | null;
 }
+
+/** Only the rings in the visitor's places; one without a place stays, so nothing disappears unnoticed. */
+export const inPlaces = <T extends Pick<CollectionRing, 'placeId'>>(rings: T[], placeIds?: string[]) =>
+  placeIds ? rings.filter((ring) => !ring.placeId || placeIds.includes(ring.placeId)) : rings;
 
 /** The rings in stock that have a photo, in the admin's order; the opening scene and the store are both built from them.
     Showcase mode has no stock: every ring with a photo is shown, without price or reservation. */
@@ -51,6 +57,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       condition: true,
       translations: true,
       kind: true,
+      placeId: true,
       categories: { select: { id: true, slug: true } },
       submission: { select: { rawImages: true, isWanted: true } },
     },

@@ -36,6 +36,9 @@ export const ORDER_ALERT_EMAILS = (process.env.ORDER_ALERT_EMAIL || CONTACT_EMAI
   .map((email) => email.trim())
   .filter(Boolean);
 
+// Invite-only shops: nobody signs up without a link from the admin (see lib/invites.ts).
+export const SIGN_UP_BY_INVITE = process.env.SIGN_UP_BY_INVITE === 'true';
+
 // Google login only shows up when the shop has its own OAuth credentials.
 export const GOOGLE_AUTH_ENABLED = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 

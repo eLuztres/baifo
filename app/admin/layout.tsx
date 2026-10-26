@@ -2,7 +2,6 @@ import BrandLogo from '@/components/shared/brand-logo';
 import Link from 'next/link';
 import Menu from '@/components/shared/header/menu';
 import MainNav from './main-nav';
-import AdminSearch from '@/components/admin/admin-search';
 import { IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, SHOWCASE_MODE } from '@/lib/constants';
 import { ADMIN_LINKS } from '@/lib/brand';
 import { localize } from '@/lib/category';
@@ -25,7 +24,6 @@ export default async function AdminLayout({
             </Link>
             <MainNav className='mx-6' isShowcase={SHOWCASE_MODE} isAiEnabled={IS_STUDIO_ENABLED} newProductHref={NEW_PRODUCT_PATH} extraLinks={extraLinks} />
             <div className='ml-auto items-center flex space-x-4'>
-              <AdminSearch />
               <Menu />
             </div>
           </div>

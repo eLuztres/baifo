@@ -32,6 +32,8 @@ const listingSchema = z.object({
   // A service has neither: the AI isn't asked for them.
   condition: z.enum(PRODUCT_CONDITIONS).nullable().default(null),
   price: z.number().nullable().default(null),
+  // Only asked when the shop has more than one live place.
+  place: z.string().nullable().default(null),
 });
 
 export type ListingText = z.infer<typeof listingSchema>;
@@ -68,6 +70,24 @@ const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
   },
   required: ['texts', 'category', 'condition', 'price'],
 });
+
+/** A live place a listing can be in, as the AI reads it from the text. */
+export interface ListingPlace {
+  slug: string;
+  name: string;
+}
+
+// With one live place there's nothing to choose, so the AI isn't asked.
+const withPlace = <T extends { properties: object; required: string[] }>(schema: T, places: ListingPlace[]) =>
+  places.length < 2
+    ? schema
+    : { ...schema, properties: { ...schema.properties, place: { type: 'string', enum: places.map(({ slug }) => slug) } }, required: [...schema.required, 'place'] };
+
+const placeRule = (places: ListingPlace[]) =>
+  places.length < 2
+    ? ''
+    : '- place: the slug of the town where the thing is handed over or the service is offered, as written; if no town ' +
+      `is named, ${places[0].slug}. The towns: ${places.map(({ slug, name }) => `${slug} (${name})`).join(', ')}.\n`;
 
 const categoryLine = ({ slug, name, keywords }: ListingCategory) =>
   `  - ${slug}: ${localize(name, 'es')} / ${localize(name, 'en')}` + (keywords.length > 0 ? ` (e.g. ${keywords.join(', ')})` : '');
@@ -164,7 +184,8 @@ export const createPicture = (text: { title: string; description: string }, kind
 
 /** Title and description in every shop language (the first one is the shop's) and the category for a listing; an item
     also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.
-    Without a photo the AI goes by the text alone; `isWanted` makes it a wanted ad. */
+    Without a photo the AI goes by the text alone; `isWanted` makes it a wanted ad. With several live `places`, it also
+    names the town. */
 export async function writeListing(
   photo: Buffer | null,
   sellerText: string,
@@ -172,18 +193,20 @@ export async function writeListing(
   locales: Locale[],
   kind: ProductKind = 'product',
   kept?: KeptText,
-  isWanted = false
+  isWanted = false,
+  places: ListingPlace[] = []
 ): Promise<ListingText> {
   const slugs = categories.map((category) => category.slug);
   const isService = kind === 'service';
   const prompt =
     (isService ? servicePrompt(sellerText, categories, locales) : listingPrompt(sellerText, categories, locales)) +
     (isWanted && !isService ? WANTED_ONLY_RULE : '') +
-    (photo ? '' : NO_PHOTO_RULE);
+    (photo ? '' : NO_PHOTO_RULE) +
+    placeRule(places);
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
-      schema: isService ? serviceJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs),
+      schema: withPlace(isService ? serviceJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs), places),
     })
   );
   // The AI may still tidy the admin's words; their own text wins.
