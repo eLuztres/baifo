@@ -223,7 +223,7 @@
   "RESERVE_SENT_TEXT": "Nous avons bien reçu votre demande et gardons «{name}» pour vous jusqu'au {until}. Nous vous contactons très vite.",
   "RESERVE_CLOSE": "Fermer",
   "RESERVE_MISSING": "Merci d'indiquer votre nom et comment vous joindre.",
-  "RESERVE_NOTE": "Gratuit et sans engagement : nous vous le gardons {hours} heures, pour que vous puissiez payer tranquillement.",
+  "RESERVE_NOTE": "Sans engagement : nous vous le gardons {hours} heures, pour que vous puissiez payer tranquillement.",
   "RESERVE_MINE": "Réservée pour vous jusqu'au {until}",
   "RESERVE_OTHER": "Réservée jusqu'au {until}",
   "RESERVE_BADGE": "Réservée",
@@ -243,7 +243,7 @@
   "INTEREST_NOTE": "Dites-nous comment vous joindre et nous vous écrirons personnellement.",
   "INTEREST_SEND": "Contactez-moi",
   "INTEREST_ADD_NOTE": "Ajouter un mot personnel",
-  "INTEREST_REASSURE": "Gratuit et sans engagement · nous répondons personnellement",
+  "INTEREST_REASSURE": "Sans engagement · nous répondons personnellement",
   "INTEREST_SENT_TITLE": "Merci !",
   "INTEREST_SENT_TEXT": "Nous avons bien reçu votre message concernant «{name}» et vous contacterons très bientôt.",
   "INTEREST_ALERT_SUBJECT": "Intérêt : {name} de {customer}",
@@ -252,7 +252,7 @@
   "CONTACT_RULES_TITLE_SHOWCASE": "Bon à savoir",
   "CONTACT_INTRO_SHOWCASE": "Des questions sur un produit ? Nous répondons généralement sous un jour.",
   "CONTACT_RULES_NOT_A_SHOP": "Ceci n'est pas une boutique",
-  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} présente ses produits, comme une galerie. Rien n'est vendu sur ce site : pas de prix, pas de commandes, pas de paiements, pas de contrats. Les produits présentés ne sont pas une offre de vente, et nous écrire est gratuit et sans engagement.",
+  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} présente ses produits, comme une galerie. Rien n'est vendu sur ce site : pas de prix, pas de commandes, pas de paiements, pas de contrats. Les produits présentés ne sont pas une offre de vente, et nous écrire ne vous engage à rien.",
   "JOIN": "Rejoindre",
   "JOIN_TITLE": "Rejoindre {shop}",
   "JOIN_DESCRIPTION": "Rejoignez-nous pour rester en contact avec {shop}.",
@@ -723,5 +723,6 @@
   "EXPLORE_WANTED_BADGE": "Recherche",
   "HOME_ACTIONS_TITLE": "Que peux-tu faire ?",
   "CONTACT_CORRAL_MESSAGE": "Bonjour {to} ! « {name} » m’intéresse : {url}",
-  "CONTACT_CORRAL_WHATSAPP": "Écrire au {to}"
+  "CONTACT_CORRAL_WHATSAPP": "Écrire au {to}",
+  "CONTACT_SHOP_WHATSAPP": "Écrire sur WhatsApp"
 }

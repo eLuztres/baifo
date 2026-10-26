@@ -87,11 +87,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const priceLabel = rings.some((ring) => ring.slug === slug && ring.isWanted) ? t('WANTED_BUDGET') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
-  // No seller number in a shop with places: buyers write to the place's Corral (else the shop) with the message ready.
+  // No seller number: buyers write on WhatsApp to the place's Corral, else to the shop, with the listing's name and link ready.
   const corral = place && !hasSellerContact ? (await getPlaceWithCorral(place.slug, locale))?.corral : undefined;
   const corralNumber = corral?.whatsapp?.replace(/\D/g, '');
   const corralChatUrl =
-    place && !hasSellerContact && (corralNumber || BRAND.contact.whatsappUrl)
+    !hasSellerContact && (corralNumber || BRAND.contact.whatsappUrl)
       ? `${corralNumber ? `https://wa.me/${corralNumber}` : BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
           t('CONTACT_CORRAL_MESSAGE', { to: corral?.name ?? APP_NAME, name, url: `${SERVER_URL}/product/${slug}` })
         )}`
@@ -204,10 +204,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 ) : corralChatUrl ? (
                   <Button asChild className='h-11 w-full rounded-full'>
                     <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
-                      <MessageCircle /> {t('CONTACT_CORRAL_WHATSAPP', { to: corral?.name ?? APP_NAME })}
+                      <MessageCircle /> {corral ? t('CONTACT_CORRAL_WHATSAPP', { to: corral.name }) : t('CONTACT_SHOP_WHATSAPP')}
                     </a>
                   </Button>
                 ) : (
+                  // Only a shop without any WhatsApp number still asks for the visitor's contact.
                   <InterestButton
                     productId={product.id}
                     productName={name}

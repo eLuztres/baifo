@@ -165,7 +165,7 @@
   "HOME_HERO_SCAN": "Oppure inquadralo col telefono",
   "HOME_FAQ_1_A": "Ogni pagina prodotto riporta i dettagli che ti servono. Se manca qualcosa, scrivici e ti aiutiamo a scegliere.",
   "HOME_FAQ_2_A": "Dicci su WhatsApp o via email cosa cerchi e vedremo cosa possiamo fare per te.",
-  "HOME_FAQ_3_A": "La spedizione costa {shipping} ed è gratuita per ordini da {threshold}.",
+  "HOME_FAQ_3_A": "La spedizione costa {shipping}; per ordini da {threshold} non costa nulla.",
   "STUDIO_TITLE": "Studio prodotto",
   "STUDIO_INTRO": "Carica una foto di un prodotto. Lo studio crea le immagini del negozio e scrive il testo; poi controlli i dettagli e lo aggiungi al negozio.",
   "STUDIO_UPLOAD_HINT": "Trascina qui una foto del prodotto (JPG o PNG, fino a 4 MB)",
@@ -223,7 +223,7 @@
   "RESERVE_SENT_TEXT": "Abbiamo ricevuto la tua richiesta e teniamo «{name}» per te fino al {until}. Ti contatteremo a breve.",
   "RESERVE_CLOSE": "Chiudi",
   "RESERVE_MISSING": "Lasciaci il tuo nome e come contattarti.",
-  "RESERVE_NOTE": "Gratis e senza impegno: te lo teniamo da parte per {hours} ore, così puoi pagare con calma.",
+  "RESERVE_NOTE": "Senza impegno: te lo teniamo da parte per {hours} ore, così puoi pagare con calma.",
   "RESERVE_MINE": "Riservato per te fino al {until}",
   "RESERVE_OTHER": "Riservato fino al {until}",
   "RESERVE_BADGE": "Riservato",
@@ -243,7 +243,7 @@
   "INTEREST_NOTE": "Dicci come raggiungerti e ti scriveremo personalmente.",
   "INTEREST_SEND": "Contattatemi",
   "INTEREST_ADD_NOTE": "Aggiungi una nota personale",
-  "INTEREST_REASSURE": "Gratis e senza impegno · rispondiamo di persona",
+  "INTEREST_REASSURE": "Senza impegno · rispondiamo di persona",
   "INTEREST_SENT_TITLE": "Grazie!",
   "INTEREST_SENT_TEXT": "Abbiamo ricevuto il tuo messaggio su «{name}» e ti contatteremo a breve.",
   "INTEREST_ALERT_SUBJECT": "Interesse: {name} da {customer}",
@@ -252,7 +252,7 @@
   "CONTACT_RULES_TITLE_SHOWCASE": "Buono a sapersi",
   "CONTACT_INTRO_SHOWCASE": "Domande su un prodotto? Di solito rispondiamo entro un giorno.",
   "CONTACT_RULES_NOT_A_SHOP": "Questo non è un negozio",
-  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} presenta i suoi prodotti, come una galleria. Su questo sito non si vende nulla: niente prezzi, ordini, pagamenti o contratti. I prodotti mostrati non sono un'offerta di vendita, e scriverci è gratuito e senza impegno.",
+  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} presenta i suoi prodotti, come una galleria. Su questo sito non si vende nulla: niente prezzi, ordini, pagamenti o contratti. I prodotti mostrati non sono un'offerta di vendita, e scriverci non ti impegna a nulla.",
   "JOIN": "Unisciti",
   "JOIN_TITLE": "Unisciti a {shop}",
   "JOIN_DESCRIPTION": "Unisciti per restare in contatto con {shop}.",
@@ -723,5 +723,6 @@
   "EXPLORE_WANTED_BADGE": "Cerco",
   "HOME_ACTIONS_TITLE": "Cosa puoi fare?",
   "CONTACT_CORRAL_MESSAGE": "Ciao {to}! Mi interessa «{name}»: {url}",
-  "CONTACT_CORRAL_WHATSAPP": "Scrivi al {to}"
+  "CONTACT_CORRAL_WHATSAPP": "Scrivi al {to}",
+  "CONTACT_SHOP_WHATSAPP": "Scrivi su WhatsApp"
 }

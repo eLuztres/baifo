@@ -165,7 +165,7 @@
   "HOME_HERO_SCAN": "Or scan it with your phone",
   "HOME_FAQ_1_A": "Every product page lists the details you need. If something is missing, write to us and we will help you choose.",
   "HOME_FAQ_2_A": "Tell us on WhatsApp or by email what you are looking for, and we will see what we can do for you.",
-  "HOME_FAQ_3_A": "Shipping costs {shipping}, and it is free on orders from {threshold}.",
+  "HOME_FAQ_3_A": "Shipping costs {shipping}; on orders from {threshold} it costs nothing.",
   "STUDIO_TITLE": "Product studio",
   "STUDIO_INTRO": "Upload one photo of a product. The studio makes the shop pictures and writes the text; then you check the details and add it to the shop.",
   "STUDIO_UPLOAD_HINT": "Drop a photo of the product here (JPG or PNG, up to 4 MB)",
@@ -223,7 +223,7 @@
   "RESERVE_SENT_TEXT": "We received your request and keep «{name}» for you until {until}. We'll get in touch with you shortly.",
   "RESERVE_CLOSE": "Close",
   "RESERVE_MISSING": "Please leave your name and how we can reach you.",
-  "RESERVE_NOTE": "Free and non-binding: we keep it for you for {hours} hours, so you have time to pay calmly.",
+  "RESERVE_NOTE": "Non-binding: we keep it for you for {hours} hours, so you have time to pay calmly.",
   "RESERVE_MINE": "Reserved for you until {until}",
   "RESERVE_OTHER": "Reserved until {until}",
   "RESERVE_BADGE": "Reserved",
@@ -243,7 +243,7 @@
   "INTEREST_NOTE": "Tell us how to reach you and we'll write to you personally.",
   "INTEREST_SEND": "Get in touch with me",
   "INTEREST_ADD_NOTE": "Add a personal note",
-  "INTEREST_REASSURE": "Free and non-binding · we reply personally",
+  "INTEREST_REASSURE": "Non-binding · we reply personally",
   "INTEREST_SENT_TITLE": "Thank you!",
   "INTEREST_SENT_TEXT": "We received your message about «{name}» and will get in touch with you shortly.",
   "INTEREST_ALERT_SUBJECT": "Interest: {name} from {customer}",
@@ -252,7 +252,7 @@
   "CONTACT_RULES_TITLE_SHOWCASE": "Good to know",
   "CONTACT_INTRO_SHOWCASE": "Questions about a product? We usually reply within a day.",
   "CONTACT_RULES_NOT_A_SHOP": "This is not a shop",
-  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} presents its products, like a gallery. Nothing is sold on this website: no prices, no orders, no payments, no contracts. The products shown are not an offer for sale, and writing to us is free and non-binding.",
+  "CONTACT_RULES_NOT_A_SHOP_TEXT": "{shop} presents its products, like a gallery. Nothing is sold on this website: no prices, no orders, no payments, no contracts. The products shown are not an offer for sale, and writing to us commits you to nothing.",
   "JOIN": "Join",
   "JOIN_TITLE": "Join {shop}",
   "JOIN_DESCRIPTION": "Join to stay in touch with {shop}.",
@@ -723,5 +723,6 @@
   "EXPLORE_WANTED_BADGE": "Wanted",
   "HOME_ACTIONS_TITLE": "What can you do?",
   "CONTACT_CORRAL_MESSAGE": "Hi {to}! I’m interested in “{name}”: {url}",
-  "CONTACT_CORRAL_WHATSAPP": "Message the {to}"
+  "CONTACT_CORRAL_WHATSAPP": "Message the {to}",
+  "CONTACT_SHOP_WHATSAPP": "Message on WhatsApp"
 }
