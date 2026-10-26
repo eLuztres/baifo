@@ -17,6 +17,7 @@ import { metaDescription, pageAlternates } from '@/lib/seo';
 import { findMatchingListingIds } from '@/lib/search';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
+import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 
 /** Every ninth tile is big, alternating sides, like an Instagram explore grid. */
 const BLOCK_SIZE = 9;
@@ -182,6 +183,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   name={localizeProduct(listing, locale).name}
                   images={listing.images}
                   price={listing.price}
+                  priceMax={listing.priceMax}
                   priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
                   badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : listing.isWanted ? t('EXPLORE_WANTED_BADGE') : undefined}
                   note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
@@ -206,7 +208,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           {whatsappUrl && (
             <Button asChild size='lg' className='mt-2 rounded-full'>
               <a href={whatsappUrl} target='_blank' rel='noopener noreferrer'>
-                {t('HOME_HERO_ORDER')}
+                {t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE })}
               </a>
             </Button>
           )}

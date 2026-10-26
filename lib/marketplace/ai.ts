@@ -32,6 +32,8 @@ const listingSchema = z.object({
   // A service has neither: the AI isn't asked for them.
   condition: z.enum(PRODUCT_CONDITIONS).nullable().default(null),
   price: z.number().nullable().default(null),
+  // Only a wanted ad's budget has an upper end.
+  priceMax: z.number().nullable().default(null),
   // Only asked when the shop has more than one live place.
   place: z.string().nullable().default(null),
 });
@@ -67,8 +69,9 @@ const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
     category: { type: 'string', enum: slugs },
     condition: { type: 'string', enum: PRODUCT_CONDITIONS },
     price: { type: ['number', 'null'] },
+    priceMax: { type: ['number', 'null'] },
   },
-  required: ['texts', 'category', 'condition', 'price'],
+  required: ['texts', 'category', 'condition', 'price', 'priceMax'],
 });
 
 /** A live place a listing can be in, as the AI reads it from the text. */
@@ -99,7 +102,8 @@ const wantedRule = (wanted: ListingCategory[]) =>
     : '- A WANTED AD is different: the person is LOOKING FOR something (busco, estoy buscando, looking for, cerco, suche …) ' +
       'instead of selling it. Then the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", ' +
       '"Looking for a surfboard"), the description says what they need and when, condition is the worst they accept ' +
-      '(good if unsaid), price is their budget (or a fair second-hand price if unsaid), and category is one of these:\n' +
+      '(good if unsaid, any if they take it in any condition), price and priceMax are the lowest and highest end of their budget (if they name one amount, ' +
+      'that is priceMax and price is a fair lower end; if they name none, a fair second-hand range), and category is one of these:\n' +
       wanted.map(categoryLine).join('\n') +
       '\n';
 
@@ -114,10 +118,11 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   categories.filter(({ parentId }) => !parentId).map(categoryLine).join('\n') +
   `\n  Use ${FALLBACK_CATEGORY_SLUG} only if none of the others fits.\n` +
   wantedRule(categories.filter(({ parentId }) => parentId)) +
-  '- condition: exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
+  '- condition: for an item for sale exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
   '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
   'never rate it better than you can see.\n' +
   '- price: the price in euros the seller asked for, or a fair second-hand price for Fuerteventura if they named none.\n' +
+  '- priceMax: null, except for a wanted ad.\n' +
   (sellerText ? `What the seller wrote (trust it, it may name the item, condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
 
 const servicePrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>

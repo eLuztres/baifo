@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import ProductMedia from '@/components/ProductMedia';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatPriceOrRange } from '@/lib/utils';
 
 interface FeedCardProps {
   href: string;
@@ -8,6 +8,8 @@ interface FeedCardProps {
   images: string[];
   /** Missing for services and when the shop shows no prices. */
   price?: string;
+  /** The upper end of a wanted ad's budget: shown as a range. */
+  priceMax?: string;
   /** Said before the price, e.g. "Budget" on a wanted ad. */
   priceLabel?: string;
   /** Shown instead of a price, e.g. "Service". */
@@ -25,7 +27,7 @@ interface FeedCardProps {
 }
 
 /** A tile of the marketplace feed: the photo fills it (the next one on hover), name and price over a dark fade. */
-export default function FeedCard({ href, name, images, price, priceLabel, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
+export default function FeedCard({ href, name, images, price, priceMax, priceLabel, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
   const sizes = isLarge ? '(min-width: 1024px) 40vw, 100vw' : '(min-width: 1024px) 20vw, 50vw';
 
   return (
@@ -66,7 +68,7 @@ export default function FeedCard({ href, name, images, price, priceLabel, badge,
         {price && (
           <p className={cn('font-semibold leading-tight tabular-nums', isLarge ? 'text-2xl' : 'text-base')}>
             {priceLabel && <span className='mr-1 text-[0.65em] font-normal text-white/80'>{priceLabel}</span>}
-            {formatCurrency(price)}
+            {formatPriceOrRange(price, priceMax)}
           </p>
         )}
         <h2 className={cn('line-clamp-2 text-balance leading-snug', isLarge ? 'font-display text-xl sm:text-2xl' : 'text-sm')}>{name}</h2>

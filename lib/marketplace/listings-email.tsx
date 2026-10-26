@@ -1,7 +1,7 @@
 import { Column, Heading, Img, Link, Row, Section, Text } from '@react-email/components';
 import { prisma } from '@/db/prisma';
 import { EmailLayout, emailService } from '@/email';
-import { formatCurrency } from '@/lib/utils';
+import { formatPriceOrRange } from '@/lib/utils';
 import { productUrl } from './config';
 import { getMarketplaceSettings } from './settings';
 import { coverPicture } from '@/lib/video';
@@ -11,6 +11,7 @@ interface LiveListing {
   name: string;
   image?: string;
   price: string;
+  priceMax: string | null;
   phone: string | null;
   expiresAt: Date | null;
 }
@@ -34,7 +35,7 @@ export function ListingsEmail({ listings }: ListingsEmailProps) {
             <Column width='110'>{listing.image && <Img src={listing.image} alt={listing.name} width='96' height='96' className='rounded-lg object-cover' />}</Column>
             <Column>
               <Text className='m-0 text-base font-semibold'>{listing.name}</Text>
-              <Text className='m-0 text-lg'>{formatCurrency(listing.price)}</Text>
+              <Text className='m-0 text-lg'>{formatPriceOrRange(listing.price, listing.priceMax)}</Text>
               {listing.phone && <Text className='m-0'>WhatsApp: {listing.phone}</Text>}
               <Text className='m-0 text-xs text-[#6b6259]'>
                 <Link href={productUrl(listing.slug)}>{productUrl(listing.slug)}</Link> · hasta {dateOf(listing.expiresAt)}
@@ -58,7 +59,7 @@ export async function sendListingsEmail({ isAutomatic = true } = {}) {
   const products = await prisma.product.findMany({
     where: { sellerId: { not: null } },
     orderBy: { createdAt: 'desc' },
-    select: { slug: true, name: true, images: true, price: true, contactPhone: true, expiresAt: true },
+    select: { slug: true, name: true, images: true, price: true, priceMax: true, contactPhone: true, expiresAt: true },
   });
   const listings = products.map(({ images, contactPhone, price, ...product }) => ({
     ...product,

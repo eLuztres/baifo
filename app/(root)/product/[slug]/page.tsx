@@ -112,6 +112,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         name: localizeProduct(ring, locale).name,
         image: ring.image,
         price: ring.price,
+        priceMax: ring.priceMax,
         priceLabel: ring.isWanted ? t('WANTED_BUDGET') : undefined,
       };
     });
@@ -198,7 +199,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
             {SHOWCASE_MODE || isService ? (
               <>
-                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} label={priceLabel} />}
+                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />}
                 {hasSellerContact ? (
                   <ContactSellerButton productId={product.id} productName={name} className='w-full' />
                 ) : corralChatUrl ? (
@@ -221,7 +222,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             ) : (
               <>
                 <div className='flex shrink-0 flex-wrap items-center gap-3'>
-                  <ProductPrice value={Number(product.price)} label={priceLabel} />
+                  <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />
                   {!inStock ? (
                     <span className='rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground'>
                       {t('SOLD_OUT')}

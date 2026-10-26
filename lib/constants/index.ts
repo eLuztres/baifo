@@ -60,14 +60,17 @@ export const SERVICES_CATEGORY_SLUG = process.env.SERVICES_CATEGORY_SLUG || 'ser
 // The category of wanted ads ("Busco …"); its subcategories are what people look for. A shop without it has none.
 export const WANTED_CATEGORY_SLUG = process.env.WANTED_CATEGORY_SLUG || 'busco';
 // How a second-hand item is, best first; a product without one shows none.
-export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair'] as const;
+export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair', 'any'] as const;
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
+// Only a wanted ad can take a thing in any condition ("lo que tengas"); an item for sale always is in one.
+export const ANY_CONDITION = 'any' satisfies ProductCondition;
 
 const CONDITION_KEYS = {
   new: 'CONDITION_NEW',
   like_new: 'CONDITION_LIKE_NEW',
   good: 'CONDITION_GOOD',
   fair: 'CONDITION_FAIR',
+  any: 'CONDITION_ANY',
 } as const satisfies Record<ProductCondition, string>;
 
 /** The text key of a product's condition, or none for a missing or unknown one. */

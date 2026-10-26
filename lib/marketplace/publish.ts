@@ -61,6 +61,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         translations: toProductTranslations(submission.translations),
         stock: 1,
         price: isService ? 0 : (submission.price ?? 0),
+        priceMax: isService ? null : submission.priceMax,
         kind: submission.kind,
         placeId,
         isFeatured: plan === 'big',

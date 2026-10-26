@@ -1,5 +1,5 @@
 import { prisma } from '@/db/prisma';
-import type { ProductKind } from '@/lib/constants';
+import { ANY_CONDITION, type ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, videoPoster } from '@/lib/video';
@@ -22,6 +22,7 @@ const findSubmission = (id: string) => prisma.submission.findUnique({ where: { i
 
 const photosOf = (originals: string[]) => originals.filter((url) => !isVideoUrl(url));
 const videosOf = (originals: string[]) => originals.filter(isVideoUrl);
+const toPrice = (amount: number | null) => (amount ? amount.toFixed(2) : null);
 // Only videos: their still frames are what the AI makes the shop pictures from.
 const stillsOf = (originals: string[]) => videosOf(originals).flatMap((url) => videoPoster(url) ?? []);
 
@@ -136,6 +137,11 @@ export async function processSubmission(submissionId: string) {
       // A place the admin already set stays; else the town the AI read, else the first live place.
       const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? livePlaces[0])?.id ?? null;
       const { [shopLocale]: own, ...others } = text.texts;
+      const isWanted = submission.isWanted && kind !== 'service';
+      // What the seller asked for wins over the AI's suggestion; a service never has a price, even if the notes name one.
+      // A wanted ad's amount in the notes is only one end of its budget, so the AI's range is used.
+      const price = kind === 'service' ? null : (submission.price ?? (isWanted ? null : parsePrice(submission.rawText)) ?? toPrice(text.price));
+      const priceMax = isWanted ? (submission.priceMax ?? toPrice(text.priceMax)) : null;
       await prisma.submission.update({
         where: { id: submissionId },
         data: {
@@ -144,10 +150,11 @@ export async function processSubmission(submissionId: string) {
           translations: others,
           textVersions: { [submission.textMode]: text.texts },
           category: text.category,
-          condition: text.condition,
+          // "Any condition" only fits a wanted ad; an item for sale always is in one.
+          condition: text.condition === ANY_CONDITION && !isWanted ? null : text.condition,
           placeId,
-          // What the seller asked for wins over the AI's suggestion; a service never has a price, even if the notes name one.
-          price: kind === 'service' ? null : (submission.price ?? parsePrice(submission.rawText) ?? (text.price ? text.price.toFixed(2) : null)),
+          price,
+          priceMax: price && priceMax && Number(priceMax) > Number(price) ? priceMax : null,
         },
       });
       submission = (await findSubmission(submissionId))!;

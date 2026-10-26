@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 import { cn } from '@/lib/utils';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { SECTION_IDS, sectionHref } from './one-page';
@@ -20,6 +21,7 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
   // A shop can leave the three big words empty (brand/messages); its facts then become the page's heading.
   const words = [t('HOME_HERO_WORD_1'), t('HOME_HERO_WORD_2'), t('HOME_HERO_WORD_3')].filter(Boolean);
   const Facts = words.length > 0 ? 'p' : 'h1';
+  const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
 
   return (
     <section className={cn(room.bleed, styles.hero)}>
@@ -47,7 +49,7 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
           </Link>
           {!whatsappUrl && (
             <Link href={sectionHref(SECTION_IDS.contact)} className={cn(room.textLink, room.small)}>
-              {t('HOME_HERO_ORDER')}
+              {order}
             </Link>
           )}
         </div>
@@ -60,11 +62,11 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
             <WhatsAppLogo />
           </Link>
           <p id='hero-sell' className={cn(room.small, styles.sellLabel)}>
-            {t('HOME_HERO_ORDER')}
+            {order}
           </p>
           {/* A computer can't open WhatsApp like a phone does: there the phone scans this instead. */}
           <figure className={styles.qr}>
-            <WhatsAppQr url={whatsappUrl} label={t('HOME_HERO_ORDER')} className='size-28' />
+            <WhatsAppQr url={whatsappUrl} label={order} className='size-28' />
             <figcaption>{t('HOME_HERO_SCAN')}</figcaption>
           </figure>
         </div>

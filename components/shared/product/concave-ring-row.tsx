@@ -206,7 +206,7 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
           >
             <span className='truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.name}</span>
             {frontProduct.price && (
-              <ProductPrice value={Number(frontProduct.price)} label={frontProduct.isWanted ? t('WANTED_BUDGET') : undefined} className='shrink-0 text-base font-medium text-foreground sm:text-lg' />
+              <ProductPrice value={Number(frontProduct.price)} maxValue={frontProduct.priceMax} label={frontProduct.isWanted ? t('WANTED_BUDGET') : undefined} className='shrink-0 text-base font-medium text-foreground sm:text-lg' />
             )}
           </Link>
         )}

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { BRAND, absoluteUrl } from '@/lib/brand';
 import { CURRENCY } from '@/lib/constants/currency';
-import { SERVER_URL, SERVICE_AREA } from '@/lib/constants';
+import { ANY_CONDITION, SERVER_URL, SERVICE_AREA } from '@/lib/constants';
 import { URL_LOCALE_HEADER } from '@/lib/i18n-core';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 
@@ -103,7 +103,7 @@ export function listingJsonLd({ name, description, images, category, path, isSer
           price: Number(price).toFixed(2),
           priceCurrency: CURRENCY,
           // Anything but "new" is second-hand.
-          itemCondition: condition ? `${SCHEMA}/${condition === 'new' ? 'NewCondition' : 'UsedCondition'}` : undefined,
+          itemCondition: condition && condition !== ANY_CONDITION ? `${SCHEMA}/${condition === 'new' ? 'NewCondition' : 'UsedCondition'}` : undefined,
           availability: `${SCHEMA}/${isAvailable ? 'InStock' : 'SoldOut'}`,
         }
       : undefined,

@@ -199,11 +199,11 @@ SERVICE_AREA=Corralejo              # for now only here: a notice above the head
 
 ### Home page
 
-The home page is one scrolling page: an opening scene, the **showroom** (a ring of store categories you turn by swiping, with their products in front), the workshop and the contact details. Store categories are managed right on the showroom by admins.
+The home page is short and scrolls normally: a compact opening (what the shop is and the two ways in), the "What can you do?" cards, the **showroom** (a ring of store categories you turn by swiping, with their products in front) and the contact details. Store categories are managed right on the showroom by admins.
 
 | File | What it does |
 | :--- | :--- |
-| `brand/workshop.json` | `{ "steps": [up to 3 pictures], "gallery": [pictures] }` for the workshop section. Empty: the section and its menu link are hidden. Its texts are `WORKSHOP_*` |
+| `brand/home-actions.json` | The home page's "What can you do?" cards: per card an `icon` (camera, search, offer, services), `title` and `text` per language, and either an `href` or a `whatsapp` first message per language. Empty: the section doesn't show. |
 | `brand/cutouts.json` | product slugs with a cut-out picture at `public/brand/products/cutout/<slug>.webp`. With at least 4, those products float in the opening scene instead of the hero picture |
 | `brand/rings3d.json` | optional 3D recipes per product slug for the opening scene (three.js, loaded only then) |
 | `brand/studio.mjs` | your own AI studio prompts: export any prompt of `lib/studio/prompts.mjs` under its name to replace the neutral one |
@@ -229,7 +229,7 @@ SHOWCASE_SHOW_PRICES=true           # showcase with prices (classifieds); a prod
 | Language switcher | more than one language is enabled |
 | Light/dark switch | `BRAND_THEME=system` |
 | AI product studio (`/admin/studio`) | `OPENAI_API_KEY` is set |
-| Workshop section | `brand/workshop.json` has pictures |
+| "What can you do?" cards | `brand/home-actions.json` has cards |
 
 ### Products and content
 

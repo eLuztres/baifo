@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, Plus, Save, Send, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
+import { ANY_CONDITION, PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -76,13 +76,14 @@ interface EditorFields {
   translations: Record<string, { title: string; description: string }>;
   category: string;
   price: string;
+  priceMax: string;
   condition: ProductCondition | '';
   placeId: string;
 }
 
 // A service sends no price and no condition: it never has either. textMode says which of the two texts this is.
-const toEdit = ({ price, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
-  isService ? { ...fields, images, textMode } : { ...fields, price, condition, images, textMode };
+const toEdit = ({ price, priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
+  isService ? { ...fields, images, textMode } : { ...fields, price, priceMax, condition, images, textMode };
 
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
@@ -114,6 +115,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
     ),
     category: listing.category ?? '',
     price: listing.price ?? '',
+    priceMax: listing.priceMax ?? '',
     // An unknown value from older data counts as none.
     condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
     placeId: listing.placeId ?? '',
@@ -138,7 +140,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
 
-  const set = (name: 'price' | 'category' | 'condition' | 'placeId') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) => {
@@ -428,22 +430,22 @@ export default function ListingEditor({ listing, categories, places, languages, 
       <div className='grid grid-cols-2 gap-3'>
         {!isService && (
           <>
-            <div className='space-y-1'>
-              <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
-                {texts.priceShort}
-              </Label>
-              <div className='relative'>
-                <Input id='price' inputMode='decimal' value={fields.price} onChange={set('price')} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
-                <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+            {listing.isWanted ? (
+              // A wanted ad's budget is a range, so it gets a row of its own.
+              <div className='col-span-2 grid grid-cols-2 gap-3'>
+                <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} />
+                <PriceInput id='priceMax' label={texts.budgetTo} value={fields.priceMax} onChange={set('priceMax')} />
               </div>
-            </div>
-            <div className='space-y-1'>
+            ) : (
+              <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} />
+            )}
+            <div className={cn('space-y-1', listing.isWanted && 'col-span-2')}>
               <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
                 {texts.conditionLabel}
               </Label>
               <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
                 <option value=''>–</option>
-                {PRODUCT_CONDITIONS.map((condition) => (
+                {PRODUCT_CONDITIONS.filter((condition) => listing.isWanted || condition !== ANY_CONDITION).map((condition) => (
                   <option key={condition} value={condition}>
                     {texts[`condition_${condition}`]}
                   </option>
@@ -579,6 +581,27 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+interface PriceInputProps {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (event: { target: { value: string } }) => void;
+}
+
+function PriceInput({ id, label, value, onChange }: PriceInputProps) {
+  return (
+    <div className='space-y-1'>
+      <Label htmlFor={id} className='px-1 text-xs text-muted-foreground'>
+        {label}
+      </Label>
+      <div className='relative'>
+        <Input id={id} inputMode='decimal' value={value} onChange={onChange} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
+        <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+      </div>
     </div>
   );
 }

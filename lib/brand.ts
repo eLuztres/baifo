@@ -9,7 +9,6 @@ import workshop from '@/brand/workshop.json';
 import adminLinks from '@/brand/admin-links.json';
 import ringFigures from '@/brand/ring-figures.json';
 import ringFlyers from '@/brand/ring-flyers.json';
-import homeActions from '@/brand/home-actions.json';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -159,14 +158,6 @@ export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length 
 /** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */
 export const ADMIN_LINKS: { href: string; label: Record<string, string> }[] = adminLinks;
 
-/** The home page's "what can you do" cards (brand/home-actions.json): a page link, or a WhatsApp chat with a first message. */
-export const HOME_ACTIONS: {
-  icon: string;
-  title: Record<string, string>;
-  text: Record<string, string>;
-  href?: string;
-  whatsapp?: Record<string, string>;
-}[] = homeActions;
 
 /** More pictures standing on the ring's center piece (brand/ring-figures.json), next to BRAND_RING_FIGURE. */
 export const RING_FIGURES: { image: string; spinner?: string; at: { x: number; y: number }; scale?: number; drift?: boolean }[] = ringFigures;

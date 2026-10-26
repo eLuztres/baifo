@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
+import { ANY_CONDITION, PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
@@ -115,8 +115,8 @@ export async function getAdminListing(id: string) {
     include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } } },
   });
   if (!submission) return null;
-  const { price, ...rest } = submission;
-  return { ...rest, price: price?.toString() ?? null };
+  const { price, priceMax, ...rest } = submission;
+  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -151,6 +151,11 @@ const editSchema = z.object({
     .regex(/^\d{1,6}([.,]\d{1,2})?$/)
     .transform((value) => Number(value.replace(',', '.')).toFixed(2))
     .optional(),
+  // The upper end of a wanted ad's budget; empty: one amount, no range.
+  priceMax: z
+    .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])
+    .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : null))
+    .optional(),
   images: z.array(photoUrlSchema).min(1).max(12),
   // Which of the two texts these title and description are.
   textMode: z.enum(TEXT_MODES).optional(),
@@ -174,12 +179,15 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   const category = findCategory(await getListingCategories(current?.kind as ProductKind, current?.isWanted), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
+  if (parsed.data.condition === ANY_CONDITION && !current?.isWanted) return { success: false, message: 'Elige el estado del artículo' };
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, ...edit } = parsed.data;
+  // Only a wanted ad has a range, and only one whose upper end is above its lower end.
+  const priceMax = current?.isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
@@ -189,7 +197,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
@@ -201,6 +209,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         description,
         translations: toProductTranslations(translations),
         price: isService ? 0 : price,
+        priceMax,
         images,
         condition,
         placeId,

@@ -17,6 +17,8 @@ export interface CollectionRing {
   images: string[];
   /** Missing in showcase mode (the price is never read from the database) and for services. */
   price?: string;
+  /** The upper end of a wanted ad's budget, if it is a range. */
+  priceMax?: string;
   /** A service (babysitter, gardener …) rather than an item for sale. */
   isService: boolean;
   /** A wanted ad ("Busco …"): its price is the budget of the person looking. */
@@ -53,6 +55,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       name: true,
       images: true,
       price: SHOWS_PRICES,
+      priceMax: SHOWS_PRICES,
       reservedUntil: !SHOWCASE_MODE,
       createdAt: true,
       condition: true,
@@ -64,13 +67,14 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
     },
   });
 
-  return products.map(({ images, reservedUntil, categories, kind, price, submission, ...product }) => {
+  return products.map(({ images, reservedUntil, categories, kind, price, priceMax, submission, ...product }) => {
     // Started as Busco, or sorted into it by the AI: both sit in the Busco category.
     const isWanted = categories.some((category) => category.slug === WANTED_CATEGORY_SLUG);
     return {
       ...product,
       // A service has no price to show; it stays in the database as 0.
       price: kind === 'service' ? undefined : price,
+      priceMax: kind === 'service' ? undefined : (priceMax ?? undefined),
       isService: kind === 'service',
       isWanted,
       // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatPriceOrRange } from '@/lib/utils';
 
 export interface RelatedListing {
   href: string;
@@ -9,6 +9,8 @@ export interface RelatedListing {
   image: string;
   /** Missing for services and when the shop shows no prices. */
   price?: string;
+  /** The upper end of a wanted ad's budget: shown as a range. */
+  priceMax?: string;
   /** Said before the price, e.g. "Budget" on a wanted ad. */
   priceLabel?: string;
 }
@@ -44,9 +46,10 @@ export default function RelatedStrip({ title, listings, seeAllHref, seeAllLabel 
                 className='object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none'
               />
               {listing.price && (
-                <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-4 text-[0.7rem] font-semibold tabular-nums text-white'>
-                  {listing.priceLabel && <span className='mr-1 font-normal text-white/80'>{listing.priceLabel}</span>}
-                  {formatCurrency(listing.price)}
+                <span className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1.5 pb-1 pt-4 text-[0.7rem] font-semibold tabular-nums whitespace-nowrap text-white'>
+                  {/* A phone's tile only fits the amount; the label would wrap a range over several lines. */}
+                  {listing.priceLabel && <span className='mr-1 hidden font-normal text-white/80 sm:inline'>{listing.priceLabel}</span>}
+                  {formatPriceOrRange(listing.price, listing.priceMax)}
                 </span>
               )}
             </Link>

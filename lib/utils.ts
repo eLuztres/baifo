@@ -106,6 +106,11 @@ export function formatPriceTag(amount: number) {
   return PRICE_TAG_FORMATTER.format(amount);
 }
 
+/** A price, or a wanted ad's budget as a calm "50–80 €" when it has an upper end. */
+export function formatPriceOrRange(amount: number | string, max?: number | string | null) {
+  return max ? PRICE_TAG_FORMATTER.formatRange(Number(amount), Number(max)) : formatCurrency(amount);
+}
+
 const NUMBER_FORMATTER = new Intl.NumberFormat(NUMBER_LOCALE);
 
 export function formatNumber(number: number) {

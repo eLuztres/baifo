@@ -1,4 +1,5 @@
 import { SERVER_URL } from '@/lib/constants';
+import { formatNumber } from '@/lib/utils';
 
 // Baifo's marketplace settings, all from .env (see .env.example).
 const env = (key: string) => process.env[key]?.trim() || undefined;
@@ -16,6 +17,9 @@ export const LISTING_PRICES: Record<ListingPlan, string> = {
   normal: Number(env('LISTING_PRICE_NORMAL') ?? 5).toFixed(2),
   big: Number(env('LISTING_PRICE_BIG') ?? 10).toFixed(2),
 };
+
+/** The cheapest listing as texts say it, e.g. "from 5 euros". */
+export const LISTING_FROM_PRICE = formatNumber(Number(LISTING_PRICES.normal));
 
 /** Gets the printable list of all live products after each new listing. */
 export const LISTINGS_EMAIL = env('LISTINGS_EMAIL');

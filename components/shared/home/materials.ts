@@ -28,7 +28,7 @@ export function groupByCategory(
       text: localize(category.text, locale),
       rings: rings
         .filter((ring) => ring.categoryIds.includes(category.id))
-        .map((ring) => ({ id: ring.id, slug: ring.slug, name: localizeProduct(ring, locale).name, image: ring.image, price: ring.price, isWanted: ring.isWanted, isReserved: ring.isReserved })),
+        .map((ring) => ({ id: ring.id, slug: ring.slug, name: localizeProduct(ring, locale).name, image: ring.image, price: ring.price, priceMax: ring.priceMax, isWanted: ring.isWanted, isReserved: ring.isReserved })),
     }))
     .filter((group) => shouldKeepEmpty || group.rings.length > 0);
 }
