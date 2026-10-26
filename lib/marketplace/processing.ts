@@ -2,11 +2,13 @@ import { prisma } from '@/db/prisma';
 import type { ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { getShopPlaces } from '@/lib/places';
+import { isVideoUrl, mediaUrl } from '@/lib/video';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { createPicture, enhancePhoto, writeListing } from './ai';
 import { getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
+import { cleanUpVideo } from './video-cleanup';
 import { parsePrice } from './price';
 import { sendForReview } from './review';
 
@@ -18,10 +20,14 @@ export const MAX_ENHANCED_PHOTOS = 8;
 
 const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
 
-/** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting). */
+const photosOf = (originals: string[]) => originals.filter((url) => !isVideoUrl(url));
+const videosOf = (originals: string[]) => originals.filter(isVideoUrl);
+
+/** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures. */
 async function makeShopPictures(submissionId: string, originals: string[], kind: ProductKind, firstPhoto?: Buffer) {
+  const photos = photosOf(originals);
   const enhanced = await Promise.all(
-    originals.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
+    photos.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
       return uploadImage(await enhancePhoto(photo, kind), `listing-${submissionId}-${index}`);
     })
@@ -29,14 +35,47 @@ async function makeShopPictures(submissionId: string, originals: string[], kind:
   await prisma.submission.update({
     where: { id: submissionId },
     // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
-    data: { images: [...enhanced, ...originals.slice(MAX_ENHANCED_PHOTOS)], aiImages: enhanced, lastError: null },
+    data: {
+      images: [...enhanced, ...photos.slice(MAX_ENHANCED_PHOTOS), ...videosOf(originals)],
+      aiImages: originals.map((url) => enhanced[photos.indexOf(url)] ?? ''),
+      lastError: null,
+    },
   });
 }
 
-/** No photo at all: the AI makes one picture from the written listing. It has no original, so nothing to switch back to. */
-async function makeTextPicture(submissionId: string, text: { title: string; description: string }, kind: ProductKind, isWanted: boolean) {
+/** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
+async function makeTextPicture(submissionId: string, text: { title: string; description: string }, kind: ProductKind, isWanted: boolean, videos: string[]) {
   const picture = await uploadImage(await createPicture(text, kind, isWanted), `listing-${submissionId}-0`);
-  await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture], lastError: null } });
+  await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture, ...videos], lastError: null } });
+}
+
+type SubmissionMedia = { rawImages: string[]; images: string[]; aiImages: string[] };
+
+/** Each video in use gets its clean-up, kept next to the original in aiImages, so the admin can switch back like with a picture. */
+async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages }: SubmissionMedia) {
+  const pending = rawImages.filter((url, index) => isVideoUrl(url) && !aiImages[index] && images.includes(url));
+  if (pending.length === 0) return;
+  const cleaned = new Map(
+    await Promise.all(
+      pending.map(async (url, index) => {
+        try {
+          const video = await cleanUpVideo(await fetchImage(url));
+          return [url, mediaUrl(await uploadImage(video, `listing-${submissionId}-video-${index}`, 'video/mp4'), 'video/mp4')] as const;
+        } catch (error) {
+          // The original video stays: a failed clean-up never holds up the listing.
+          console.error(`Video ${url} of submission ${submissionId} not cleaned up`, error);
+          return [url, ''] as const;
+        }
+      })
+    )
+  );
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      images: images.map((url) => cleaned.get(url) || url),
+      aiImages: rawImages.map((url, index) => cleaned.get(url) || aiImages[index] || ''),
+    },
+  });
 }
 
 /** Step 1 of a listing the admin creates: only the shop pictures; the text waits for the admin's description. */
@@ -45,6 +84,8 @@ export async function makeListingPictures(submissionId: string) {
   if (!submission || submission.status !== 'COLLECTING' || submission.images.length > 0) return;
   try {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
+    // Only videos: the picture is made from the text, after the description.
+    if (photosOf(submission.rawImages).length === 0) return;
     await makeShopPictures(submissionId, submission.rawImages, submission.kind as ProductKind);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -75,7 +116,8 @@ export async function processSubmission(submissionId: string) {
     const originals = submission.rawImages;
     // Only the admin starts a listing without a photo (described step by step); the bot always has one.
     if (originals.length === 0 && !submission.createdByAdmin) throw new Error('No photo to work with');
-    const firstPhoto = originals.length > 0 ? await fetchImage(originals[0]) : null;
+    const [firstPhotoUrl] = photosOf(originals);
+    const firstPhoto = firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null;
 
     // The text goes first: it takes seconds, so the admin sees the category while the pictures are made.
     if (!submission.title) {
@@ -109,9 +151,12 @@ export async function processSubmission(submissionId: string) {
 
     if (submission.images.length === 0) {
       if (firstPhoto) await makeShopPictures(submissionId, originals, submission.kind as ProductKind, firstPhoto);
-      else await makeTextPicture(submissionId, { title: submission.title ?? '', description: submission.description ?? '' }, submission.kind as ProductKind, submission.isWanted);
+      else await makeTextPicture(submissionId, { title: submission.title ?? '', description: submission.description ?? '' }, submission.kind as ProductKind, submission.isWanted, videosOf(originals));
       submission = (await findSubmission(submissionId))!;
     }
+
+    // Videos last, as they take longest; a listing made without AI keeps them as uploaded.
+    if (submission.usesAi) await cleanUpVideos(submissionId, submission);
 
     submission = await prisma.submission.update({
       where: { id: submissionId },

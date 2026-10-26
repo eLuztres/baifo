@@ -18,6 +18,8 @@ interface ProductMediaProps {
     priority?: boolean;
     /** 'eager' loads the photo right away even when it's out of view, e.g. a row the visitor is about to scroll through. */
     loading?: 'eager' | 'lazy';
+    /** A video gets play, sound and seek controls, e.g. full screen. */
+    controls?: boolean;
 }
 
 export default function ProductMedia({
@@ -30,7 +32,8 @@ export default function ProductMedia({
                                          className,
                                          poster,
                                          priority = false,
-                                         loading
+                                         loading,
+                                         controls = false
                                      }: ProductMediaProps) {
     const { state, handleError, handleVideoLoaded } = useMedia(src);
     const wrapperStyle = fill ? undefined : { width, height };
@@ -58,6 +61,7 @@ export default function ProductMedia({
                     autoPlay
                     loop
                     muted
+                    controls={controls}
                     playsInline
                     preload="auto"
                     poster={poster}

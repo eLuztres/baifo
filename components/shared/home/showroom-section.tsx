@@ -3,8 +3,10 @@ import { groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND, RING_FIGURES } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
+import { cn } from '@/lib/utils';
 import type { CollectionRing } from './in-stock-rings';
 import { SECTION_IDS } from './one-page';
+import styles from './one-page.module.css';
 
 interface ShowroomSectionProps {
   /** The rings in stock, in the store's order (fetched once by the home page). */
@@ -28,7 +30,7 @@ export default async function ShowroomSection({ rings }: ShowroomSectionProps) {
   ];
 
   return (
-    <section id={SECTION_IDS.showroom} className='relative flex flex-col scroll-mt-20'>
+    <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen, styles.noVerticalPan)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
         <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyer={BRAND.ringFlyer} figures={figures} />

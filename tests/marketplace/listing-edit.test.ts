@@ -94,9 +94,17 @@ describe('describeAdminListing', () => {
       id: ID,
       status: 'COLLECTING',
       createdByAdmin: true,
-      OR: [{ images: { isEmpty: false } }, { rawImages: { isEmpty: true } }],
+      images: { isEmpty: false },
     });
     expect(processSubmission).toHaveBeenCalledWith(ID);
+  });
+
+  it('does not wait for pictures when a service has only a video: the AI makes the picture from the text', async () => {
+    db.submission.findUnique.mockResolvedValue({ kind: 'service', rawImages: ['https://x.ufs.sh/f/clip#video'] });
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', sellerPhone: '612345678', hasContactConsent: true })).success).toBe(true);
+    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true });
   });
 
   it('needs a description when there is no photo, because the AI makes the picture from it', async () => {
@@ -128,6 +136,19 @@ describe('createAdminListing', () => {
 
     expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ kind: 'service', isWanted: false });
     expect(makeListingPictures).toHaveBeenCalledWith('new-1');
+  });
+
+  it('uses photos and videos as they are without AI, the photo first as the cover', async () => {
+    const video = 'https://x.ufs.sh/f/clip#video';
+    await createAdminListing({ photos: [video, 'https://utfs.io/f/ana.jpg'], kind: 'service', useAi: false });
+
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [video, 'https://utfs.io/f/ana.jpg'], images: ['https://utfs.io/f/ana.jpg', video], usesAi: false });
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('needs something uploaded to go on without AI', async () => {
+    expect((await createAdminListing({ photos: [], kind: 'service', useAi: false })).success).toBe(false);
+    expect(db.submission.create).not.toHaveBeenCalled();
   });
 });
 

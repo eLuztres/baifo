@@ -329,6 +329,8 @@ model Submission {
   textVersions      Json             @default("{}")
   // The AI picture of each original photo, at the same index as rawImages ('' where the AI made none).
   aiImages          String[]         @default([])
+  // False when the admin went on without AI: photos and videos stay exactly as uploaded.
+  usesAi            Boolean          @default(true)
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)

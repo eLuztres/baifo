@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
+import { isVideoUrl } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
 import TextModeSwitch from './text-mode-switch';
 
@@ -40,8 +41,8 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
-  // No photo: the AI makes the picture from this text, so the text can't be empty.
-  const hasNoPhoto = listing.rawImages.length === 0;
+  // No photo (a video doesn't count): the AI makes the picture from this text, so the text can't be empty.
+  const hasNoPhoto = listing.rawImages.every(isVideoUrl);
   const placeholder = isOriginal
     ? texts.tellOriginalPlaceholder
     : isService
@@ -79,7 +80,8 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
         </p>
       )}
       <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
-        {listing.images.map((url, index) => (
+        {/* Before the AI picture of a video-only service, its videos. */}
+        {(listing.images.length > 0 ? listing.images : listing.rawImages).map((url, index) => (
           <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
             <ProductMedia src={url} alt='' fill sizes='6rem' />
           </li>

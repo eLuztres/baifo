@@ -19,6 +19,7 @@ import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
+import { isVideoUrl, mediaUrl, videoStill } from '@/lib/video';
 import ListingStage from './listing-stage';
 
 interface NewListingFormProps {
@@ -27,9 +28,11 @@ interface NewListingFormProps {
   kind: NonNullable<NewListingInput['kind']>;
 }
 
-// What the photosUploader route takes at once.
+// What the photosUploader route takes at once; a service's videos count too.
 const MAX_PHOTOS = 8;
 const POLL_MS = 2500;
+
+const isVideo = (file: File) => file.type.startsWith('video/');
 
 /** Step 1: only the photos. One tap makes the AI pictures, and they show up right here. */
 export default function NewListingForm({ texts, kind }: NewListingFormProps) {
@@ -43,10 +46,13 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   const [isAskingMore, setIsAskingMore] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const { startUpload } = useUploadThing('photosUploader', {
-    onUploadProgress: setProgress,
-    onUploadError: (uploadError) => setError(uploadError.message),
-  });
+  const uploadEvents = { onUploadProgress: setProgress, onUploadError: (uploadError: Error) => setError(uploadError.message) };
+  const { startUpload } = useUploadThing('photosUploader', uploadEvents);
+  // Only a service takes videos, kept as they are next to the AI pictures.
+  const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
+  const takesVideos = kind === 'service';
+  // A still of each uploaded video, by URL: the cover when a service goes on without AI and has only videos.
+  const stills = useRef(new Map<string, File>());
 
   const pictures = listing?.images ?? [];
   const isMaking = Boolean(listing) && pictures.length === 0 && !listing?.lastError;
@@ -68,9 +74,21 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
     setError('');
     setProgress(0);
     try {
-      const uploaded = await startUpload(await preparePhotos(files.slice(0, free)));
-      if (uploaded) {
-        setPhotos((current) => [...current, ...uploaded.map((file) => file.ufsUrl)].slice(0, MAX_PHOTOS));
+      const chosen = files.slice(0, free);
+      const videos = takesVideos ? chosen.filter(isVideo) : [];
+      const photoFiles = chosen.filter((file) => !isVideo(file));
+      const [uploadedPhotos, uploadedVideos] = await Promise.all([
+        photoFiles.length > 0 ? startUpload(await preparePhotos(photoFiles)) : [],
+        videos.length > 0 ? startVideoUpload(videos) : [],
+      ]);
+      const uploaded = [...(uploadedPhotos ?? []), ...(uploadedVideos ?? [])];
+      for (const file of uploadedVideos ?? []) {
+        const original = videos.find((video) => video.name === file.name);
+        const still = original && (await videoStill(original));
+        if (still) stills.current.set(mediaUrl(file.ufsUrl, file.type), still);
+      }
+      if (uploaded.length > 0) {
+        setPhotos((current) => [...current, ...uploaded.map((file) => mediaUrl(file.ufsUrl, file.type))].slice(0, MAX_PHOTOS));
         setIsAskingMore(true);
       }
     } finally {
@@ -93,9 +111,27 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
       setError('');
       const result = await createAdminListing({ photos, kind });
       if (!('id' in result && result.id)) return setError(result.message);
+      // Only videos: like no photo, the AI makes the picture from the description.
+      if (photos.every(isVideoUrl)) return router.push(`/admin/listings/${result.id}`);
       const created = await getAdminListing(result.id);
       if (created) setListing(created);
       setShownIndex(0);
+    });
+
+  // A service can skip the AI pictures: its photos and videos stay as they are.
+  const continueWithoutAi = () =>
+    startTransition(async () => {
+      setError('');
+      let media = photos;
+      // Only videos: a still of the first one is the cover, as cards and messages need a picture.
+      const still = photos.every(isVideoUrl) ? stills.current.get(photos[0]) : undefined;
+      if (still) {
+        const [uploaded] = (await startUpload([still])) ?? [];
+        if (uploaded) media = [uploaded.ufsUrl, ...photos].slice(0, MAX_PHOTOS);
+      }
+      const result = await createAdminListing({ photos: media, kind, useAi: false });
+      if (!('id' in result && result.id)) return setError(result.message);
+      router.push(`/admin/listings/${result.id}`);
     });
 
   // No photo at all: straight to the description, from which the AI makes the picture.
@@ -139,7 +175,7 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
       <input
         ref={fileInput}
         type='file'
-        accept='image/*'
+        accept={takesVideos ? 'image/*,video/*' : 'image/*'}
         multiple
         className='hidden'
         onChange={(event) => {
@@ -164,8 +200,9 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             <span className='flex size-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30'>
               <Camera className='size-9' aria-hidden />
             </span>
-            <span className='font-display text-2xl'>{texts.takePhoto}</span>
+            <span className='font-display text-2xl'>{takesVideos ? texts.takePhotoOrVideo : texts.takePhoto}</span>
             <span className='hidden text-sm text-muted-foreground sm:block'>{texts.dropHere}</span>
+            {takesVideos && <span className='text-xs text-muted-foreground'>{texts.videoHint}</span>}
           </button>
         )}
         {isUploading && (
@@ -306,6 +343,19 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             >
               <Sparkles /> {texts.anotherPhotoNo}
             </Button>
+            {takesVideos && (
+              <Button
+                variant='ghost'
+                className='col-span-2 rounded-full'
+                disabled={isPending}
+                onClick={() => {
+                  setIsAskingMore(false);
+                  continueWithoutAi();
+                }}
+              >
+                {texts.withoutAi}
+              </Button>
+            )}
           </div>
         </DrawerContent>
       </Drawer>
@@ -328,13 +378,20 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             <p className='text-xs text-muted-foreground'>{texts.noPhotoHint}</p>
           </div>
         ) : (
-          <Button
-            className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
-            disabled={isUploading || isPending || isMaking}
-            onClick={makePictures}
-          >
-            {isPending || isMaking ? <Loader2 className='animate-spin' /> : <Sparkles />} {isMaking ? texts.picturesWorking : texts.makePictures}
-          </Button>
+          <div className='space-y-2'>
+            <Button
+              className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
+              disabled={isUploading || isPending || isMaking}
+              onClick={makePictures}
+            >
+              {isPending || isMaking ? <Loader2 className='animate-spin' /> : <Sparkles />} {isMaking ? texts.picturesWorking : texts.makePictures}
+            </Button>
+            {takesVideos && !listing && (
+              <Button variant='outline' className='h-12 w-full rounded-full bg-background' disabled={isUploading || isPending} onClick={continueWithoutAi}>
+                {texts.withoutAi}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>

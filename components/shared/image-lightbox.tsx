@@ -85,7 +85,7 @@ const ImageLightbox = ({ images, alt, captions, index, onIndexChange }: ImageLig
           >
             {images.map((image, imageIndex) => (
               <div key={image} className={cn(styles.photo, hasTurned && styles.photoFade, imageIndex === index && styles.photoActive)} aria-hidden={imageIndex !== index}>
-                <ProductMedia src={image} alt={captions?.[imageIndex]?.title ?? alt} fill sizes='100vw' className='object-contain' />
+                <ProductMedia src={image} alt={captions?.[imageIndex]?.title ?? alt} fill sizes='100vw' className='object-contain' controls />
               </div>
             ))}
           </div>

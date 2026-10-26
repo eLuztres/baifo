@@ -7,6 +7,7 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { isVideoUrl } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
 import { HOUSE_SELLER } from './config';
@@ -28,7 +29,12 @@ const photoUrlSchema = z.string().refine((value) => {
 });
 
 // 'wanted' is a product someone looks for ("Busco …"). No photos: the AI makes the picture from the description later.
-const newListingSchema = z.object({ photos: z.array(photoUrlSchema).max(8), kind: z.enum([...PRODUCT_KINDS, 'wanted']).default('product') });
+// useAi false: the photos and videos are used as they are, no AI pictures.
+const newListingSchema = z.object({
+  photos: z.array(photoUrlSchema).max(8),
+  kind: z.enum([...PRODUCT_KINDS, 'wanted']).default('product'),
+  useAi: z.boolean().default(true),
+});
 
 export type NewListingInput = z.input<typeof newListingSchema>;
 
@@ -40,12 +46,15 @@ export async function createAdminListing(input: NewListingInput) {
 
   const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
   // COLLECTING until the description arrives: only the pictures are made now.
-  const { photos, kind } = parsed.data;
+  const { photos, kind, useAi } = parsed.data;
+  if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
   const isWanted = kind === 'wanted';
+  // Without AI the originals are the pictures at once, photos first so the cover is a picture.
+  const images = useAi ? [] : [...photos.filter((url) => !isVideoUrl(url)), ...photos.filter(isVideoUrl)];
   const submission = await prisma.submission.create({
-    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, kind: isWanted ? 'product' : kind, isWanted },
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, images, usesAi: useAi, kind: isWanted ? 'product' : kind, isWanted },
   });
-  if (photos.length > 0) after(() => makeListingPictures(submission.id));
+  if (useAi && photos.length > 0) after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
@@ -72,7 +81,9 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, rawImages: true } });
-  if (listing?.rawImages.length === 0 && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
+  // Videos only count as no photo: the AI makes the picture from the description.
+  const hasPhoto = Boolean(listing?.rawImages.some((url) => !isVideoUrl(url)));
+  if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
   // A service is nothing without the person's WhatsApp, and that number goes public.
   if (listing?.kind === 'service' && !(sellerPhone && hasContactConsent)) {
     return { success: false, message: 'Un servicio necesita el WhatsApp de la persona y su permiso para mostrarlo' };
@@ -83,7 +94,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Only once the pictures are there (or there's no photo to make them from), so the AI never makes them twice.
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true, OR: [{ images: { isEmpty: false } }, { rawImages: { isEmpty: true } }] },
+    where: { id, status: 'COLLECTING', createdByAdmin: true, ...(hasPhoto && { images: { isEmpty: false } }) },
     data: {
       status: 'PROCESSING',
       rawText: notes,
@@ -231,7 +242,8 @@ export async function chooseListingText(id: string, mode: TextMode) {
     }
     if (!texts) {
       const kind = submission.kind as ProductKind;
-      const photo = submission.rawImages[0] ? await fetchImage(submission.rawImages[0]) : null;
+      const photoUrl = submission.rawImages.find((url) => !isVideoUrl(url));
+      const photo = photoUrl ? await fetchImage(photoUrl) : null;
       const categories = await getListingCategories(kind, submission.isWanted);
       texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], kind, undefined, submission.isWanted)).texts;
     }

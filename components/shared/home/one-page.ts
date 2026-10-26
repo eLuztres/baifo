@@ -1,10 +1,9 @@
 /** Home, showroom, shop, workshop and contact are parts of one scrolling page; these are their element ids. */
-// In page order: the header marks the last part scrolled past as the current one.
 export const SECTION_IDS = {
   home: 'home',
-  workshop: 'workshop',
   showroom: 'showroom',
   shop: 'shop',
+  workshop: 'workshop',
   contact: 'contact',
 } as const;
 

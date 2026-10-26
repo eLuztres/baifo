@@ -1,8 +1,7 @@
 import { useState } from 'react';
+import { isVideoUrl } from '@/lib/video';
 
 type MediaState = 'image' | 'video' | 'failed';
-
-const VIDEO_URL = /\.(mp4|webm|mov|m4v)([?#]|$)/i;
 
 // Uploaded files have no extension; once one played as a video, later mounts start as video.
 const knownVideos = new Set<string>();
@@ -13,7 +12,7 @@ const knownVideos = new Set<string>();
  */
 export function useMedia(src: string) {
     const [fallback, setFallback] = useState<{ src: string; state: MediaState }>();
-    const guessed: MediaState = VIDEO_URL.test(src) || knownVideos.has(src) ? 'video' : 'image';
+    const guessed: MediaState = isVideoUrl(src) || knownVideos.has(src) ? 'video' : 'image';
     const state = fallback?.src === src ? fallback.state : guessed;
 
     const handleError = () => setFallback({ src, state: state === 'image' ? 'video' : 'failed' });

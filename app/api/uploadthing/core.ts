@@ -33,5 +33,19 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };
     }),
+  // A short video of a service, kept as it is (no AI can edit videos).
+  videosUploader: f({
+    'video/mp4': { maxFileSize: '64MB', maxFileCount: 2 },
+    'video/quicktime': { maxFileSize: '64MB', maxFileCount: 2 },
+    'video/webm': { maxFileSize: '64MB', maxFileCount: 2 },
+  })
+    .middleware(async () => {
+      const session = await auth();
+      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
+      return { userId: session.user.id };
+    })
+    .onUploadComplete(async ({ metadata }) => {
+      return { uploadedBy: metadata.userId };
+    }),
 } satisfies FileRouter;
 export type OurFileRouter = typeof ourFileRouter;

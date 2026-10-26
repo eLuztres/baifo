@@ -1,9 +1,9 @@
 import { UTApi, UTFile } from 'uploadthing/server';
 import { downloadMedia } from '@/lib/whatsapp-cloud/client';
 
-const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/webp': 'webp' };
+const EXTENSIONS: Record<string, string> = { 'image/png': 'png', 'image/webp': 'webp', 'video/mp4': 'mp4' };
 
-/** Stores a picture in UploadThing and returns its permanent URL. */
+/** Stores a picture (or a cleaned-up video) in UploadThing and returns its permanent URL. */
 export async function uploadImage(data: Buffer, name: string, mimeType = 'image/jpeg') {
   const extension = EXTENSIONS[mimeType] ?? 'jpg';
   const [upload] = await new UTApi().uploadFiles([new UTFile([data], `${name}-${Date.now()}.${extension}`, { type: mimeType })]);

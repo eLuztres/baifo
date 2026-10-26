@@ -1,7 +1,8 @@
 import { prisma } from '@/db/prisma';
 import { createPicture, enhancePhoto, writeListing } from '@/lib/marketplace/ai';
-import { fetchImage } from '@/lib/marketplace/media';
+import { fetchImage, uploadImage } from '@/lib/marketplace/media';
 import { processSubmission } from '@/lib/marketplace/processing';
+import { cleanUpVideo } from '@/lib/marketplace/video-cleanup';
 import { getShopPlaces } from '@/lib/places';
 
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
@@ -24,6 +25,7 @@ jest.mock('@/lib/marketplace/media', () => ({
   storeWhatsappPhoto: jest.fn(),
   uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
 }));
+jest.mock('@/lib/marketplace/video-cleanup', () => ({ cleanUpVideo: jest.fn(async () => Buffer.from('clean')) }));
 jest.mock('@/db/prisma', () => ({ prisma: { submission: { findUnique: jest.fn(), update: jest.fn() } } }));
 jest.mock('@/lib/places', () => ({
   getShopPlaces: jest.fn(async () => [
@@ -106,5 +108,79 @@ describe('processSubmission without a photo', () => {
 
     expect(writeListing).not.toHaveBeenCalled();
     expect(db.update.mock.calls[0][0].data.lastError).toBe('No photo to work with');
+  });
+});
+
+describe('processSubmission with a service video', () => {
+  const VIDEO = 'https://x.ufs.sh/f/clip#video';
+  const PHOTO = 'https://x.ufs.sh/f/photo';
+  const SERVICE = { ...WANTED, kind: 'service', isWanted: false };
+
+  it('makes the cover from the text when there is only a video, and keeps the video after it', async () => {
+    const written = { ...SERVICE, rawImages: [VIDEO], title: 'Clases de surf', description: 'Con Ana.' };
+    db.findUnique.mockResolvedValueOnce({ ...SERVICE, rawImages: [VIDEO] }).mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(fetchImage).not.toHaveBeenCalled();
+    expect(enhancePhoto).not.toHaveBeenCalled();
+    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], lastError: null } });
+  });
+
+  it('lets the AI see and retouch only the photos, with the video last and no AI picture of it', async () => {
+    const written = { ...SERVICE, rawImages: [VIDEO, PHOTO], title: 'Clases de surf', description: 'Con Ana.' };
+    db.findUnique.mockResolvedValueOnce({ ...SERVICE, rawImages: [VIDEO, PHOTO] }).mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, seller: {} });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+
+    await processSubmission('sub-1');
+
+    expect(fetchImage).toHaveBeenCalledWith(PHOTO);
+    expect(enhancePhoto).toHaveBeenCalledTimes(1);
+    expect(db.update).toHaveBeenCalledWith({
+      where: { id: 'sub-1' },
+      data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: ['', 'https://x.ufs.sh/f/made.jpg'], lastError: null },
+    });
+  });
+
+  it('cleans up each video in use after the pictures, keeping the original to switch back to', async () => {
+    const pictured = { ...SERVICE, usesAi: true, rawImages: [VIDEO], images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: [], title: 'Clases de surf' };
+    db.findUnique.mockResolvedValue(pictured);
+    db.update.mockResolvedValue({ ...pictured, seller: {} });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('video'));
+    (uploadImage as jest.Mock).mockResolvedValueOnce('https://x.ufs.sh/f/clean');
+
+    await processSubmission('sub-1');
+
+    expect(cleanUpVideo).toHaveBeenCalledTimes(1);
+    expect(uploadImage).toHaveBeenCalledWith(Buffer.from('clean'), expect.stringContaining('video'), 'video/mp4');
+    expect(db.update).toHaveBeenCalledWith({
+      where: { id: 'sub-1' },
+      data: { images: ['https://x.ufs.sh/f/made.jpg', 'https://x.ufs.sh/f/clean#video'], aiImages: ['https://x.ufs.sh/f/clean#video'] },
+    });
+  });
+
+  it('keeps the original video when the clean-up fails, and still finishes the listing', async () => {
+    const pictured = { ...SERVICE, usesAi: true, rawImages: [VIDEO], images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: [], title: 'Clases de surf' };
+    db.findUnique.mockResolvedValue(pictured);
+    db.update.mockResolvedValue({ ...pictured, seller: {} });
+    (cleanUpVideo as jest.Mock).mockRejectedValueOnce(new Error('ffmpeg failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await processSubmission('sub-1');
+
+    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: pictured.images, aiImages: [''] } });
+    expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
+  });
+
+  it('leaves the videos as uploaded when the admin went on without AI', async () => {
+    const asUploaded = { ...SERVICE, usesAi: false, rawImages: [VIDEO], images: [VIDEO], aiImages: [], title: 'Clases de surf' };
+    db.findUnique.mockResolvedValue(asUploaded);
+    db.update.mockResolvedValue({ ...asUploaded, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(cleanUpVideo).not.toHaveBeenCalled();
   });
 });

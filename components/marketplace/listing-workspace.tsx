@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import { isVideoUrl } from '@/lib/video';
 import DescriptionStep from './description-step';
 import ListingEditor, { type CategoryOption, type EditorLanguage, type PlaceOption } from './listing-editor';
 import ListingStage from './listing-stage';
@@ -28,8 +29,8 @@ const POLL_MS = 2500;
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
-  // Still collecting with photos but no pictures yet: the AI is making them. Without photos it waits for the description.
-  const isMakingPictures = listing.status === 'COLLECTING' && listing.images.length === 0 && listing.rawImages.length > 0;
+  // Still collecting with photos but no pictures yet: the AI is making them. Without photos (or with only videos) it waits for the description.
+  const isMakingPictures = listing.status === 'COLLECTING' && listing.images.length === 0 && listing.rawImages.some((url) => !isVideoUrl(url));
   // The AI is busy: on the pictures (still collecting) or on the text.
   const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures);
 
