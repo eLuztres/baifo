@@ -59,7 +59,13 @@ describe('LanguageSwitcher (pills)', () => {
   it('offers only the languages the shop has enabled', () => {
     renderWithI18n(<LanguageSwitcher />, { locales: ['en', 'de'] });
 
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['EN', 'DE']);
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('lang'))).toEqual(['en', 'de']);
+  });
+
+  it('lists the languages in the shop’s own order', () => {
+    renderWithI18n(<LanguageSwitcher />, { locales: ['es', 'en', 'it'] });
+
+    expect(screen.getAllByRole('button').map((b) => b.getAttribute('lang'))).toEqual(['es', 'en', 'it']);
   });
 
   it('is hidden when the shop has a single language', () => {
