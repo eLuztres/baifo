@@ -137,8 +137,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
       {/* Phones stack photo and details; a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
-        {/* A phone's photo gives way first (a third, a quarter on short screens), so title, price and the button always fit. */}
-        <div className='relative min-h-[34%] flex-1 [@media(max-height:700px)]:min-h-[24%] sm:min-h-[50%] lg:min-h-0'>
+        {/* A phone's photo keeps at least 42 % (30 % on short screens) so the whole picture is big enough to see;
+            the description scrolls inside its card, so title, price and the button still fit. */}
+        <div className='relative min-h-[42%] flex-1 [@media(max-height:700px)]:min-h-[30%] sm:min-h-[50%] lg:min-h-0'>
           <ProductImages images={product.images} alt={name} />
           {isIllustrative && (
             <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>

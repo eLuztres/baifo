@@ -22,7 +22,12 @@ export const RingGlassCard = ({ product, imageIndex }: RingGlassCardProps) => (
   <div className={cn(styles.glassCard, styles.featured)}>
     {product.images.map((src, index) => (
       <div key={src} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
-        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} />
+        {/* A phone's photo box is wide and flat: the whole photo shows on a blurred copy of itself instead of
+            being cropped to its middle (a tall photo would show only sky). */}
+        <div className='absolute inset-0 scale-110 opacity-70 blur-2xl sm:hidden' aria-hidden>
+          <ProductMedia src={src} fill sizes='8rem' />
+        </div>
+        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} className='max-sm:object-contain' />
       </div>
     ))}
   </div>
