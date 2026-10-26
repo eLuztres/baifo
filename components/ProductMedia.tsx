@@ -20,8 +20,6 @@ interface ProductMediaProps {
     priority?: boolean;
     /** 'eager' loads the photo right away even when it's out of view, e.g. a row the visitor is about to scroll through. */
     loading?: 'eager' | 'lazy';
-    /** A video gets play, sound and seek controls, e.g. full screen. */
-    controls?: boolean;
     /** A video shows only its first frame and loads just enough for it (thumbnails, blurred backdrops). */
     isStill?: boolean;
     /** A video plays only while it is on screen, and loads nothing before (a feed full of cards). */
@@ -39,7 +37,6 @@ export default function ProductMedia({
                                          poster,
                                          priority = false,
                                          loading,
-                                         controls = false,
                                          isStill = false,
                                          playsWhenVisible = false
                                      }: ProductMediaProps) {
@@ -85,7 +82,6 @@ export default function ProductMedia({
                     autoPlay={!isStill && !playsWhenVisible}
                     loop
                     muted
-                    controls={controls}
                     playsInline
                     // With a still frame a preview loads nothing of the video; a feed card only once it's on screen.
                     preload={playsWhenVisible || (isStill && posterUrl) ? 'none' : isStill ? 'metadata' : 'auto'}

@@ -17,7 +17,7 @@ interface DarkRoomHeroProps {
 
 export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
   const { t } = await getT();
-  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl : undefined;
+  const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   // A shop can leave the three big words empty (brand/messages); its facts then become the page's heading.
   const words = [t('HOME_HERO_WORD_1'), t('HOME_HERO_WORD_2'), t('HOME_HERO_WORD_3')].filter(Boolean);
   const Facts = words.length > 0 ? 'p' : 'h1';

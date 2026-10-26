@@ -64,62 +64,77 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
   }, [count, isHovered, isReducedMotion, fullScreenIndex, isVideoShown]);
 
   return (
-    <div
-      className='flex h-full flex-col-reverse gap-3 sm:flex-row sm:gap-4'
-      onPointerEnter={() => setIsHovered(true)}
-      onPointerLeave={() => setIsHovered(false)}
-    >
-      {count > 1 && (
-        <div className='flex shrink-0 flex-wrap items-center justify-center gap-3 sm:flex-col sm:flex-nowrap sm:self-center'>
-          <Button
-            variant='outline'
-            size='icon'
-            className={TURN_BUTTON_CLASS}
-            aria-label={t('RING_PHOTO_PREVIOUS')}
-            onClick={() => turn(-1)}
+    <>
+      {/* Phones: the photos two side by side, each whole; a tap opens it full screen. */}
+      <div className={cn('h-full overflow-y-auto sm:hidden', count > 1 ? 'grid grid-cols-2 gap-2 [align-content:safe_center]' : 'flex justify-center')}>
+        {images.map((image, index) => (
+          <button
+            type='button'
+            key={image}
+            onClick={() => setFullScreenIndex(index)}
+            aria-label={t('SHOW_IMAGE', { n: index + 1 })}
+            className={cn('relative aspect-[4/5] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
           >
-            <ChevronUp />
-          </Button>
-          {images.map((image, index) => (
-            <button
-              type='button'
-              key={image}
-              onClick={() => setCurrent(index)}
-              aria-label={t('SHOW_IMAGE', { n: index + 1 })}
-              aria-current={index === current || undefined}
-              className={cn(ringStyles.thumb, index === current && ringStyles.thumbActive)}
+            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} />
+          </button>
+        ))}
+      </div>
+      <div
+        className='flex h-full flex-col-reverse gap-3 max-sm:hidden sm:flex-row sm:gap-4'
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => setIsHovered(false)}
+      >
+        {count > 1 && (
+          <div className='flex shrink-0 flex-wrap items-center justify-center gap-3 sm:flex-col sm:flex-nowrap sm:self-center'>
+            <Button
+              variant='outline'
+              size='icon'
+              className={TURN_BUTTON_CLASS}
+              aria-label={t('RING_PHOTO_PREVIOUS')}
+              onClick={() => turn(-1)}
             >
-              <ProductMedia src={image} alt='' fill sizes='5rem' isStill />
-            </button>
-          ))}
-          <Button
-            variant='outline'
-            size='icon'
-            className={TURN_BUTTON_CLASS}
-            aria-label={t('RING_PHOTO_NEXT')}
-            onClick={() => turn(1)}
-          >
-            <ChevronDown />
-          </Button>
-        </div>
-      )}
-      {/* The photo takes the room it is given, as high as fits and 4:5 wide, so the page never scrolls.
-          Phones are too narrow for that: there it spans the full width and is cropped to fill. */}
-      <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
-        <button
-          type='button'
-          className='aspect-[4/5] h-full max-w-full cursor-zoom-in rounded-[1.75rem] max-sm:aspect-auto max-sm:w-full'
-          aria-label={t('IMAGE_FULLSCREEN')}
-          onClick={openFullScreen}
-          {...(count > 1 ? swipe.handlers : {})}
-        >
-          <div ref={cardRef} className='contents'>
-            <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
+              <ChevronUp />
+            </Button>
+            {images.map((image, index) => (
+              <button
+                type='button'
+                key={image}
+                onClick={() => setCurrent(index)}
+                aria-label={t('SHOW_IMAGE', { n: index + 1 })}
+                aria-current={index === current || undefined}
+                className={cn(ringStyles.thumb, index === current && ringStyles.thumbActive)}
+              >
+                <ProductMedia src={image} alt='' fill sizes='5rem' isStill />
+              </button>
+            ))}
+            <Button
+              variant='outline'
+              size='icon'
+              className={TURN_BUTTON_CLASS}
+              aria-label={t('RING_PHOTO_NEXT')}
+              onClick={() => turn(1)}
+            >
+              <ChevronDown />
+            </Button>
           </div>
-        </button>
+        )}
+        {/* The photo takes the room it is given, as high as fits and 4:5 wide, so the page never scrolls. */}
+        <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
+          <button
+            type='button'
+            className='aspect-[4/5] h-full max-w-full cursor-zoom-in rounded-[1.75rem]'
+            aria-label={t('IMAGE_FULLSCREEN')}
+            onClick={openFullScreen}
+            {...(count > 1 ? swipe.handlers : {})}
+          >
+            <div ref={cardRef} className='contents'>
+              <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
+            </div>
+          </button>
+        </div>
       </div>
       <ImageLightbox images={images} alt={alt} index={fullScreenIndex} onIndexChange={handleFullScreenChange} />
-    </div>
+    </>
   );
 };
 

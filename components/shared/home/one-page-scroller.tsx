@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { createWheelGestureGate, glideBehavior, isClearlyVertical, isInsideScrollOwner, SECTION_ORDER } from './one-page';
+import { useActiveSection } from '@/components/shared/header/use-active-section';
+import { createWheelGestureGate, glideBehavior, isClearlyVertical, isInsideScrollOwner, SECTION_IDS, SECTION_ORDER } from './one-page';
 
 // Keys that turn the page; Shift turns them around, like Shift+Space.
 const KEY_DIRECTIONS: Partial<Record<string, number>> = { ArrowDown: 1, PageDown: 1, ' ': 1, ArrowUp: -1, PageUp: -1 };
@@ -27,6 +28,8 @@ const animationsAround = (part: Element) =>
 
 /** Touch turns part by part with CSS scroll snapping (one-page.module.css); this turns one part per key or wheel gesture and lands `/#part` links. */
 export default function OnePageScroller() {
+  const activeSection = useActiveSection();
+
   useEffect(() => {
     let isMounted = true;
     // The layout around the parts scrolls, not the window.
@@ -84,6 +87,16 @@ export default function OnePageScroller() {
       scroller.removeEventListener('wheel', handleWheel);
     };
   }, []);
+
+  // The page scrolls inside the layout, so the browser can't bring it back to the part on the way back from a listing:
+  // the part's hash can (the landing above). Replaced, so turning parts adds no steps to the back button.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const hash = activeSection === SECTION_IDS.home ? '' : `#${activeSection}`;
+    if (url.hash === hash) return;
+    url.hash = hash;
+    window.history.replaceState(null, '', url);
+  }, [activeSection]);
 
   return null;
 }

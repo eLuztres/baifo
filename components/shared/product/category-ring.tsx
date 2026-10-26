@@ -192,7 +192,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
 
   return (
     // data-swipe-owner: sideways swipes here browse the categories and rings, never turn the page to another part.
-    <section className={cn('flex min-h-0 flex-1 flex-col justify-center gap-4', styles.categorySection)} data-swipe-owner=''>
+    <section className={cn('relative flex min-h-0 flex-1 flex-col justify-center gap-4', styles.categorySection)} data-swipe-owner=''>
       <div
         ref={stageRef}
         role='region'
@@ -248,20 +248,21 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
             })}
           </ul>
         </div>
-        {/* An arrow on each neighbour card, so it's clear that tapping there turns the ring. */}
-        {neighbourSpots.map(({ offset, x, y }) => (
-          <button
-            key={offset}
-            type='button'
-            className={styles.turnHint}
-            style={{ left: x, top: y }}
-            aria-label={t(offset === -1 ? 'STORE_CATEGORY_PREVIOUS' : 'STORE_CATEGORY_NEXT')}
-            onClick={() => setStep((current) => current + offset)}
-          >
-            {offset === -1 ? <ChevronLeft /> : <ChevronRight />}
-          </button>
-        ))}
       </div>
+      {/* An arrow on each neighbour card, so it's clear that tapping there turns the ring; beside the stage, whose faded
+          edges would hide them where a phone puts them. */}
+      {neighbourSpots.map(({ offset, x, y }) => (
+        <button
+          key={offset}
+          type='button'
+          className={styles.turnHint}
+          style={{ left: x, top: y }}
+          aria-label={t(offset === -1 ? 'STORE_CATEGORY_PREVIOUS' : 'STORE_CATEGORY_NEXT')}
+          onClick={() => setStep((current) => current + offset)}
+        >
+          {offset === -1 ? <ChevronLeft /> : <ChevronRight />}
+        </button>
+      ))}
 
       {/* The rings of the front category on a second ring below, curved the other way; keyed, so a new category starts at its first ring. */}
       <ConcaveRingRow

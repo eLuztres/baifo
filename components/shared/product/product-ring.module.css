@@ -482,13 +482,14 @@
 }
 
 /* The arrow on the cards left and right of the front one: a glass disc over the middle of the photo
-   (left and top come from the measured card). */
+   (left and top come from the measured card). It sits beside the stage, so the cards' width isn't known here;
+   about a fifth of a phone card (half the screen) is 11vw. */
 .turnHint {
     position: absolute;
     z-index: 1;
     display: grid;
     place-items: center;
-    width: clamp(2.25rem, calc(var(--card-w) * 0.22), 3.25rem);
+    width: clamp(2.25rem, 11vw, 3.25rem);
     aspect-ratio: 1;
     translate: -50% -50%;
     border-radius: 9999px;

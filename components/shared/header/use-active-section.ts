@@ -72,6 +72,9 @@ const subscribeNowhere = () => () => {};
 const getActiveSection = () => activeSection;
 const getFirstSection = () => SECTION_ORDER[0];
 
+/** The part of the one-page home on screen; only for the home itself. */
+export const useActiveSection = (): SectionId => useSyncExternalStore(subscribe, getActiveSection, getFirstSection);
+
 /** The index of the nav link whose part of the one-page home is on screen, or -1 on any other page. */
 export function useActiveNavIndex(links: NavLink[]): number {
   const isOnePage = usePathname() === ONE_PAGE_PATH;

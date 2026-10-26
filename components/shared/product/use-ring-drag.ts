@@ -51,9 +51,9 @@ export function useRingDrag({ setStep }: RingDragOptions) {
     dragRef.current.isDown = false;
   };
 
-  // A swipe that ends on a card must not open it.
+  // A swipe that ends on a card must not open it, whichever way it went: the stage takes every touch, so none scrolls.
   const onClickCapture = (event: MouseEvent<HTMLDivElement>) => {
-    if (dragRef.current.axis === 'x') event.preventDefault();
+    if (dragRef.current.axis) event.preventDefault();
   };
 
   // The browser's own image drag would cancel the pointer gesture as soon as it starts on a card photo.

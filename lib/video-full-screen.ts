@@ -8,7 +8,6 @@ export function playFullScreen(video: HTMLVideoElement): boolean {
   const webkitVideo = video as WebkitVideo;
   const goQuiet = () => {
     video.muted = true;
-    video.controls = false;
     video.play().catch(() => undefined);
   };
 
@@ -31,8 +30,8 @@ export function playFullScreen(video: HTMLVideoElement): boolean {
   }
 
   // The tap that opened full screen lets the browser play with sound.
+  // No controls, also full screen: it just plays.
   video.muted = false;
-  video.controls = true;
   video.play().catch(() => undefined);
   return true;
 }

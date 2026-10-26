@@ -85,7 +85,6 @@ function socialUrl(base: string, account?: string) {
 
 const instagram = env('INSTAGRAM_ACCOUNT');
 const whatsapp = env('WHATSAPP_NUMBER')?.replace(/\D/g, '');
-const sellMessage = env('WHATSAPP_SELL_MESSAGE');
 
 export const BRAND = {
   name: env('APP_NAME') ?? env('NEXT_PUBLIC_APP_NAME') ?? 'My Shop',
@@ -135,8 +134,8 @@ export const BRAND = {
     // Without CONTACT_PHONE the WhatsApp number itself is shown.
     phone: env('CONTACT_PHONE') ?? (whatsapp ? `+${whatsapp}` : undefined),
     whatsappUrl: whatsapp ? `https://wa.me/${whatsapp}` : undefined,
-    /** The "sell" links and QR code: the chat opens with WHATSAPP_SELL_MESSAGE already typed, if set. */
-    sellWhatsappUrl: whatsapp ? `https://wa.me/${whatsapp}${sellMessage ? `?text=${encodeURIComponent(sellMessage)}` : ''}` : undefined,
+    /** The "sell" links and QR code: the chat opens with the message already typed, in the visitor's language. */
+    sellWhatsappUrl: (message: string) => (whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}` : undefined),
     instagram,
     instagramUrl: socialUrl('https://www.instagram.com/', instagram),
     // Whether the website shows each one; the email still sends and receives the shop's mail when hidden.
