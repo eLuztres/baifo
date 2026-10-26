@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { ShopSettingsInput } from '@/lib/validators';
 import { sendWhatsApp } from '@/lib/whatsapp';
 import { Order } from '@/types';
+import { coverPicture } from '@/lib/video';
 
 interface RingAlert {
   product: { name: string; slug: string; images: string[] };
@@ -22,7 +23,7 @@ async function sendOwnerWhatsApp(settings: ShopSettingsInput, lines: string[], a
 function ringWhatsAppLines({ product, customer, reservedUntil }: RingAlert) {
   const t = getTranslator(getShopLocale());
   const until = reservedUntil ? formatReservationEnd(reservedUntil, getShopLocale()) : '';
-  const photo = product.images[0];
+  const photo = coverPicture(product.images);
   const replyNumber = customer.whatsapp?.replace(/\D/g, '');
   return [
     t(reservedUntil ? 'WHATSAPP_RESERVE_ALERT' : 'WHATSAPP_INTEREST_ALERT', { customer: customer.name, name: product.name, until }),

@@ -19,6 +19,13 @@
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr);
     gap: clamp(1.5rem, 3vw, 4rem);
   }
+
+  /* Longer words (BUSCA ESCRIBE LISTO) wrap in their column instead of running under the WhatsApp button. */
+  .title {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    column-gap: 0.35em;
+  }
 }
 
 @media (min-width: 640px) {
@@ -92,6 +99,11 @@
   .jewel {
     order: 0;
   }
+}
+
+/* On a dark page the photo's light sand would glow as a pale halo; it fades out sooner and sinks into the dark. */
+:global(.dark) .jewel {
+  mask-image: radial-gradient(closest-side, black 35%, transparent 88%);
 }
 
 
@@ -219,16 +231,54 @@
   outline-offset: 3px;
 }
 
+/* Phones: the whole opening fits one screen, never more. The photo takes what the words and buttons leave,
+   and the WhatsApp button sits small beside its label under "See listings" instead of a big circle below. */
 @media (max-width: 639px) {
+  .hero {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    align-content: stretch;
+    gap: 1rem;
+    height: calc(100svh - var(--header-h));
+    min-height: 0;
+    /* The page snaps the opening right under the header, so pulling it up would hide its top and show the next part. */
+    margin-top: 0;
+    padding: 1rem var(--gutter) 1.5rem;
+    /* The category ring's sea reaches up into the opening's last strip; the opening stays on top of it. */
+    z-index: 1;
+  }
+
+  .jewel {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    max-height: 22rem;
+  }
+
   .card {
+    gap: 1rem;
     min-height: auto;
+    padding: 0;
   }
 
   .title {
     flex-wrap: wrap;
     justify-content: flex-start;
     column-gap: 0.4em;
-    font-size: 10vw;
+    font-size: clamp(1.75rem, 8.5vw, 2.5rem);
+    line-height: 1.05;
+  }
+
+  .body {
+    gap: 0.6rem;
+  }
+
+  .facts {
+    font-size: clamp(1.05rem, 4.6vw, 1.3rem);
+  }
+
+  .sentence {
+    font-size: 0.95rem;
+    line-height: 1.45;
   }
 
   .foot {
@@ -242,5 +292,33 @@
 
   .foot > :last-child {
     justify-self: start;
+  }
+
+  .sell {
+    grid-auto-flow: column;
+    align-items: center;
+    justify-self: stretch;
+    justify-content: start;
+    gap: 0.85rem;
+  }
+
+  .whatsapp {
+    width: 3.5rem;
+  }
+
+  .whatsapp::before {
+    border-width: 1.5px;
+  }
+
+  .sellLabel {
+    font-size: 0.95rem;
+    color: var(--foreground);
+  }
+}
+
+/* Short phones (iPhone SE): the sentence gives way first, so nothing has to scroll. */
+@media (max-width: 639px) and (max-height: 700px) {
+  .sentence {
+    display: none;
   }
 }

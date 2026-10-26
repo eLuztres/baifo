@@ -91,6 +91,7 @@ Put the files into `public/brand/` and point to them, or use full URLs:
 
 ```env
 BRAND_LOGO=/brand/logo.png          # header, footer, sign-in, emails (SVG, PNG, JPG)
+BRAND_LOGO_DARK=/brand/logo-dark.png  # the logo on dark backgrounds (dark mode); default: BRAND_LOGO
 BRAND_ICON=/brand/icon.png          # browser tab icon
 BRAND_HERO_IMAGE=/brand/hero.jpg    # big picture on the home page (default: logo on a color gradient)
 BRAND_OG_IMAGE=/brand/og.jpg        # preview image when the shop link is shared (default: logo)

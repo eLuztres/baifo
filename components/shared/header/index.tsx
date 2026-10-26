@@ -39,7 +39,7 @@ const Header = async () => {
         <div className='flex items-center gap-1 justify-self-end'>
           {places.length > 0 && <PlacePicker places={places} savedSlugs={parsePlaceSlugs(cookieStore.get(PLACES_COOKIE)?.value)} />}
           <LanguageSwitcher variant='compact' className='hidden lg:inline-flex' />
-          {BRAND.theme === 'system' && <ModeToggle />}
+          {BRAND.theme === 'system' && <ModeToggle className='hidden lg:inline-flex' />}
           <Menu />
         </div>
       </div>

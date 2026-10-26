@@ -114,6 +114,14 @@ describe('describeAdminListing', () => {
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 
+  it('lets a service go through the Corral: no number, the messages reach the shop', async () => {
+    db.submission.findUnique.mockResolvedValue({ kind: 'service', rawImages: ['https://utfs.io/f/garden.jpg'] });
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    expect((await describeAdminListing(ID, { notes: 'Jardinero en Corralejo' })).success).toBe(true);
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ hasContactConsent: false });
+  });
+
   it('waits while the AI still makes the pictures', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
@@ -138,11 +146,11 @@ describe('createAdminListing', () => {
     expect(makeListingPictures).toHaveBeenCalledWith('new-1');
   });
 
-  it('uses photos and videos as they are without AI, the photo first as the cover', async () => {
-    const video = 'https://x.ufs.sh/f/clip#video';
+  it('uses photos and videos as they are without AI, in the admin\'s order (a first video\'s still is the cover)', async () => {
+    const video = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
     await createAdminListing({ photos: [video, 'https://utfs.io/f/ana.jpg'], kind: 'service', useAi: false });
 
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [video, 'https://utfs.io/f/ana.jpg'], images: ['https://utfs.io/f/ana.jpg', video], usesAi: false });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [video, 'https://utfs.io/f/ana.jpg'], images: [video, 'https://utfs.io/f/ana.jpg'], usesAi: false });
     expect(makeListingPictures).not.toHaveBeenCalled();
   });
 

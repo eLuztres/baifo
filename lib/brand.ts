@@ -8,6 +8,7 @@
 import workshop from '@/brand/workshop.json';
 import adminLinks from '@/brand/admin-links.json';
 import ringFigures from '@/brand/ring-figures.json';
+import ringFlyers from '@/brand/ring-flyers.json';
 import homeActions from '@/brand/home-actions.json';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -95,6 +96,8 @@ export const BRAND = {
     'An online shop built on the custom shop template.',
 
   logo: env('BRAND_LOGO') ?? '/brand/logo.svg',
+  /** The logo on dark backgrounds (dark mode); without it the normal logo shows there too. */
+  logoDark: env('BRAND_LOGO_DARK'),
   icon: env('BRAND_ICON') ?? '/brand/icon.svg',
   ogImage: env('BRAND_OG_IMAGE'),
   heroImage: env('BRAND_HERO_IMAGE'),
@@ -166,7 +169,10 @@ export const HOME_ACTIONS: {
 }[] = homeActions;
 
 /** More pictures standing on the ring's center piece (brand/ring-figures.json), next to BRAND_RING_FIGURE. */
-export const RING_FIGURES: { image: string; spinner?: string; at: { x: number; y: number }; scale?: number }[] = ringFigures;
+export const RING_FIGURES: { image: string; spinner?: string; at: { x: number; y: number }; scale?: number; drift?: boolean }[] = ringFigures;
+
+/** The flyers above the ring's center piece (brand/ring-flyers.json), e.g. gulls with their own wing beats; else BRAND_RING_FLYER. */
+export const RING_FLYERS: string[] = ringFlyers.length > 0 ? ringFlyers : BRAND.ringFlyer ? [BRAND.ringFlyer] : [];
 
 /** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
 export const EMAIL_COLORS = {

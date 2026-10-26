@@ -1,7 +1,7 @@
 import { prisma } from '@/db/prisma';
 import { createPicture, enhancePhoto, writeListing } from '@/lib/marketplace/ai';
 import { fetchImage, uploadImage } from '@/lib/marketplace/media';
-import { processSubmission } from '@/lib/marketplace/processing';
+import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { cleanUpVideo } from '@/lib/marketplace/video-cleanup';
 import { getShopPlaces } from '@/lib/places';
 
@@ -182,5 +182,30 @@ describe('processSubmission with a service video', () => {
     await processSubmission('sub-1');
 
     expect(cleanUpVideo).not.toHaveBeenCalled();
+  });
+});
+
+describe('makeListingPictures with only a video', () => {
+  const still = 'https://x.ufs.sh/f/still.jpg';
+  const video = `https://x.ufs.sh/f/clip#video=${encodeURIComponent(still)}`;
+
+  it('makes the shop picture from the video\'s still frame and keeps the video after it', async () => {
+    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', isWanted: false, kind: 'service', rawImages: [video], images: [] });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('still'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(fetchImage).toHaveBeenCalledWith(still);
+    expect(db.update.mock.calls[0][0].data).toMatchObject({ images: ['https://x.ufs.sh/f/made.jpg', video], aiImages: [''] });
+  });
+
+  it('waits for the description when the video has no still', async () => {
+    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', kind: 'service', rawImages: ['https://x.ufs.sh/f/old#video'], images: [] });
+
+    await makeListingPictures('sub-1');
+
+    expect(enhancePhoto).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,12 @@ import type { Locale } from '@/lib/i18n-core';
 
 // Texts of Baifo's admin pages (listings, new listing). Baifo-only, so outside the template's i18n.
 const ES = {
+  contactQuestion: '¿Cómo le escriben?',
+  contactCorral: 'A través del Corral',
+  contactCorralHint: 'Sin número en la web: los mensajes llegan al WhatsApp del Corral (a ti).',
+  contactPerson: 'WhatsApp de la persona',
+  contactPersonHint: 'Le escriben directamente; su número se ve en la web.',
+  contactNeedsNumber: 'Escribe su WhatsApp y marca que acepta, o elige «A través del Corral».',
   placeLabel: 'Lugar',
   kindLabel: 'Qué es',
   kindProduct: 'Producto',
@@ -153,6 +159,12 @@ const ES = {
 };
 
 const EN: typeof ES = {
+  contactQuestion: 'How do people reach it?',
+  contactCorral: 'Through the Corral',
+  contactCorralHint: 'No number on the website: messages go to the Corral’s WhatsApp (to you).',
+  contactPerson: 'The person’s WhatsApp',
+  contactPersonHint: 'People write to them directly; their number shows on the website.',
+  contactNeedsNumber: 'Enter their WhatsApp and tick that they agree, or choose “Through the Corral”.',
   placeLabel: 'Place',
   kindLabel: 'What is it',
   kindProduct: 'Product',
@@ -304,6 +316,12 @@ const EN: typeof ES = {
 };
 
 const IT: typeof ES = {
+  contactQuestion: 'Come lo contattano?',
+  contactCorral: 'Tramite il Corral',
+  contactCorralHint: 'Nessun numero sul sito: i messaggi arrivano al WhatsApp del Corral (a te).',
+  contactPerson: 'WhatsApp della persona',
+  contactPersonHint: 'Le scrivono direttamente; il suo numero si vede sul sito.',
+  contactNeedsNumber: 'Scrivi il suo WhatsApp e spunta che accetta, oppure scegli «Tramite il Corral».',
   placeLabel: 'Luogo',
   kindLabel: 'Cos’è',
   kindProduct: 'Prodotto',

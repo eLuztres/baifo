@@ -32,6 +32,8 @@ export interface RingFigure {
   at: { x: number; y: number };
   /** Its width as a share of the center picture's (default 0.3). */
   scale?: number;
+  /** Drifts slowly over the sea and bobs a little, like a boat. */
+  drift?: boolean;
 }
 
 interface CategoryRingProps {
@@ -41,8 +43,8 @@ interface CategoryRingProps {
   center?: string;
   /** A picture lying under the center picture, three times its size. */
   sea?: string;
-  /** A small picture flying in loops above the center picture. */
-  flyer?: string;
+  /** Small pictures flying in loops above the center picture; each copy takes the next one, so they don't fly alike. */
+  flyers?: string[];
   /** Pictures standing on the center picture. */
   figures?: RingFigure[];
   /** Only for admins: edit rings right here (categories are edited in the admin catalog). */
@@ -65,7 +67,7 @@ const TURN_MS = 1400;
 const ARROWS_APPEAR_MS = 900;
 const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
-const PIECE_LAYERS = 10;
+const PIECE_LAYERS = 16;
 const FLYER_COUNT = 3;
 // The home page's search param with the category in front, e.g. from a listing's way back.
 const CATEGORY_PARAM = 'category';
@@ -103,13 +105,14 @@ interface FiguresProps {
 /** The pictures standing on the center piece, in the cards' scene, so the cards in front hide them (boats never sail over a card). */
 const Figures = ({ figures }: FiguresProps) => (
   <div className={styles.centerPiece} aria-hidden='true'>
-    {figures.map((figure) => (
+    {figures.map((figure, index) => (
       <span
         key={`${figure.image}@${figure.at.x},${figure.at.y}`}
-        className={styles.pieceFigure}
+        className={cn(styles.pieceFigure, figure.drift && styles.figureDrift)}
         style={
           {
             '--figure': `url("${figure.image}")`,
+            '--drift-i': index,
             '--figure-scale': figure.scale,
             left: `${figure.at.x * 100}%`,
             top: `${figure.at.y * 100}%`,
@@ -137,14 +140,14 @@ const Sea = ({ src }: SeaProps) => (
 );
 
 interface FlyersProps {
-  src: string;
+  srcs: string[];
 }
 
-/** A few copies of a picture looping above the center piece, each on its own path and pace. */
-const Flyers = ({ src }: FlyersProps) => (
-  <div className={styles.flyers} style={{ '--flyer': `url("${src}")` } as CSSProperties} aria-hidden='true'>
+/** A few flyers looping above the center piece, each on its own path and pace. */
+const Flyers = ({ srcs }: FlyersProps) => (
+  <div className={styles.flyers} aria-hidden='true'>
     {Array.from({ length: FLYER_COUNT }, (_, index) => (
-      <span key={index} className={styles.flyerPath} style={{ '--flyer-i': index } as CSSProperties}>
+      <span key={index} className={styles.flyerPath} style={{ '--flyer-i': index, '--flyer': `url("${srcs[index % srcs.length]}")` } as CSSProperties}>
         <span className={styles.flyer} />
       </span>
     ))}
@@ -152,7 +155,7 @@ const Flyers = ({ src }: FlyersProps) => (
 );
 
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, center = 'band', sea, flyer, figures = [], admin }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], figures = [], admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   // From the live URL, not a server prop: the back button restores the first server render, not the category turned to since.
@@ -215,7 +218,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyer, figures 
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
           {hasPiece && <CenterPiece src={center} sea={sea} />}
           {hasPiece && figures.length > 0 && <Figures figures={figures} />}
-          {hasPiece && flyer && <Flyers src={flyer} />}
+          {hasPiece && flyers.length > 0 && <Flyers srcs={flyers} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
               const category = categories[index % categories.length];

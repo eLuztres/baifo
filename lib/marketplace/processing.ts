@@ -2,7 +2,7 @@ import { prisma } from '@/db/prisma';
 import type { ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { getShopPlaces } from '@/lib/places';
-import { isVideoUrl, mediaUrl } from '@/lib/video';
+import { isVideoUrl, mediaUrl, videoPoster } from '@/lib/video';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { createPicture, enhancePhoto, writeListing } from './ai';
 import { getListingCategories } from './catalog';
@@ -22,12 +22,15 @@ const findSubmission = (id: string) => prisma.submission.findUnique({ where: { i
 
 const photosOf = (originals: string[]) => originals.filter((url) => !isVideoUrl(url));
 const videosOf = (originals: string[]) => originals.filter(isVideoUrl);
+// Only videos: their still frames are what the AI makes the shop pictures from.
+const stillsOf = (originals: string[]) => videosOf(originals).flatMap((url) => videoPoster(url) ?? []);
 
 /** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures. */
 async function makeShopPictures(submissionId: string, originals: string[], kind: ProductKind, firstPhoto?: Buffer) {
   const photos = photosOf(originals);
+  const sources = photos.length > 0 ? photos : stillsOf(originals);
   const enhanced = await Promise.all(
-    photos.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
+    sources.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
       return uploadImage(await enhancePhoto(photo, kind), `listing-${submissionId}-${index}`);
     })
@@ -60,7 +63,8 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
       pending.map(async (url, index) => {
         try {
           const video = await cleanUpVideo(await fetchImage(url));
-          return [url, mediaUrl(await uploadImage(video, `listing-${submissionId}-video-${index}`, 'video/mp4'), 'video/mp4')] as const;
+          // The cleaned-up video keeps the original's still frame as its cover.
+          return [url, mediaUrl(await uploadImage(video, `listing-${submissionId}-video-${index}`, 'video/mp4'), 'video/mp4', videoPoster(url))] as const;
         } catch (error) {
           // The original video stays: a failed clean-up never holds up the listing.
           console.error(`Video ${url} of submission ${submissionId} not cleaned up`, error);
@@ -84,8 +88,8 @@ export async function makeListingPictures(submissionId: string) {
   if (!submission || submission.status !== 'COLLECTING' || submission.images.length > 0) return;
   try {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
-    // Only videos: the picture is made from the text, after the description.
-    if (photosOf(submission.rawImages).length === 0) return;
+    // Only videos without a still: the picture is made from the text, after the description.
+    if (photosOf(submission.rawImages).length === 0 && stillsOf(submission.rawImages).length === 0) return;
     await makeShopPictures(submissionId, submission.rawImages, submission.kind as ProductKind);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

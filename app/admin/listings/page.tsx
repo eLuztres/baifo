@@ -15,6 +15,7 @@ import { getMarketplaceSettings } from '@/lib/marketplace/settings';
 import ListingsEmailCard from '@/components/marketplace/listings-email-card';
 import { adminTexts, fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn, formatCurrency } from '@/lib/utils';
+import { coverPicture } from '@/lib/video';
 
 export const metadata: Metadata = { title: 'Anuncios' };
 
@@ -69,7 +70,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
     ...listings.map((listing) => ({
       id: listing.id,
       href: `/admin/listings/${listing.id}`,
-      image: listing.images[0] ?? listing.rawImages[0],
+      image: coverPicture(listing.images) ?? coverPicture(listing.rawImages),
       title: listing.title,
       status: listing.status,
       isService: listing.kind === 'service',
@@ -82,7 +83,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       ? unlisted.map((product) => ({
           id: product.id,
           href: `/admin/products/${product.id}`,
-          image: product.images[0],
+          image: coverPicture(product.images),
           title: product.name,
           status: 'LIVE' as const,
           isService: product.kind === 'service',

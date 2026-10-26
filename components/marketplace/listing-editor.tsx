@@ -30,7 +30,7 @@ import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
-import { isVideoUrl } from '@/lib/video';
+import { isVideoUrl, videoPoster } from '@/lib/video';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
 import TextModeSwitch from './text-mode-switch';
@@ -284,8 +284,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
                     <Sparkles className='absolute left-1.5 top-1.5 size-5 rounded-full bg-background/90 p-1 text-primary' aria-label={texts.aiPicture} />
                   )}
                 </button>
-                {/* A video is never the cover of cards and messages. */}
-                {!isVideoUrl(url) && (
+                {/* A video is the cover only with a still frame for cards and messages. */}
+                {(!isVideoUrl(url) || videoPoster(url)) && (
                   <button
                     type='button'
                     onClick={() => index > 0 && makeMain(url)}
@@ -502,7 +502,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
           )}
           <div className='space-y-2'>
             <p className='text-sm font-medium'>{texts.photosLabel}</p>
-            <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} allowVideos={isService} />
+            <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} allowVideos />
           </div>
           {listing.rawImages.length > 0 && (
             <div className='space-y-2'>

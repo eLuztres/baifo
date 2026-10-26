@@ -7,6 +7,10 @@
   "NAV_CART": "Cart",
   "NAV_MENU": "Menu",
   "LANGUAGE_LABEL": "Language",
+  "THEME_LABEL": "Appearance",
+  "THEME_SYSTEM": "Automatic",
+  "THEME_LIGHT": "Light",
+  "THEME_DARK": "Dark",
   "HERO_EYEBROW": "Welcome",
   "HERO_TITLE": "Welcome to {shop}",
   "HERO_CTA": "Shop now",
@@ -717,5 +721,7 @@
   "CORRAL_DEFAULT_NAME": "Corral de {place}",
   "PLACES_SOON_LIST": "Soon:",
   "EXPLORE_WANTED_BADGE": "Wanted",
-  "HOME_ACTIONS_TITLE": "What can you do?"
+  "HOME_ACTIONS_TITLE": "What can you do?",
+  "CONTACT_CORRAL_MESSAGE": "Hi {to}! I’m interested in “{name}”: {url}",
+  "CONTACT_CORRAL_WHATSAPP": "Message the {to}"
 }

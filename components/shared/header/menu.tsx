@@ -10,9 +10,11 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { SHOWCASE_MODE } from '@/lib/constants';
+import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import UserButton from './user-button';
 import LanguageSwitcher from './language-switcher';
+import ModeToggle from './mode-toggle';
 import MenuAccount, { MENU_ROW_CLASS } from './menu-account';
 import CartButton, { CartLink } from './cart-button';
 import { getNavLinks } from './nav-items';
@@ -51,6 +53,7 @@ const Menu = async () => {
         <SheetContent className='flex flex-col gap-6 overflow-y-auto' aria-describedby={undefined}>
           <SheetTitle className='font-display text-2xl'>{menuLabel}</SheetTitle>
           <LanguageSwitcher />
+          {BRAND.theme === 'system' && <ModeToggle variant='pills' />}
           <nav className='flex flex-col gap-1'>
             {navLinks.map((link) => (
               <SheetClose asChild key={link.href}>

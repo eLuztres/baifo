@@ -4,6 +4,7 @@ import { EmailLayout, emailService } from '@/email';
 import { formatCurrency } from '@/lib/utils';
 import { productUrl } from './config';
 import { getMarketplaceSettings } from './settings';
+import { coverPicture } from '@/lib/video';
 
 interface LiveListing {
   slug: string;
@@ -61,7 +62,7 @@ export async function sendListingsEmail({ isAutomatic = true } = {}) {
   });
   const listings = products.map(({ images, contactPhone, price, ...product }) => ({
     ...product,
-    image: images[0],
+    image: coverPicture(images),
     price: price.toString(),
     phone: contactPhone,
   }));

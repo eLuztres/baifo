@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, MapPin } from 'lucide-react';
+import { ChevronLeft, MapPin, MessageCircle } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
@@ -9,6 +9,7 @@ import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
+import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import RelatedStrip from '@/components/shared/product/related-strip';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
@@ -21,15 +22,16 @@ import {
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
 import { BRAND } from '@/lib/brand';
-import { conditionKey, RESERVATION_HOURS, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
+import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
-import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import { getPlaceWithCorral, getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { composeFeed } from '@/lib/feed';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
+import { coverPicture } from '@/lib/video';
 
 /** How many similar listings the strip under a listing shows. */
 const RELATED_COUNT = 8;
@@ -85,6 +87,15 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const priceLabel = rings.some((ring) => ring.slug === slug && ring.isWanted) ? t('WANTED_BUDGET') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
+  // No seller number in a shop with places: buyers write to the place's Corral (else the shop) with the message ready.
+  const corral = place && !hasSellerContact ? (await getPlaceWithCorral(place.slug, locale))?.corral : undefined;
+  const corralNumber = corral?.whatsapp?.replace(/\D/g, '');
+  const corralChatUrl =
+    place && !hasSellerContact && (corralNumber || BRAND.contact.whatsappUrl)
+      ? `${corralNumber ? `https://wa.me/${corralNumber}` : BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
+          t('CONTACT_CORRAL_MESSAGE', { to: corral?.name ?? APP_NAME, name, url: `${SERVER_URL}/product/${slug}` })
+        )}`
+      : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
@@ -179,7 +190,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             )}
             {description && (
-              <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
+              // On a phone it fades out at the bottom, so a squeezed text reads as "scroll for more", not as cut off.
+              <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 max-lg:[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),transparent)] sm:text-base sm:leading-7'>
                 {description}
               </p>
             )}
@@ -189,11 +201,17 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} label={priceLabel} />}
                 {hasSellerContact ? (
                   <ContactSellerButton productId={product.id} productName={name} className='w-full' />
+                ) : corralChatUrl ? (
+                  <Button asChild className='h-11 w-full rounded-full'>
+                    <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
+                      <MessageCircle /> {t('CONTACT_CORRAL_WHATSAPP', { to: corral?.name ?? APP_NAME })}
+                    </a>
+                  </Button>
                 ) : (
                   <InterestButton
                     productId={product.id}
                     productName={name}
-                    image={product.images[0]}
+                    image={coverPicture(product.images)}
                     userName={session?.user?.name ?? undefined}
                     className='w-full'
                   />
@@ -248,7 +266,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </>
             )}
           </div>
-          <RelatedStrip title={t('PRODUCT_RELATED_TITLE')} listings={related} seeAllHref={feedHref} seeAllLabel={t('CATEGORY_SEE_ALL')} />
+          {/* Short phones (iPhone SE) need the room for the price and the contact button; the strip steps aside. */}
+          <div className='shrink-0 max-sm:[@media(max-height:600px)]:hidden'>
+            <RelatedStrip title={t('PRODUCT_RELATED_TITLE')} listings={related} seeAllHref={feedHref} seeAllLabel={t('CATEGORY_SEE_ALL')} />
+          </div>
         </div>
       </div>
     </section>

@@ -1,13 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">
   <style>
-    /* Two wing beats, then a long glide, like a gull riding the wind. */
-    @keyframes flap { 0%, 30%, 100% { transform: scaleY(1); } 8%, 22% { transform: scaleY(-0.45); } 15% { transform: scaleY(1.1); } }
-    .wings { transform-origin: 60px 30px; animation: flap 2.6s ease-in-out infinite; }
+    /* Three wing beats, then a glide. The wings swing from the shoulder, each gull on its own rhythm, so the flock never beats in step. */
+    @keyframes left { 0%,46%,100% { transform: rotate(0deg); } 7% { transform: rotate(-16deg); } 14% { transform: rotate(22deg); } 21% { transform: rotate(-16deg); } 28% { transform: rotate(22deg); } 35% { transform: rotate(-12deg); } 64% { transform: rotate(-4deg); } 82% { transform: rotate(3deg); } }
+    @keyframes right { 0%,46%,100% { transform: rotate(0deg); } 7% { transform: rotate(16deg); } 14% { transform: rotate(-22deg); } 21% { transform: rotate(16deg); } 28% { transform: rotate(-22deg); } 35% { transform: rotate(12deg); } 64% { transform: rotate(4deg); } 82% { transform: rotate(-3deg); } }
+    .wing { transform-origin: 60px 30px; animation: 3.4s ease-in-out 0s infinite; }
+    .left { animation-name: left; }
+    .right { animation-name: right; }
   </style>
-  <g class="wings" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 26 Q22 10 40 16 Q52 20 60 30 Q68 20 80 16 Q98 10 112 26" stroke="#1F2A2E" stroke-width="10"/>
-    <path d="M10 25 Q22 12 40 18 Q52 22 60 31 Q68 22 80 18 Q98 12 110 25" stroke="#FFFFFF" stroke-width="5"/>
-    <path d="M8 26 Q13 19 20 16 M112 26 Q107 19 100 16" stroke="#1F2A2E" stroke-width="9"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g class="wing left">
+      <path d="M60 30 Q52 20 40 16 Q22 10 8 26" stroke="#1F2A2E" stroke-width="10"/>
+      <path d="M60 31 Q52 22 40 18 Q22 12 10 25" stroke="#FFFFFF" stroke-width="5"/>
+      <path d="M8 26 Q13 19 20 16" stroke="#1F2A2E" stroke-width="9"/>
+    </g>
+    <g class="wing right">
+      <path d="M60 30 Q68 20 80 16 Q98 10 112 26" stroke="#1F2A2E" stroke-width="10"/>
+      <path d="M60 31 Q68 22 80 18 Q98 12 110 25" stroke="#FFFFFF" stroke-width="5"/>
+      <path d="M112 26 Q107 19 100 16" stroke="#1F2A2E" stroke-width="9"/>
+    </g>
   </g>
   <ellipse cx="60" cy="31" rx="7" ry="5" fill="#FFFFFF" stroke="#1F2A2E" stroke-width="2.5"/>
   <path d="M66 31 L71 30" stroke="#F4B942" stroke-width="2.5" stroke-linecap="round"/>

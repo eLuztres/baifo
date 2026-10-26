@@ -17,21 +17,26 @@ interface DarkRoomHeroProps {
 export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
   const { t } = await getT();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl : undefined;
+  // A shop can leave the three big words empty (brand/messages); its facts then become the page's heading.
+  const words = [t('HOME_HERO_WORD_1'), t('HOME_HERO_WORD_2'), t('HOME_HERO_WORD_3')].filter(Boolean);
+  const Facts = words.length > 0 ? 'p' : 'h1';
 
   return (
     <section className={cn(room.bleed, styles.hero)}>
       <div className={styles.card}>
-        <h1 className={cn(room.display, styles.title)}>
-          <span>{t('HOME_HERO_WORD_1')}</span>
-          <span>{t('HOME_HERO_WORD_2')}</span>
-          <span>{t('HOME_HERO_WORD_3')}</span>
-        </h1>
+        {words.length > 0 && (
+          <h1 className={cn(room.display, styles.title)}>
+            {words.map((word) => (
+              <span key={word}>{word}</span>
+            ))}
+          </h1>
+        )}
 
         <div className={styles.body}>
-          <p className={cn(room.display, styles.facts)}>
-            <span>{t('HOME_HERO_FACT_1')}</span>
+          <Facts className={cn(room.display, styles.facts)}>
+            <span>{t('HOME_HERO_FACT_1')}</span>{' '}
             <span>{t('HOME_HERO_FACT_2', { shop: APP_NAME })}</span>
-          </p>
+          </Facts>
           <p className={styles.sentence}>{t('HOME_HERO_TEXT')}</p>
         </div>
 

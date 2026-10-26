@@ -1,12 +1,29 @@
 // UploadThing URLs carry no file extension, so an uploaded video is marked with this fragment (never sent to the server).
+// It can carry the video's still frame, #video=<still URL>: the picture wherever a video can't play (WhatsApp, email, previews).
 export const VIDEO_MARK = '#video';
 
-const VIDEO_URL = /\.(mp4|webm|mov|m4v)([?#]|$)|#video$/i;
+const VIDEO_URL = /\.(mp4|webm|mov|m4v)([?#]|$)|#video(=[^#]*)?$/i;
 
 export const isVideoUrl = (url: string) => VIDEO_URL.test(url);
 
-/** The uploaded file's URL, marked when the file is a video. */
-export const mediaUrl = (url: string, type: string) => (type.startsWith('video/') ? `${url}${VIDEO_MARK}` : url);
+/** The uploaded file's URL, marked when the file is a video (with its still frame, when there is one). */
+export const mediaUrl = (url: string, type: string, still?: string) =>
+  type.startsWith('video/') ? `${url}${VIDEO_MARK}${still ? `=${encodeURIComponent(still)}` : ''}` : url;
+
+/** The still frame a video URL carries, if any. */
+export function videoPoster(url: string) {
+  const still = url.match(/#video=([^#]+)$/)?.[1];
+  return still ? decodeURIComponent(still) : undefined;
+}
+
+/** The file itself, without the mark: what a <video> loads. */
+export const videoSource = (url: string) => url.split('#')[0];
+
+/** The picture for places that only show pictures: a photo itself, a video's still frame, or none. */
+export const pictureOf = (url: string) => (isVideoUrl(url) ? videoPoster(url) : url);
+
+/** The cover of a listing for cards, messages and previews: its first picture, a first video's still counting as one. */
+export const coverPicture = (media: string[]) => media.map(pictureOf).find(Boolean);
 
 // iPhones sometimes never fire a video's events for a file that isn't on the page: without a limit the upload hung at 100%.
 const STILL_TIMEOUT_MS = 8000;

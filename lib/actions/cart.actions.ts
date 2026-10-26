@@ -12,6 +12,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_PRICE, SHOWCASE_MODE, TAX_RATE } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { coverPicture } from '@/lib/video';
 
 export interface CartActionResult {
   success: boolean;
@@ -99,7 +100,7 @@ export async function addItemToCart(
       productId,
       name: product.name,
       slug: product.slug,
-      image: product.images[0],
+      image: coverPicture(product.images) ?? product.images[0],
       price: round2(product.price).toFixed(2),
       qty,
     };

@@ -7,7 +7,7 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
-import { isVideoUrl } from '@/lib/video';
+import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
 import { HOUSE_SELLER } from './config';
@@ -49,8 +49,8 @@ export async function createAdminListing(input: NewListingInput) {
   const { photos, kind, useAi } = parsed.data;
   if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
   const isWanted = kind === 'wanted';
-  // Without AI the originals are the pictures at once, photos first so the cover is a picture.
-  const images = useAi ? [] : [...photos.filter((url) => !isVideoUrl(url)), ...photos.filter(isVideoUrl)];
+  // Without AI the originals are the pictures at once, in the admin's order: a first video's still is the cover.
+  const images = useAi ? [] : photos;
   const submission = await prisma.submission.create({
     data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, images, usesAi: useAi, kind: isWanted ? 'product' : kind, isWanted },
   });
@@ -81,14 +81,10 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, rawImages: true } });
-  // Videos only count as no photo: the AI makes the picture from the description.
-  const hasPhoto = Boolean(listing?.rawImages.some((url) => !isVideoUrl(url)));
+  // A video without a still counts as no photo: the AI makes the picture from the description.
+  const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
-  // A service is nothing without the person's WhatsApp, and that number goes public.
-  if (listing?.kind === 'service' && !(sellerPhone && hasContactConsent)) {
-    return { success: false, message: 'Un servicio necesita el WhatsApp de la persona y su permiso para mostrarlo' };
-  }
-
+  // Without the person's number (or their OK to show it), buyers write through the Corral, services included.
   // A Spanish mobile without country code gets +34.
   const waId = sellerPhone ? (sellerPhone.length === 9 ? `34${sellerPhone}` : sellerPhone) : HOUSE_SELLER;
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
@@ -242,7 +238,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
     }
     if (!texts) {
       const kind = submission.kind as ProductKind;
-      const photoUrl = submission.rawImages.find((url) => !isVideoUrl(url));
+      const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);
       const photo = photoUrl ? await fetchImage(photoUrl) : null;
       const categories = await getListingCategories(kind, submission.isWanted);
       texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], kind, undefined, submission.isWanted)).texts;

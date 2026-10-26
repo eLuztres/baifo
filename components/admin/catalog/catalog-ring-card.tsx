@@ -22,7 +22,7 @@ const CatalogRingCard = ({ ring, ringIds, soldOutLabel, reservedLabel }: Catalog
         href={ring.listingId ? `/admin/listings/${ring.listingId}` : `/admin/products/${ring.id}`}
         className='group relative block aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted transition hover:border-primary/60'
       >
-        <ProductMedia src={ring.images[0]} alt={ring.name} fill sizes='(min-width: 1024px) 16rem, 50vw' className='object-cover' />
+        <ProductMedia src={ring.images[0]} playsWhenVisible alt={ring.name} fill sizes='(min-width: 1024px) 16rem, 50vw' className='object-cover' />
         {ring.images[1] && (
           <ProductMedia
             src={ring.images[1]}

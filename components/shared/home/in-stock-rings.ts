@@ -2,6 +2,7 @@ import { prisma } from '@/db/prisma';
 import { SHOWCASE_MODE, SHOWS_PRICES, WANTED_CATEGORY_SLUG } from '@/lib/constants';
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/category';
+import { coverPicture } from '@/lib/video';
 
 // A one-maker shop: the whole collection fits on one page, so no ring stays hidden behind paging.
 const COLLECTION_LIMIT = 500;
@@ -74,7 +75,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       isWanted,
       // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
       isIllustrative: kind !== 'service' && !isWanted && Boolean(submission && submission.rawImages.length === 0),
-      image: images[0],
+      image: coverPicture(images) ?? images[0],
       images,
       isReserved: isReservationActive({ reservedUntil }),
       categoryIds: categories.map((category) => category.id),

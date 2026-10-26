@@ -7,14 +7,15 @@ import { UploadDropzone, useUploadThing } from '@/lib/uploadthing';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
-import { isVideoUrl, mediaUrl } from '@/lib/video';
+import { isVideoUrl, videoPoster } from '@/lib/video';
+import { uploadVideos } from '@/lib/video-upload';
 
 interface PhotoUploadProps {
   photos: string[];
   onChange: (photos: string[]) => void;
   texts: AdminTexts;
   max?: number;
-  /** A service can show a short video too, kept as it is. */
+  /** Short videos too, kept as they are; each carries a still frame, so it can be the main one. */
   allowVideos?: boolean;
   className?: string;
 }
@@ -24,18 +25,17 @@ export default function PhotoUpload({ photos, onChange, texts, max = 8, allowVid
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const videoInput = useRef<HTMLInputElement>(null);
-  const { startUpload: startVideoUpload } = useUploadThing('videosUploader', {
-    onUploadProgress: setProgress,
-    onUploadError: (uploadError) => setError(uploadError.message),
-  });
+  const uploadEvents = { onUploadProgress: setProgress, onUploadError: (uploadError: Error) => setError(uploadError.message) };
+  const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
+  const { startUpload: startPhotoUpload } = useUploadThing('photosUploader', uploadEvents);
 
   const addVideos = async (files: File[]) => {
     if (files.length === 0) return;
     setError('');
     setProgress(0);
     try {
-      const uploaded = await startVideoUpload(files.slice(0, max - photos.length));
-      if (uploaded) onChange([...photos, ...uploaded.map((file) => mediaUrl(file.ufsUrl, file.type))].slice(0, max));
+      const uploaded = await uploadVideos(files.slice(0, max - photos.length), startVideoUpload, startPhotoUpload);
+      if (uploaded.length > 0) onChange([...photos, ...uploaded].slice(0, max));
     } finally {
       setProgress(null);
     }
@@ -51,8 +51,8 @@ export default function PhotoUpload({ photos, onChange, texts, max = 8, allowVid
           {photos.map((url, index) => (
             <li key={url} className='group relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted'>
               <ProductMedia src={url} alt='' fill />
-              {/* The main picture is the cover of cards and messages, so it is never a video. */}
-              {isVideoUrl(url) ? null : index === 0 ? (
+              {/* The main one is the cover of cards and messages: a video only with a still frame to show there. */}
+              {isVideoUrl(url) && !videoPoster(url) ? null : index === 0 ? (
                 <span className='absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground'>
                   <Star className='size-3' /> {texts.mainPhoto}
                 </span>

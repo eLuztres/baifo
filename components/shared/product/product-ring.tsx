@@ -21,11 +21,11 @@ const LIGHT_ANGLE_DEG = -35;
 export const RingGlassCard = ({ product, imageIndex }: RingGlassCardProps) => (
   <div className={cn(styles.glassCard, styles.featured)}>
     {product.images.map((src, index) => (
-      <div key={src} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
+      <div key={src} data-active={index === imageIndex || undefined} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
         {/* A phone's photo box is wide and flat: the whole photo shows on a blurred copy of itself instead of
             being cropped to its middle (a tall photo would show only sky). */}
         <div className='absolute inset-0 scale-110 opacity-70 blur-2xl sm:hidden' aria-hidden>
-          <ProductMedia src={src} fill sizes='8rem' />
+          <ProductMedia src={src} fill sizes='8rem' isStill />
         </div>
         <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} className='max-sm:object-contain' />
       </div>

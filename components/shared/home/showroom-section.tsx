@@ -1,7 +1,7 @@
 import CategoryRing from '@/components/shared/product/category-ring';
 import { groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
-import { BRAND, RING_FIGURES } from '@/lib/brand';
+import { BRAND, RING_FIGURES, RING_FLYERS } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
 import type { CollectionRing } from './in-stock-rings';
@@ -33,7 +33,7 @@ export default async function ShowroomSection({ rings }: ShowroomSectionProps) {
     <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen, styles.noVerticalPan)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
-        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyer={BRAND.ringFlyer} figures={figures} />
+        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyers={RING_FLYERS} figures={figures} />
       ) : (
         <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
           {t('STORE_EMPTY')}

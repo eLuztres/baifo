@@ -13,6 +13,7 @@ import CategoryTree from './category-tree';
 import CatalogRingCard from './catalog-ring-card';
 import CategoryListingsPicker from './category-listings-picker';
 import { UNCATEGORIZED, type CatalogBranch } from './catalog-types';
+import { coverPicture } from '@/lib/video';
 
 interface ProductCatalogProps {
   /** The category to show, by slug; the first one when missing. */
@@ -109,7 +110,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
                 listings={rings.map((ring) => ({
                   id: ring.id,
                   name: ring.name,
-                  image: ring.images[0],
+                  image: coverPicture(ring.images) ?? ring.images[0],
                   isService: ring.kind === 'service',
                   categoryIds: ring.categoryIds,
                 }))}

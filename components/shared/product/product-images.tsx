@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ProductMedia from "@/components/ProductMedia";
@@ -8,6 +8,8 @@ import { useI18n } from "@/components/i18n-provider";
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { useSwipe } from '@/hooks/useSwipe';
 import { prefersReducedMotion } from '@/components/shared/home/one-page';
+import { isVideoUrl } from '@/lib/video';
+import { playFullScreen } from '@/lib/video-full-screen';
 import { RingGlassCard } from './product-ring';
 import ringStyles from './product-ring.module.css';
 
@@ -31,9 +33,16 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
   const turn = (offset: number) => setCurrent((index) => (index + offset + count) % count);
   const swipe = useSwipe({ onSwipe: turn });
 
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isVideoShown = isVideoUrl(images[current] ?? '');
+
   // A swipe ends on the photo too; only a real tap opens the full-screen view.
   const openFullScreen = () => {
-    if (!swipe.hasSwiped()) setFullScreenIndex(current);
+    if (swipe.hasSwiped()) return;
+    // The video already playing goes full screen itself: it goes on from what it has loaded instead of starting over.
+    const video = isVideoShown ? cardRef.current?.querySelector<HTMLVideoElement>('[data-active] > div:last-child video') : null;
+    if (video && playFullScreen(video)) return;
+    setFullScreenIndex(current);
   };
 
   // Closing the viewer keeps the photo that was looked at last.
@@ -48,10 +57,11 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
 
   // The views follow each other quietly until the visitor takes over.
   useEffect(() => {
-    if (count < 2 || isHovered || isReducedMotion || fullScreenIndex !== null) return;
+    // A video plays to the end instead of being turned away after a few seconds.
+    if (count < 2 || isHovered || isReducedMotion || fullScreenIndex !== null || isVideoShown) return;
     const timer = setInterval(() => setCurrent((index) => (index + 1) % count), TURN_MS);
     return () => clearInterval(timer);
-  }, [count, isHovered, isReducedMotion, fullScreenIndex]);
+  }, [count, isHovered, isReducedMotion, fullScreenIndex, isVideoShown]);
 
   return (
     <div
@@ -79,7 +89,7 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
               aria-current={index === current || undefined}
               className={cn(ringStyles.thumb, index === current && ringStyles.thumbActive)}
             >
-              <ProductMedia src={image} alt='' fill sizes='5rem' />
+              <ProductMedia src={image} alt='' fill sizes='5rem' isStill />
             </button>
           ))}
           <Button
@@ -103,7 +113,9 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
           onClick={openFullScreen}
           {...(count > 1 ? swipe.handlers : {})}
         >
-          <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
+          <div ref={cardRef} className='contents'>
+            <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
+          </div>
         </button>
       </div>
       <ImageLightbox images={images} alt={alt} index={fullScreenIndex} onIndexChange={handleFullScreenChange} />

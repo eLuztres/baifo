@@ -13,12 +13,20 @@ import NoPinchZoom from '@/components/shared/no-pinch-zoom';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
+const LIGHT_BACKGROUND = BRAND.colors.background ?? '#FFFFFF';
+const DARK_BACKGROUND = BRAND.darkColors.background ?? BRAND.colors.background ?? '#0B0B0F';
+
 // The shop is laid out for the phone's own width; zooming only pushed it off the sides.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // Phone browsers tint their bars with it: the page's own background, in light and in dark mode.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: BRAND.theme === 'dark' ? DARK_BACKGROUND : LIGHT_BACKGROUND },
+    { media: '(prefers-color-scheme: dark)', color: BRAND.theme === 'light' ? LIGHT_BACKGROUND : DARK_BACKGROUND },
+  ],
 };
 
 export async function generateMetadata(): Promise<Metadata> {

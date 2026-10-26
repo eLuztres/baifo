@@ -745,9 +745,12 @@
     background: var(--piece) center / contain no-repeat;
 }
 
-/* The sides darken toward the bottom, like rock under the sun. */
+/* The sides are the piece's own picture, shaded darker toward the bottom like rock under the sun: they match the piece in
+   every theme (a theme color turned them pale in the dark one). */
 .pieceSide {
-    background: color-mix(in srgb, var(--foreground) calc(35% + var(--layer) * 40%), var(--secondary));
+    background:
+        linear-gradient(rgb(0 0 0 / calc(30% + var(--layer) * 40%)) 0 0),
+        var(--piece) center / contain no-repeat;
     mask: var(--piece) center / contain no-repeat;
     transform: translateZ(calc(var(--piece-d) * (var(--layer) - 1)));
 }
@@ -777,6 +780,30 @@
     transform-origin: 50% 100%;
     transform: rotateZ(calc(var(--spin) * 360deg)) rotateX(calc(-60deg - var(--tilt, -8deg)));
     transition: transform var(--turn-ms) var(--turn-ease);
+}
+
+/* A boat drifts along the coast and bobs on the swell: the separate translate moves it in the piece's plane (z is up), so
+   it keeps facing the viewer while the piece turns. Each boat has its own pace. */
+.figureDrift {
+    animation: figure-drift calc(13s + var(--drift-i) * 2.7s) ease-in-out calc(var(--drift-i) * -4.3s) infinite alternate;
+}
+
+@keyframes figure-drift {
+    0% {
+        translate: calc(var(--piece-w) * -0.03) calc(var(--piece-w) * 0.008) 0;
+    }
+    25% {
+        translate: calc(var(--piece-w) * -0.012) 0 calc(var(--piece-w) * 0.006);
+    }
+    50% {
+        translate: calc(var(--piece-w) * 0.004) calc(var(--piece-w) * -0.006) 0;
+    }
+    75% {
+        translate: calc(var(--piece-w) * 0.018) 0 calc(var(--piece-w) * 0.006);
+    }
+    100% {
+        translate: calc(var(--piece-w) * 0.03) calc(var(--piece-w) * 0.01) 0;
+    }
 }
 
 /* Half a turn per card, so the sails clearly move with the ring. */
@@ -811,7 +838,19 @@
     aspect-ratio: 2;
     translate: -50% -50%;
     background: var(--flyer) center / contain no-repeat;
-    animation: flyer-y var(--flyer-t) ease-in-out calc(var(--flyer-i) * -5s - var(--flyer-t) / 2) infinite alternate;
+    /* Besides its loop, each gull banks into the wind on a pace of its own. */
+    animation:
+        flyer-y var(--flyer-t) ease-in-out calc(var(--flyer-i) * -5s - var(--flyer-t) / 2) infinite alternate,
+        flyer-bank calc(4.4s + var(--flyer-i) * 1.7s) ease-in-out calc(var(--flyer-i) * -1.9s) infinite alternate;
+}
+
+@keyframes flyer-bank {
+    from {
+        rotate: -8deg;
+    }
+    to {
+        rotate: 7deg;
+    }
 }
 
 @keyframes flyer-x {
@@ -840,7 +879,8 @@
     }
 
     .flyerPath,
-    .flyer {
+    .flyer,
+    .figureDrift {
         animation: none;
     }
 }

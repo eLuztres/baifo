@@ -31,6 +31,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             >
                 <ProductMedia
                     src={product.images[0]}
+                    playsWhenVisible
                     alt={product.name}
                     fill
                     className='transition-transform duration-500 ease-out group-hover:scale-105'

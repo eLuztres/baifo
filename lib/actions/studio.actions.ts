@@ -21,6 +21,7 @@ import {
 } from '@/lib/studio/prompts.mjs';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
 import { idSchema } from '@/lib/validators';
+import { coverPicture } from '@/lib/video';
 
 // A URL path on this shop (public/); the CLI studio's STUDIO_STYLE_IMAGE is a file path instead.
 const STYLE_IMAGE_URL = process.env.STUDIO_STYLE_IMAGE_URL || '/brand/studio-style.jpg';
@@ -140,7 +141,7 @@ export async function regenerateRingViews(productId: string) {
       },
     });
     if (!product) throw studioError('ERROR_NOT_FOUND');
-    const source = product.sourceImage ?? product.images[0];
+    const source = product.sourceImage ?? coverPicture(product.images);
     if (!source) throw studioError('STUDIO_NEED_PHOTO');
 
     const photo = await download(absoluteUrl(ringPhotoSchema.parse(source), SERVER_URL));

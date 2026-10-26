@@ -38,6 +38,7 @@ export default function FeedCard({ href, name, images, price, priceLabel, badge,
         alt={name}
         fill
         sizes={sizes}
+        playsWhenVisible
         className='object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04] motion-reduce:transition-none'
       />
       {images[1] && (
@@ -46,6 +47,7 @@ export default function FeedCard({ href, name, images, price, priceLabel, badge,
           alt=''
           fill
           sizes={sizes}
+          isStill
           className='object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-100'
         />
       )}

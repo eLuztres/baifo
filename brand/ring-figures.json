@@ -29,7 +29,8 @@
       "x": 0.25,
       "y": 0.2
     },
-    "scale": 0.13
+    "scale": 0.13,
+    "drift": true
   },
   {
     "image": "/brand/ring-fishing-boat.svg",
@@ -37,7 +38,8 @@
       "x": 0.95,
       "y": 0.7
     },
-    "scale": 0.12
+    "scale": 0.12,
+    "drift": true
   },
   {
     "image": "/brand/ring-sailboat.svg",
@@ -45,6 +47,7 @@
       "x": 0.05,
       "y": 0.7
     },
-    "scale": 0.1
+    "scale": 0.1,
+    "drift": true
   }
 ]

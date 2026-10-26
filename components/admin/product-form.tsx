@@ -31,6 +31,7 @@ import { Checkbox } from '../ui/checkbox';
 import ProductMedia from "@/components/ProductMedia";
 import { useI18n } from '@/components/i18n-provider';
 import DescriptionFromInfo from './description-from-info';
+import { coverPicture } from '@/lib/video';
 
 type ProductFormValues = z.infer<typeof insertProductSchema>;
 
@@ -381,7 +382,7 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
               <FormItem className='w-full'>
                 <FormLabel>{t('FIELD_DESCRIPTION')}</FormLabel>
                 <DescriptionFromInfo
-                  productImage={images[0]}
+                  productImage={coverPicture(images)}
                   onDescription={(text) => form.setValue('description', text, { shouldDirty: true })}
                 />
                 <FormControl>

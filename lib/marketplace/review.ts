@@ -6,6 +6,7 @@ import { categoryName, findCategory, getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { parsePrice } from './price';
+import { coverPicture } from '@/lib/video';
 
 // Button ids carry the action and the submission, e.g. "approve:<uuid>".
 const ACTIONS = ['approve', 'edit', 'reject'] as const;
@@ -46,7 +47,7 @@ export async function sendForReview(submission: SubmissionWithSeller) {
       { id: `edit:${submission.id}`, title: '✏️ Editar' },
       { id: `reject:${submission.id}`, title: '❌ Rechazar' },
     ],
-    submission.images[0] ?? submission.rawImages[0]
+    coverPicture(submission.images) ?? coverPicture(submission.rawImages)
   );
 }
 

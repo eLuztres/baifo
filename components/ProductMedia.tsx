@@ -1,8 +1,10 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useMedia } from '@/hooks/useMedia';
+import { videoPoster, videoSource } from '@/lib/video';
 
 interface ProductMediaProps {
     src: string;
@@ -20,6 +22,10 @@ interface ProductMediaProps {
     loading?: 'eager' | 'lazy';
     /** A video gets play, sound and seek controls, e.g. full screen. */
     controls?: boolean;
+    /** A video shows only its first frame and loads just enough for it (thumbnails, blurred backdrops). */
+    isStill?: boolean;
+    /** A video plays only while it is on screen, and loads nothing before (a feed full of cards). */
+    playsWhenVisible?: boolean;
 }
 
 export default function ProductMedia({
@@ -33,9 +39,25 @@ export default function ProductMedia({
                                          poster,
                                          priority = false,
                                          loading,
-                                         controls = false
+                                         controls = false,
+                                         isStill = false,
+                                         playsWhenVisible = false
                                      }: ProductMediaProps) {
     const { state, handleError, handleVideoLoaded } = useMedia(src);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    // The still frame the upload saved in the video's URL (lib/video.ts).
+    const posterUrl = poster ?? videoPoster(src);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!playsWhenVisible || !video) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => (entry.isIntersecting ? video.play().catch(() => undefined) : video.pause()),
+            { threshold: 0.5 }
+        );
+        observer.observe(video);
+        return () => observer.disconnect();
+    }, [playsWhenVisible, state]);
     const wrapperStyle = fill ? undefined : { width, height };
     const wrapperClass = fill ? 'absolute inset-0 overflow-hidden' : 'overflow-hidden rounded-sm';
 
@@ -55,16 +77,19 @@ export default function ProductMedia({
         <div style={wrapperStyle} className={wrapperClass}>
             {state === 'video' ? (
                 <video
-                    src={src}
+                    ref={videoRef}
+                    // #t: without a still, Safari paints the frame at that time instead of a black box.
+                    src={isStill && !posterUrl ? `${videoSource(src)}#t=0.1` : videoSource(src)}
                     aria-label={alt || undefined}
                     className={cn('object-cover object-center w-full h-full', className)}
-                    autoPlay
+                    autoPlay={!isStill && !playsWhenVisible}
                     loop
                     muted
                     controls={controls}
                     playsInline
-                    preload="auto"
-                    poster={poster}
+                    // With a still frame a preview loads nothing of the video; a feed card only once it's on screen.
+                    preload={playsWhenVisible || (isStill && posterUrl) ? 'none' : isStill ? 'metadata' : 'auto'}
+                    poster={posterUrl}
                     onError={handleError}
                     onLoadedData={handleVideoLoaded}
                 />

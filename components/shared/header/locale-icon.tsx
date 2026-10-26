@@ -7,33 +7,31 @@ interface LocaleIconProps {
   className?: string;
 }
 
-interface LocaleSymbol {
-  emoji: string;
-  color: string;
-}
+const stripes = (direction: string, colors: string[]) =>
+  `linear-gradient(${direction}, ${colors.map((color, index) => `${color} ${(index * 100) / colors.length}% ${((index + 1) * 100) / colors.length}%`).join(', ')})`;
 
-// A playful symbol per language instead of a national flag, each on a tint that suits it. Fixed per language,
-// not theme colors; mixed with transparency so they sit on light and dark backgrounds alike.
-const SYMBOLS: Record<Locale, LocaleSymbol> = {
-  en: { emoji: '🗽', color: '#3FA796' },
-  es: { emoji: '🐂', color: '#E3A008' },
-  de: { emoji: '🥨', color: '#A0622D' },
-  fr: { emoji: '🍷', color: '#9B2C55' },
-  it: { emoji: '🍕', color: '#E5483B' },
+// The colors of each language's flag as plain stripes, not the flag itself. Fixed per language, not theme colors.
+const COLORS: Record<Locale, string> = {
+  es: stripes('to bottom', ['#AA151B', '#F1BF00', '#F1BF00', '#AA151B']),
+  // Plain stripes in these colors read as another country's flag: a red and white cross on blue says English.
+  en: [
+    'linear-gradient(to bottom, transparent 42%, #C8102E 42% 58%, transparent 58%)',
+    'linear-gradient(to right, transparent 42%, #C8102E 42% 58%, transparent 58%)',
+    'linear-gradient(to bottom, transparent 32%, #FFFFFF 32% 68%, transparent 68%)',
+    'linear-gradient(to right, transparent 32%, #FFFFFF 32% 68%, transparent 68%)',
+    'linear-gradient(#012169, #012169)',
+  ].join(', '),
+  it: stripes('to right', ['#009246', '#F4F5F0', '#CE2B37']),
+  fr: stripes('to right', ['#0055A4', '#F4F5F0', '#EF4135']),
+  de: stripes('to bottom', ['#000000', '#DD0000', '#FFCE00']),
 };
 
 const LocaleIcon = ({ locale, className }: LocaleIconProps) => (
   <span
     aria-hidden
-    style={{ '--locale-color': SYMBOLS[locale].color } as CSSProperties}
-    className={cn(
-      'grid size-9 shrink-0 place-items-center rounded-full text-xl leading-none',
-      'border-2 border-[color:color-mix(in_srgb,var(--locale-color)_85%,transparent)] bg-[color:color-mix(in_srgb,var(--locale-color)_40%,transparent)]',
-      className
-    )}
-  >
-    {SYMBOLS[locale].emoji}
-  </span>
+    style={{ backgroundImage: COLORS[locale] } as CSSProperties}
+    className={cn('size-7 shrink-0 rounded-full border border-border shadow-sm', className)}
+  />
 );
 
 export default LocaleIcon;

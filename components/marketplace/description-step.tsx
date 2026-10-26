@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
+import { Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
-import { isVideoUrl } from '@/lib/video';
+import { cn } from '@/lib/utils';
+import { pictureOf } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
 import TextModeSwitch from './text-mode-switch';
 
@@ -41,8 +42,8 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
-  // No photo (a video doesn't count): the AI makes the picture from this text, so the text can't be empty.
-  const hasNoPhoto = listing.rawImages.every(isVideoUrl);
+  // No photo (a video without a still doesn't count): the AI makes the picture from this text, so the text can't be empty.
+  const hasNoPhoto = !listing.rawImages.some(pictureOf);
   const placeholder = isOriginal
     ? texts.tellOriginalPlaceholder
     : isService
@@ -54,6 +55,8 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const send = () =>
     startTransition(async () => {
       setError('');
+      // The person's WhatsApp is only shown with their number and their OK; otherwise choose the Corral.
+      if (isForSeller && !(sellerPhone.trim() && hasConsent)) return setError(texts.contactNeedsNumber);
       const phone = isForSeller ? sellerPhone.trim() : '';
       const result = await describeAdminListing(listing.id, {
         notes,
@@ -129,23 +132,43 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             </p>
           )}
         </div>
-        {!isWriting && !isService && (
-          <button
-            type='button'
-            onClick={() => setIsForSeller((current) => !current)}
-            aria-expanded={isForSeller}
-            className='rounded-full py-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
-          >
-            {texts.forSeller}
-          </button>
+        {/* How buyers reach it: the person's own WhatsApp, or the Corral's (the admin's) with no number on the page. */}
+        {!isWriting && (
+          <div role='radiogroup' aria-label={texts.contactQuestion} className='space-y-2 pt-2'>
+            <p className='text-sm font-medium'>{texts.contactQuestion}</p>
+            <div className='grid gap-2 sm:grid-cols-2'>
+              {[
+                { isPerson: false, icon: Store, label: texts.contactCorral, hint: texts.contactCorralHint },
+                { isPerson: true, icon: MessageCircle, label: texts.contactPerson, hint: texts.contactPersonHint },
+              ].map(({ isPerson, icon: Icon, label, hint }) => (
+                <button
+                  key={label}
+                  type='button'
+                  role='radio'
+                  aria-checked={isForSeller === isPerson}
+                  onClick={() => setIsForSeller(isPerson)}
+                  className={cn(
+                    'flex items-start gap-3 rounded-2xl border p-3 text-left transition',
+                    isForSeller === isPerson ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/50'
+                  )}
+                >
+                  <Icon className='mt-0.5 size-5 shrink-0 text-primary' aria-hidden />
+                  <span>
+                    <span className='block text-sm font-medium'>{label}</span>
+                    <span className='block text-xs text-muted-foreground'>{hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {isForSeller && !isWriting && (
           <div className='space-y-2 pt-1'>
-            <Label htmlFor='seller'>{isService ? texts.servicePhoneLabel : texts.sellerLabel}</Label>
+            <Label htmlFor='seller'>{texts.servicePhoneLabel}</Label>
             <Input
               id='seller'
               type='tel'
-              autoFocus={!isService}
+              autoFocus
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder={texts.sellerPlaceholder}
@@ -174,7 +197,10 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
       )}
 
       <div className='sticky bottom-4 z-10'>
-        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || isWriting || ((isOriginal || hasNoPhoto) && !notes.trim())} onClick={send}>
+        {/* Solid even when disabled: it floats over the form, which must not show through it. */}
+        <Button
+          className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
+          disabled={isPending || isWriting || ((isOriginal || hasNoPhoto) && !notes.trim())} onClick={send}>
           {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
           {isWriting ? (isOriginal ? texts.translatingNow : texts.writing) : isOriginal ? texts.translateButton : texts.writeListing}
         </Button>
