@@ -65,7 +65,7 @@ export default function PlaceAdmin({ places, corrals }: PlaceAdminProps) {
         <p className='text-sm text-muted-foreground'>{t('PLACES_ADMIN_PIN_HINT', { place: drafts[selected]?.name || '…' })}</p>
         <div
           onClick={movePin}
-          className='relative mx-auto w-full max-w-sm cursor-crosshair'
+          className='relative mx-auto w-full max-w-56 cursor-crosshair sm:max-w-sm'
           style={{ aspectRatio: ISLAND_RATIO }}
         >
           <div className='absolute inset-0 bg-primary/15' style={{ mask: ISLAND_MASK, WebkitMask: ISLAND_MASK }} aria-hidden />

@@ -135,9 +135,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         {t('BACK_TO_SHOP')}
       </Link>
 
-      {/* Phones stack photo and details; the photo keeps at least half and a long description scrolls inside its card. */}
+      {/* Phones stack photo and details; a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
-        <div className='relative min-h-[50%] flex-1 lg:min-h-0'>
+        {/* A phone's photo gives way first (a third, a quarter on short screens), so title, price and the button always fit. */}
+        <div className='relative min-h-[34%] flex-1 [@media(max-height:700px)]:min-h-[24%] sm:min-h-[50%] lg:min-h-0'>
           <ProductImages images={product.images} alt={name} />
           {isIllustrative && (
             <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
@@ -165,7 +166,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                     href={`/corral/${place.slug}`}
                     className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm text-primary transition hover:bg-primary/15'
                   >
-                    <MapPin className='size-3.5' aria-hidden /> {t('CORRAL_PICKUP', { name: place.corralName })}
+                    <MapPin className='size-3.5' aria-hidden /> {place.corralName}
                   </Link>
                 ) : (
                   place && (

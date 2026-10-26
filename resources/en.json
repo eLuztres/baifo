@@ -415,6 +415,7 @@
   "ADMIN_PRODUCTS": "Products",
   "ADMIN_NEW_PRODUCT": "New product",
   "ADMIN_USERS": "Users",
+  "ADMIN_BACK_TO_SHOP": "Back to {shop}",
   "AUTH_INVITE_ONLY_TITLE": "By invitation only",
   "AUTH_INVITE_ONLY_TEXT": "Accounts on {shop} are by invitation. If someone sent you an invite link, open it to create your account.",
   "ERROR_INVITE_REQUIRED": "Creating an account needs a valid invite link. Ask for a new one.",
@@ -651,7 +652,6 @@
   "PLACES_START_NOTE": "We’re starting in {place}. Soon all over the island!",
   "PLACES_ALL_ISLAND": "Whole island",
   "PLACES_COUNT": "{count} places",
-  "PLACES_SOON": "soon",
   "PLACES_MAP_CREDIT": "Map © OpenStreetMap contributors",
   "PLACES_ADMIN_TITLE": "Places",
   "PLACES_ADMIN_INTRO": "The towns on the island. Switch one live when Baifo starts there: it shows in the visitors’ filter and listings can go there. The others show as “soon”.",
@@ -688,7 +688,6 @@
   "CORRAL_SOON_TEXT": "There’s no Corral in {place} yet. Want us to open here, or do you have a spot for the Corral? Message us.",
   "CORRAL_SOON_CTA": "Message us",
   "CORRAL_VISIT": "Visit the {name}",
-  "CORRAL_PICKUP": "Hand-over at the {name}",
   "CORRAL_MAP": "Map of the {name}",
   "CORRAL_SEO_DESCRIPTION": "{name}: {address}. Hand over and pick up your things, get help and meet the {shop} people.",
   "CORRAL_ADMIN_OPEN": "Corral",
@@ -715,5 +714,8 @@
   "VALIDATION_CORRAL_NAME": "Give the Corral a name",
   "VALIDATION_CORRAL_ADDRESS": "Write the Corral’s address",
   "VALIDATION_CORRAL_POSITION": "Paste the position as “latitude, longitude”",
-  "CORRAL_DEFAULT_NAME": "Corral de {place}"
+  "CORRAL_DEFAULT_NAME": "Corral de {place}",
+  "PLACES_SOON_LIST": "Soon:",
+  "EXPLORE_WANTED_BADGE": "Wanted",
+  "HOME_ACTIONS_TITLE": "What can you do?"
 }

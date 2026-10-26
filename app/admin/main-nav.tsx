@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import type { TranslationKey } from '@/lib/i18n-core';
 
@@ -46,44 +46,61 @@ interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
   newProductHref: string;
   /** The shop's own admin pages (brand/admin-links.json), already in the visitor's language. */
   extraLinks?: { href: string; label: string }[];
+  /** `tabs`: a row of pills that scrolls sideways (phones); `inline`: plain links in the header bar. */
+  variant?: 'inline' | 'tabs';
 }
 
-const MainNav = ({ className, isShowcase, isAiEnabled, newProductHref, extraLinks = [], ...props }: MainNavProps) => {
+// The active page is lit: in the bar by its color, as a tab by a filled pill.
+const linkClass = (variant: 'inline' | 'tabs', isActive: boolean) =>
+  variant === 'tabs'
+    ? cn(
+        'shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+        isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
+      )
+    : cn('text-sm font-medium transition-colors hover:text-primary', !isActive && 'text-muted-foreground');
+
+const MainNav = ({ className, isShowcase, isAiEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
   const pathname = usePathname();
   const { t } = useI18n();
+  const navRef = useRef<HTMLElement>(null);
+  // A row of tabs wider than the phone: the current page's tab slides into view.
+  useEffect(() => {
+    if (variant === 'tabs') navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [pathname, variant]);
   return (
     <nav
-      className={cn('flex items-center space-x-4 lg:space-x-6', className)}
+      ref={navRef}
+      className={cn('flex items-center', variant === 'tabs' ? 'gap-2' : 'space-x-4 lg:space-x-6', className)}
       {...props}
     >
       {links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly)).map((item) => {
         const href = item.href === '/admin/studio' ? newProductHref : item.href;
+        const isActive = pathname.includes(href);
         return (
           <Link
             key={item.href}
             href={href}
-            className={cn(
-              'text-sm font-medium transition-colors hover:text-primary',
-              pathname.includes(href) ? '' : 'text-muted-foreground'
-            )}
+            aria-current={isActive ? 'page' : undefined}
+            className={linkClass(variant, isActive)}
           >
             {t(item.title)}
           </Link>
         );
       })}
-      {extraLinks.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className={cn(
-            'text-sm font-medium transition-colors hover:text-primary',
-            // The shop's own creation page may sit under one of its links (e.g. /admin/listings/new).
-            pathname.startsWith(link.href) && !pathname.startsWith(newProductHref) ? '' : 'text-muted-foreground'
-          )}
-        >
-          {link.label}
-        </Link>
-      ))}
+      {extraLinks.map((link) => {
+        // The shop's own creation page may sit under one of its links (e.g. /admin/listings/new).
+        const isActive = pathname.startsWith(link.href) && !pathname.startsWith(newProductHref);
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            aria-current={isActive ? 'page' : undefined}
+            className={linkClass(variant, isActive)}
+          >
+            {link.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 };

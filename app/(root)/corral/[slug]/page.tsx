@@ -58,7 +58,8 @@ export default async function CorralPage({ params }: CorralPageProps) {
   const contacts = [
     corral.whatsapp && { href: `https://wa.me/${digits(corral.whatsapp)}`, icon: MessageCircle, label: t('CORRAL_WHATSAPP'), value: corral.whatsapp, isExternal: true },
     corral.phone && { href: `tel:+${digits(corral.phone)}`, icon: Phone, label: t('CORRAL_CALL'), value: corral.phone },
-    corral.email && { href: `mailto:${corral.email}`, icon: Mail, label: 'Email', value: corral.email },
+    // A long address breaks after the @ on a phone, not in the middle of a word.
+    corral.email && { href: `mailto:${corral.email}`, icon: Mail, label: 'Email', value: corral.email.replace('@', '@\u200B') },
   ].filter((contact) => !!contact);
   const activities = [
     { icon: Handshake, title: t('CORRAL_DO_HANDOVER_TITLE'), text: t('CORRAL_DO_HANDOVER_TEXT') },
@@ -189,7 +190,7 @@ export default async function CorralPage({ params }: CorralPageProps) {
                       </span>
                       <span>
                         <span className='block text-xs text-muted-foreground'>{label}</span>
-                        <span className='block break-all'>{value}</span>
+                        <span className='block break-words'>{value}</span>
                       </span>
                     </a>
                   </li>
@@ -219,7 +220,7 @@ export default async function CorralPage({ params }: CorralPageProps) {
                   images={listing.images}
                   price={listing.price}
                   priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
-                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : undefined}
+                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : listing.isWanted ? t('EXPLORE_WANTED_BADGE') : undefined}
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}
                   listedAgo={timeAgo(listing.createdAt, locale, now)}

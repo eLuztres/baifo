@@ -20,8 +20,10 @@ The workspace guidelines in `../AGENTS.md` apply. This file adds the rules that 
 
 ## Checking front-end changes
 
-- After any front-end change, open the page in Google Chrome through the Claude in Chrome extension and check on `http://localhost:3000` that the change is really there and looks right.
-- If the extension isn't connected or the dev server isn't running, say so and ask me to start it. Don't report a visual change as checked without having seen it.
+- **Every change is checked in the browser, on desktop and on small screens.** After any front-end change, open the page in Google Chrome through the Claude in Chrome extension and check on `http://localhost:3000` that the change is really there and looks right.
+- **Small screens are not optional:** check every page you touched at phone width (375px and 320px), including drawers, dialogs, popups and the states they can be in (e.g. one vs. several choices). Nothing may overlap, be cut off, run off the side or show the same label over and over.
+  - Chrome windows don't go narrower than about 500px: put the page in iframes of 375px and 320px on a temporary local HTML page (not committed), or use the device toolbar.
+- If the extension isn't connected or the dev server isn't running, say so and ask me to start it, and keep asking until it works. Never finish a front-end task without having seen it, and never report a visual change as checked without having seen it.
 
 ## Texts
 

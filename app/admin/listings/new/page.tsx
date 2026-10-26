@@ -42,11 +42,12 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
               href={value === 'product' ? '/admin/listings/new' : `/admin/listings/new?kind=${value}`}
               aria-current={value === listingKind ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4',
                 value === listingKind ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Icon className='size-4' aria-hidden /> {label}
+              {/* The smallest phones get the words only, so all three fit. */}
+              <Icon className='hidden size-4 min-[360px]:block' aria-hidden /> {label}
             </Link>
           ))}
         </nav>

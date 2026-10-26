@@ -42,6 +42,7 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
   const [isPending, startTransition] = useTransition();
   const [chosen, setChosen] = useState(() => chosenPlaces(places, savedSlugs).map((place) => place.slug));
   const live = places.filter((place) => place.isLive);
+  const soon = places.filter((place) => !place.isLive);
 
   // The browser's saved choice wins over a cookie that was cleared or never set; the other way round fills the storage.
   useEffect(() => {
@@ -95,22 +96,25 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
           </DrawerDescription>
         </DrawerHeader>
         <div className='max-h-[70svh] overflow-y-auto px-4 pb-8'>
-          <IslandMap places={places} chosen={chosen} soonLabel={t('PLACES_SOON')} onToggle={toggle} className='max-h-[40svh]' />
-          <ul className='mt-4 grid grid-cols-2 gap-x-4 gap-y-2'>
-            {places.map((place) => (
-              <li key={place.slug}>
-                <Label className={cn('flex items-center gap-2 font-normal', !place.isLive && 'text-muted-foreground')}>
-                  <Checkbox
-                    checked={place.isLive && chosen.includes(place.slug)}
-                    disabled={!place.isLive}
-                    onCheckedChange={() => toggle(place.slug)}
-                  />
-                  {place.name}
-                  {!place.isLive && <span className='text-xs'>· {t('PLACES_SOON')}</span>}
-                </Label>
-              </li>
-            ))}
-          </ul>
+          <IslandMap places={places} chosen={chosen} onToggle={toggle} className='max-h-[34svh]' />
+          {/* Only a real choice gets checkboxes: with one live place there's nothing to switch. */}
+          {live.length > 1 && (
+            <ul className='mt-4 flex flex-wrap justify-center gap-2'>
+              {live.map((place) => (
+                <li key={place.slug}>
+                  <Label className='flex items-center gap-2 rounded-full border border-border px-3 py-2 font-normal'>
+                    <Checkbox checked={chosen.includes(place.slug)} onCheckedChange={() => toggle(place.slug)} />
+                    {place.name}
+                  </Label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {soon.length > 0 && (
+            <p className='mt-3 text-balance text-center text-sm text-muted-foreground'>
+              <span className='font-medium text-foreground'>{t('PLACES_SOON_LIST')}</span> {soon.map((place) => place.name).join(' · ')}
+            </p>
+          )}
           {/* Each open Corral: the real spot behind the place, one tap away. */}
           {live.some((place) => place.corralName) && (
             <ul className='mt-4 space-y-2'>

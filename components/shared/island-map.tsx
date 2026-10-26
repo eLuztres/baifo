@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 interface IslandMapProps {
   places: ShopPlace[];
   chosen: string[];
-  soonLabel: string;
   onToggle: (slug: string) => void;
   className?: string;
 }
@@ -24,9 +23,9 @@ const LABEL_CLASS = {
   left: 'right-full top-1/2 mr-1 -translate-y-1/2',
 };
 
-/** The island with a pin per place: a tap switches a live place on or off; the ones not open yet show as "soon".
-    Pair it with a list of the same places for keyboards and screen readers. */
-export default function IslandMap({ places, chosen, soonLabel, onToggle, className }: IslandMapProps) {
+/** The island with a pin per place: a tap switches a live place on or off. Only live places carry their name; the ones
+    not open yet are quiet dots, so a small screen isn't covered in labels. Pair it with a list for keyboards and screen readers. */
+export default function IslandMap({ places, chosen, onToggle, className }: IslandMapProps) {
   return (
     <div className={cn('relative mx-auto pt-8', className)} style={{ aspectRatio: ISLAND_RATIO }}>
       <div className='absolute inset-x-0 bottom-0 top-8 bg-primary/15' style={{ mask: ISLAND_MASK, WebkitMask: ISLAND_MASK }} aria-hidden />
@@ -49,21 +48,22 @@ export default function IslandMap({ places, chosen, soonLabel, onToggle, classNa
             >
               <span
                 className={cn(
-                  'size-4 rounded-full border-2 shadow transition',
-                  isOn ? 'scale-125 border-background bg-primary' : place.isLive ? 'border-primary bg-background' : 'border-background bg-muted-foreground/40'
+                  'rounded-full border-2 transition',
+                  place.isLive ? 'size-4 shadow' : 'size-2.5 border-muted-foreground/40 bg-background/60',
+                  place.isLive && (isOn ? 'scale-125 border-background bg-primary' : 'border-primary bg-background')
                 )}
               />
-              <span
-                className={cn(
-                  'pointer-events-none absolute whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium shadow-sm',
-                  LABEL_CLASS[labelSide(place)],
-                  isOn ? 'bg-primary text-primary-foreground' : 'bg-background/90',
-                  !place.isLive && 'text-muted-foreground'
-                )}
-              >
-                {place.name}
-                {!place.isLive && <span className='ml-1 font-normal'>· {soonLabel}</span>}
-              </span>
+              {place.isLive && (
+                <span
+                  className={cn(
+                    'pointer-events-none absolute whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium shadow-sm',
+                    LABEL_CLASS[labelSide(place)],
+                    isOn ? 'bg-primary text-primary-foreground' : 'bg-background/90'
+                  )}
+                >
+                  {place.name}
+                </span>
+              )}
             </button>
           );
         })}

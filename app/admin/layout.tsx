@@ -1,35 +1,51 @@
 import BrandLogo from '@/components/shared/brand-logo';
 import Link from 'next/link';
+import { Store } from 'lucide-react';
 import Menu from '@/components/shared/header/menu';
+import { Button } from '@/components/ui/button';
 import MainNav from './main-nav';
-import { IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, SHOWCASE_MODE } from '@/lib/constants';
+import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, SHOWCASE_MODE } from '@/lib/constants';
 import { ADMIN_LINKS } from '@/lib/brand';
 import { localize } from '@/lib/category';
-import { getLocale } from '@/lib/i18n-server';
+import { getLocale, getT } from '@/lib/i18n-server';
 
 export default async function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locale = await getLocale();
+  const [locale, { t }] = await Promise.all([getLocale(), getT()]);
+  const navProps = { isShowcase: SHOWCASE_MODE, isAiEnabled: IS_STUDIO_ENABLED, newProductHref: NEW_PRODUCT_PATH };
   const extraLinks = ADMIN_LINKS.map(({ href, label }) => ({ href, label: localize(label, locale) }));
   return (
     <>
       <div className='flex flex-col'>
-        <div className='border-b container mx-auto'>
-          <div className='flex items-center h-16 px-4'>
-            <Link href='/'>
-              <BrandLogo />
+        {/* Stays in reach while scrolling; on a phone the admin pages get their own row of tabs under it. */}
+        <header className='sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md'>
+          <div className='container mx-auto flex h-14 items-center gap-3 px-4 sm:h-16'>
+            <Link href='/' className='shrink-0'>
+              <BrandLogo className='h-9 sm:h-10' />
             </Link>
-            <MainNav className='mx-6' isShowcase={SHOWCASE_MODE} isAiEnabled={IS_STUDIO_ENABLED} newProductHref={NEW_PRODUCT_PATH} extraLinks={extraLinks} />
-            <div className='ml-auto items-center flex space-x-4'>
+            <MainNav className='mx-6 hidden lg:flex' {...navProps} extraLinks={extraLinks} />
+            <div className='ml-auto flex items-center gap-2'>
+              {/* The way back to the shop is always in sight, also on a phone. */}
+              <Button asChild variant='outline' size='sm' className='h-9 rounded-full'>
+                <Link href='/'>
+                  <Store /> {t('ADMIN_BACK_TO_SHOP', { shop: APP_NAME })}
+                </Link>
+              </Button>
               <Menu />
             </div>
           </div>
-        </div>
+          <MainNav
+            variant='tabs'
+            className='overflow-x-auto px-4 pb-3 [scrollbar-width:none] lg:hidden'
+            {...navProps}
+            extraLinks={extraLinks}
+          />
+        </header>
 
-        <div className='flex-1 space-y-4 p-8 pt-6 container mx-auto'>
+        <div className='container mx-auto flex-1 space-y-4 px-4 py-5 sm:p-8 sm:pt-6'>
           {children}
         </div>
       </div>

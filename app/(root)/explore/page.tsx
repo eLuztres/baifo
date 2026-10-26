@@ -183,7 +183,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   images={listing.images}
                   price={listing.price}
                   priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
-                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : undefined}
+                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : listing.isWanted ? t('EXPLORE_WANTED_BADGE') : undefined}
                   note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}
