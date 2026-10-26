@@ -1,7 +1,11 @@
-import { getCatalogRings, getStoreCategories } from '@/lib/actions/category.actions';
+import { getCatalogRings, getStoreCategories, getSubcategories } from '@/lib/actions/category.actions';
+import SubcategoryList from '@/components/admin/service/subcategory-list';
+import { ChevronDown } from 'lucide-react';
+import type { LocalizedText } from '@/lib/category';
 import CategoryToolbar from '@/components/admin/category-admin/category-toolbar';
 import AddRingTile from '@/components/admin/category-admin/add-ring-tile';
 import { localize } from '@/lib/category';
+import { newProductPathFor } from '@/lib/constants';
 import { toRingAdmin } from '@/lib/category-admin';
 import { getT } from '@/lib/i18n-server';
 import { isReservationActive } from '@/lib/reservation';
@@ -54,6 +58,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
 
   const selected = branches.find((branch) => branch.slug === selectedSlug) ?? branches[0];
   const admin = toRingAdmin(categories, rings);
+  const subcategories = selected?.categoryId ? await getSubcategories(selected.slug) : [];
 
   return (
     <div className='space-y-6'>
@@ -71,6 +76,24 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
               {selected.text && <p className='max-w-2xl text-sm text-muted-foreground'>{selected.text}</p>}
               <p className='text-xs uppercase tracking-[0.2em] text-primary'>{t('STORE_CATEGORY_RINGS', { count: selected.rings.length })}</p>
             </div>
+          )}
+          {/* Closed by default: renaming or adding a subcategory is rare next to managing the products. */}
+          {selected?.categoryId && (
+            <details key={selected.categoryId} className='group rounded-2xl border border-border bg-card/60 p-3'>
+              <summary className='flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium'>
+                {t('CATALOG_SUBCATEGORIES', { count: subcategories.length })}
+                <ChevronDown className='size-4 transition-transform group-open:rotate-180' aria-hidden />
+              </summary>
+              <div className='mt-3 space-y-3'>
+                <p className='text-xs text-muted-foreground'>{t('CATALOG_SUBCATEGORIES_HINT')}</p>
+                <SubcategoryList
+                  parentSlug={selected.slug}
+                  locales={admin.locales}
+                  subcategories={subcategories.map(({ id, name }) => ({ id, name: name as LocalizedText }))}
+                  newLabel={t('CATALOG_SUBCATEGORY_NEW')}
+                />
+              </div>
+            </details>
           )}
           <div className='flex flex-wrap items-center gap-2'>
             <CategoryToolbar
@@ -96,7 +119,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
           <ul className='grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4'>
             {selected?.categoryId && (
               <li className='aspect-[4/5]'>
-                <AddRingTile categoryId={selected.categoryId} name={selected.name} />
+                <AddRingTile href={newProductPathFor({ id: selected.categoryId, slug: selected.slug })} name={selected.name} />
               </li>
             )}
             {selected?.rings.map((ring) => (

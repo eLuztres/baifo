@@ -33,14 +33,14 @@ describe('cartItemSchema', () => {
 });
 
 describe('signUpFormSchema', () => {
-  const user = { name: 'Ana', email: 'ana@example.com', password: 'secret1', confirmPassword: 'secret1' };
+  const user = { name: 'Ana', email: 'ana@example.com', password: 'long-secret1', confirmPassword: 'long-secret1' };
 
   it('accepts matching passwords', () => {
     expect(signUpFormSchema.safeParse(user).success).toBe(true);
   });
 
   it('reports mismatched passwords on confirmPassword', () => {
-    const result = signUpFormSchema.safeParse({ ...user, confirmPassword: 'other12' });
+    const result = signUpFormSchema.safeParse({ ...user, confirmPassword: 'other-secret12' });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]).toMatchObject({
       path: ['confirmPassword'],
@@ -50,6 +50,11 @@ describe('signUpFormSchema', () => {
 
   it('rejects an invalid email', () => {
     expect(signUpFormSchema.safeParse({ ...user, email: 'nope' }).success).toBe(false);
+  });
+
+  it('asks new passwords for at least 10 characters', () => {
+    const result = signUpFormSchema.safeParse({ ...user, password: 'secret123', confirmPassword: 'secret123' });
+    expect(result.error?.issues[0]).toMatchObject({ path: ['password'], message: 'VALIDATION_PASSWORD_MIN' });
   });
 
   it('trims spaces around a pasted email', () => {

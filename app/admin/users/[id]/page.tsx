@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getUserById } from '@/lib/actions/user.actions';
 import UpdateUserForm from './update-user-form';
 import { requireAdmin } from '@/lib/auth-guard';
+import { canManageUser } from '@/lib/owner';
 import { USER_ROLES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 
@@ -16,12 +17,13 @@ const AdminUserUpdatePage = async (props: {
     id: string;
   }>;
 }) => {
-  await requireAdmin();
+  const session = await requireAdmin();
   const { id } = await props.params;
 
   const [{ t }, user] = await Promise.all([getT(), getUserById(id)]);
 
-  if (!user) notFound();
+  // The owner and the other admins are the owner's to edit (OWNER_EMAIL).
+  if (!user || !canManageUser(session.user, user)) notFound();
 
   // Only what the form edits: the address and payment method stay on the server.
   const { name, email, role } = user;

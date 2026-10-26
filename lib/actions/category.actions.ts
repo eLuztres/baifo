@@ -9,7 +9,7 @@ import type { Locale, TranslationKey } from '@/lib/i18n-core';
 import { formatError } from '@/lib/utils';
 import slugify from 'slugify';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
-import { translateText } from '@/lib/marketplace/ai';
+import { translateText, writeCategoryText } from '@/lib/marketplace/ai';
 import {
   categorySchema,
   idSchema,
@@ -185,6 +185,21 @@ export async function translateCategory(data: z.infer<typeof categoryTextsSchema
     const from = getShopLocale();
     const made = await translateText({ title: name, description: text }, from, getEnabledLocales().filter((locale) => locale !== from));
     const texts = Object.fromEntries(Object.entries(made).map(([locale, item]) => [locale, { name: item?.title ?? '', text: item?.description ?? '' }]));
+    return { success: true, message: '', texts: texts as Partial<Record<Locale, { name: string; text: string }>> };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
+
+/** The admin's notes as an inviting description, written by the AI, with the name, in every language of the shop. */
+export async function improveCategory(data: z.infer<typeof categoryTextsSchema>) {
+  try {
+    if (!(await isAdmin())) return adminOnly();
+    const { name, text } = categoryTextsSchema.parse(data);
+    const shopLocale = getShopLocale();
+    const made = await writeCategoryText({ title: name, description: text }, [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)]);
+    // Cut to what categorySchema takes, so the improved text can always be saved.
+    const texts = Object.fromEntries(Object.entries(made).map(([locale, item]) => [locale, { name: item?.title ?? '', text: (item?.description ?? '').slice(0, 300) }]));
     return { success: true, message: '', texts: texts as Partial<Record<Locale, { name: string; text: string }>> };
   } catch (error) {
     return { success: false, message: formatError(error) };

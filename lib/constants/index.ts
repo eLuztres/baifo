@@ -21,6 +21,9 @@ export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 // Where the shop works for now, e.g. a launch in one town; blank means everywhere and hides the notice.
 export const SERVICE_AREA = process.env.SERVICE_AREA?.trim() || '';
 
+// The shop owner's login email: only the owner can make, change or delete admins, and nobody can remove the owner.
+export const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim().toLowerCase() || '';
+
 // Server-side only like the rest of this file: the admin user form gets it as a prop.
 export const USER_ROLES = envList('USER_ROLES', ['admin', 'user']);
 
@@ -73,6 +76,12 @@ export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 export const NEW_PRODUCT_PATH =
   process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
 export const NEW_SERVICE_PATH = '/admin/listings/new?kind=service';
+/** Where "Add a product" in a category leads: the studio files it there; a listing shop starts a listing of the right kind. */
+export const newProductPathFor = (category: { id: string; slug: string }) => {
+  if (category.slug === SERVICES_CATEGORY_SLUG) return NEW_SERVICE_PATH;
+  if (category.slug === WANTED_CATEGORY_SLUG) return '/admin/listings/new?kind=wanted';
+  return NEW_PRODUCT_PATH === '/admin/studio' ? `/admin/studio?category=${category.id}` : NEW_PRODUCT_PATH;
+};
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);

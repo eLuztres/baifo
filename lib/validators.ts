@@ -79,10 +79,13 @@ export const ringOrderSchema = z.array(idSchema).min(2).max(500);
 // Lowercased, so sign-in, sign-up and Google logins match the same account.
 const emailSchema = z.string().trim().toLowerCase().email(message('VALIDATION_EMAIL_INVALID'));
 
+// New passwords only: accounts from before keep signing in with their shorter ones.
+export const PASSWORD_MIN_LENGTH = 10;
+
 // Schema for signing users in
 export const signInFormSchema = z.object({
   email: emailSchema,
-  password: z.string().min(6, message('VALIDATION_PASSWORD_MIN')),
+  password: z.string().min(6, message('AUTH_INVALID_CREDENTIALS')),
 });
 
 // Schema for signing up a user
@@ -90,8 +93,8 @@ export const signUpFormSchema = z
   .object({
     name: z.string().min(3, message('VALIDATION_NAME_MIN')),
     email: emailSchema,
-    password: z.string().min(6, message('VALIDATION_PASSWORD_MIN')),
-    confirmPassword: z.string().min(6, message('VALIDATION_CONFIRM_PASSWORD_MIN')),
+    password: z.string().min(PASSWORD_MIN_LENGTH, message('VALIDATION_PASSWORD_MIN')),
+    confirmPassword: z.string().min(PASSWORD_MIN_LENGTH, message('VALIDATION_CONFIRM_PASSWORD_MIN')),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: message('VALIDATION_PASSWORDS_MISMATCH'),

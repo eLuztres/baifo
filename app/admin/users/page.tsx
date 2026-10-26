@@ -17,6 +17,7 @@ import DeleteDialog from '@/components/shared/delete-dialog';
 import FilterNotice from '@/components/admin/filter-notice';
 import { roleLabel } from '@/components/admin/role-label';
 import { requireAdmin } from '@/lib/auth-guard';
+import { canManageUser, isOwner } from '@/lib/owner';
 import { getT } from '@/lib/i18n-server';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -30,7 +31,7 @@ const AdminUserPage = async (props: {
     query?: string;
   }>;
 }) => {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const { page: pageParam, query: searchText } = await props.searchParams;
   const page = Number(pageParam) || 1;
@@ -65,14 +66,18 @@ const AdminUserPage = async (props: {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                    {roleLabel(t, user.role)}
+                    {isOwner(user) ? t('ADMIN_USER_OWNER') : roleLabel(t, user.role)}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button asChild variant='outline' size='sm'>
-                    <Link href={`/admin/users/${user.id}`}>{t('ADMIN_EDIT')}</Link>
-                  </Button>
-                  <DeleteDialog id={user.id} action={deleteUser} />
+                  {canManageUser(session.user, user) && (
+                    <>
+                      <Button asChild variant='outline' size='sm'>
+                        <Link href={`/admin/users/${user.id}`}>{t('ADMIN_EDIT')}</Link>
+                      </Button>
+                      <DeleteDialog id={user.id} action={deleteUser} />
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

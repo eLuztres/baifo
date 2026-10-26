@@ -41,4 +41,6 @@ export interface CategoryRingAdmin {
   /** The languages the shop writes category texts in, the default one first. */
   locales: Locale[];
   categories: EditableCategory[];
+  /** Per category id: where its "Add a product" tile leads (newProductPathFor). */
+  addProductHrefs: Record<string, string>;
 }

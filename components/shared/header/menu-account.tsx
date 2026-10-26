@@ -5,6 +5,7 @@ import { signOutUser } from '@/lib/actions/user.actions';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
 import { SHOWCASE_MODE } from '@/lib/constants';
+import { BRAND } from '@/lib/brand';
 import { Button } from '@/components/ui/button';
 import { SheetClose } from '@/components/ui/sheet';
 import { getAccountLinks, getInitial } from './user-button';
@@ -18,6 +19,7 @@ const MenuAccount = async () => {
   const isAdminUser = session?.user?.role === 'admin';
 
   if (!session?.user) {
+    if (!BRAND.showSignIn) return null;
     return (
       <SheetClose asChild>
         <Button asChild variant='outline' size='lg' className='w-full rounded-full'>

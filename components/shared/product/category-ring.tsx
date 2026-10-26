@@ -268,7 +268,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyer, figures 
         renderActions={
           admin && ((product) => <RingTileActions productId={product.id} name={product.name} ringIds={front.products.map((ring) => ring.id)} />)
         }
-        addTile={frontAdminCategory && <AddRingTile categoryId={frontAdminCategory.id} name={front.name} />}
+        addTile={admin && frontAdminCategory && <AddRingTile href={admin.addProductHrefs[frontAdminCategory.id]} name={front.name} />}
       />
 
       {/* The name already shows under the front card; a fixed height keeps the banner from jumping. */}

@@ -13,6 +13,7 @@ import { UserIcon } from 'lucide-react';
 import { getT } from '@/lib/i18n-server';
 import type { Translator } from '@/lib/i18n-core';
 import { ADMIN_HOME_PATH, SHOWCASE_MODE } from '@/lib/constants';
+import { BRAND } from '@/lib/brand';
 
 interface AccountLink {
   href: string;
@@ -32,6 +33,7 @@ const UserButton = async () => {
   const [session, { t }] = await Promise.all([getSession(), getT()]);
 
   if (!session) {
+    if (!BRAND.showSignIn) return null;
     return (
       <Button asChild variant='outline' className='rounded-full'>
         <Link href='/sign-in'>

@@ -9,6 +9,7 @@ import { claimUnverifiedUser, rehashLegacyPassword } from '@/lib/auth-account';
 import { sendWelcomeEmail } from '@/email';
 import { getLocale } from '@/lib/i18n-server';
 import { GOOGLE_AUTH_ENABLED, SERVER_URL } from '@/lib/constants';
+import { PASSWORD_MIN_LENGTH } from '@/lib/validators';
 
 const SESSION_DAYS = 30;
 // Auth endpoints that end with a signed-in user.
@@ -31,7 +32,7 @@ export const authServer = betterAuth({
   advanced: { database: { generateId: 'uuid' } },
   emailAndPassword: {
     enabled: true,
-    minPasswordLength: 6,
+    minPasswordLength: PASSWORD_MIN_LENGTH,
     // The shop's own hash, so passwords from before Better Auth still work.
     password: { hash, verify: ({ hash: storedHash, password }) => compare(password, storedHash) },
   },

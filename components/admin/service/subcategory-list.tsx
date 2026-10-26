@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import DeleteDialog from "@/components/shared/delete-dialog";
 import { useI18n } from "@/components/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { createSubcategory, updateSubcategory } from "@/lib/actions/category.actions";
+import { createSubcategory, deleteCategory, updateSubcategory } from "@/lib/actions/category.actions";
 import type { LocalizedText } from "@/lib/category";
-import { LOCALES, type Locale } from "@/lib/i18n-core";
+import { LOCALES, translateMessage, type Locale } from "@/lib/i18n-core";
 
 export interface EditableSubcategory {
   id: string;
@@ -23,6 +24,8 @@ interface SubcategoryListProps {
   /** The shop's languages, its own first. */
   locales: Locale[];
   subcategories: EditableSubcategory[];
+  /** Heading of the row that adds one; "New kind of service" when missing. */
+  newLabel?: string;
 }
 
 interface SubcategoryRowProps {
@@ -33,12 +36,14 @@ interface SubcategoryRowProps {
   onSave: (name: LocalizedText) => Promise<boolean>;
   /** A new subcategory starts empty again after it was added. */
   shouldClearOnSave?: boolean;
+  /** The delete button with its confirmation; only existing subcategories have one. */
+  deleteButton?: React.ReactNode;
 }
 
 const languageName = (locale: Locale) => LOCALES.find(({ id }) => id === locale)?.name ?? locale;
 
 /** One subcategory's name in every language, with its own save button. */
-const SubcategoryRow = ({ locales, initialName, saveLabel, onSave, shouldClearOnSave }: SubcategoryRowProps) => {
+const SubcategoryRow = ({ locales, initialName, saveLabel, onSave, shouldClearOnSave, deleteButton }: SubcategoryRowProps) => {
   const [name, setName] = useState(initialName);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -67,19 +72,20 @@ const SubcategoryRow = ({ locales, initialName, saveLabel, onSave, shouldClearOn
           {isSaving ? <Loader2 className="animate-spin" /> : shouldClearOnSave && <Plus />}
           {saveLabel}
         </Button>
+        {deleteButton}
       </CardContent>
     </Card>
   );
 };
 
 /** The subcategories of a store category, renamed in place, and a row to add a new one at the end. */
-const SubcategoryList = ({ parentSlug, locales, subcategories }: SubcategoryListProps) => {
+const SubcategoryList = ({ parentSlug, locales, subcategories, newLabel }: SubcategoryListProps) => {
   const { t } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
 
   const report = (result: { success: boolean; message: string }) => {
-    toast({ variant: result.success ? "default" : "destructive", description: result.message });
+    toast({ variant: result.success ? "default" : "destructive", description: translateMessage(t, result.message) });
     if (result.success) router.refresh();
     return result.success;
   };
@@ -93,9 +99,25 @@ const SubcategoryList = ({ parentSlug, locales, subcategories }: SubcategoryList
           initialName={subcategory.name}
           saveLabel={t("SUBCATEGORIES_SAVE")}
           onSave={async (name) => report(await updateSubcategory({ id: subcategory.id, name }))}
+          deleteButton={
+            <DeleteDialog
+              id={subcategory.id}
+              action={async (id) => {
+                const result = await deleteCategory(id);
+                if (result.success) router.refresh();
+                return { ...result, message: translateMessage(t, result.message) };
+              }}
+              description={t("SUBCATEGORIES_DELETE_TEXT")}
+              trigger={
+                <Button type="button" variant="ghost" size="icon" aria-label={t("DELETE_DIALOG_CONFIRM")} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 />
+                </Button>
+              }
+            />
+          }
         />
       ))}
-      <h3 className="pt-4 font-medium">{t("SUBCATEGORIES_NEW")}</h3>
+      <h3 className="pt-4 font-medium">{newLabel ?? t("SUBCATEGORIES_NEW")}</h3>
       <SubcategoryRow
         locales={locales}
         initialName={{}}

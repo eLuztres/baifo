@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/db/prisma';
-import { createCategory, deleteCategory, setProductCategory, translateCategory, updateCategory } from '@/lib/actions/category.actions';
-import { translateText } from '@/lib/marketplace/ai';
+import { createCategory, deleteCategory, improveCategory, setProductCategory, translateCategory, updateCategory } from '@/lib/actions/category.actions';
+import { translateText, writeCategoryText } from '@/lib/marketplace/ai';
 
 jest.mock('@/auth', () => ({ auth: jest.fn(), signIn: jest.fn(), signOut: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
@@ -16,7 +16,7 @@ jest.mock('@/db/prisma', () => ({
     product: { update: jest.fn() },
   },
 }));
-jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn() }));
+jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn(), writeCategoryText: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('next/headers', () => ({ cookies: jest.fn(), headers: jest.fn() }));
 
@@ -105,6 +105,25 @@ describe('translateCategory', () => {
     mockAuth.mockResolvedValue(CUSTOMER);
     await expect(translateCategory({ name: 'Servicios', text: '' })).resolves.toMatchObject({ success: false });
     expect(translateText).not.toHaveBeenCalled();
+  });
+});
+
+describe('improveCategory', () => {
+  it('returns the AI description with the name in every language, cut to what a category can save', async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    (writeCategoryText as jest.Mock).mockResolvedValue({
+      es: { title: 'Busco', description: 'x'.repeat(400) },
+      it: { title: 'Cerco', description: 'Chi cerca qualcosa' },
+    });
+    const result = await improveCategory({ name: 'Busco', text: 'gente que busca cosas' });
+    expect(result).toMatchObject({ success: true, texts: { it: { name: 'Cerco', text: 'Chi cerca qualcosa' } } });
+    expect((result as { texts: Record<string, { text: string }> }).texts.es.text).toHaveLength(300);
+  });
+
+  it('refuses non-admins', async () => {
+    mockAuth.mockResolvedValue(CUSTOMER);
+    await expect(improveCategory({ name: 'Busco', text: '' })).resolves.toMatchObject({ success: false });
+    expect(writeCategoryText).not.toHaveBeenCalled();
   });
 });
 

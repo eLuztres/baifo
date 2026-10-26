@@ -26,6 +26,8 @@ import type { TranslationKey } from '@/lib/i18n-core';
 import { getSession, getSessionUserId, isAdmin } from '@/lib/auth-guard';
 import { headers } from 'next/headers';
 import { safeCallbackUrl } from '@/lib/safe-callback-url';
+import { canGiveRole, canManageUser } from '@/lib/owner';
+import { clearFailedSignIns, clientIp, isSignInBlocked, recordFailedSignIn } from '@/lib/sign-in-limit';
 
 // Without a target, the sign-in page sends signed-in visitors on to their home (admins to ADMIN_HOME_PATH).
 const AFTER_SIGN_IN = '/sign-in';
@@ -35,12 +37,18 @@ export async function signInWithCredentials(
   prevState: unknown,
   formData: FormData
 ) {
+  const requestHeaders = await headers();
+  const ip = clientIp(requestHeaders);
   try {
     const user = signInFormSchema.parse({
       email: formData.get('email'),
       password: formData.get('password'),
     });
-    await authServer.api.signInEmail({ body: user, headers: await headers() });
+    if (await isSignInBlocked(user.email, ip)) {
+      return { success: false, message: 'AUTH_TOO_MANY_ATTEMPTS' satisfies TranslationKey };
+    }
+    await authServer.api.signInEmail({ body: user, headers: requestHeaders });
+    await clearFailedSignIns(user.email, ip);
     redirect(safeCallbackUrl(formData.get('callbackUrl'), AFTER_SIGN_IN));
   } catch (error) {
     if (isRedirectError(error)) {
@@ -50,6 +58,7 @@ export async function signInWithCredentials(
     if (email.success && (await isGoogleOnlyAccount(email.data))) {
       return { success: false, message: 'AUTH_USE_GOOGLE' satisfies TranslationKey };
     }
+    if (email.success) await recordFailedSignIn(email.data, ip).catch(() => undefined);
     return { success: false, message: 'AUTH_INVALID_CREDENTIALS' satisfies TranslationKey };
   }
 }
@@ -260,11 +269,14 @@ export async function deleteUser(id: string) {
 
     const user = await prisma.user.findUnique({
       where: { id: idSchema.parse(id) },
-      select: { _count: { select: { Order: true } } },
+      select: { email: true, role: true, _count: { select: { Order: true } } },
     });
     if (!user) {
       revalidatePath('/admin/users');
       return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
+    }
+    if (!canManageUser(session.user, user)) {
+      return { success: false, message: 'ADMIN_OWNER_ONLY' satisfies TranslationKey };
     }
     // Deleting cascades to the user's orders, which the shop must keep for invoices and taxes.
     if (user._count.Order > 0) {
@@ -299,6 +311,11 @@ export async function updateUser(user: z.infer<typeof updateUserSchema>) {
     // Keeps the shop from losing its last admin by accident.
     if (id === session.user.id && role !== 'admin') {
       return { success: false, message: 'ADMIN_USER_ROLE_SELF' satisfies TranslationKey };
+    }
+    const target = await prisma.user.findUnique({ where: { id }, select: { email: true, role: true } });
+    if (!target) return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
+    if (!canGiveRole(session.user, target, role)) {
+      return { success: false, message: 'ADMIN_OWNER_ONLY' satisfies TranslationKey };
     }
 
     await prisma.user.update({

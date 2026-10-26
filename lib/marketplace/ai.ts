@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { localize } from '@/lib/category';
 import { PRODUCT_CONDITIONS, type ProductKind } from '@/lib/constants';
 import type { Locale } from '@/lib/i18n-core';
-import { draftText, editImage, generateImage } from '@/lib/studio/openai.mjs';
+import { draftText, editImage, generateImage } from '@/lib/ai-usage';
 import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
 // Keeps the seller's actual item: a used product must look like itself, wear included.
@@ -193,6 +193,22 @@ export async function writeListing(
   }
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   return slugs.includes(result.category) ? result : { ...result, category: isService || isWanted ? slugs[0] : FALLBACK_CATEGORY_SLUG };
+}
+
+const categoryTextPrompt = (locales: Locale[]) =>
+  'Write the description of a category of Baifo, a local marketplace in Fuerteventura, from what the admin wrote. ' +
+  `For each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: the title is the category ` +
+  `name (in ${locales[0]} exactly as the admin wrote it, translated naturally for the others) and the description is one ` +
+  'or two short, inviting sentences, at most 200 characters, telling visitors what they find in it. The same facts in ' +
+  'every language; never invent brands, places or offers that are not stated. Return JSON with texts.\n';
+
+/** A category's name and an inviting description in every shop language (its own first), from the admin's notes. */
+export async function writeCategoryText(text: { title: string; description: string }, locales: Locale[]) {
+  const result = await draftText(null, '', null, {
+    prompt: categoryTextPrompt(locales) + `Name: ${text.title}\nWhat the admin wrote: ${text.description || '(nothing)'}\n`,
+    schema: { type: 'object', properties: { texts: textsJsonSchema(locales) }, required: ['texts'] },
+  });
+  return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
 }
 
 /** The same title and description in other languages, translated, not rewritten. */

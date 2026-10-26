@@ -1,5 +1,6 @@
 import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CategoryRingAdmin, LocalizedText } from '@/lib/category';
+import { newProductPathFor } from '@/lib/constants';
 import { getEnabledLocales } from '@/lib/i18n-server';
 
 /** What the category editors need: the shop's languages (default first) and every category with its ring count. */
@@ -14,5 +15,6 @@ export function toRingAdmin(categories: StoreCategory[], rings: { categoryIds: s
       text: category.text as LocalizedText,
       ringCount: rings.filter((ring) => ring.categoryIds.includes(category.id)).length,
     })),
+    addProductHrefs: Object.fromEntries(categories.map((category) => [category.id, newProductPathFor(category)])),
   };
 }

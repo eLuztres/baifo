@@ -78,8 +78,6 @@ const toEdit = ({ price, condition, ...fields }: EditorFields, images: string[],
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
 // Native selects: on a phone they open the system's own picker.
 const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-// Long enough to save once per pause in typing, not once per key.
-const AUTOSAVE_MS = 800;
 // What editSchema takes (images max 12).
 const MAX_PICTURES = 12;
 
@@ -120,7 +118,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const [isTranslationStale, setIsTranslationStale] = useState(false);
   // Only text the admin (or seller) wrote can be used as it is.
   const hasOriginalText = listing.rawText.trim() !== '';
-  // What the server has, so only real changes are saved (and React's double effects in dev save nothing).
+  // What the server has: edits only save on the Save button (or an action), never by themselves.
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
   const hasSellerPhone = listing.seller.waId !== houseSeller;
   // A service has no price and no condition, and its category is a kind of service.
@@ -149,20 +147,9 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   });
   const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
 
-  useEffect(() => {
-    const snapshot = JSON.stringify({ ...fields, images });
-    if (snapshot === savedSnapshot.current) return;
-    setSaveState('saving');
-    const timer = setTimeout(async () => {
-      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
-      if (saved.success) savedSnapshot.current = snapshot;
-      setSaveState(saved.success ? 'saved' : 'failed');
-      setError(saved.success ? '' : saved.message);
-    }, AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-  }, [fields, images, listing.id, isService, textMode]);
+  const isDirty = JSON.stringify({ ...fields, images }) !== savedSnapshot.current;
 
-  // The save bar's button: saves at once instead of waiting for the autosave.
+  // The save bar's button: the only way plain edits reach the shop.
   const saveNow = async () => {
     const snapshot = JSON.stringify({ ...fields, images });
     setSaveState('saving');
@@ -173,7 +160,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   };
 
   // Leaving with a change not saved yet asks first.
-  const hasUnsaved = saveState === 'saving' || saveState === 'failed';
+  const hasUnsaved = isDirty || saveState === 'saving' || saveState === 'failed';
   useEffect(() => {
     if (!hasUnsaved) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
@@ -183,12 +170,13 @@ export default function ListingEditor({ listing, categories, languages, shopLang
   const saveLabel = {
     saving: texts.saving,
     failed: texts.notSaved,
+    unsaved: texts.unsavedChanges,
     saved: listing.status === 'LIVE' ? texts.savedLive : texts.savedDraft,
     idle: listing.status === 'LIVE' ? texts.savedLive : texts.savedDraft,
-  }[saveState];
+  }[isDirty && saveState !== 'saving' && saveState !== 'failed' ? 'unsaved' : saveState];
 
   // Every action saves the edits first, so what goes online is what the admin sees.
-  // The new picture joins the others, and the autosave stores it like any added photo.
+  // The new picture joins the others and is stored with the next save, like any added photo.
   const makePicture = async () => {
     setIsMakingPicture(true);
     const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined);
@@ -540,7 +528,7 @@ export default function ListingEditor({ listing, categories, languages, shopLang
         </div>
       )}
 
-      {/* Edits save by themselves; the bar stays in sight while editing, says so, and saves at once on request. */}
+      {/* Edits only save here; the bar stays in sight while editing and says when something isn't saved yet. */}
       {!isOpen && (
         <div className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
           <p

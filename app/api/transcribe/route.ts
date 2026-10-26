@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isAdmin } from '@/lib/auth-guard';
-import { transcribeAudio } from '@/lib/studio/openai.mjs';
+import { transcribeAudio } from '@/lib/ai-usage';
 
 // Vercel takes at most 4.5 MB per request: several minutes of speech.
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024;

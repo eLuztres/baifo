@@ -3,7 +3,7 @@ import { translateText, writeListing } from '@/lib/marketplace/ai';
 import { draftText } from '@/lib/studio/openai.mjs';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
-jest.mock('@/lib/studio/openai.mjs', () => ({ draftText: jest.fn(), editImage: jest.fn() }));
+jest.mock('@/lib/studio/openai.mjs', () => ({ draftText: jest.fn(), editImage: jest.fn(), onUsage: jest.fn() }));
 
 const draft = draftText as jest.Mock;
 

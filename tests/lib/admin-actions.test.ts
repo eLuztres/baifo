@@ -97,6 +97,7 @@ describe('admin actions called by an admin', () => {
   beforeEach(() => mockAuth.mockResolvedValue(ADMIN));
 
   it('updateUser changes the role', async () => {
+    db.user.findUnique.mockResolvedValue({ email: 'ana@x.com', role: 'user' });
     await expect(
       updateUser({ id: 'u1', name: 'Ana', email: 'ana@x.com', role: 'admin' })
     ).resolves.toMatchObject({ success: true });

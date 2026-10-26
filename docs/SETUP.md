@@ -82,6 +82,7 @@ Then **Deployments → Redeploy**. Changing `NEXT_PUBLIC_*` values always needs 
    npm run make-admin -- customer@example.com
    ```
 3. Sign out and in again. **/admin** now shows the admin panel.
+4. Set `OWNER_EMAIL` to the same email in Vercel. Then only the owner can make or remove admins, and no other admin can lock them out.
 
 ## 5. Google login
 

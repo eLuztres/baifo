@@ -5,10 +5,16 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 import { cn } from '@/lib/utils';
 
+/** Only the labels it shows, so the category editor can pass its own. */
+export type TextModeTexts = Pick<
+  AdminTexts,
+  'textModeQuestion' | 'textModeAi' | 'textModeAiHint' | 'textModeOriginal' | 'textModeOriginalHint' | 'textAiShort' | 'textOriginalShort'
+>;
+
 interface TextModeSwitchProps {
   value: TextMode;
   onChange: (mode: TextMode) => void;
-  texts: AdminTexts;
+  texts: TextModeTexts;
   disabled?: boolean;
   /** Two cards with a line each, for the choice before the AI runs; small pills in the editor. */
   isCompact?: boolean;

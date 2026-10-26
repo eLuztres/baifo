@@ -305,3 +305,28 @@ model MarketplaceSettings {
   sendOnPublish Boolean  @default(true)
   updatedAt     DateTime @updatedAt
 }
+
+// Failed password sign-ins per email and IP, to stop password guessing; rows older than the window are deleted.
+model FailedSignIn {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  ip        String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([email, ip, createdAt])
+}
+
+// One OpenAI call and what it cost, for the admin's AI costs page.
+model AiUsage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // picture, text, voice or check (AI_USAGE_KINDS)
+  kind         String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  // USD from OpenAI's token prices at the time of the call; 0 for a model without a known price.
+  costUsd      Decimal  @default(0) @db.Decimal(12, 6)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([createdAt])
+}

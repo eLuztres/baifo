@@ -95,6 +95,7 @@ BRAND_ICON=/brand/icon.png          # browser tab icon
 BRAND_HERO_IMAGE=/brand/hero.jpg    # big picture on the home page (default: logo on a color gradient)
 BRAND_OG_IMAGE=/brand/og.jpg        # preview image when the shop link is shared (default: logo)
 BRAND_SHOW_NAME=false               # hide the name next to the logo when the logo already contains it
+BRAND_SHOW_SIGN_IN=false            # no sign-in / "Join" button for visitors (admins use /sign-in directly)
 ```
 
 ### Theme and colors
@@ -190,6 +191,7 @@ DEFAULT_PAYMENT_METHOD=Stripe
 PAGE_SIZE=12                        # products per page
 RESERVATION_HOURS=48                # how long "Show interest" reserves a product
 PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in a class takes its price
+OWNER_EMAIL=owner@example.com       # the owner: only they can make, change or delete admins, and no admin can remove them
 ```
 
 ### Home page

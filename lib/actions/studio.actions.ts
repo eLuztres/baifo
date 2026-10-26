@@ -19,7 +19,7 @@ import {
   categoryLook,
   seedOf,
 } from '@/lib/studio/prompts.mjs';
-import { draftText, editImage, generateImage } from '@/lib/studio/openai.mjs';
+import { draftText, editImage, generateImage } from '@/lib/ai-usage';
 import { idSchema } from '@/lib/validators';
 
 // A URL path on this shop (public/); the CLI studio's STUDIO_STYLE_IMAGE is a file path instead.
