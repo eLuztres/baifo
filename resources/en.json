@@ -576,7 +576,6 @@
   "EXPLORE_NEW_BADGE": "New",
   "EXPLORE_END_TITLE": "You've seen it all",
   "EXPLORE_END_TEXT": "Come back tomorrow: new things arrive every day. Got something to sell or a service to offer? {shop} posts it for you.",
-  "PRODUCT_RELATED_TITLE": "You might also like",
   "CATEGORY_SORT": "Sort",
   "CONDITION_NEW": "New",
   "CONDITION_LIKE_NEW": "Like new",
@@ -725,5 +724,7 @@
   "WORKSHOP_TITLE": "Made with care.",
   "WORKSHOP_INTRO": "A look at how {shop} chooses, makes and prepares every product.",
   "WORKSHOP_GALLERY_TITLE": "A look inside",
-  "HOME_FAQ_3_A": "Shipping costs {shipping}; on orders from {threshold} it costs nothing."
+  "HOME_FAQ_3_A": "Shipping costs {shipping}; on orders from {threshold} it costs nothing.",
+  "PRODUCT_DESCRIPTION_MORE": "Read more",
+  "CONTACT_WHATSAPP_SHORT": "WhatsApp"
 }

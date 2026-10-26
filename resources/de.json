@@ -576,7 +576,6 @@
   "EXPLORE_NEW_BADGE": "Neu",
   "EXPLORE_END_TITLE": "Du hast alles gesehen",
   "EXPLORE_END_TEXT": "Schau morgen wieder vorbei: Jeden Tag kommen neue Sachen dazu. Hast du etwas zu verkaufen oder eine Dienstleistung anzubieten? {shop} stellt es für dich online.",
-  "PRODUCT_RELATED_TITLE": "Das könnte dir gefallen",
   "CATEGORY_SORT": "Sortieren",
   "CONDITION_NEW": "Neu",
   "CONDITION_LIKE_NEW": "Wie neu",
@@ -725,5 +724,7 @@
   "WORKSHOP_TITLE": "Mit Sorgfalt gemacht.",
   "WORKSHOP_INTRO": "Ein Blick darauf, wie {shop} jedes Produkt auswählt, fertigt und vorbereitet.",
   "WORKSHOP_GALLERY_TITLE": "Ein Blick hinein",
-  "HOME_FAQ_3_A": "Der Versand kostet {shipping}; ab {threshold} Bestellwert fallen keine Versandkosten an."
+  "HOME_FAQ_3_A": "Der Versand kostet {shipping}; ab {threshold} Bestellwert fallen keine Versandkosten an.",
+  "PRODUCT_DESCRIPTION_MORE": "Weiterlesen",
+  "CONTACT_WHATSAPP_SHORT": "WhatsApp"
 }

@@ -11,7 +11,7 @@ import ContactSellerButton from '@/components/shared/product/contact-seller-butt
 import ShareButton from '@/components/shared/product/share-button';
 import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
-import RelatedStrip from '@/components/shared/product/related-strip';
+import ScrollText from '@/components/shared/product/scroll-text';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
 import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
@@ -27,14 +27,11 @@ import { getT } from '@/lib/i18n-server';
 import { getPlaceWithCorral, getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
-import { composeFeed } from '@/lib/feed';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
 import { coverPicture } from '@/lib/video';
 
-/** How many similar listings the strip under a listing shows. */
-const RELATED_COUNT = 8;
 
 // generateMetadata and the page need the same row: one query per request.
 const getProduct = cache(getProductBySlug);
@@ -101,21 +98,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     categories.find((category) => category.slug === categoryId) ??
     categories.find((category) => rings.some((ring) => ring.slug === slug && ring.categoryIds.includes(category.id)));
   const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
-  const ownCategorySlug = (categoryIds: string[]) => categories.find((category) => categoryIds.includes(category.id))?.slug;
-  const related = composeFeed(visibleRings.filter((ring) => ring.slug !== slug), focusCategory?.id, slug)
-    .slice(0, RELATED_COUNT)
-    .map((ring) => {
-      // Its own category, so the next page's way back and swipe stay in it.
-      const ringCategory = ownCategorySlug(ring.categoryIds);
-      return {
-        href: ringCategory ? `/product/${ring.slug}?c=${ringCategory}` : `/product/${ring.slug}`,
-        name: localizeProduct(ring, locale).name,
-        image: ring.image,
-        price: ring.price,
-        priceMax: ring.priceMax,
-        priceLabel: ring.isWanted ? t('WANTED_BUDGET') : undefined,
-      };
-    });
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
@@ -151,7 +133,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* A phone's photo keeps at least 42 % (30 % on short screens) so the whole picture is big enough to see;
             the description scrolls inside its card, so title, price and the button still fit. */}
-        <div className='relative min-h-[42%] flex-1 [@media(max-height:700px)]:min-h-[30%] sm:min-h-[50%] lg:min-h-0'>
+        <div className='relative min-h-[36%] flex-1 [@media(max-height:700px)]:min-h-[28%] sm:min-h-[50%] lg:min-h-0'>
           <ProductImages images={product.images} alt={name} />
           {isIllustrative && (
             <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
@@ -171,53 +153,55 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
               <ShareButton title={name} className='-mr-2 -mt-1' />
             </div>
-            {(condition || place) && (
+            {(condition || (place && !place.corralName)) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
                 {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
-                {place?.corralName ? (
-                  <Link
-                    href={`/corral/${place.slug}`}
-                    className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm text-primary transition hover:bg-primary/15'
-                  >
-                    <MapPin className='size-3.5' aria-hidden /> {place.corralName}
-                  </Link>
-                ) : (
-                  place && (
-                    <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
-                      <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
-                    </p>
-                  )
+                {place && !place.corralName && (
+                  <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
+                    <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
+                  </p>
                 )}
               </div>
             )}
             {description && (
-              // On a phone it fades out at the bottom, so a squeezed text reads as "scroll for more", not as cut off.
-              <p className='min-h-0 overflow-y-auto overscroll-contain whitespace-pre-line text-sm leading-6 text-foreground/85 max-lg:[mask-image:linear-gradient(to_bottom,black_calc(100%-1.25rem),transparent)] sm:text-base sm:leading-7'>
+              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
                 {description}
-              </p>
+              </ScrollText>
             )}
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
             {SHOWCASE_MODE || isService ? (
               <>
                 {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />}
-                {hasSellerContact ? (
-                  <ContactSellerButton productId={product.id} productName={name} className='w-full' />
-                ) : corralChatUrl ? (
-                  <Button asChild className='h-11 w-full rounded-full'>
-                    <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
-                      <MessageCircle /> {corral ? t('CONTACT_CORRAL_WHATSAPP', { to: corral.name }) : t('CONTACT_SHOP_WHATSAPP')}
-                    </a>
-                  </Button>
-                ) : (
-                  // Only a shop without any WhatsApp number still asks for the visitor's contact.
-                  <InterestButton
-                    productId={product.id}
-                    productName={name}
-                    image={coverPicture(product.images)}
-                    userName={session?.user?.name ?? undefined}
-                    className='w-full'
-                  />
-                )}
+                {/* The Corral and the way to write side by side, so the description keeps the room. */}
+                <div className='flex shrink-0 items-center gap-2'>
+                  {place?.corralName && (
+                    <Link
+                      href={`/corral/${place.slug}`}
+                      className='inline-flex h-11 min-w-0 shrink items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 text-sm text-primary transition hover:bg-primary/15'
+                    >
+                      <MapPin className='size-4 shrink-0' aria-hidden /> <span className='truncate'>{place.corralName}</span>
+                    </Link>
+                  )}
+                  {hasSellerContact ? (
+                    <ContactSellerButton productId={product.id} productName={name} className='flex-1 shrink-0' />
+                  ) : corralChatUrl ? (
+                    <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
+                      <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
+                        {/* Next to the Corral's name, a short label is enough. */}
+                        <MessageCircle /> {place?.corralName ? t('CONTACT_WHATSAPP_SHORT') : t('CONTACT_SHOP_WHATSAPP')}
+                      </a>
+                    </Button>
+                  ) : (
+                    // Only a shop without any WhatsApp number still asks for the visitor's contact.
+                    <InterestButton
+                      productId={product.id}
+                      productName={name}
+                      image={coverPicture(product.images)}
+                      userName={session?.user?.name ?? undefined}
+                      className='w-full'
+                    />
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -267,10 +251,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 )}
               </>
             )}
-          </div>
-          {/* Short phones (iPhone SE) need the room for the price and the contact button; the strip steps aside. */}
-          <div className='shrink-0 max-sm:[@media(max-height:600px)]:hidden'>
-            <RelatedStrip title={t('PRODUCT_RELATED_TITLE')} listings={related} seeAllHref={feedHref} seeAllLabel={t('CATEGORY_SEE_ALL')} />
           </div>
         </div>
       </div>
