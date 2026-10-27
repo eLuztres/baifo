@@ -8,7 +8,9 @@ import { getLocale } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
-export const metadata: Metadata = { title: 'Nuevo anuncio' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: adminTexts(await getLocale()).newListing };
+}
 
 // "Crear con IA" starts the AI work inside the action's time.
 export const maxDuration = 300;

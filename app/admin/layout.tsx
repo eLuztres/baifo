@@ -31,7 +31,8 @@ export default async function AdminLayout({
               {/* The way back to the shop is always in sight, also on a phone. */}
               <Button asChild variant='outline' size='sm' className='h-9 rounded-full'>
                 <Link href='/'>
-                  <Store /> {t('ADMIN_BACK_TO_SHOP', { shop: APP_NAME })}
+                  {/* The smallest phones get the icon only, so longer languages (German) fit next to the logo. */}
+                  <Store /> <span className='max-[359px]:sr-only'>{t('ADMIN_BACK_TO_SHOP', { shop: APP_NAME })}</span>
                 </Link>
               </Button>
               <Menu />

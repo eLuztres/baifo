@@ -17,7 +17,9 @@ import { adminTexts, fillText, type AdminTexts } from '@/lib/marketplace/admin-t
 import { cn, formatCurrency } from '@/lib/utils';
 import { coverPicture } from '@/lib/video';
 
-export const metadata: Metadata = { title: 'Anuncios' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: adminTexts(await getLocale()).listingsTitle };
+}
 
 // The order of the filter tabs: what needs the admin first.
 const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYMENT', 'LIVE', 'COLLECTING', 'SOLD', 'EXPIRED', 'REJECTED'];

@@ -43,6 +43,28 @@ const TEXTS = {
     notSent: 'Invio non riuscito. Resend è configurato?',
     invalidEmail: 'Scrivi un indirizzo email valido',
   },
+  fr: {
+    title: 'Liste des annonces par e-mail',
+    hint: 'Toutes les annonces en ligne avec photo, prix et contact, prête à imprimer.',
+    email: 'Envoyer à',
+    auto: 'L’envoyer aussi après chaque nouvelle annonce',
+    send: 'Envoyer la liste maintenant',
+    sent: 'Liste envoyée',
+    saved: 'Enregistré',
+    notSent: 'Envoi impossible. Resend est-il configuré ?',
+    invalidEmail: 'Saisis une adresse e-mail valide',
+  },
+  de: {
+    title: 'Anzeigenliste per E-Mail',
+    hint: 'Alle Anzeigen online mit Foto, Preis und Kontakt, fertig zum Drucken.',
+    email: 'Senden an',
+    auto: 'Auch nach jeder neuen Anzeige senden',
+    send: 'Liste jetzt senden',
+    sent: 'Liste gesendet',
+    saved: 'Gespeichert',
+    notSent: 'Senden fehlgeschlagen. Ist Resend eingerichtet?',
+    invalidEmail: 'Gib eine gültige E-Mail-Adresse ein',
+  },
 };
 
 interface ListingsEmailCardProps {

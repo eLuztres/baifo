@@ -14,7 +14,9 @@ import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { getShopPlaces } from '@/lib/places';
 import type { ProductKind } from '@/lib/constants';
 
-export const metadata: Metadata = { title: 'Anuncio' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: adminTexts(await getLocale()).listingsTitle };
+}
 
 // The AI work started by "Crear con IA" runs within the action's time; this page only reads.
 export const maxDuration = 300;
