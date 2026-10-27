@@ -11,12 +11,12 @@
   "HOME_HERO_CTA": "Anzeigen ansehen",
   "HOME_HERO_ORDER": "Inserieren ab {price} €",
   "RING_TITLE": "Dreh am Rad, finde dein Stück",
-  "WORKSHOP_STEP_1_TITLE": "Foto schicken",
-  "WORKSHOP_STEP_1_TEXT": "Mach ein Foto von dem, was du verkaufen willst, und schick es uns per WhatsApp. Wenn du magst, mit Preis und ein paar Worten. Mehr musst du nicht tun.",
+  "WORKSHOP_STEP_1_TITLE": "Erzähl es uns",
+  "WORKSHOP_STEP_1_TEXT": "Schick uns ein Foto oder ein paar Worte per WhatsApp. Ganz ohne Konto.",
   "WORKSHOP_STEP_2_TITLE": "Wir machen es schön",
-  "WORKSHOP_STEP_2_TEXT": "Wir verbessern deine Fotos, schreiben eine Anzeige, die verkauft, und schicken dir einen Link zum Prüfen. Passt etwas nicht? Sag uns Bescheid und wir ändern es.",
-  "WORKSHOP_STEP_3_TITLE": "3 Monate online",
-  "WORKSHOP_STEP_3_TEXT": "Deine Anzeige bleibt 3 Monate auf Baifo online. Käufer schreiben dir direkt per WhatsApp, ohne Zwischenhändler.",
+  "WORKSHOP_STEP_2_TEXT": "Wir kümmern uns um die Fotos und schreiben deine Anzeige in fünf Sprachen.",
+  "WORKSHOP_STEP_3_TITLE": "Die Insel findet dich",
+  "WORKSHOP_STEP_3_TEXT": "Bis zu 3 Monate auf Baifo. Wer möchte, schreibt dir direkt.",
   "STORE_EMPTY": "Bald gibt es hier Anzeigen. Willst du der Erste sein? Schreib uns per WhatsApp.",
   "FOOTER_TAGLINE": "Kleinanzeigen auf Fuerteventura, von Nachbar zu Nachbar.",
   "CONTACT_RULES_NOT_A_SHOP": "Ein Schwarzes Brett",
@@ -38,6 +38,6 @@
   "HOME_HERO_WORD_2": "",
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "So funktioniert's",
-  "WORKSHOP_TITLE": "So einfach ist Verkaufen.",
-  "WORKSHOP_INTRO": "Kein Konto, kein Formular, kein Stress. Schick uns ein Foto per WhatsApp und wir kümmern uns um den Rest: die Fotos, den Text, die Anzeige. Du wartest nur noch auf Käufer."
+  "WORKSHOP_TITLE": "Von der Insel, für die Insel.",
+  "WORKSHOP_INTRO": "Wie die Kleinanzeigen in der Zeitung von früher. Was du verkaufst oder suchst, Kurse, Dienstleistungen, Workshops, Kunst, Unternehmungen: Alles, was legal ist und von hier kommt, hat seinen Platz. Kein Algorithmus entscheidet, was du siehst. Und wenn du im El Corral vorbeikommst, helfen wir dir mit deiner Anzeige und erzählen dir, was auf der Insel los ist."
 }

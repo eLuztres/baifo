@@ -11,12 +11,12 @@
   "HOME_HERO_CTA": "Vedi gli annunci",
   "HOME_HERO_ORDER": "Pubblica da {price} €",
   "RING_TITLE": "Gira e trova quello che fa per te",
-  "WORKSHOP_STEP_1_TITLE": "Manda una foto",
-  "WORKSHOP_STEP_1_TEXT": "Scatta una foto di quello che vuoi vendere e mandacela su WhatsApp. Se vuoi, aggiungi il prezzo e qualche parola. È tutto quello che devi fare.",
+  "WORKSHOP_STEP_1_TITLE": "Raccontacelo",
+  "WORKSHOP_STEP_1_TEXT": "Mandaci una foto o due parole su WhatsApp. Non serve un account.",
   "WORKSHOP_STEP_2_TITLE": "Lo rendiamo bello",
-  "WORKSHOP_STEP_2_TEXT": "Miglioriamo le tue foto, scriviamo un annuncio che vende e ti mandiamo un link per controllarlo. Qualcosa non ti convince? Diccelo e lo sistemiamo noi.",
-  "WORKSHOP_STEP_3_TITLE": "Online per 3 mesi",
-  "WORKSHOP_STEP_3_TEXT": "Il tuo annuncio resta online su Baifo per 3 mesi. Gli acquirenti ti scrivono direttamente su WhatsApp, senza intermediari.",
+  "WORKSHOP_STEP_2_TEXT": "Curiamo le foto e scriviamo il tuo annuncio in cinque lingue.",
+  "WORKSHOP_STEP_3_TITLE": "L'isola ti trova",
+  "WORKSHOP_STEP_3_TEXT": "Resta su Baifo fino a 3 mesi. Chi vuole ti scrive direttamente.",
   "STORE_EMPTY": "Presto qui ci saranno annunci. Vuoi essere il primo? Scrivici su WhatsApp.",
   "FOOTER_TAGLINE": "Annunci locali a Fuerteventura, da vicino a vicino.",
   "CONTACT_RULES_NOT_A_SHOP": "Una bacheca di annunci",
@@ -38,6 +38,6 @@
   "HOME_HERO_WORD_2": "",
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Come funziona",
-  "WORKSHOP_TITLE": "Vendere è così facile.",
-  "WORKSHOP_INTRO": "Niente account, niente moduli, niente complicazioni. Mandaci una foto su WhatsApp e a tutto il resto pensiamo noi: le foto, il testo, l'annuncio. Tu aspetti solo gli acquirenti."
+  "WORKSHOP_TITLE": "Fatto sull'isola, per l'isola.",
+  "WORKSHOP_INTRO": "Come gli annunci del giornale di una volta. Quello che vendi o cerchi, lezioni, servizi, laboratori, arte, programmi: tutto ciò che è legale e di qui ha il suo posto. Nessun algoritmo decide cosa vedi. E se passi da El Corral, ti aiutiamo con il tuo annuncio e ti raccontiamo cosa c'è da fare sull'isola."
 }

@@ -11,12 +11,12 @@
   "HOME_HERO_CTA": "Voir les annonces",
   "HOME_HERO_ORDER": "Publie ton annonce dès {price} €",
   "RING_TITLE": "Fais tourner, trouve ton bonheur",
-  "WORKSHOP_STEP_1_TITLE": "Envoie une photo",
-  "WORKSHOP_STEP_1_TEXT": "Prends en photo ce que tu veux vendre et envoie-la-nous sur WhatsApp. Ajoute un prix et quelques mots si tu veux. C'est tout ce que tu as à faire.",
-  "WORKSHOP_STEP_2_TITLE": "On le met en valeur",
-  "WORKSHOP_STEP_2_TEXT": "On améliore tes photos, on rédige une annonce qui donne envie et on t'envoie un lien pour la vérifier. Quelque chose ne va pas ? Dis-le-nous et on corrige.",
-  "WORKSHOP_STEP_3_TITLE": "En ligne pendant 3 mois",
-  "WORKSHOP_STEP_3_TEXT": "Ton annonce reste en ligne sur Baifo pendant 3 mois. Les acheteurs t'écrivent directement sur WhatsApp, sans intermédiaire.",
+  "WORKSHOP_STEP_1_TITLE": "Raconte-nous",
+  "WORKSHOP_STEP_1_TEXT": "Envoie-nous une photo ou quelques mots sur WhatsApp. Pas besoin de compte.",
+  "WORKSHOP_STEP_2_TITLE": "On le rend beau",
+  "WORKSHOP_STEP_2_TEXT": "On soigne les photos et on rédige ton annonce en cinq langues.",
+  "WORKSHOP_STEP_3_TITLE": "L'île te trouve",
+  "WORKSHOP_STEP_3_TEXT": "En ligne sur Baifo jusqu'à 3 mois. Qui veut t'écrit directement.",
   "STORE_EMPTY": "Les annonces arrivent bientôt. Tu veux être le premier ? Écris-nous sur WhatsApp.",
   "FOOTER_TAGLINE": "Les annonces locales de Fuerteventura, entre voisins.",
   "CONTACT_RULES_NOT_A_SHOP": "Un tableau d'annonces",
@@ -38,6 +38,6 @@
   "HOME_HERO_WORD_2": "",
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Comment ça marche",
-  "WORKSHOP_TITLE": "Vendre, c'est aussi simple que ça.",
-  "WORKSHOP_INTRO": "Pas de compte, pas de formulaire, pas de prise de tête. Envoie-nous une photo sur WhatsApp et on s'occupe de tout le reste : les photos, le texte, l'annonce. Toi, tu n'as plus qu'à attendre les acheteurs."
+  "WORKSHOP_TITLE": "Fait sur l'île, pour l'île.",
+  "WORKSHOP_INTRO": "Comme les petites annonces du journal d'autrefois. Ce que tu vends ou cherches, cours, services, ateliers, art, sorties : tout ce qui est légal et d'ici a sa place. Aucun algorithme ne décide de ce que tu vois. Et si tu passes à El Corral, on t'aide avec ton annonce et on te raconte ce qu'il y a à faire sur l'île."
 }

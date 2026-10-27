@@ -11,12 +11,12 @@
   "HOME_HERO_CTA": "Ver anuncios",
   "HOME_HERO_ORDER": "Anúnciate desde {price} €",
   "RING_TITLE": "Gira y encuentra lo tuyo",
-  "WORKSHOP_STEP_1_TITLE": "Manda una foto",
-  "WORKSHOP_STEP_1_TEXT": "Haz una foto de lo que quieres vender y mándanosla por WhatsApp. Si quieres, añade el precio y unas palabras. Eso es todo lo que tienes que hacer.",
+  "WORKSHOP_STEP_1_TITLE": "Cuéntanoslo",
+  "WORKSHOP_STEP_1_TEXT": "Mándanos una foto o unas palabras por WhatsApp. No hace falta cuenta.",
   "WORKSHOP_STEP_2_TITLE": "Lo dejamos bonito",
-  "WORKSHOP_STEP_2_TEXT": "Mejoramos tus fotos, escribimos un anuncio que vende y te mandamos un enlace para revisarlo. ¿Algo no te convence? Nos lo dices y lo arreglamos por ti.",
-  "WORKSHOP_STEP_3_TITLE": "Online 3 meses",
-  "WORKSHOP_STEP_3_TEXT": "Tu anuncio sale online en Baifo durante 3 meses. Los compradores te escriben directamente por WhatsApp, sin intermediarios.",
+  "WORKSHOP_STEP_2_TEXT": "Cuidamos las fotos y escribimos tu anuncio en cinco idiomas.",
+  "WORKSHOP_STEP_3_TITLE": "La isla te encuentra",
+  "WORKSHOP_STEP_3_TEXT": "Sale en Baifo hasta 3 meses. Quien quiera te escribe directamente.",
   "STORE_EMPTY": "Pronto habrá anuncios aquí. ¿Quieres ser el primero? Escríbenos por WhatsApp.",
   "FOOTER_TAGLINE": "Anuncios locales de Fuerteventura, de vecino a vecino.",
   "CONTACT_RULES_NOT_A_SHOP": "Un tablón de anuncios",
@@ -38,6 +38,6 @@
   "HOME_HERO_WORD_2": "",
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Cómo funciona",
-  "WORKSHOP_TITLE": "Vender es así de fácil.",
-  "WORKSHOP_INTRO": "Sin cuentas, sin formularios, sin complicaciones. Mándanos una foto por WhatsApp y nosotros nos encargamos de todo lo demás: las fotos, el texto, el anuncio. Tú solo esperas a los compradores."
+  "WORKSHOP_TITLE": "Hecho en la isla, para la isla.",
+  "WORKSHOP_INTRO": "Como los anuncios del periódico de toda la vida. Lo que vendes o buscas, clases, servicios, talleres, arte, planes: todo lo que sea legal y de aquí tiene su sitio. Ningún algoritmo decide lo que ves. Y si te pasas por El Corral, te ayudamos con tu anuncio y te contamos qué hay para hacer en la isla."
 }
