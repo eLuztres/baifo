@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
@@ -30,8 +31,9 @@ const Header = async () => {
           href='/'
           className='shrink-0 justify-self-start rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background'
           aria-label={BRAND.name}
+          style={{ '--logo-height': `${BRAND.logoHeight}px` } as CSSProperties}
         >
-          <BrandLogo withName priority className='h-12 sm:h-16' nameClassName='text-2xl sm:text-3xl' />
+          <BrandLogo withName priority className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
         </Link>
 
         <NavLinks links={navLinks} />
