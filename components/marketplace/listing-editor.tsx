@@ -31,6 +31,7 @@ import type { Locale } from '@/lib/i18n-core';
 import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, videoPoster } from '@/lib/video';
+import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
 import PhotoUpload from './photo-upload';
 import TextModeSwitch from './text-mode-switch';
@@ -493,7 +494,13 @@ export default function ListingEditor({ listing, categories, places, languages, 
               <Label htmlFor='address' className='px-1 text-xs text-muted-foreground'>
                 {texts.addressLabel}
               </Label>
-              <Input id='address' value={fields.address} onChange={set('address')} maxLength={200} className='h-12 rounded-2xl bg-card text-base md:text-base' />
+              <AddressInput
+                id='address'
+                value={fields.address}
+                onChange={(address) => set('address')({ target: { value: address } })}
+                placeholder={texts.addressPlaceholder}
+                className='h-12 rounded-2xl bg-card text-base md:text-base'
+              />
             </div>
           </>
         )}

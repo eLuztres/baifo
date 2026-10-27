@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, HandHelping, Package, Search } from 'lucide-react';
 import ListingSteps from '@/components/marketplace/listing-steps';
+import ListingTypeInfo from '@/components/marketplace/listing-type-info';
 import NewListingForm from '@/components/marketplace/new-listing-form';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
@@ -33,28 +34,32 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
       {/* One form for all four; the choice only changes what the AI writes and which fields there are. */}
-      <div className='mx-auto max-w-xl space-y-3 text-center'>
-        {/* Four labels don't fit in one row on small phones in every language: two rows there. */}
-        <nav aria-label={texts.typeLabel} className='inline-grid grid-cols-2 gap-1 rounded-3xl bg-muted p-1 min-[420px]:inline-flex min-[420px]:gap-0 min-[420px]:rounded-full'>
+      <div className='mx-auto max-w-xl text-center'>
+        {/* One row in every language down to 320px: small words and tight padding on phones, no icons. */}
+        <nav aria-label={texts.typeLabel} className='inline-flex max-w-full rounded-full bg-muted p-1'>
           {LISTING_TYPES.map((type) => {
             const Icon = icons[type];
+            const label = texts[`type_${type}`];
+            const icon = <Icon className='hidden size-4 sm:block' aria-hidden />;
+            // The chosen type's tab explains it in a popup instead of a paragraph under the tabs.
+            if (type === listingType && intro) {
+              return <ListingTypeInfo key={type} label={label} text={intro} infoLabel={texts.typeInfo} icon={icon} />;
+            }
             return (
               <Link
                 key={type}
                 href={newListingPath(type)}
                 aria-current={type === listingType ? 'page' : undefined}
                 className={cn(
-                  'flex items-center justify-center gap-2 rounded-full px-2.5 py-2 text-sm font-medium transition-colors min-[400px]:px-3 sm:px-4',
+                  'flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-xs font-medium transition-colors min-[400px]:px-3 min-[400px]:text-sm sm:px-4',
                   type === listingType ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {/* Phones get the words only, so all four fit. */}
-                <Icon className='hidden size-4 sm:block' aria-hidden /> {texts[`type_${type}`]}
+                {icon} {label}
               </Link>
             );
           })}
         </nav>
-        {intro && <p className='text-sm text-muted-foreground'>{intro}</p>}
       </div>
       <ListingSteps current={0} texts={texts} />
       <NewListingForm key={listingType} texts={texts} type={listingType} />

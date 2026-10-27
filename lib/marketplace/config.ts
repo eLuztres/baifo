@@ -24,6 +24,10 @@ export const LISTING_FROM_PRICE = formatNumber(Number(LISTING_PRICES.normal));
 /** Gets the printable list of all live products after each new listing. */
 export const LISTINGS_EMAIL = env('LISTINGS_EMAIL');
 
+/** Where event addresses are searched (west,south,east,north); default: Fuerteventura. "none": everywhere. */
+const addressArea = env('ADDRESS_AREA') ?? '-14.55,27.99,-13.80,28.78';
+export const ADDRESS_AREA = addressArea === 'none' ? undefined : addressArea;
+
 /** A failed AI step is retried this often (by the cron) before the admin is told. */
 export const MAX_PROCESSING_ATTEMPTS = 3;
 

@@ -5,7 +5,6 @@ import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
 import { seedOf } from '@/lib/studio/prompts.mjs';
-import { stampPicture } from '@/lib/studio/stamp.mjs';
 import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
 // Local settings for item photos, picked per listing: the feed varies, while one listing's photos match.
@@ -25,9 +24,6 @@ const photoPrompt = (scene: string) =>
   `clutter around it and place it ${scene}, the background softly out of focus so the item stands out, soft daylight ` +
   'and a gentle contact shadow. The whole item visible and centered, upright 3:4 photo, photorealistic. ' +
   'No hands, no people, no text, no logos, no watermark.';
-
-// Only items for sale carry the shop's stamp; a wanted ad's picture is just an example.
-const stampItem = (picture: Buffer, type: ListingType) => (type === 'PRODUCT' ? stampPicture(picture) : picture);
 
 // A service photo shows real people: they must stay exactly themselves, only the photo gets better.
 const SERVICE_PHOTO_PROMPT =
@@ -239,10 +235,8 @@ const LISTING_PHOTO_SIZE = '1152x1536';
 
 /** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. The seed (the
     listing's id) picks the item's scene. */
-export const enhancePhoto = async (photo: Buffer, type: ListingType, seed: string) =>
-  type === 'PRODUCT' || type === 'WANTED'
-    ? stampItem(await editImage(photoPrompt(itemScene(seed)), [photo], { size: LISTING_PHOTO_SIZE }), type)
-    : editImage(SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
+export const enhancePhoto = (photo: Buffer, type: ListingType, seed: string) =>
+  editImage(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(itemScene(seed)) : SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
 
 // The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
 const PICTURE_STYLE =
@@ -265,8 +259,8 @@ const picturePrompt = ({ title, description }: { title: string; description: str
 
 /** A picture made from the listing's text alone, for a listing without any photo. The seed (the listing's id) picks
     an item's scene. */
-export const createPicture = async (text: { title: string; description: string }, type: ListingType, seed: string) =>
-  stampItem(await generateImage(picturePrompt(text, type, itemScene(seed)), { size: LISTING_PHOTO_SIZE }), type);
+export const createPicture = (text: { title: string; description: string }, type: ListingType, seed: string) =>
+  generateImage(picturePrompt(text, type, itemScene(seed)), { size: LISTING_PHOTO_SIZE });
 
 /** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
     an item also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.

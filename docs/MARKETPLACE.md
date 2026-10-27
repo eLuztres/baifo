@@ -37,6 +37,7 @@ LISTING_PRICE_NORMAL=5
 LISTING_PRICE_BIG=10
 LISTING_DAYS=90
 LISTINGS_EMAIL=                 # gets the printable list of live products
+# ADDRESS_AREA=-14.55,27.99,-13.80,28.78  # where event addresses are searched (west,south,east,north); default Fuerteventura, none: everywhere
 
 # Payments of the listing fee (Stripe Checkout or PayPal); the product goes live on payment
 STRIPE_SECRET_KEY=

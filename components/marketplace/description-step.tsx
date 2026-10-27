@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
@@ -28,11 +29,14 @@ interface DescriptionStepProps {
 
 /** Step 2: everything the admin knows about the item in one text; the AI turns it into the listing. */
 export default function DescriptionStep({ listing, languages, texts, onSent }: DescriptionStepProps) {
-  // A service always belongs to the person offering it, so their WhatsApp is asked for right away.
   const isService = listing.type === 'SERVICE';
   const isWanted = listing.type === 'WANTED';
+  const { toast } = useToast();
   const [notes, setNotes] = useState(listing.rawText);
-  const [isForSeller, setIsForSeller] = useState(isService);
+  // Most listings are the person's own, so their WhatsApp comes first; the Corral is the paid extra.
+  const [isForSeller, setIsForSeller] = useState(true);
+  // Only a click on "the person's WhatsApp" jumps to the number, not the page opening with it chosen.
+  const [hasPickedPerson, setHasPickedPerson] = useState(false);
   const [sellerPhone, setSellerPhone] = useState('');
   const [hasConsent, setHasConsent] = useState(false);
   // Chosen before the AI runs: improve the text, or keep the admin's words and only translate them.
@@ -149,7 +153,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
                   type='button'
                   role='radio'
                   aria-checked={isForSeller === isPerson}
-                  onClick={() => setIsForSeller(isPerson)}
+                  onClick={() => {
+                    // The Corral handling the contact is paid for: remind the admin to check that first.
+                    if (!isPerson && isForSeller) toast({ description: texts.corralExtraCheck });
+                    setHasPickedPerson(isPerson);
+                    setIsForSeller(isPerson);
+                  }}
                   className={cn(
                     'flex items-start gap-3 rounded-2xl border p-3 text-left transition',
                     isForSeller === isPerson ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/50'
@@ -171,7 +180,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             <Input
               id='seller'
               type='tel'
-              autoFocus
+              autoFocus={hasPickedPerson}
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder={texts.sellerPlaceholder}
@@ -181,7 +190,15 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : texts.sellerHint}</p>
             {sellerPhone.trim() && (
               <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
-                <Checkbox checked={hasConsent} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
+                <Checkbox
+                  checked={hasConsent}
+                  onCheckedChange={(value) => {
+                    // The consent is the person's; the admin only records it, so ask once more.
+                    if (value === true) toast({ description: texts.consentCheck });
+                    setHasConsent(value === true);
+                  }}
+                  className='mt-0.5'
+                />
                 {isService ? texts.serviceConsent : isWanted ? texts.wantedConsent : texts.consent}
               </Label>
             )}

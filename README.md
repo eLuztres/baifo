@@ -98,6 +98,7 @@ BRAND_HERO_IMAGE=/brand/hero.jpg    # big picture on the home page (default: log
 BRAND_OG_IMAGE=/brand/og.jpg        # preview image when the shop link is shared (default: logo)
 BRAND_SHOW_NAME=false               # hide the name next to the logo when the logo already contains it
 BRAND_SHOW_SIGN_IN=false            # no sign-in / "Join" button for visitors (admins use /sign-in directly)
+BRAND_STAMP=/brand/stamp.png        # a small mark (e.g. your mascot) in the corner of item pictures, drawn in white
 ```
 
 ### Theme and colors

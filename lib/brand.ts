@@ -108,6 +108,8 @@ export const BRAND = {
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),
+  /** A small mark in the corner of item pictures, e.g. the shop's mascot. */
+  stamp: env('BRAND_STAMP'),
   /** On a product page, swiping up (or the wheel down) opens the next product. */
   hasSwipeToNext: env('BRAND_SWIPE_TO_NEXT') !== 'false',
   /** On small screens, the slim row of section links that shows briefly when the page moves to another part. */

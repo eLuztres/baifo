@@ -143,7 +143,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         {/* A phone's photo keeps at least 42 % (30 % on short screens) so the whole picture is big enough to see;
             the description scrolls inside its card, so title, price and the button still fit. */}
         <div className='relative min-h-[36%] flex-1 [@media(max-height:700px)]:min-h-[28%] sm:min-h-[50%] lg:min-h-0'>
-          <ProductImages images={product.images} alt={name} />
+          <ProductImages images={product.images} alt={name} stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined} />
           {isIllustrative && (
             <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
               {t('PRODUCT_ILLUSTRATIVE')}

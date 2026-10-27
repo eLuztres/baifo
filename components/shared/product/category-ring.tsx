@@ -61,9 +61,7 @@ const MIN_WIDE_RING_CARDS = 16;
 // The width where the ring reaches the screen edges (product-ring.module.css).
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
 const TURN_MS = 1400;
-// The arrows beside the front card's name show once the cards are nearly in place (about two thirds into the turn's
-// soft curve), and take their exact place once the ring has settled (a turn, or the 1.4s entrance on load).
-const ARROWS_APPEAR_MS = 900;
+// The arrows beside the front card's name take their place once the ring has settled (a turn, or the 1.4s entrance on load).
 const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 16;
@@ -171,7 +169,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   // Ring radius per unit of card spacing for this many cards; the spacing itself grows with the screen (CSS).
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
   const hasPiece = center !== 'band' && center !== 'none';
-  const captionSpots = useCaptionSpots(stageRef, frontIndex, ARROWS_APPEAR_MS, SETTLE_MS);
+  const captionSpots = useCaptionSpots(stageRef, frontIndex, SETTLE_MS);
 
   // The front category goes into the URL, so the back button and shared links return to it. A fresh visit keeps a clean URL.
   useEffect(() => {

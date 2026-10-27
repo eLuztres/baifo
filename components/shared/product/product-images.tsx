@@ -10,6 +10,7 @@ import { useSwipe } from '@/hooks/useSwipe';
 import { prefersReducedMotion } from '@/components/shared/home/one-page';
 import { isVideoUrl } from '@/lib/video';
 import { playFullScreen } from '@/lib/video-full-screen';
+import BrandStamp from './brand-stamp';
 import { RingGlassCard } from './product-ring';
 import ringStyles from './product-ring.module.css';
 
@@ -21,9 +22,11 @@ const TURN_BUTTON_CLASS =
 interface ProductImagesProps {
   images: string[];
   alt: string;
+  /** The shop's mark on the pictures (items for sale only). */
+  stamp?: string;
 }
 
-const ProductImages = ({ images, alt }: ProductImagesProps) => {
+const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
   const [current, setCurrent] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
@@ -76,6 +79,7 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
             className={cn('relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
           >
             <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole />
+            <BrandStamp src={stamp} />
           </button>
         ))}
       </div>
@@ -122,7 +126,7 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
         <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
           <button
             type='button'
-            className='aspect-[3/4] h-full max-w-full cursor-zoom-in rounded-[1.75rem]'
+            className='relative aspect-[3/4] h-full max-w-full cursor-zoom-in rounded-[1.75rem]'
             aria-label={t('IMAGE_FULLSCREEN')}
             onClick={openFullScreen}
             {...(count > 1 ? swipe.handlers : {})}
@@ -130,6 +134,7 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
             <div ref={cardRef} className='contents'>
               <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
             </div>
+            <BrandStamp src={stamp} className='bottom-4 right-4' />
           </button>
         </div>
       </div>

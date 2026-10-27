@@ -7,10 +7,11 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
 import { fromShopDateTime } from '@/lib/event-date';
-import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { getEnabledLocales, getLocale, getShopLocale } from '@/lib/i18n-server';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
+import { suggestAddresses } from './address-search';
 import { HOUSE_SELLER } from './config';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
@@ -328,6 +329,16 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
     console.error(`Picture of listing ${id} not made`, error);
     return { success: false, message: 'La IA no pudo crear la foto. Inténtalo otra vez.' };
   }
+}
+
+const addressQuerySchema = z.string().trim().min(3).max(100);
+
+/** Addresses for an event while the admin types one: earlier events' venues, then OpenStreetMap's places on the island. */
+export async function findAddresses(query: string) {
+  if (!(await isAdmin())) return { ...NOT_ALLOWED, addresses: [] };
+  const parsed = addressQuerySchema.safeParse(query);
+  if (!parsed.success) return { success: true, message: '', addresses: [] };
+  return { success: true, message: '', addresses: await suggestAddresses(parsed.data, await getLocale()) };
 }
 
 const planSchema = z.enum(['normal', 'big']);

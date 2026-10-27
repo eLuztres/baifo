@@ -29,7 +29,6 @@ import {
   STYLE_REFERENCE_NOTE,
 } from '../lib/studio/prompts.mjs';
 import { draftText, editImage } from '../lib/studio/openai.mjs';
-import { stampPicture } from '../lib/studio/stamp.mjs';
 
 nextEnv.loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
 
@@ -115,7 +114,7 @@ async function generateShot(shot, references, focus) {
     SHOTS[shot] + KEEP_IDENTICAL + ' ' + STUDIO_LOOK + (style ? ' ' + STYLE_REFERENCE_NOTE : '');
   // 3:4 portrait, the shape of the shop's ring cards.
   const image = await editImage(prompt, [...references, ...(style ? [style] : [])], { size: '1152x1536' });
-  return stampPicture(await toJpeg(image, 2048));
+  return toJpeg(image, 2048);
 }
 
 async function generateCutoutShot(reference) {

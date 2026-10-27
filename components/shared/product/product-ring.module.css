@@ -433,9 +433,17 @@
     }
 }
 
-/* Category cards: rounder, with a light rim and a soft sheen over the photo, so they read as polished glass. */
+/* Category cards: rounder, with a light rim and a soft sheen over the photo, so they read as polished glass.
+   Square beside the front one; the front card grows upward into the whole 3:4 picture (Instagram's post shape),
+   its foot and name staying where they are. */
 .categoryStage .glassCard {
     border-radius: 1.6rem;
+    transition: border-color 600ms ease, box-shadow 600ms ease, top var(--shrink-ms) ease-out;
+}
+
+.categoryStage .card[aria-current] .glassCard {
+    top: calc(var(--card-w) / -3);
+    transition: border-color 600ms ease, box-shadow 600ms ease, top var(--grow-ms) var(--grow-ease) var(--grow-delay);
 }
 
 .categoryStage .glass {
@@ -496,7 +504,7 @@
     backdrop-filter: blur(6px);
     box-shadow: 0 8px 24px -8px rgb(0 0 0 / 0.6);
     animation: fade-in 250ms ease-out both;
-    /* left/top glide: the arrows show early in a turn and move the last bit when the ring settles. */
+    /* left glide: after a turn the arrows move sideways to the new name's width. */
     transition: background 300ms ease, scale 300ms ease, left 600ms ease-out, top 600ms ease-out;
 }
 
