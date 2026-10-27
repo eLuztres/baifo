@@ -3,7 +3,7 @@ import { prisma } from '@/db/prisma';
 import { formatCurrency } from '@/lib/utils';
 import { sendButtons, sendText } from '@/lib/whatsapp-cloud/client';
 import { categoryName, findCategory, getListingCategories } from './catalog';
-import { ADMIN_WHATSAPP_NUMBER, publishUrl } from './config';
+import { ADMIN_WHATSAPP_NUMBER, HOUSE_SELLER, publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { parsePrice } from './price';
 import { coverPicture } from '@/lib/video';
@@ -72,8 +72,15 @@ export async function rejectSubmission(submissionId: string, reason?: string) {
   const submission = await findInReview(submissionId);
   if (!submission) return null;
   await prisma.submission.update({ where: { id: submission.id }, data: { status: 'REJECTED', rejectReason: reason ?? null, rejectAskedAt: null } });
+  // Baifo's own listings have no WhatsApp to tell.
+  if (submission.seller.waId === HOUSE_SELLER) return submission;
   const locale = localeOf(submission.seller.waId);
-  await sendText(submission.seller.waId, reason ? botText(locale, 'rejectedReason', { reason }) : botText(locale, 'rejected'));
+  try {
+    await sendText(submission.seller.waId, reason ? botText(locale, 'rejectedReason', { reason }) : botText(locale, 'rejected'));
+  } catch (error) {
+    // Rejected anyway: e.g. a number the admin typed in never wrote to Baifo, so WhatsApp refuses a free text.
+    console.error(`Rejection of ${submission.id} not sent to the seller`, error);
+  }
   return submission;
 }
 

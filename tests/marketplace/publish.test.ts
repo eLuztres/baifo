@@ -129,6 +129,6 @@ describe('expireListings', () => {
 
     expect(await expireListings(now)).toEqual({ expired: 2, reminded: 0 });
 
-    expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { kind: 'service', submission: null, expiresAt: { lte: now } } });
+    expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { type: 'SERVICE', submission: null, expiresAt: { lte: now } } });
   });
 });

@@ -1,3 +1,4 @@
+import type { ListingType } from '@prisma/client';
 import { BRAND } from '@/lib/brand';
 
 export const APP_NAME = BRAND.name;
@@ -52,13 +53,24 @@ const envNumber = (key: string, fallback: number) => {
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 // A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
-// A service (babysitter, gardener …) is listed like a product but never shows a price or a cart, only its contact.
-export const PRODUCT_KINDS = ['product', 'service'] as const;
-export type ProductKind = (typeof PRODUCT_KINDS)[number];
-// The store category that holds the services; its subcategories are the kinds of service.
-export const SERVICES_CATEGORY_SLUG = process.env.SERVICES_CATEGORY_SLUG || 'servicios';
-// The category of wanted ads ("Busco …"); its subcategories are what people look for. A shop without it has none.
-export const WANTED_CATEGORY_SLUG = process.env.WANTED_CATEGORY_SLUG || 'busco';
+// Every listing is exactly one of these, and any type goes in any category. A service (babysitter, gardener …) or an
+// event (a workshop, a concert) never has a cart, only its contact; a service's price is a "from" price, an event's
+// its entry (0: free) and a wanted ad's ("Busco …") the budget of the person looking.
+export const LISTING_TYPES = ['PRODUCT', 'WANTED', 'SERVICE', 'EVENT'] as const satisfies readonly ListingType[];
+export type { ListingType };
+// Each type's name in links (?tipo=busco) and in the feed's chips.
+export const LISTING_TYPE_PARAMS = { PRODUCT: 'productos', WANTED: 'busco', SERVICE: 'servicios', EVENT: 'eventos' } as const satisfies Record<ListingType, string>;
+export const LISTING_TYPE_KEYS = {
+  PRODUCT: 'LISTING_TYPE_PRODUCT',
+  WANTED: 'LISTING_TYPE_WANTED',
+  SERVICE: 'LISTING_TYPE_SERVICE',
+  EVENT: 'LISTING_TYPE_EVENT',
+} as const satisfies Record<ListingType, string>;
+/** The type a link's ?tipo= stands for, or none. */
+export const listingTypeOf = (param?: string | null) => LISTING_TYPES.find((type) => LISTING_TYPE_PARAMS[type] === param);
+// What a service offers: a class, a service done for you, or someone who goes along with you.
+export const SERVICE_TYPES = ['class', 'service', 'support'] as const;
+export type ServiceType = (typeof SERVICE_TYPES)[number];
 // How a second-hand item is, best first; a product without one shows none.
 export const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'fair', 'any'] as const;
 export type ProductCondition = (typeof PRODUCT_CONDITIONS)[number];
@@ -81,16 +93,17 @@ export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
 export const NEW_PRODUCT_PATH =
   process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
-export const NEW_SERVICE_PATH = '/admin/listings/new?kind=service';
-/** Where "Add a product" in a category leads: the studio files it there; a listing shop starts a listing of the right kind. */
-export const newProductPathFor = (category: { id: string; slug: string }) => {
-  if (category.slug === SERVICES_CATEGORY_SLUG) return NEW_SERVICE_PATH;
-  if (category.slug === WANTED_CATEGORY_SLUG) return '/admin/listings/new?kind=wanted';
-  return NEW_PRODUCT_PATH === '/admin/studio' ? `/admin/studio?category=${category.id}` : NEW_PRODUCT_PATH;
-};
+/** Where a new listing of a type starts in the admin. */
+export const newListingPath = (type: ListingType) =>
+  type === 'PRODUCT' ? '/admin/listings/new' : `/admin/listings/new?tipo=${LISTING_TYPE_PARAMS[type]}`;
+/** Where "Add a product" in a category leads: the studio files it there; a listing shop starts a new listing. */
+export const newProductPathFor = (category: { id: string }) =>
+  NEW_PRODUCT_PATH === '/admin/studio' ? `/admin/studio?category=${category.id}` : NEW_PRODUCT_PATH;
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
+// How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
+export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
 
 // Pricing rules used by the cart; set per shop in .env.
 export const TAX_RATE = envNumber('TAX_RATE', 0);

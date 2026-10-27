@@ -1,4 +1,6 @@
 import { prisma } from '@/db/prisma';
+import { LISTING_TYPE_KEYS, type ListingType } from '@/lib/constants';
+import { getTranslator, LOCALES } from '@/lib/i18n';
 
 /** Lowercase without accents, so "sofa" finds "Sofá" and "bebe" finds "bebé". */
 export const normalizeForSearch = (text: string) =>
@@ -17,15 +19,18 @@ export function matchesSearch(text: string, query: string) {
 const allStrings = (value: unknown): string[] =>
   typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(allStrings) : [];
 
-/** The listings among `ids` whose name, description or category match the query, in any language. */
+// "servicio" or "busco" finds every listing of that type, in any language.
+const typeNames = (type: ListingType) => LOCALES.map(({ id }) => getTranslator(id)(LISTING_TYPE_KEYS[type]));
+
+/** The listings among `ids` whose name, description, category or type match the query, in any language. */
 export async function findMatchingListingIds(ids: string[], query: string) {
   const products = await prisma.product.findMany({
     where: { id: { in: ids } },
-    select: { id: true, name: true, description: true, translations: true, categories: { select: { name: true } } },
+    select: { id: true, name: true, description: true, translations: true, type: true, categories: { select: { name: true } } },
   });
   const matching = products.filter((product) =>
     matchesSearch(
-      [product.name, product.description, ...allStrings(product.translations), ...product.categories.flatMap((category) => allStrings(category.name))].join(' '),
+      [product.name, product.description, ...allStrings(product.translations), ...product.categories.flatMap((category) => allStrings(category.name)), ...typeNames(product.type)].join(' '),
       query
     )
   );

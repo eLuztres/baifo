@@ -22,7 +22,7 @@ export const RingGlassCard = ({ product, imageIndex }: RingGlassCardProps) => (
   <div className={cn(styles.glassCard, styles.featured)}>
     {product.images.map((src, index) => (
       <div key={src} data-active={index === imageIndex || undefined} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
-        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} />
+        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} isWhole />
       </div>
     ))}
   </div>

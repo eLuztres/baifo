@@ -52,6 +52,8 @@ OPENAI_API_KEY=                 # AI photo and text
 
 Store categories: Baifo's defaults come from a migration (casa, moda, electronica, deporte, ninos, jardin, motor, otros). Listings whose category matches none go to "otros", because the showroom only shows categorized products.
 
+Listing types (`Product.type`, `ListingType`): **Producto** (fixed price), **Busco** (`WANTED`, budget range), **Servicio** ("desde" price, optional, plus Clase / Servicio / Acompañamiento) and **Evento** (date and time, address, entry price where 0 is "Gratis"; uses the organiser's own photos). Type and category are independent, like in a newspaper: any type goes in any category. The AI picks both; from WhatsApp it tells an item for sale from a "Busco". The feed filters by type (`/explore?tipo=servicios`) and category (`?c=…`), combinable. An event shows "Jueves 29/11 · 19:00" or "Hoy · 19:00" and leaves the shop by itself the day after; the feed's "Hoy" chip (`/explore?hoy`) shows today's events.
+
 Every new listing emails the printable list of live products (photo, price, WhatsApp, link) to `LISTINGS_EMAIL`.
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).
@@ -59,7 +61,7 @@ Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `mess
 ## Admin pages
 
 - **/admin/listings**: every listing by status (to review first), with photo, price, seller and end date.
-- **/admin/listings/new**: one or several photos, optionally a few words, a price and the seller's WhatsApp → "Crear con IA" → the AI cleans up to four photos and writes title, ES/EN description, category and price → edit → "Publicar ahora" (free) or "Enviar enlace de pago".
+- **/admin/listings/new**: one or several photos, optionally a few words, a price and the seller's WhatsApp → "Crear con IA" → the AI cleans up to four photos and writes title, ES/EN description, category and price → edit → "Publicar ahora" (free) or "Rechazar".
 - **/admin/listings/[id]**: the same editor for any listing, plus reject and mark as sold.
 
 The admin menu links come from `brand/admin-links.json`.

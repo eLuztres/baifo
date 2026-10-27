@@ -20,13 +20,12 @@ interface ListingWorkspaceProps {
   /** The shop's own language, the first tab in the editor. */
   shopLanguage: EditorLanguage;
   texts: AdminTexts;
-  houseSeller: string;
 }
 
 const POLL_MS = 2500;
 
 /** Step 2 of a new listing (the description, then the listing to check and publish), or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts, houseSeller }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
   // Still collecting with photos (or video stills) but no pictures yet: the AI is making them. Without any it waits for the description.
@@ -103,7 +102,6 @@ export default function ListingWorkspace({ initial, categories, places, language
         languages={languages}
         shopLanguage={shopLanguage}
         texts={texts}
-        houseSeller={houseSeller}
         onPublished={handlePublished}
       />
     </div>

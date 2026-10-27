@@ -29,7 +29,8 @@ interface DescriptionStepProps {
 /** Step 2: everything the admin knows about the item in one text; the AI turns it into the listing. */
 export default function DescriptionStep({ listing, languages, texts, onSent }: DescriptionStepProps) {
   // A service always belongs to the person offering it, so their WhatsApp is asked for right away.
-  const isService = listing.kind === 'service';
+  const isService = listing.type === 'SERVICE';
+  const isWanted = listing.type === 'WANTED';
   const [notes, setNotes] = useState(listing.rawText);
   const [isForSeller, setIsForSeller] = useState(isService);
   const [sellerPhone, setSellerPhone] = useState('');
@@ -48,9 +49,11 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
     ? texts.tellOriginalPlaceholder
     : isService
       ? texts.tellServicePlaceholder
-      : listing.isWanted
-        ? texts.tellWantedPlaceholder
-        : texts.tellPlaceholder;
+      : listing.type === 'EVENT'
+        ? texts.tellEventPlaceholder
+        : isWanted
+          ? texts.tellWantedPlaceholder
+          : texts.tellPlaceholder;
 
   const send = () =>
     startTransition(async () => {
@@ -174,13 +177,15 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
               placeholder={texts.sellerPlaceholder}
               className='h-12 rounded-2xl bg-background'
             />
-            <p className='text-xs text-muted-foreground'>{isService ? texts.servicePhoneHint : texts.sellerHint}</p>
+            {/* A wanted ad has no seller: the number is the person looking. */}
+            <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : texts.sellerHint}</p>
             {sellerPhone.trim() && (
               <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
                 <Checkbox checked={hasConsent} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
-                {isService ? texts.serviceConsent : texts.consent}
+                {isService ? texts.serviceConsent : isWanted ? texts.wantedConsent : texts.consent}
               </Label>
             )}
+            {sellerPhone.trim() && isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
           </div>
         )}
       </div>

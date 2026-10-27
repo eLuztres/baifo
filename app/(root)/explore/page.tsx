@@ -8,8 +8,10 @@ import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rin
 import { getStoreCategories, getSubcategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME, LISTING_TYPE_KEYS, LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, NEW_LISTING_HOURS } from '@/lib/constants';
+import { isShopToday } from '@/lib/event-date';
 import { composeFeed } from '@/lib/feed';
+import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
@@ -21,15 +23,28 @@ import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 
 /** Every ninth tile is big, alternating sides, like an Instagram explore grid. */
 const BLOCK_SIZE = 9;
-/** Listings younger than this get the "New" badge. */
-const NEW_LISTING_MS = 2 * 24 * 60 * 60 * 1000;
 /** Longer queries are cut; nobody types more to find a bike. */
 const MAX_QUERY_LENGTH = 80;
 
 interface ExplorePageProps {
-  /** `c`: the category the visitor came from (its slug), whose listings open the feed; `sub`: one of its subcategories; `q`: the search text. */
-  searchParams: Promise<{ c?: string; sub?: string; q?: string }>;
+  /** `tipo`: only one listing type (LISTING_TYPE_PARAMS); `c`: the category the visitor came from (its slug), whose listings
+      open the feed; `sub`: one of its subcategories; `q`: the search text; `hoy`: only what happens today. */
+  searchParams: Promise<{ tipo?: string; c?: string; sub?: string; q?: string; hoy?: string }>;
 }
+
+interface ExploreFilters {
+  tipo?: string;
+  c?: string;
+  sub?: string;
+  isToday?: boolean;
+}
+
+/** The feed's link with these filters and the search; `hoy` stays a bare flag (/explore?hoy). */
+const exploreHref = ({ tipo, c, sub, isToday }: ExploreFilters, query = '') => {
+  const params = new URLSearchParams({ ...(tipo && { tipo }), ...(c && { c }), ...(sub && { sub }), ...(query && { q: query }) }).toString();
+  const search = [isToday && 'hoy', params].filter(Boolean).join('&');
+  return search ? `/explore?${search}` : '/explore';
+};
 
 const chipClass = (isActive: boolean) =>
   cn(
@@ -53,7 +68,7 @@ const todayOnTheIsland = () => new Date().toLocaleDateString('en-CA', { timeZone
 
 /** The whole marketplace in one read-only feed: products and services mixed, the visitor's category first. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ c: focusSlug, sub: subSlug, q }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
+  const [{ tipo, c: focusSlug, sub: subSlug, q, hoy }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
@@ -65,20 +80,28 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const query = q?.trim().slice(0, MAX_QUERY_LENGTH) ?? '';
   const matchingIds = query ? await findMatchingListingIds(placedListings.map((listing) => listing.id), query) : null;
   const listings = matchingIds ? placedListings.filter((listing) => matchingIds.has(listing.id)) : placedListings;
-  // Every link on the page keeps the search, so a category chip narrows the results instead of losing them.
-  const withQuery = (href: string) => (query ? `${href}${href.includes('?') ? '&' : '?'}q=${encodeURIComponent(query)}` : href);
+  // "Hoy": live the moment, only what happens today (today's events and workshops).
+  const todayListings = listings.filter((listing) => listing.startsAt && isShopToday(listing.startsAt));
+  const isTodayOnly = hoy !== undefined && todayListings.length > 0;
+  // Old links to the former Servicios, Busco and Eventos categories (?c=servicios) open that type.
+  const type = listingTypeOf(tipo) ?? (categories.some((category) => category.slug === focusSlug) ? undefined : listingTypeOf(focusSlug));
+  const filledTypes = LISTING_TYPES.filter((item) => listings.some((listing) => listing.type === item));
+  const shownListings = isTodayOnly ? todayListings : type ? listings.filter((listing) => listing.type === type) : listings;
+  const typeParam = !isTodayOnly && type ? LISTING_TYPE_PARAMS[type] : undefined;
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   // The town on each card only tells something once there's more than one.
   const placeName = new Map(livePlaces.length > 1 ? livePlaces.map((place) => [place.id, place.name]) : []);
-  const filledCategories = categories.filter((category) => listings.some((listing) => listing.categoryIds.includes(category.id)));
+  const filledCategories = categories.filter((category) => shownListings.some((listing) => listing.categoryIds.includes(category.id)));
   const focus = filledCategories.find((category) => category.slug === focusSlug);
-  // Only kinds that have listings, e.g. the services someone offers right now.
+  // Only subcategories that have listings.
   const subcategories = focus
-    ? (await getSubcategories(focus.slug)).filter((item) => listings.some((listing) => listing.categoryIds.includes(item.id)))
+    ? (await getSubcategories(focus.slug)).filter((item) => shownListings.some((listing) => listing.categoryIds.includes(item.id)))
     : [];
   const subcategory = subcategories.find((item) => item.slug === subSlug);
   const slugOf = new Map(categories.map((category) => [category.id, category.slug]));
-  const feed = composeFeed(listings, subcategory?.id ?? focus?.id, `${todayOnTheIsland()}:${focus?.slug ?? ''}:${subcategory?.slug ?? ''}`);
+  const feed = composeFeed(shownListings, subcategory?.id ?? focus?.id, `${todayOnTheIsland()}:${typeParam ?? ''}:${focus?.slug ?? ''}:${subcategory?.slug ?? ''}`);
+  // Type and category combine: each chip changes its own filter and keeps the other one and the search.
+  const filters: ExploreFilters = { tipo: typeParam, c: focus?.slug, isToday: isTodayOnly };
   const now = new Date();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
 
@@ -113,21 +136,45 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           <p className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
             <span>{t('EXPLORE_SEARCH_RESULTS', { query })}</span>
             <Link
-              href={subcategory ? `/explore?c=${focus?.slug}&sub=${subcategory.slug}` : focus ? `/explore?c=${focus.slug}` : '/explore'}
+              href={exploreHref({ ...filters, sub: subcategory?.slug })}
               className='inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-foreground transition-colors hover:border-primary/40'
             >
               <X className='size-3.5' aria-hidden /> {t('EXPLORE_SEARCH_CLEAR')}
             </Link>
           </p>
         )}
-        <nav aria-label={t('CATEGORY_ALL')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-          <Link href={withQuery('/explore')} aria-current={!focus ? 'page' : undefined} className={chipClass(!focus)}>
+        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
+          <Link
+            href={exploreHref({ c: focus?.slug }, query)}
+            aria-current={!typeParam && !isTodayOnly ? 'page' : undefined}
+            className={chipClass(!typeParam && !isTodayOnly)}
+          >
             {t('EXPLORE_ALL')}
+          </Link>
+          {filledTypes.map((item) => (
+            <Link
+              key={item}
+              href={exploreHref({ c: focus?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query)}
+              aria-current={item === type && !isTodayOnly ? 'page' : undefined}
+              className={chipClass(item === type && !isTodayOnly)}
+            >
+              {t(LISTING_TYPE_KEYS[item])}
+            </Link>
+          ))}
+          {todayListings.length > 0 && (
+            <Link href={exploreHref({ c: focus?.slug, isToday: true }, query)} aria-current={isTodayOnly ? 'page' : undefined} className={chipClass(isTodayOnly)}>
+              {t('EXPLORE_TODAY')}
+            </Link>
+          )}
+        </nav>
+        <nav aria-label={t('CATEGORY_ALL')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
+          <Link href={exploreHref({ ...filters, c: undefined }, query)} aria-current={!focus ? 'page' : undefined} className={chipClass(!focus)}>
+            {t('CATEGORY_ALL')}
           </Link>
           {filledCategories.map((category) => (
             <Link
               key={category.id}
-              href={withQuery(`/explore?c=${category.slug}`)}
+              href={exploreHref({ ...filters, c: category.slug }, query)}
               aria-current={category.id === focus?.id && !subcategory ? 'page' : undefined}
               className={chipClass(category.id === focus?.id)}
             >
@@ -137,13 +184,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </nav>
         {focus && subcategories.length > 0 && (
           <nav aria-label={localize(focus.name, locale)} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-            <Link href={withQuery(`/explore?c=${focus.slug}`)} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
+            <Link href={exploreHref(filters, query)} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
               {t('CATEGORY_SUB_ALL')}
             </Link>
             {subcategories.map((item) => (
               <Link
                 key={item.id}
-                href={withQuery(`/explore?c=${focus.slug}&sub=${item.slug}`)}
+                href={exploreHref({ ...filters, sub: item.slug }, query)}
                 aria-current={item.id === subcategory?.id ? 'page' : undefined}
                 className={chipClass(item.id === subcategory?.id)}
               >
@@ -175,7 +222,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             const isRight = Math.floor(index / BLOCK_SIZE) % 2 === 1;
             // The listing's own category, so its page leads back to a feed that opens with similar things.
             const categorySlug = listing.categoryIds.map((id) => slugOf.get(id)).find(Boolean);
-            const isNew = now.getTime() - listing.createdAt.getTime() < NEW_LISTING_MS;
+            // A listing's product is created when it goes live, so createdAt is its publish time.
+            const isNew = now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
             return (
               <li key={listing.id} className={cn(styles.tile, isLarge && styles.large, isLarge && isRight && styles.right)}>
                 <FeedCard
@@ -184,8 +232,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   images={listing.images}
                   price={listing.price}
                   priceMax={listing.priceMax}
-                  priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
-                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : listing.isWanted ? t('EXPLORE_WANTED_BADGE') : undefined}
+                  {...feedCardLabels(listing, t, locale, now)}
                   note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}

@@ -192,6 +192,7 @@ PAYMENT_METHODS=Stripe, PayPal      # any of PayPal, Stripe, CashOnDelivery
 DEFAULT_PAYMENT_METHOD=Stripe
 PAGE_SIZE=12                        # products per page
 RESERVATION_HOURS=48                # how long "Show interest" reserves a product
+NEW_LISTING_HOURS=48                # how long a listing shows the "New" badge in the feed
 PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in a class takes its price
 OWNER_EMAIL=owner@example.com       # the owner: only they can make, change or delete admins, and no admin can remove them
 SIGN_UP_BY_INVITE=true              # nobody signs up alone: admins create one-time invite links in Admin → Users

@@ -70,7 +70,7 @@ export const categorySchema = z.object({
 });
 
 export const updateCategorySchema = categorySchema.extend({ id: idSchema });
-// A subcategory, e.g. a kind of service: only its name per language.
+// A subcategory: only its name per language.
 export const subcategorySchema = z.object({ name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60) });
 export const updateSubcategorySchema = subcategorySchema.extend({ id: idSchema });
 // The rings of one category in their new order.

@@ -4,7 +4,9 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useMedia } from '@/hooks/useMedia';
-import { videoPoster, videoSource } from '@/lib/video';
+import { pictureOf, videoPoster, videoSource } from '@/lib/video';
+
+const DEFAULT_FILL_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 
 interface ProductMediaProps {
     src: string;
@@ -24,6 +26,8 @@ interface ProductMediaProps {
     isStill?: boolean;
     /** A video plays only while it is on screen, and loads nothing before (a feed full of cards). */
     playsWhenVisible?: boolean;
+    /** With `fill`: the whole picture, upright or wide, over a blurred copy of itself that fills the frame. */
+    isWhole?: boolean;
 }
 
 export default function ProductMedia({
@@ -38,7 +42,8 @@ export default function ProductMedia({
                                          priority = false,
                                          loading,
                                          isStill = false,
-                                         playsWhenVisible = false
+                                         playsWhenVisible = false,
+                                         isWhole = false
                                      }: ProductMediaProps) {
     const { state, handleError, handleVideoLoaded } = useMedia(src);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -57,6 +62,9 @@ export default function ProductMedia({
     }, [playsWhenVisible, state]);
     const wrapperStyle = fill ? undefined : { width, height };
     const wrapperClass = fill ? 'absolute inset-0 overflow-hidden' : 'overflow-hidden rounded-sm';
+    const fitClass = isWhole ? 'object-contain' : 'object-cover';
+    // Same src and sizes as the photo itself, so the backdrop costs no second download; a video uses its still.
+    const backdrop = isWhole && fill ? pictureOf(src) : undefined;
 
     // A quiet empty tile instead of the browser's broken-image icon.
     if (state === 'failed') {
@@ -72,13 +80,24 @@ export default function ProductMedia({
 
     return (
         <div style={wrapperStyle} className={wrapperClass}>
+            {backdrop && (
+                <Image
+                    src={backdrop}
+                    alt=''
+                    aria-hidden
+                    fill
+                    sizes={sizes ?? DEFAULT_FILL_SIZES}
+                    loading={priority ? 'eager' : loading}
+                    className='scale-110 object-cover opacity-70 blur-2xl'
+                />
+            )}
             {state === 'video' ? (
                 <video
                     ref={videoRef}
                     // #t: without a still, Safari paints the frame at that time instead of a black box.
                     src={isStill && !posterUrl ? `${videoSource(src)}#t=0.1` : videoSource(src)}
                     aria-label={alt || undefined}
-                    className={cn('object-cover object-center w-full h-full', className)}
+                    className={cn(fitClass, 'relative object-center w-full h-full', className)}
                     autoPlay={!isStill && !playsWhenVisible}
                     loop
                     muted
@@ -94,10 +113,10 @@ export default function ProductMedia({
                     src={src}
                     alt={alt}
                     fill
-                    sizes={sizes ?? '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw'}
+                    sizes={sizes ?? DEFAULT_FILL_SIZES}
                     priority={priority}
                     loading={loading}
-                    className={cn('object-cover object-center', className)}
+                    className={cn(fitClass, 'object-center', className)}
                     onError={handleError}
                 />
             ) : (

@@ -8,11 +8,12 @@ import { getShopPlaces } from '@/lib/places';
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ sendForReview: jest.fn() }));
-jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => [{ slug: 'busco-surf' }]) }));
+jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => [{ slug: 'deporte' }]) }));
 jest.mock('@/lib/marketplace/ai', () => ({
   writeListing: jest.fn(async () => ({
     texts: { es: { title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' } },
-    category: 'busco-surf',
+    category: 'deporte',
+    type: 'WANTED',
     condition: 'good',
     price: 150,
     place: 'el-cotillo',
@@ -45,8 +46,7 @@ const WANTED = {
   images: [],
   rawText: 'Busco una tabla de surf de 7 pies, hasta 150€',
   title: null,
-  kind: 'product',
-  isWanted: true,
+  type: 'WANTED',
   textMode: 'ai',
   createdByAdmin: true,
   price: null,
@@ -65,8 +65,8 @@ describe('processSubmission without a photo', () => {
 
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
-    expect((writeListing as jest.Mock).mock.calls[0][6]).toBe(true);
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'product', true);
+    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED');
     expect(enhancePhoto).not.toHaveBeenCalled();
     expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
   });
@@ -77,7 +77,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][7].map((place: { slug: string }) => place.slug)).toEqual(['corralejo', 'el-cotillo']);
+    expect((writeListing as jest.Mock).mock.calls[0][6].map((place: { slug: string }) => place.slug)).toEqual(['corralejo', 'el-cotillo']);
     expect(db.update.mock.calls[0][0].data.placeId).toBe('place-cotillo');
   });
 
@@ -100,6 +100,16 @@ describe('processSubmission without a photo', () => {
     expect(db.update.mock.calls[0][0].data.placeId).toBe('place-corralejo');
   });
 
+  it('saves the type the AI read, so an item sent as for sale can turn out to be a wanted ad', async () => {
+    db.findUnique.mockResolvedValueOnce({ ...WANTED, type: 'PRODUCT' }).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
+    db.update.mockResolvedValue({ ...WANTED, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('PRODUCT');
+    expect(db.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', category: 'deporte', serviceType: null, startsAt: null });
+  });
+
   it('still refuses a WhatsApp submission without a photo', async () => {
     db.findUnique.mockResolvedValue({ ...WANTED, createdByAdmin: false });
     db.update.mockResolvedValue({ attempts: 1 });
@@ -114,7 +124,7 @@ describe('processSubmission without a photo', () => {
 describe('processSubmission with a service video', () => {
   const VIDEO = 'https://x.ufs.sh/f/clip#video';
   const PHOTO = 'https://x.ufs.sh/f/photo';
-  const SERVICE = { ...WANTED, kind: 'service', isWanted: false };
+  const SERVICE = { ...WANTED, type: 'SERVICE' };
 
   it('makes the cover from the text when there is only a video, and keeps the video after it', async () => {
     const written = { ...SERVICE, rawImages: [VIDEO], title: 'Clases de surf', description: 'Con Ana.' };
@@ -190,7 +200,7 @@ describe('makeListingPictures with only a video', () => {
   const video = `https://x.ufs.sh/f/clip#video=${encodeURIComponent(still)}`;
 
   it('makes the shop picture from the video\'s still frame and keeps the video after it', async () => {
-    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', isWanted: false, kind: 'service', rawImages: [video], images: [] });
+    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', type: 'SERVICE', rawImages: [video], images: [] });
     (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('still'));
     (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
 
@@ -201,7 +211,7 @@ describe('makeListingPictures with only a video', () => {
   });
 
   it('waits for the description when the video has no still', async () => {
-    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', kind: 'service', rawImages: ['https://x.ufs.sh/f/old#video'], images: [] });
+    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', type: 'SERVICE', rawImages: ['https://x.ufs.sh/f/old#video'], images: [] });
 
     await makeListingPictures('sub-1');
 

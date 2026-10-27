@@ -111,7 +111,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
                   id: ring.id,
                   name: ring.name,
                   image: coverPicture(ring.images) ?? ring.images[0],
-                  isService: ring.kind === 'service',
+                  isService: ring.type === 'SERVICE',
                   categoryIds: ring.categoryIds,
                 }))}
               />
@@ -120,7 +120,7 @@ const ProductCatalog = async ({ selectedSlug }: ProductCatalogProps) => {
           <ul className='grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4'>
             {selected?.categoryId && (
               <li className='aspect-[4/5]'>
-                <AddRingTile href={newProductPathFor({ id: selected.categoryId, slug: selected.slug })} name={selected.name} />
+                <AddRingTile href={newProductPathFor({ id: selected.categoryId })} name={selected.name} />
               </li>
             )}
             {selected?.rings.map((ring) => (

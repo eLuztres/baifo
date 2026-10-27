@@ -73,9 +73,9 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
             key={image}
             onClick={() => setFullScreenIndex(index)}
             aria-label={t('SHOW_IMAGE', { n: index + 1 })}
-            className={cn('relative aspect-[4/5] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
+            className={cn('relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
           >
-            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} />
+            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole />
           </button>
         ))}
       </div>
@@ -118,11 +118,11 @@ const ProductImages = ({ images, alt }: ProductImagesProps) => {
             </Button>
           </div>
         )}
-        {/* The photo takes the room it is given, as high as fits and 4:5 wide, so the page never scrolls. */}
+        {/* The photo takes the room it is given, as high as fits and 3:4 wide, so the page never scrolls. */}
         <div className='flex min-h-0 min-w-0 flex-1 items-center justify-center'>
           <button
             type='button'
-            className='aspect-[4/5] h-full max-w-full cursor-zoom-in rounded-[1.75rem]'
+            className='aspect-[3/4] h-full max-w-full cursor-zoom-in rounded-[1.75rem]'
             aria-label={t('IMAGE_FULLSCREEN')}
             onClick={openFullScreen}
             {...(count > 1 ? swipe.handlers : {})}

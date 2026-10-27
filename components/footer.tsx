@@ -20,7 +20,8 @@ const Footer = async () => {
             {t('FOOTER_TAGLINE')}
           </p>
           {t('FOOTER_DISCLAIMER') && (
-            <p className='max-w-sm text-xs leading-5 text-muted-foreground'>
+            // data-nosnippet: Google used this fine print as the site's search-result description.
+            <p data-nosnippet className='max-w-sm text-xs leading-5 text-muted-foreground'>
               {t('FOOTER_DISCLAIMER', { shop: BRAND.name })}
             </p>
           )}

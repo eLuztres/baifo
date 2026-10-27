@@ -12,9 +12,9 @@ import {
   retryAdminListing,
   swapListingPicture,
   type AdminListing,
-  type NewListingInput,
 } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import type { ListingType } from '@/lib/constants';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
@@ -26,7 +26,7 @@ import ListingStage from './listing-stage';
 interface NewListingFormProps {
   texts: AdminTexts;
   /** A service gets retouched photos of the person instead of clean item photos; a wanted ad usually has no photo at all. */
-  kind: NonNullable<NewListingInput['kind']>;
+  type: ListingType;
 }
 
 // What the photosUploader route takes at once; a service's videos count too.
@@ -36,7 +36,7 @@ const POLL_MS = 2500;
 const isVideo = (file: File) => file.type.startsWith('video/');
 
 /** Step 1: only the photos. One tap makes the AI pictures, and they show up right here. */
-export default function NewListingForm({ texts, kind }: NewListingFormProps) {
+export default function NewListingForm({ texts, type }: NewListingFormProps) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -52,7 +52,9 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   // Videos stay as they are next to the AI pictures; each one carries a still frame for its cover.
   const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
   // A service can go on without AI, with its photos and videos as they are.
-  const canSkipAi = kind === 'service';
+  const canSkipAi = type === 'SERVICE';
+  // An event's picture is the organiser's own (a poster, a photo): it is used as it is, no AI pictures.
+  const isEvent = type === 'EVENT';
 
   const pictures = listing?.images ?? [];
   const isMaking = Boolean(listing) && pictures.length === 0 && !listing?.lastError;
@@ -104,7 +106,7 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   const makePictures = () =>
     startTransition(async () => {
       setError('');
-      const result = await createAdminListing({ photos, kind });
+      const result = await createAdminListing({ photos, type });
       if (!('id' in result && result.id)) return setError(result.message);
       // Only videos without a still: like no photo, the AI makes the picture from the description.
       if (!photos.some(pictureOf)) return router.push(`/admin/listings/${result.id}`);
@@ -118,7 +120,7 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
     startTransition(async () => {
       setError('');
       // A video's still (in its URL) is the cover wherever a video can't play.
-      const result = await createAdminListing({ photos, kind, useAi: false });
+      const result = await createAdminListing({ photos, type, useAi: false });
       if (!('id' in result && result.id)) return setError(result.message);
       router.push(`/admin/listings/${result.id}`);
     });
@@ -127,7 +129,7 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
   const startWithoutPhoto = () =>
     startTransition(async () => {
       setError('');
-      const result = await createAdminListing({ photos: [], kind });
+      const result = await createAdminListing({ photos: [], type });
       if (!('id' in result && result.id)) return setError(result.message);
       router.push(`/admin/listings/${result.id}`);
     });
@@ -327,10 +329,11 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
               className='h-14 rounded-full text-base shadow-xl shadow-primary/20'
               onClick={() => {
                 setIsAskingMore(false);
-                makePictures();
+                if (isEvent) continueWithoutAi();
+                else makePictures();
               }}
             >
-              <Sparkles /> {texts.anotherPhotoNo}
+              {isEvent ? <ArrowRight /> : <Sparkles />} {isEvent ? texts.usePhotos : texts.anotherPhotoNo}
             </Button>
             {canSkipAi && (
               <Button
@@ -357,8 +360,8 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
         ) : photos.length === 0 ? (
           <div className='space-y-2 text-center'>
             <Button
-              variant={kind === 'wanted' ? 'default' : 'outline'}
-              className={cn('h-14 w-full rounded-full text-base shadow-xl', kind === 'wanted' ? 'shadow-primary/20' : 'bg-background shadow-primary/10')}
+              variant={type === 'WANTED' ? 'default' : 'outline'}
+              className={cn('h-14 w-full rounded-full text-base shadow-xl', type === 'WANTED' ? 'shadow-primary/20' : 'bg-background shadow-primary/10')}
               disabled={isUploading || isPending}
               onClick={startWithoutPhoto}
             >
@@ -371,9 +374,10 @@ export default function NewListingForm({ texts, kind }: NewListingFormProps) {
             <Button
               className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
               disabled={isUploading || isPending || isMaking}
-              onClick={makePictures}
+              onClick={isEvent ? continueWithoutAi : makePictures}
             >
-              {isPending || isMaking ? <Loader2 className='animate-spin' /> : <Sparkles />} {isMaking ? texts.picturesWorking : texts.makePictures}
+              {isPending || isMaking ? <Loader2 className='animate-spin' /> : isEvent ? <ArrowRight /> : <Sparkles />}{' '}
+              {isMaking ? texts.picturesWorking : isEvent ? texts.usePhotos : texts.makePictures}
             </Button>
             {canSkipAi && !listing && (
               <Button variant='outline' className='h-12 w-full rounded-full bg-background' disabled={isUploading || isPending} onClick={continueWithoutAi}>

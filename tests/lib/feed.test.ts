@@ -1,15 +1,19 @@
+import type { ListingType } from '@/lib/constants';
 import { composeFeed, type FeedEntry } from '@/lib/feed';
 
 interface Entry extends FeedEntry {
   id: string;
 }
 
-const entry = (id: string, category: string, isService = false): Entry => ({ id, categoryIds: [category], isService });
+const entry = (id: string, category: string, type: ListingType = 'PRODUCT'): Entry => ({ id, categoryIds: [category], type });
 
-const many = (prefix: string, category: string, count: number, isService = false) =>
-  Array.from({ length: count }, (_, i) => entry(`${prefix}${i}`, category, isService));
+const many = (prefix: string, category: string, count: number, type: ListingType = 'PRODUCT') =>
+  Array.from({ length: count }, (_, i) => entry(`${prefix}${i}`, category, type));
 
-const entries = [...many('c', 'casa', 12), ...many('m', 'moda', 12), ...many('e', 'electronica', 12), ...many('s', 'servicios', 8, true)];
+const isService = (item: Entry) => item.type === 'SERVICE';
+
+// Services sit in any category now, like the goods.
+const entries = [...many('c', 'casa', 12), ...many('m', 'moda', 12), ...many('e', 'electronica', 12), ...many('s', 'clases', 8, 'SERVICE')];
 
 describe('composeFeed', () => {
   it('keeps every entry exactly once', () => {
@@ -25,7 +29,7 @@ describe('composeFeed', () => {
 
   it('mixes services in after the opening, not before', () => {
     const feed = composeFeed(entries, 'casa', 'seed');
-    const firstService = feed.findIndex((item) => item.isService);
+    const firstService = feed.findIndex(isService);
     expect(firstService).toBeGreaterThanOrEqual(6);
     expect(firstService).toBeLessThan(entries.length - 8);
   });
@@ -33,8 +37,8 @@ describe('composeFeed', () => {
   it('never shows two services in a row while there are products left', () => {
     for (const seed of ['a', 'b', 'c', 'd']) {
       const feed = composeFeed(entries, undefined, seed);
-      const lastProduct = feed.findLastIndex((item) => !item.isService);
-      const pairs = feed.slice(0, lastProduct).filter((item, i, list) => item.isService && list[i + 1]?.isService);
+      const lastProduct = feed.findLastIndex((item) => !isService(item));
+      const pairs = feed.slice(0, lastProduct).filter((item, i, list) => isService(item) && i + 1 < list.length && isService(list[i + 1]));
       expect(pairs).toEqual([]);
     }
   });
@@ -53,6 +57,6 @@ describe('composeFeed', () => {
   it('works with an unknown category, an empty shop and only services', () => {
     expect(composeFeed(entries, 'nope', 'seed')).toHaveLength(entries.length);
     expect(composeFeed([], 'casa', 'seed')).toEqual([]);
-    expect(composeFeed(many('s', 'servicios', 3, true), undefined, 'seed')).toHaveLength(3);
+    expect(composeFeed(many('s', 'clases', 3, 'SERVICE'), undefined, 'seed')).toHaveLength(3);
   });
 });

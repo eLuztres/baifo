@@ -39,7 +39,7 @@ export async function getStoreCategories() {
 
 export type StoreCategory = Awaited<ReturnType<typeof getStoreCategories>>[number];
 
-/** The subcategories of a store category in their order, e.g. the kinds of service. */
+/** The subcategories of a store category in their order. */
 export async function getSubcategories(parentSlug: string) {
   return prisma.category.findMany({
     where: { parent: { slug: parentSlug } },
@@ -70,7 +70,7 @@ export async function getCatalogRings() {
       reservedUntil: true,
       categories: { select: { id: true } },
       submission: { select: { id: true } },
-      kind: true,
+      type: true,
     },
   });
 }
@@ -121,7 +121,7 @@ export async function updateCategory(data: z.infer<typeof updateCategorySchema>)
   }
 }
 
-/** Adds a subcategory at the end, e.g. a new kind of service; its link name comes from the shop's language. */
+/** Adds a subcategory at the end; its link name comes from the shop's language. */
 export async function createSubcategory(parentSlug: string, data: z.infer<typeof subcategorySchema>) {
   try {
     if (!(await isAdmin())) return adminOnly();

@@ -24,8 +24,8 @@ interface SubcategoryListProps {
   /** The shop's languages, its own first. */
   locales: Locale[];
   subcategories: EditableSubcategory[];
-  /** Heading of the row that adds one; "New kind of service" when missing. */
-  newLabel?: string;
+  /** Heading of the row that adds one. */
+  newLabel: string;
 }
 
 interface SubcategoryRowProps {
@@ -117,7 +117,7 @@ const SubcategoryList = ({ parentSlug, locales, subcategories, newLabel }: Subca
           }
         />
       ))}
-      <h3 className="pt-4 font-medium">{newLabel ?? t("SUBCATEGORIES_NEW")}</h3>
+      <h3 className="pt-4 font-medium">{newLabel}</h3>
       <SubcategoryRow
         locales={locales}
         initialName={{}}

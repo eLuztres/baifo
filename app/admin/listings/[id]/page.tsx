@@ -10,9 +10,7 @@ import { getEnabledLocales, getLocale, getShopLocale } from '@/lib/i18n-server';
 import { getAdminListing } from '@/lib/marketplace/admin.actions';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getListingCategories } from '@/lib/marketplace/catalog';
-import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { getShopPlaces } from '@/lib/places';
-import type { ProductKind } from '@/lib/constants';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: adminTexts(await getLocale()).listingsTitle };
@@ -30,8 +28,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const [{ id }, locale] = await Promise.all([params, getLocale()]);
   const listing = await getAdminListing(id);
   if (!listing) notFound();
-  // A service is sorted into a kind of service instead of a store category.
-  const [categories, places] = await Promise.all([getListingCategories(listing.kind as ProductKind, listing.isWanted), getShopPlaces(locale)]);
+  const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(locale)]);
   const texts = adminTexts(locale);
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });
@@ -49,14 +46,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <h1 className='sr-only'>{listing.title ?? texts.newListing}</h1>
       <ListingWorkspace
         initial={listing}
-        // "Busco · Muebles y casa": a wanted subcategory would read like the store category it mirrors.
+        // "Parent · Child": a subcategory's own name may not say where it belongs.
         categories={categories.map(({ slug, name, parent }) => ({ slug, name: [parent?.name, name].filter(Boolean).map((text) => localize(text, locale)).join(' · ') }))}
         // Live places, and the listing's own even when it isn't live (anymore).
         places={places.filter((place) => place.isLive || place.id === listing.placeId).map(({ id, name }) => ({ id, name }))}
         languages={languages}
         shopLanguage={languageOf(shopLocale)}
         texts={texts}
-        houseSeller={HOUSE_SELLER}
       />
     </div>
   );

@@ -21,7 +21,8 @@
 }
 
 .tile {
-  aspect-ratio: 4 / 5;
+  /* A phone's upright photo (3:4) fills it whole; other shapes show whole over their blurred copy (FeedCard). */
+  aspect-ratio: 3 / 4;
   /* Tiles far below the fold are not laid out until they come near. */
   content-visibility: auto;
   contain-intrinsic-size: auto 20rem;

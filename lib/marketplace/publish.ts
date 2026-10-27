@@ -6,7 +6,6 @@ import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
-import type { ProductKind } from '@/lib/constants';
 import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
@@ -36,9 +35,8 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const plan = (submission.plan ?? 'normal') as ListingPlan;
   const expiresAt = new Date(Date.now() + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
-  const isService = submission.kind === 'service';
-  const categories = await getListingCategories(submission.kind as ProductKind);
-  const category = findCategory(categories, submission.category) ?? findCategory(categories, isService ? categories[0]?.slug : FALLBACK_CATEGORY_SLUG);
+  const categories = await getListingCategories();
+  const category = findCategory(categories, submission.category) ?? findCategory(categories, FALLBACK_CATEGORY_SLUG);
   // Listings from before places, or made while none was live, go to the first live place.
   const placeId = submission.placeId ?? (await getDefaultPlaceId());
   const contactPhone = submission.hasContactConsent && isPhoneNumber(submission.seller.waId) ? `+${submission.seller.waId}` : null;
@@ -60,9 +58,13 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         description: submission.description ?? '',
         translations: toProductTranslations(submission.translations),
         stock: 1,
-        price: isService ? 0 : (submission.price ?? 0),
-        priceMax: isService ? null : submission.priceMax,
-        kind: submission.kind,
+        // 0: a service without a "from" price, or a free event.
+        price: submission.price ?? 0,
+        priceMax: submission.priceMax,
+        type: submission.type,
+        serviceType: submission.serviceType,
+        startsAt: submission.startsAt,
+        address: submission.address,
         placeId,
         isFeatured: plan === 'big',
         contactPhone,

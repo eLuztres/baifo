@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, Plus, Save, Send, Sparkles, Star, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, Plus, Save, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { ANY_CONDITION, PRODUCT_CONDITIONS, type ProductCondition } from '@/lib/constants';
+import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,6 @@ import {
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
-  sendAdminPaymentLink,
   translateListingText,
   updateAdminListing,
   type AdminListing,
@@ -29,6 +28,7 @@ import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
+import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, videoPoster } from '@/lib/video';
 import ListingStatus, { type SaveState } from './listing-status';
@@ -63,7 +63,6 @@ interface ListingEditorProps {
   /** The shop's own language: the listing's title and description. */
   shopLanguage: EditorLanguage;
   texts: AdminTexts;
-  houseSeller: string;
   /** Called once "Publish now" worked, so the workspace can show the done moment. */
   onPublished: () => void;
 }
@@ -79,11 +78,15 @@ interface EditorFields {
   priceMax: string;
   condition: ProductCondition | '';
   placeId: string;
+  serviceType: ServiceType | '';
+  /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
+  startsAt: string;
+  address: string;
 }
 
-// A service sends no price and no condition: it never has either. textMode says which of the two texts this is.
-const toEdit = ({ price, priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
-  isService ? { ...fields, images, textMode } : { ...fields, price, priceMax, condition, images, textMode };
+// A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
+const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
+  isService ? { ...fields, images, textMode } : { ...fields, priceMax, condition, images, textMode };
 
 // Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
 const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
@@ -93,7 +96,7 @@ const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 
 const MAX_PICTURES = 12;
 
 /** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
-export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, houseSeller, onPublished }: ListingEditorProps) {
+export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, onPublished }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -114,11 +117,15 @@ export default function ListingEditor({ listing, categories, places, languages, 
       })
     ),
     category: listing.category ?? '',
-    price: listing.price ?? '',
+    // An event starts out free: 0 is its entry until the admin names one.
+    price: listing.price ?? (listing.type === 'EVENT' ? '0' : ''),
     priceMax: listing.priceMax ?? '',
     // An unknown value from older data counts as none.
     condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
     placeId: listing.placeId ?? '',
+    serviceType: (SERVICE_TYPES.includes(listing.serviceType as ServiceType) ? listing.serviceType : '') as ServiceType | '',
+    startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
+    address: listing.address ?? '',
   });
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
@@ -133,14 +140,17 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const hasOriginalText = listing.rawText.trim() !== '';
   // What the server has: edits only save on the Save button (or an action), never by themselves.
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
-  const hasSellerPhone = listing.seller.waId !== houseSeller;
-  // A service has no price and no condition, and its category is a kind of service.
-  const isService = listing.kind === 'service';
+  // A service has a "from" price and no condition.
+  const isService = listing.type === 'SERVICE';
+  // An event has its entry price (0: free), a date and an address.
+  const isEvent = listing.type === 'EVENT';
+  // A wanted ad's price is a budget range, and it may take any condition.
+  const isWanted = listing.type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
 
-  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) => {
@@ -203,13 +213,18 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
     startTransition(async () => {
       setError('');
-      const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
-      if (!saved.success) return setError(saved.message);
-      savedSnapshot.current = JSON.stringify({ ...fields, images });
-      const result = await action();
-      if (!result.success) return setError(result.message);
-      if (onSuccess) onSuccess();
-      else toast({ description: result.message });
+      // A thrown action error would replace the whole page (and the edits) with Next's error screen.
+      try {
+        const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+        if (!saved.success) return setError(saved.message);
+        savedSnapshot.current = JSON.stringify({ ...fields, images });
+        const result = await action();
+        if (!result.success) return setError(result.message);
+        if (onSuccess) onSuccess();
+        else toast({ description: result.message });
+      } catch {
+        setError(texts.errorGeneric);
+      }
       router.refresh();
     });
 
@@ -254,7 +269,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
             </Button>
           )}
           <Button asChild variant='outline' className='rounded-full'>
-            <Link href={isService ? '/admin/listings/new?kind=service' : listing.isWanted ? '/admin/listings/new?kind=wanted' : '/admin/listings/new'}>
+            <Link href={newListingPath(listing.type)}>
               <Plus /> {texts.newAnother}
             </Link>
           </Button>
@@ -428,9 +443,47 @@ export default function ListingEditor({ listing, categories, places, languages, 
       </section>
 
       <div className='grid grid-cols-2 gap-3'>
-        {!isService && (
+        {isService && (
           <>
-            {listing.isWanted ? (
+            <PriceInput id='price' label={texts.priceFrom} value={fields.price} onChange={set('price')} />
+            <div className='space-y-1'>
+              <Label htmlFor='serviceType' className='px-1 text-xs text-muted-foreground'>
+                {texts.serviceTypeLabel}
+              </Label>
+              <select id='serviceType' value={fields.serviceType} onChange={set('serviceType')} className={SELECT_CLASS}>
+                <option value=''>–</option>
+                {SERVICE_TYPES.map((serviceType) => (
+                  <option key={serviceType} value={serviceType}>
+                    {texts[`serviceType_${serviceType}`]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+        {isEvent && (
+          <>
+            {/* The native date and time picker needs the whole width on a phone. */}
+            <div className='col-span-2 space-y-1 sm:col-span-1'>
+              <Label htmlFor='startsAt' className='px-1 text-xs text-muted-foreground'>
+                {texts.eventStartsLabel}
+              </Label>
+              <Input id='startsAt' type='datetime-local' value={fields.startsAt} onChange={set('startsAt')} className='h-12 rounded-2xl bg-card text-base md:text-base' />
+            </div>
+            <div className='col-span-2 sm:col-span-1'>
+              <PriceInput id='price' label={texts.eventPrice} value={fields.price} onChange={set('price')} />
+            </div>
+            <div className='col-span-2 space-y-1'>
+              <Label htmlFor='address' className='px-1 text-xs text-muted-foreground'>
+                {texts.addressLabel}
+              </Label>
+              <Input id='address' value={fields.address} onChange={set('address')} maxLength={200} className='h-12 rounded-2xl bg-card text-base md:text-base' />
+            </div>
+          </>
+        )}
+        {(listing.type === 'PRODUCT' || isWanted) && (
+          <>
+            {isWanted ? (
               // A wanted ad's budget is a range, so it gets a row of its own.
               <div className='col-span-2 grid grid-cols-2 gap-3'>
                 <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} />
@@ -439,13 +492,13 @@ export default function ListingEditor({ listing, categories, places, languages, 
             ) : (
               <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} />
             )}
-            <div className={cn('space-y-1', listing.isWanted && 'col-span-2')}>
+            <div className={cn('space-y-1', isWanted && 'col-span-2')}>
               <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
                 {texts.conditionLabel}
               </Label>
               <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
                 <option value=''>–</option>
-                {PRODUCT_CONDITIONS.filter((condition) => listing.isWanted || condition !== ANY_CONDITION).map((condition) => (
+                {PRODUCT_CONDITIONS.filter((condition) => isWanted || condition !== ANY_CONDITION).map((condition) => (
                   <option key={condition} value={condition}>
                     {texts[`condition_${condition}`]}
                   </option>
@@ -455,16 +508,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </>
         )}
         <div className='col-span-2 space-y-1'>
-          <div className='flex items-baseline justify-between gap-3 px-1'>
-            <Label htmlFor='category' className='text-xs text-muted-foreground'>
-              {isService ? texts.serviceKindLabel : texts.categoryLabel}
-            </Label>
-            {isService && (
-              <Link href='/admin/services/subcategories' className='text-xs text-primary underline-offset-4 hover:underline'>
-                {texts.editServiceKinds}
-              </Link>
-            )}
-          </div>
+          <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
+            {texts.categoryLabel}
+          </Label>
           <select id='category' value={fields.category} onChange={set('category')} className={SELECT_CLASS}>
             {!fields.category && <option value=''>–</option>}
             {categories.map((category) => (
@@ -528,18 +574,12 @@ export default function ListingEditor({ listing, categories, places, languages, 
             </RadioGroup>
           )}
           <div className='flex flex-wrap gap-3'>
-            {hasSellerPhone && listing.status === 'IN_REVIEW' && (
-              <Button variant='outline' className='rounded-full' disabled={isPending} onClick={() => run(() => sendAdminPaymentLink(listing.id))}>
-                <Send /> {texts.sendLink}
-              </Button>
-            )}
             {listing.status === 'IN_REVIEW' && (
               <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending} onClick={() => run(() => rejectAdminListing(listing.id))}>
                 <X /> {texts.reject}
               </Button>
             )}
           </div>
-          {hasSellerPhone && listing.status === 'IN_REVIEW' && <p className='text-xs text-muted-foreground'>{texts.sendLinkHint}</p>}
         </div>
       </details>
 

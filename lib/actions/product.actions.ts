@@ -195,7 +195,7 @@ export async function updateProduct(data: z.infer<typeof updateProductSchema>) {
     if (!productExists) {
       return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
     }
-    // The form only lists store categories, so a service keeps its subcategory.
+    // The form only lists store categories, so a listing keeps its subcategory.
     const subcategoryIds = productExists.categories.map((category) => category.id);
 
     await prisma.product.update({

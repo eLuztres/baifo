@@ -4,12 +4,14 @@ import {
   createAdminListing,
   createAdminListingPicture,
   describeAdminListing,
+  publishAdminListing,
   retryAdminListing,
   setAdminListingCategory,
   updateAdminListing,
 } from '@/lib/marketplace/admin.actions';
 import { createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
+import { publishByAdmin } from '@/lib/marketplace/publish';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
@@ -69,6 +71,41 @@ describe('updateAdminListing', () => {
     });
   });
 
+  it('lets a service go without a "from" price and keeps its kind of offer', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'SERVICE' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, price: '', serviceType: 'class' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: null, serviceType: 'class' });
+    expect(db.product.update.mock.calls[0][0].data).toMatchObject({ price: 0, serviceType: 'class' });
+  });
+
+  it('needs an event\'s date and stores it on the island\'s clock', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'EVENT' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, price: '0', startsAt: '' })).success).toBe(false);
+    expect((await updateAdminListing(ID, { ...EDIT, price: '0', startsAt: 'mañana' })).success).toBe(false);
+    expect((await updateAdminListing(ID, { ...EDIT, price: '0', startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' })).success).toBe(true);
+    expect(db.product.update.mock.calls[0][0].data).toMatchObject({
+      price: '0.00',
+      startsAt: new Date('2026-11-26T19:00:00Z'),
+      address: 'Plaza de Lajares',
+    });
+  });
+
+  it('takes a kind of offer away from anything that is not a service', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, serviceType: 'class' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ serviceType: null, priceMax: null });
+  });
+
+  it('keeps a budget range only on a wanted ad', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, price: '50', priceMax: '90', condition: 'any' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
+  });
+
   it('refuses a category the store does not have', async () => {
     expect((await updateAdminListing(ID, { ...EDIT, category: 'muebles' })).success).toBe(false);
     expect(db.submission.update).not.toHaveBeenCalled();
@@ -83,7 +120,7 @@ describe('setAdminListingCategory', () => {
 });
 
 describe('describeAdminListing', () => {
-  beforeEach(() => db.submission.findUnique.mockResolvedValue({ kind: 'product', rawImages: ['https://utfs.io/f/bike.jpg'] }));
+  beforeEach(() => db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/bike.jpg'] }));
 
   it('starts the text only once the pictures are there', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
@@ -100,7 +137,7 @@ describe('describeAdminListing', () => {
   });
 
   it('does not wait for pictures when a service has only a video: the AI makes the picture from the text', async () => {
-    db.submission.findUnique.mockResolvedValue({ kind: 'service', rawImages: ['https://x.ufs.sh/f/clip#video'] });
+    db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', rawImages: ['https://x.ufs.sh/f/clip#video'] });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', sellerPhone: '612345678', hasContactConsent: true })).success).toBe(true);
@@ -108,14 +145,14 @@ describe('describeAdminListing', () => {
   });
 
   it('needs a description when there is no photo, because the AI makes the picture from it', async () => {
-    db.submission.findUnique.mockResolvedValue({ kind: 'product', rawImages: [] });
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: [] });
 
     expect((await describeAdminListing(ID, { notes: '' })).success).toBe(false);
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 
   it('lets a service go through the Corral: no number, the messages reach the shop', async () => {
-    db.submission.findUnique.mockResolvedValue({ kind: 'service', rawImages: ['https://utfs.io/f/garden.jpg'] });
+    db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', rawImages: ['https://utfs.io/f/garden.jpg'] });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     expect((await describeAdminListing(ID, { notes: 'Jardinero en Corralejo' })).success).toBe(true);
@@ -131,48 +168,62 @@ describe('describeAdminListing', () => {
 });
 
 describe('createAdminListing', () => {
-  it('starts a wanted ad without photos: a product marked wanted, and no pictures to make yet', async () => {
-    const result = await createAdminListing({ photos: [], kind: 'wanted' });
+  it('starts a wanted ad without photos, and no pictures to make yet', async () => {
+    const result = await createAdminListing({ photos: [], type: 'WANTED' });
 
     expect(result).toMatchObject({ success: true, id: 'new-1' });
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], kind: 'product', isWanted: true });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], type: 'WANTED' });
     expect(makeListingPictures).not.toHaveBeenCalled();
   });
 
   it('makes the pictures right away when there are photos', async () => {
-    await createAdminListing({ photos: ['https://utfs.io/f/bike.jpg'], kind: 'service' });
+    await createAdminListing({ photos: ['https://utfs.io/f/bike.jpg'], type: 'SERVICE' });
 
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ kind: 'service', isWanted: false });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ type: 'SERVICE' });
     expect(makeListingPictures).toHaveBeenCalledWith('new-1');
   });
 
   it('uses photos and videos as they are without AI, in the admin\'s order (a first video\'s still is the cover)', async () => {
     const video = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
-    await createAdminListing({ photos: [video, 'https://utfs.io/f/ana.jpg'], kind: 'service', useAi: false });
+    await createAdminListing({ photos: [video, 'https://utfs.io/f/ana.jpg'], type: 'SERVICE', useAi: false });
 
     expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [video, 'https://utfs.io/f/ana.jpg'], images: [video, 'https://utfs.io/f/ana.jpg'], usesAi: false });
     expect(makeListingPictures).not.toHaveBeenCalled();
   });
 
+  it('refuses a type that does not exist', async () => {
+    expect((await createAdminListing({ photos: [], type: 'service' as never })).success).toBe(false);
+    expect(db.submission.create).not.toHaveBeenCalled();
+  });
+
   it('needs something uploaded to go on without AI', async () => {
-    expect((await createAdminListing({ photos: [], kind: 'service', useAi: false })).success).toBe(false);
+    expect((await createAdminListing({ photos: [], type: 'SERVICE', useAi: false })).success).toBe(false);
     expect(db.submission.create).not.toHaveBeenCalled();
   });
 });
 
 describe('createAdminListingPicture', () => {
   it('makes a picture from the listing text when the admin typed nothing', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', kind: 'product', isWanted: true });
+    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', type: 'WANTED' });
 
     expect(await createAdminListingPicture(ID)).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'product', true);
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'WANTED');
   });
 
   it('uses what the admin typed instead', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', kind: 'service', isWanted: false });
+    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', type: 'SERVICE' });
 
     await createAdminListingPicture(ID, 'surf lesson at sunrise');
-    expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'service', false);
+    expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE');
+  });
+});
+
+describe('publishAdminListing', () => {
+  it('puts an event online only with its date', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'EVENT', startsAt: null });
+
+    expect((await publishAdminListing(ID, 'normal')).success).toBe(false);
+    expect(publishByAdmin).not.toHaveBeenCalled();
   });
 });
 

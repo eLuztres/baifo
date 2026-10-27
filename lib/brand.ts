@@ -103,7 +103,8 @@ export const BRAND = {
   heroImage: env('BRAND_HERO_IMAGE'),
   showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',
   /** The sign-in / "Join" button for visitors; admins of a shop without customer accounts use /sign-in directly. */
-  showSignIn: env('BRAND_SHOW_SIGN_IN') !== 'false',
+  // A "Join" button makes no sense when nobody can join without an invite link.
+  showSignIn: env('BRAND_SHOW_SIGN_IN') !== 'false' && !(env('SHOWCASE_MODE') === 'true' && env('SIGN_UP_BY_INVITE') === 'true'),
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),

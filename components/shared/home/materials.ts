@@ -4,7 +4,7 @@ import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CollectionRing } from './in-stock-rings';
 
 /** A ring in the store's banner; it goes to the client, so its category links stay behind. */
-export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'isService' | 'createdAt' | 'condition' | 'translations' | 'placeId'>;
+export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition' | 'translations' | 'placeId'>;
 
 export interface MaterialGroup {
   /** The category's slug, used in links (`?c=lava`). */
@@ -28,7 +28,7 @@ export function groupByCategory(
       text: localize(category.text, locale),
       rings: rings
         .filter((ring) => ring.categoryIds.includes(category.id))
-        .map((ring) => ({ id: ring.id, slug: ring.slug, name: localizeProduct(ring, locale).name, image: ring.image, price: ring.price, priceMax: ring.priceMax, isWanted: ring.isWanted, isReserved: ring.isReserved })),
+        .map((ring) => ({ id: ring.id, slug: ring.slug, name: localizeProduct(ring, locale).name, image: ring.image, price: ring.price, priceMax: ring.priceMax, type: ring.type, isFromPrice: ring.isFromPrice, isReserved: ring.isReserved })),
     }))
     .filter((group) => shouldKeepEmpty || group.rings.length > 0);
 }

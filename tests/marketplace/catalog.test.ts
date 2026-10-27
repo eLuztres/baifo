@@ -12,9 +12,10 @@ const CATEGORIES = [
   { id: 'c2', slug: 'otros', name: { es: 'Otros', en: 'Other' }, keywords: [], parentId: null, parent: null },
 ];
 
-const SERVICE_CATEGORIES = [
-  { id: 's1', slug: 'ninos-y-mayores', name: { es: 'Niños y mayores', en: 'Children and elderly care' }, keywords: [], parentId: 'servicios', parent: { name: { es: 'Servicios' } } },
-  { id: 's2', slug: 'clases', name: { es: 'Clases', en: 'Lessons' }, keywords: [], parentId: 'servicios', parent: { name: { es: 'Servicios' } } },
+// One list for every type: a service can go in Motor, an item in Clases.
+const ALL_CATEGORIES = [
+  ...CATEGORIES,
+  { id: 's2', slug: 'clases', name: { es: 'Clases', en: 'Lessons' }, keywords: [], parentId: null, parent: null },
 ];
 
 const TEXTS = { es: { title: 'Bici de paseo', description: 'Bici cómoda.' }, en: { title: 'City bike', description: 'Comfy bike.' } };
@@ -55,16 +56,30 @@ describe('writeListing', () => {
     expect(prompt).toContain('motor: Bicis y motor / Bikes and vehicles (e.g. bicicleta, patinete)');
   });
 
-  it('offers the wanted categories only for a wanted ad, and only when the shop has them', async () => {
-    const wanted = { id: 'w1', slug: 'busco-motor', name: { es: 'Bicis, motos y coches', en: 'Bikes' }, keywords: [], parentId: 'busco', parent: { name: { es: 'Busco' } } };
-    draft.mockResolvedValue({ texts: TEXTS, category: 'busco-motor', condition: 'good', price: 50 });
+  it('lets the AI tell an item for sale from a wanted ad, independent of its category', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'WANTED', condition: 'good', price: 50, priceMax: 90 });
 
-    expect((await writeListing(Buffer.from(''), 'busco bici', [...CATEGORIES, wanted], ['es', 'en'])).category).toBe('busco-motor');
-    expect(draft.mock.calls[0][3].prompt).toMatch(/WANTED AD[\s\S]*busco-motor/);
-    expect(draft.mock.calls[0][3].schema.properties.category.enum).toContain('busco-motor');
+    const listing = await writeListing(Buffer.from(''), 'busco bici', CATEGORIES, ['es', 'en']);
 
-    await writeListing(Buffer.from(''), 'bici', CATEGORIES, ['es', 'en']);
-    expect(draft.mock.calls[1][3].prompt).not.toContain('WANTED AD');
+    expect(listing).toMatchObject({ category: 'motor', type: 'WANTED', priceMax: 90 });
+    const { prompt, schema } = draft.mock.calls[0][3];
+    expect(schema.properties.type.enum).toEqual(['PRODUCT', 'WANTED']);
+    expect(schema.required).toContain('type');
+    expect(prompt).toContain('type: WANTED if the person is LOOKING FOR something');
+  });
+
+  it('keeps a type the admin chose, whatever the AI answers', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'PRODUCT', condition: 'good', price: 50 });
+    expect((await writeListing(Buffer.from(''), 'tabla', CATEGORIES, ['es', 'en'], 'WANTED')).type).toBe('WANTED');
+    expect(draft.mock.calls[0][3].prompt).toContain('this IS a wanted ad');
+
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', serviceType: 'service', price: null });
+    expect((await writeListing(Buffer.from(''), 'taller de bicis', CATEGORIES, ['es', 'en'], 'SERVICE')).type).toBe('SERVICE');
+  });
+
+  it('is an item for sale when the AI says nothing about the type', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', condition: 'good', price: 80 });
+    expect((await writeListing(Buffer.from(''), 'bici', CATEGORIES, ['es', 'en'])).type).toBe('PRODUCT');
   });
 
   it('puts a listing in "otros" when the category no longer exists', async () => {
@@ -73,21 +88,35 @@ describe('writeListing', () => {
     expect((await writeListing(Buffer.from(''), '', CATEGORIES, ['es', 'en'])).category).toBe('otros');
   });
 
-  it('asks for a service without condition or price, in a kind of service', async () => {
-    draft.mockResolvedValue({ texts: TEXTS, category: 'clases' });
+  it('asks for a service without condition, with its kind of offer and a "from" price only if named', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'clases', serviceType: 'class', price: 20 });
 
-    const listing = await writeListing(Buffer.from(''), 'Ana, clases de guitarra', SERVICE_CATEGORIES, ['es', 'en'], 'service');
+    const listing = await writeListing(Buffer.from(''), 'Ana, clases de guitarra desde 20€', ALL_CATEGORIES, ['es', 'en'], 'SERVICE');
 
-    expect(listing).toMatchObject({ category: 'clases', condition: null, price: null });
+    expect(listing).toMatchObject({ category: 'clases', condition: null, price: 20, serviceType: 'class', type: 'SERVICE' });
     const { prompt, schema } = draft.mock.calls[0][3];
-    expect(schema.required).toEqual(['texts', 'category']);
-    expect(prompt).toContain('Never mention a price');
+    expect(schema.required).toEqual(['texts', 'category', 'serviceType', 'price']);
+    expect(schema.properties.category.enum).toEqual(['motor', 'otros', 'clases']);
+    expect(schema.properties.serviceType.enum).toEqual(['class', 'service', 'support']);
+    expect(prompt).toContain('Never guess one');
   });
 
-  it('puts a service in the first kind of service when its kind no longer exists', async () => {
+  it('reads an event\'s entry price, start and address, and sorts it into any category', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'clases', price: 0, startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
+
+    const listing = await writeListing(Buffer.from(''), 'Bachata gratis el jueves a las 19h en la plaza de Lajares', ALL_CATEGORIES, ['es', 'en'], 'EVENT');
+
+    expect(listing).toMatchObject({ category: 'clases', price: 0, startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares', type: 'EVENT' });
+    const { prompt, schema } = draft.mock.calls[0][3];
+    expect(schema.required).toEqual(['texts', 'category', 'price', 'startsAt', 'address']);
+    expect(prompt).toContain('Today is');
+    expect(prompt).toContain('clases: Clases / Lessons');
+  });
+
+  it('puts a service in "otros" too when its category no longer exists', async () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'jardineria' });
 
-    expect((await writeListing(Buffer.from(''), '', SERVICE_CATEGORIES, ['es', 'en'], 'service')).category).toBe('ninos-y-mayores');
+    expect((await writeListing(Buffer.from(''), '', ALL_CATEGORIES, ['es', 'en'], 'SERVICE')).category).toBe('otros');
   });
 });
 
@@ -98,7 +127,7 @@ describe('writeListing with the admin\'s own text', () => {
     // The AI tidied the words anyway; the admin's own text must win.
     draft.mockResolvedValue({ texts: { es: { title: 'Bici', description: 'Bici muy cómoda.' }, en: TEXTS.en }, category: 'motor', condition: 'good', price: 80 });
 
-    const listing = await writeListing(Buffer.from(''), 'bici comoda 80€', CATEGORIES, ['es', 'en'], 'product', { title: 'Mi bici', description: 'bici comoda 80€' });
+    const listing = await writeListing(Buffer.from(''), 'bici comoda 80€', CATEGORIES, ['es', 'en'], 'PRODUCT', { title: 'Mi bici', description: 'bici comoda 80€' });
 
     expect(listing.texts.es).toEqual({ title: 'Mi bici', description: 'bici comoda 80€' });
     expect(listing.texts.en).toEqual(TEXTS.en);
@@ -109,7 +138,7 @@ describe('writeListing with the admin\'s own text', () => {
   it('lets the AI name the title when the admin gave none', async () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'motor', condition: 'good', price: null });
 
-    const listing = await writeListing(Buffer.from(''), 'bici comoda', CATEGORIES, ['es', 'en'], 'product', { description: 'bici comoda' });
+    const listing = await writeListing(Buffer.from(''), 'bici comoda', CATEGORIES, ['es', 'en'], 'PRODUCT', { description: 'bici comoda' });
 
     expect(listing.texts.es).toEqual({ title: 'Bici de paseo', description: 'bici comoda' });
   });
@@ -135,8 +164,8 @@ describe('translateText', () => {
 });
 
 describe('categoryRefs', () => {
-  it('links a kind of service to Servicios too, a store category only to itself', () => {
-    expect(categoryRefs({ id: 's1', parentId: 'servicios' })).toEqual([{ id: 's1' }, { id: 'servicios' }]);
+  it('links a subcategory to its parent too, a store category only to itself', () => {
+    expect(categoryRefs({ id: 's1', parentId: 'p1' })).toEqual([{ id: 's1' }, { id: 'p1' }]);
     expect(categoryRefs({ id: 'c1', parentId: null })).toEqual([{ id: 'c1' }]);
   });
 });

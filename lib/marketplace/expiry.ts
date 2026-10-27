@@ -20,7 +20,7 @@ export async function expireListings(now = new Date()) {
   }
 
   // Services are published by an admin, without a submission, so they leave the shop here.
-  const expiredServices = await prisma.product.deleteMany({ where: { kind: 'service', submission: null, expiresAt: { lte: now } } });
+  const expiredServices = await prisma.product.deleteMany({ where: { type: 'SERVICE', submission: null, expiresAt: { lte: now } } });
   if (expiredServices.count > 0) revalidatePath('/');
 
   const ending = await prisma.submission.findMany({

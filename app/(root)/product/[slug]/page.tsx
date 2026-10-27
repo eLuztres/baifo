@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, MapPin, MessageCircle } from 'lucide-react';
+import { CalendarDays, ChevronLeft, MapPin, MessageCircle } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
@@ -27,6 +27,8 @@ import { getT } from '@/lib/i18n-server';
 import { getPlaceWithCorral, getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
+import { formatEventDate, isEventOver } from '@/lib/event-date';
+import { serviceTypeKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
@@ -48,7 +50,7 @@ export async function generateMetadata(props: ProductPageProps) {
   if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
   const { name, description } = localizeProduct(product, locale);
   return {
-    title: t(product.kind === 'service' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
+    title: t(product.type === 'SERVICE' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
     description: metaDescription(description) || undefined,
     alternates: await pageAlternates(`/product/${slug}`),
   };
@@ -79,9 +81,15 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const nextRing = findNextRing(groupByCategory(categories, visibleRings, locale), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
-  const isService = product.kind === 'service';
+  const isService = product.type === 'SERVICE';
+  const isEvent = product.type === 'EVENT';
+  // A shared link to a past event still opens, but without a way to sign up.
+  const isOver = isEvent && product.startsAt !== null && isEventOver(product.startsAt);
+  const serviceKey = isService ? serviceTypeKey(product.serviceType) : undefined;
+  // 0 is no "from" price for a service and a free event.
+  const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
   const isIllustrative = rings.some((ring) => ring.slug === slug && ring.isIllustrative);
-  const priceLabel = rings.some((ring) => ring.slug === slug && ring.isWanted) ? t('WANTED_BUDGET') : undefined;
+  const priceLabel = product.type === 'WANTED' ? t('WANTED_BUDGET') : isService ? t('PRICE_FROM') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
   // No seller number: buyers write on WhatsApp to the place's Corral, else to the shop, with the listing's name and link ready.
@@ -112,7 +120,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               images: product.images,
               category: product.category,
               path: `/product/${slug}`,
-              isService,
+              // No product offer for an event; a schema.org Event could come later.
+              isService: isService || isEvent,
               price: SHOWS_PRICES ? product.price?.toString() : undefined,
               condition: product.condition,
               isAvailable: SHOWCASE_MODE || inStock,
@@ -153,9 +162,26 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
               <ShareButton title={name} className='-mr-2 -mt-1' />
             </div>
-            {(condition || (place && !place.corralName)) && (
+            {(condition || serviceKey || isEvent || (place && !place.corralName)) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
                 {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
+                {serviceKey && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(serviceKey)}</p>}
+                {isEvent && product.startsAt && (
+                  <p className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary'>
+                    <CalendarDays className='size-3.5' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
+                  </p>
+                )}
+                {isEvent && product.address && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    title={t('EVENT_MAP')}
+                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/40'
+                  >
+                    <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{product.address}</span>
+                  </a>
+                )}
                 {place && !place.corralName && (
                   <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
                     <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
@@ -169,9 +195,15 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </ScrollText>
             )}
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
-            {SHOWCASE_MODE || isService ? (
+            {isOver ? (
+              <p className='shrink-0 rounded-2xl bg-muted px-4 py-3 text-center text-sm text-muted-foreground'>{t('EVENT_OVER')}</p>
+            ) : SHOWCASE_MODE || isService || isEvent ? (
               <>
-                {SHOWS_PRICES && !isService && <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />}
+                {hasPrice ? (
+                  <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />
+                ) : (
+                  isEvent && SHOWS_PRICES && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
+                )}
                 {/* The Corral and the way to write side by side, so the description keeps the room. */}
                 <div className='flex shrink-0 items-center gap-2'>
                   {place?.corralName && (

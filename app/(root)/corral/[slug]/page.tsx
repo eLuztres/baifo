@@ -10,6 +10,7 @@ import { BRAND } from '@/lib/brand';
 import { localizeProduct } from '@/lib/category';
 import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { feedCardLabels } from '@/lib/listing-labels';
 import { getPlaceWithCorral, type PlaceWithCorral } from '@/lib/places';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { timeAgo } from '@/lib/utils';
@@ -220,8 +221,7 @@ export default async function CorralPage({ params }: CorralPageProps) {
                   images={listing.images}
                   price={listing.price}
                   priceMax={listing.priceMax}
-                  priceLabel={listing.isWanted ? t('WANTED_BUDGET') : undefined}
-                  badge={listing.isService ? t('EXPLORE_SERVICE_BADGE') : listing.isWanted ? t('EXPLORE_WANTED_BADGE') : undefined}
+                  {...feedCardLabels(listing, t, locale, now)}
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}
                   listedAgo={timeAgo(listing.createdAt, locale, now)}

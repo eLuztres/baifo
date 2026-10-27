@@ -51,11 +51,16 @@ model Product {
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   expiresAt      DateTime? @db.Timestamp(6)
   submission     Submission?
-  // 'product' or 'service' (PRODUCT_KINDS); a service never shows a price or a cart, only its contact.
-  kind           String    @default("product")
+  // Services and events never have a cart, only a contact; any type goes in any category.
+  type           ListingType @default(PRODUCT)
   // Where it is handed over or offered; visitors filter the shop by places.
   placeId        String?   @db.Uuid
   place          Place?    @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  // A service's kind of offer: class, service or support (SERVICE_TYPES).
+  serviceType    String?
+  // An event: when it starts (it leaves the shop after that day) and where it is.
+  startsAt       DateTime? @db.Timestamp(6)
+  address        String?
 }
 
 // A town on the island the shop is in (or will be: not live yet shows as "soon"); the name is per language.
@@ -100,6 +105,15 @@ model Corral {
 }
 
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
+// Every listing is exactly one of these (LISTING_TYPES); WANTED is "Busco …", someone looking for something.
+// CHECK constraints in the migration: priceMax only on WANTED, serviceType only on SERVICE, an EVENT product has startsAt.
+enum ListingType {
+  PRODUCT
+  WANTED
+  SERVICE
+  EVENT
+}
+
 model Category {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug          String    @unique
@@ -114,7 +128,7 @@ model Category {
   sortOrder     Int       @default(0)
   createdAt     DateTime  @default(now()) @db.Timestamp(6)
   products      Product[]
-  // A subcategory, e.g. "clases" under "servicios"; the store's ring only shows categories without a parent.
+  // A subcategory; the store's ring only shows categories without a parent.
   parentId      String?    @db.Uuid
   parent        Category?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Cascade)
   children      Category[] @relation("Subcategories")
@@ -318,13 +332,15 @@ model Submission {
   remindedAt        DateTime?        @db.Timestamp(6)
   // Made on /admin/listings/new: no WhatsApp review, the admin sees the result right away.
   createdByAdmin    Boolean          @default(false)
-  // 'product' or 'service' (PRODUCT_KINDS); the product it becomes takes it over.
-  kind              String           @default("product")
-  // A wanted ad ("Busco …"): a product someone looks for, only in the Busco subcategories.
-  isWanted          Boolean          @default(false)
+  // The product it becomes takes it over.
+  type              ListingType      @default(PRODUCT)
   // Its place; the product it becomes takes it over.
   placeId           String?          @db.Uuid
   place             Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  // A service's kind of offer and an event's start and address; the product it becomes takes them over.
+  serviceType       String?
+  startsAt          DateTime?        @db.Timestamp(6)
+  address           String?
   // Which text is in use: 'original' (the admin's own words, only translated) or 'ai' (improved by the AI).
   textMode          String           @default("ai")
   // The admin's own title for 'original'; the original description is rawText.

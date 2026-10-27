@@ -1,7 +1,9 @@
 import { Column, Heading, Img, Link, Row, Section, Text } from '@react-email/components';
 import { prisma } from '@/db/prisma';
 import { EmailLayout, emailService } from '@/email';
+import type { ListingType } from '@/lib/constants';
 import { formatPriceOrRange } from '@/lib/utils';
+import { adminTexts } from './admin-texts';
 import { productUrl } from './config';
 import { getMarketplaceSettings } from './settings';
 import { coverPicture } from '@/lib/video';
@@ -12,6 +14,7 @@ interface LiveListing {
   image?: string;
   price: string;
   priceMax: string | null;
+  type: ListingType;
   phone: string | null;
   expiresAt: Date | null;
 }
@@ -19,6 +22,12 @@ interface LiveListing {
 interface ListingsEmailProps {
   listings: LiveListing[];
 }
+
+const TEXTS = adminTexts('es');
+
+/** "Busco · 100–150 €", "Servicio" (no "from" price) or just the price of an item. */
+const priceLine = ({ type, price, priceMax }: LiveListing) =>
+  [type !== 'PRODUCT' && TEXTS[`type_${type}`], (type === 'PRODUCT' || Number(price) > 0) && formatPriceOrRange(price, priceMax)].filter(Boolean).join(' · ');
 
 const dateOf = (date: Date | null) => (date ? date.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' }) : '');
 
@@ -35,7 +44,7 @@ export function ListingsEmail({ listings }: ListingsEmailProps) {
             <Column width='110'>{listing.image && <Img src={listing.image} alt={listing.name} width='96' height='96' className='rounded-lg object-cover' />}</Column>
             <Column>
               <Text className='m-0 text-base font-semibold'>{listing.name}</Text>
-              <Text className='m-0 text-lg'>{formatPriceOrRange(listing.price, listing.priceMax)}</Text>
+              <Text className='m-0 text-lg'>{priceLine(listing)}</Text>
               {listing.phone && <Text className='m-0'>WhatsApp: {listing.phone}</Text>}
               <Text className='m-0 text-xs text-[#6b6259]'>
                 <Link href={productUrl(listing.slug)}>{productUrl(listing.slug)}</Link> · hasta {dateOf(listing.expiresAt)}
@@ -59,7 +68,7 @@ export async function sendListingsEmail({ isAutomatic = true } = {}) {
   const products = await prisma.product.findMany({
     where: { sellerId: { not: null } },
     orderBy: { createdAt: 'desc' },
-    select: { slug: true, name: true, images: true, price: true, priceMax: true, contactPhone: true, expiresAt: true },
+    select: { slug: true, name: true, images: true, price: true, priceMax: true, type: true, contactPhone: true, expiresAt: true },
   });
   const listings = products.map(({ images, contactPhone, price, ...product }) => ({
     ...product,

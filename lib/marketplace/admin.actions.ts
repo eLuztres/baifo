@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { ANY_CONDITION, PRODUCT_CONDITIONS, PRODUCT_KINDS, type ProductKind } from '@/lib/constants';
+import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
+import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
@@ -16,7 +17,7 @@ import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from 
 import { makeListingPictures, processSubmission } from './processing';
 import { pictureCounterpart } from './pictures';
 import { publishByAdmin, takeDown } from './publish';
-import { approveSubmission, rejectSubmission } from './review';
+import { rejectSubmission } from './review';
 
 // Server actions are public endpoints: every one checks for an admin itself.
 const NOT_ALLOWED = { success: false, message: 'Solo para administradores' } as const;
@@ -28,11 +29,11 @@ const photoUrlSchema = z.string().refine((value) => {
   return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
 });
 
-// 'wanted' is a product someone looks for ("Busco …"). No photos: the AI makes the picture from the description later.
+// No photos: the AI makes the picture from the description later (usual for a wanted ad).
 // useAi false: the photos and videos are used as they are, no AI pictures.
 const newListingSchema = z.object({
   photos: z.array(photoUrlSchema).max(8),
-  kind: z.enum([...PRODUCT_KINDS, 'wanted']).default('product'),
+  type: z.enum(LISTING_TYPES).default('PRODUCT'),
   useAi: z.boolean().default(true),
 });
 
@@ -46,13 +47,12 @@ export async function createAdminListing(input: NewListingInput) {
 
   const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
   // COLLECTING until the description arrives: only the pictures are made now.
-  const { photos, kind, useAi } = parsed.data;
+  const { photos, type, useAi } = parsed.data;
   if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
-  const isWanted = kind === 'wanted';
   // Without AI the originals are the pictures at once, in the admin's order: a first video's still is the cover.
   const images = useAi ? [] : photos;
   const submission = await prisma.submission.create({
-    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, images, usesAi: useAi, kind: isWanted ? 'product' : kind, isWanted },
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, images, usesAi: useAi, type },
   });
   if (useAi && photos.length > 0) after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
@@ -80,7 +80,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, rawImages: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true } });
   // A video without a still counts as no photo: the AI makes the picture from the description.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
@@ -145,11 +145,10 @@ const editSchema = z.object({
   category: z.string().trim().max(60),
   // Empty: the admin took the condition away.
   condition: z.union([z.enum(PRODUCT_CONDITIONS), z.literal('')]).transform((value) => value || null).optional(),
-  // Missing for a service, which never has a price.
+  // Empty: none (only a service may have none, then it shows no "from" price).
   price: z
-    .string()
-    .regex(/^\d{1,6}([.,]\d{1,2})?$/)
-    .transform((value) => Number(value.replace(',', '.')).toFixed(2))
+    .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])
+    .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : undefined))
     .optional(),
   // The upper end of a wanted ad's budget; empty: one amount, no range.
   priceMax: z
@@ -157,6 +156,18 @@ const editSchema = z.object({
     .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : null))
     .optional(),
   images: z.array(photoUrlSchema).min(1).max(12),
+  // Only a service's kind of offer; empty: none.
+  serviceType: z.union([z.enum(SERVICE_TYPES), z.literal('')]).transform((value) => value || null).optional(),
+  // Only an event's start, as the island's clock shows it ("2026-11-29T19:00"), and its address.
+  startsAt: z
+    .string()
+    .transform((value, context) => {
+      const date = value ? fromShopDateTime(value) : null;
+      if (value && !date) context.addIssue({ code: 'custom', message: 'Invalid date' });
+      return date;
+    })
+    .optional(),
+  address: z.string().trim().max(200).transform((value) => value || null).optional(),
   // Which of the two texts these title and description are.
   textMode: z.enum(TEXT_MODES).optional(),
   // Where it is; empty or missing in a shop without places.
@@ -173,21 +184,25 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, kind: true, isWanted: true, textMode: true, textVersions: true },
+    select: { translations: true, type: true, textMode: true, textVersions: true },
   });
-  const isService = current?.kind === 'service';
+  const isService = current?.type === 'SERVICE';
+  const isWanted = current?.type === 'WANTED';
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
-  const category = findCategory(await getListingCategories(current?.kind as ProductKind, current?.isWanted), parsed.data.category);
+  if (current?.type === 'EVENT' && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
+  const category = findCategory(await getListingCategories(), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
-  if (parsed.data.condition === ANY_CONDITION && !current?.isWanted) return { success: false, message: 'Elige el estado del artículo' };
+  if (parsed.data.condition === ANY_CONDITION && !isWanted) return { success: false, message: 'Elige el estado del artículo' };
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, ...edit } = parsed.data;
+  const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
+  // A service's empty price takes its "from" price away; only a service has a kind of offer.
+  const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, serviceType: null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end.
-  const priceMax = current?.isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price) ? edit.priceMax : null;
+  const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
@@ -201,14 +216,17 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, description, price, images, condition, placeId } = parsed.data;
+    const { title, description, price, images, condition, placeId, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
         name: title,
         description,
         translations: toProductTranslations(translations),
-        price: isService ? 0 : price,
+        price: price ?? 0,
+        serviceType,
+        startsAt,
+        address,
         priceMax,
         images,
         condition,
@@ -246,11 +264,10 @@ export async function chooseListingText(id: string, mode: TextMode) {
       texts = { [shopLocale]: own, ...(await translateText(own, shopLocale, otherLocales)) };
     }
     if (!texts) {
-      const kind = submission.kind as ProductKind;
       const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);
       const photo = photoUrl ? await fetchImage(photoUrl) : null;
-      const categories = await getListingCategories(kind, submission.isWanted);
-      texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], kind, undefined, submission.isWanted)).texts;
+      const categories = await getListingCategories();
+      texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], submission.type)).texts;
     }
   } catch (error) {
     console.error(`Text of listing ${id} not made`, error);
@@ -277,8 +294,7 @@ export async function translateListingText(id: string, text: { title: string; de
 /** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
 export async function setAdminListingCategory(id: string, slug: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { kind: true, isWanted: true } });
-  const category = findCategory(await getListingCategories(listing?.kind as ProductKind, listing?.isWanted), slug);
+  const category = findCategory(await getListingCategories(), slug);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   const submission = await prisma.submission.update({ where: { id }, data: { category: category.slug } });
   if (submission.productId) {
@@ -298,12 +314,12 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = picturePromptSchema.safeParse(prompt);
   if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, kind: true, isWanted: true } });
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, type: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
   const text = parsed.data ? { title: parsed.data, description: '' } : { title: submission.title ?? '', description: submission.description ?? '' };
   if (!text.title && !text.description) return { success: false, message: 'Describe la foto que quieres' };
   try {
-    const picture = await createPicture(text, submission.kind as ProductKind, submission.isWanted);
+    const picture = await createPicture(text, submission.type);
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
@@ -316,19 +332,13 @@ const planSchema = z.enum(['normal', 'big']);
 /** "Publicar ahora": online at once, without payment. */
 export async function publishAdminListing(id: string, plan: 'normal' | 'big') {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success || !planSchema.safeParse(plan).success) return NOT_ALLOWED;
+  // An event goes online only with its date (a database rule too).
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { type: true, startsAt: true } });
+  if (listing?.type === 'EVENT' && !listing.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const product = await publishByAdmin(id, plan);
   return product
     ? { success: true, message: 'Anuncio online', slug: product.slug }
     : { success: false, message: 'Este anuncio ya no se puede publicar' };
-}
-
-/** Sends the seller the WhatsApp link to choose a plan and pay (the same as approving on WhatsApp). */
-export async function sendAdminPaymentLink(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: true } });
-  if (!submission || submission.seller.waId === HOUSE_SELLER) return { success: false, message: 'Este anuncio no tiene vendedor con WhatsApp' };
-  const approved = await approveSubmission(id);
-  return approved ? { success: true, message: 'Enlace de pago enviado por WhatsApp' } : { success: false, message: 'Ya no está pendiente de revisión' };
 }
 
 export async function rejectAdminListing(id: string) {

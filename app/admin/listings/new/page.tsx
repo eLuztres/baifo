@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronLeft, HandHelping, Package, Search } from 'lucide-react';
+import { CalendarDays, ChevronLeft, HandHelping, Package, Search } from 'lucide-react';
 import ListingSteps from '@/components/marketplace/listing-steps';
 import NewListingForm from '@/components/marketplace/new-listing-form';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
+import { LISTING_TYPES, listingTypeOf, newListingPath } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,47 +17,47 @@ export async function generateMetadata(): Promise<Metadata> {
 export const maxDuration = 300;
 
 interface NewListingPageProps {
-  /** `kind=service`: a person offering a service; `kind=wanted`: someone looking for something ("Busco"). */
-  searchParams: Promise<{ kind?: string }>;
+  /** `tipo`: the listing type's link name (LISTING_TYPE_PARAMS), e.g. servicios; none: a product. */
+  searchParams: Promise<{ tipo?: string }>;
 }
 
 export default async function NewListingPage({ searchParams }: NewListingPageProps) {
   await requireAdmin();
-  const [texts, { kind }] = await Promise.all([getLocale().then(adminTexts), searchParams]);
-  const listingKind = kind === 'service' || kind === 'wanted' ? kind : 'product';
-  const kinds = [
-    { value: 'product', label: texts.kindProduct, icon: Package },
-    { value: 'service', label: texts.kindService, icon: HandHelping },
-    { value: 'wanted', label: texts.kindWanted, icon: Search },
-  ] as const;
-  const intro = { product: '', service: texts.newServiceIntro, wanted: texts.newWantedIntro }[listingKind];
+  const [texts, { tipo }] = await Promise.all([getLocale().then(adminTexts), searchParams]);
+  const listingType = listingTypeOf(tipo) ?? 'PRODUCT';
+  const icons = { PRODUCT: Package, WANTED: Search, SERVICE: HandHelping, EVENT: CalendarDays };
+  const intro = { PRODUCT: '', SERVICE: texts.newServiceIntro, WANTED: texts.newWantedIntro, EVENT: texts.newEventIntro }[listingType];
   return (
     <div className='space-y-8'>
       <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
-      {/* One form for all three; the choice only changes what the AI writes and which fields there are. */}
+      {/* One form for all four; the choice only changes what the AI writes and which fields there are. */}
       <div className='mx-auto max-w-xl space-y-3 text-center'>
-        <nav aria-label={texts.kindLabel} className='inline-flex rounded-full bg-muted p-1'>
-          {kinds.map(({ value, label, icon: Icon }) => (
-            <Link
-              key={value}
-              href={value === 'product' ? '/admin/listings/new' : `/admin/listings/new?kind=${value}`}
-              aria-current={value === listingKind ? 'page' : undefined}
-              className={cn(
-                'flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:px-4',
-                value === listingKind ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {/* The smallest phones get the words only, so all three fit. */}
-              <Icon className='hidden size-4 min-[360px]:block' aria-hidden /> {label}
-            </Link>
-          ))}
+        {/* Four labels don't fit in one row on small phones in every language: two rows there. */}
+        <nav aria-label={texts.typeLabel} className='inline-grid grid-cols-2 gap-1 rounded-3xl bg-muted p-1 min-[420px]:inline-flex min-[420px]:gap-0 min-[420px]:rounded-full'>
+          {LISTING_TYPES.map((type) => {
+            const Icon = icons[type];
+            return (
+              <Link
+                key={type}
+                href={newListingPath(type)}
+                aria-current={type === listingType ? 'page' : undefined}
+                className={cn(
+                  'flex items-center justify-center gap-2 rounded-full px-2.5 py-2 text-sm font-medium transition-colors min-[400px]:px-3 sm:px-4',
+                  type === listingType ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {/* Phones get the words only, so all four fit. */}
+                <Icon className='hidden size-4 sm:block' aria-hidden /> {texts[`type_${type}`]}
+              </Link>
+            );
+          })}
         </nav>
         {intro && <p className='text-sm text-muted-foreground'>{intro}</p>}
       </div>
       <ListingSteps current={0} texts={texts} />
-      <NewListingForm key={listingKind} texts={texts} kind={listingKind} />
+      <NewListingForm key={listingType} texts={texts} type={listingType} />
     </div>
   );
 }

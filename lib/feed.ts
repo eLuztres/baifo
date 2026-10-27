@@ -1,8 +1,12 @@
+import type { ListingType } from '@/lib/constants';
+
 /** What the feed needs to know to place an entry. */
 export interface FeedEntry {
   categoryIds: string[];
-  isService: boolean;
+  type: ListingType;
 }
+
+const isService = (entry: FeedEntry) => entry.type === 'SERVICE';
 
 /** How many entries of the visitor's category open the feed before others mix in. */
 const INTRO_LENGTH = 6;
@@ -39,10 +43,10 @@ export function composeFeed<T extends FeedEntry>(entries: T[], focusCategoryId: 
   const random = seededRandom(seed);
   const focus = focusCategoryId ? entries.filter((entry) => entry.categoryIds.includes(focusCategoryId)) : [];
   const rest = entries.filter((entry) => !focus.includes(entry));
-  const services = shuffle(rest.filter((entry) => entry.isService), random);
+  const services = shuffle(rest.filter(isService), random);
 
   const groups = new Map<string, T[]>();
-  for (const entry of rest.filter((item) => !item.isService)) {
+  for (const entry of rest.filter((item) => !isService(item))) {
     groups.set(groupOf(entry), [...(groups.get(groupOf(entry)) ?? []), entry]);
   }
   const goods = shuffle([...groups.values()], random);
@@ -57,7 +61,7 @@ export function composeFeed<T extends FeedEntry>(entries: T[], focusCategoryId: 
     // starts strong and fades, services ramp up from nothing and never come twice in a row.
     const weights: number[] = [
       focus.length * Math.max(0.3, 2 - step * 0.08) * (previous && focusCategoryId && previous.categoryIds.includes(focusCategoryId) ? 0.5 : 1),
-      previous?.isService && focus.length + goodsLeft > 0 ? 0 : services.length * Math.min(1, step * 0.08),
+      previous && isService(previous) && focus.length + goodsLeft > 0 ? 0 : services.length * Math.min(1, step * 0.08),
       goodsLeft,
     ];
     // Only services left at the very start: the ramp would weigh them 0.
