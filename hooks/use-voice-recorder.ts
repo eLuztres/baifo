@@ -8,7 +8,8 @@ export type VoiceError = 'NO_MIC' | 'FAILED';
 interface VoiceRecorderOptions {
   language: string;
   onText: (text: string) => void;
-  onError: (error: VoiceError) => void;
+  /** `aiCode`: what the AI said went wrong (lib/ai-errors.ts), when it was the AI. */
+  onError: (error: VoiceError, aiCode?: string) => void;
 }
 
 // Stops by itself well before the recording outgrows the upload limit of /api/transcribe.
@@ -36,9 +37,9 @@ export function useVoiceRecorder({ language, onText, onError }: VoiceRecorderOpt
       form.set('audio', audio);
       form.set('language', language);
       const response = await fetch('/api/transcribe', { method: 'POST', body: form });
-      const { text } = await response.json();
+      const { text, code } = await response.json();
       if (response.ok && text) onText(text);
-      else onError('FAILED');
+      else onError('FAILED', code ?? undefined);
     } catch {
       onError('FAILED');
     } finally {

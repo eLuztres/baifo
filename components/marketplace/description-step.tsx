@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useI18n } from '@/components/i18n-provider';
+import { aiErrorText } from '@/lib/ai-errors';
 import { Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
@@ -44,6 +46,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
   const isOriginal = textMode === 'original';
   const languageList = languages.map(({ label }) => label).join(', ');
+  const { t } = useI18n();
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
@@ -143,10 +146,11 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
         {!isWriting && (
           <div role='radiogroup' aria-label={texts.contactQuestion} className='space-y-2 pt-2'>
             <p className='text-sm font-medium'>{texts.contactQuestion}</p>
-            <div className='grid gap-2 sm:grid-cols-2'>
+            {/* Side by side on phones too, like the text choice above, so it takes little room. */}
+            <div className='grid grid-cols-2 gap-2'>
               {[
-                { isPerson: false, icon: Store, label: texts.contactCorral, hint: texts.contactCorralHint },
                 { isPerson: true, icon: MessageCircle, label: texts.contactPerson, hint: texts.contactPersonHint },
+                { isPerson: false, icon: Store, label: texts.contactCorral, hint: texts.contactCorralHint },
               ].map(({ isPerson, icon: Icon, label, hint }) => (
                 <button
                   key={label}
@@ -160,15 +164,14 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
                     setIsForSeller(isPerson);
                   }}
                   className={cn(
-                    'flex items-start gap-3 rounded-2xl border p-3 text-left transition',
-                    isForSeller === isPerson ? 'border-primary bg-primary/10' : 'border-border bg-background hover:border-primary/50'
+                    'flex flex-col items-start gap-1 rounded-2xl border-2 p-3 text-left transition',
+                    isForSeller === isPerson ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/40'
                   )}
                 >
-                  <Icon className='mt-0.5 size-5 shrink-0 text-primary' aria-hidden />
-                  <span>
-                    <span className='block text-sm font-medium'>{label}</span>
-                    <span className='block text-xs text-muted-foreground'>{hint}</span>
+                  <span className='inline-flex items-center gap-1.5 text-sm font-medium'>
+                    <Icon className={cn('size-4 shrink-0', isForSeller === isPerson && 'text-primary')} aria-hidden /> {label}
                   </span>
+                  <span className='text-xs text-muted-foreground'>{hint}</span>
                 </button>
               ))}
             </div>
@@ -188,28 +191,27 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             />
             {/* A wanted ad has no seller: the number is the person looking. */}
             <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : texts.sellerHint}</p>
-            {sellerPhone.trim() && (
-              <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
-                <Checkbox
-                  checked={hasConsent}
-                  onCheckedChange={(value) => {
-                    // The consent is the person's; the admin only records it, so ask once more.
-                    if (value === true) toast({ description: texts.consentCheck });
-                    setHasConsent(value === true);
-                  }}
-                  className='mt-0.5'
-                />
-                {isService ? texts.serviceConsent : isWanted ? texts.wantedConsent : texts.consent}
-              </Label>
-            )}
-            {sellerPhone.trim() && isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
+            {/* Always shown with the number, so nothing pops up while typing. */}
+            <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
+              <Checkbox
+                checked={hasConsent}
+                onCheckedChange={(value) => {
+                  // The consent is the person's; the admin only records it, so ask once more.
+                  if (value === true) toast({ description: texts.consentCheck });
+                  setHasConsent(value === true);
+                }}
+                className='mt-0.5'
+              />
+              {isService ? texts.serviceConsent : isWanted ? texts.wantedConsent : texts.consent}
+            </Label>
+            {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
           </div>
         )}
       </div>
 
       {(error || listing.lastError) && (
         <div role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
-          <span>{error || texts.errorGeneric}</span>
+          <span>{error || aiErrorText(t, listing.lastError) || texts.errorGeneric}</span>
           {listing.lastError && (
             <Button variant='outline' size='sm' className='shrink-0 rounded-full' disabled={isPending} onClick={retry}>
               <RotateCw /> {texts.retry}

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useI18n } from '@/components/i18n-provider';
+import { aiErrorText } from '@/lib/ai-errors';
 import { Loader2 } from 'lucide-react';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
@@ -26,6 +28,7 @@ const POLL_MS = 2500;
 
 /** Step 2 of a new listing (the description, then the listing to check and publish), or any listing to edit. */
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
+  const { t } = useI18n();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
   // Still collecting with photos (or video stills) but no pictures yet: the AI is making them. Without any it waits for the description.
@@ -71,7 +74,7 @@ export default function ListingWorkspace({ initial, categories, places, language
           {!listing.lastError && <span className='absolute inset-0 animate-pulse bg-primary/15 motion-reduce:animate-none' />}
         </ListingStage>
         <p className='flex items-center justify-center gap-2 text-sm text-muted-foreground'>
-          <Loader2 className='size-4 animate-spin text-primary' /> {listing.lastError ? texts.errorGeneric : texts.picturesWorking}
+          <Loader2 className='size-4 animate-spin text-primary' /> {listing.lastError ? (aiErrorText(t, listing.lastError) ?? texts.errorGeneric) : texts.picturesWorking}
         </p>
       </div>
     );

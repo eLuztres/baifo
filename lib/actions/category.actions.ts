@@ -6,9 +6,10 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { localize, RING_ORDER } from '@/lib/category';
 import type { Locale, TranslationKey } from '@/lib/i18n-core';
+import { aiErrorText } from '@/lib/ai-errors';
 import { formatError } from '@/lib/utils';
 import slugify from 'slugify';
-import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { translateText, writeCategoryText } from '@/lib/marketplace/ai';
 import {
   categorySchema,
@@ -187,7 +188,7 @@ export async function translateCategory(data: z.infer<typeof categoryTextsSchema
     const texts = Object.fromEntries(Object.entries(made).map(([locale, item]) => [locale, { name: item?.title ?? '', text: item?.description ?? '' }]));
     return { success: true, message: '', texts: texts as Partial<Record<Locale, { name: string; text: string }>> };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }
 
@@ -202,7 +203,7 @@ export async function improveCategory(data: z.infer<typeof categoryTextsSchema>)
     const texts = Object.fromEntries(Object.entries(made).map(([locale, item]) => [locale, { name: item?.title ?? '', text: (item?.description ?? '').slice(0, 300) }]));
     return { success: true, message: '', texts: texts as Partial<Record<Locale, { name: string; text: string }>> };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }
 

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type DragEvent } from 'react';
+import { useI18n } from '@/components/i18n-provider';
+import { aiErrorText } from '@/lib/ai-errors';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, RotateCw, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
@@ -38,6 +40,7 @@ const isVideo = (file: File) => file.type.startsWith('video/');
 /** Step 1: only the photos. One tap makes the AI pictures, and they show up right here. */
 export default function NewListingForm({ texts, type }: NewListingFormProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const fileInput = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [listing, setListing] = useState<AdminListing | null>(null);
@@ -291,7 +294,7 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
 
       {(error || listing?.lastError) && (
         <div role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
-          <span>{error || texts.errorGeneric}</span>
+          <span>{error || aiErrorText(t, listing?.lastError) || texts.errorGeneric}</span>
           {listing?.lastError && (
             <Button variant='outline' size='sm' className='shrink-0 rounded-full' disabled={isPending} onClick={retry}>
               <RotateCw /> {texts.retry}

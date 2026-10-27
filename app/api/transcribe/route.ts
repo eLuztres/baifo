@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isAdmin } from '@/lib/auth-guard';
 import { transcribeAudio } from '@/lib/ai-usage';
+import { aiErrorCode } from '@/lib/ai-errors';
 
 // Vercel takes at most 4.5 MB per request: several minutes of speech.
 const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     return Response.json({ text: await transcribeAudio(parsed.data.audio, parsed.data.language) });
   } catch (error) {
     console.error('[transcribe] Voice note not transcribed:', error);
-    return Response.json({ error: 'FAILED' }, { status: 502 });
+    // The AI's own failure (refused, no credit, offline …) goes along, so the button can say what happened.
+    return Response.json({ error: 'FAILED', code: aiErrorCode(error) }, { status: 502 });
   }
 }

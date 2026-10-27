@@ -1,6 +1,7 @@
 import { prisma } from '@/db/prisma';
 import { ANY_CONDITION, type ListingType } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import { aiErrorCode } from '@/lib/ai-errors';
 import { fromShopDateTime } from '@/lib/event-date';
 import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, videoPoster } from '@/lib/video';
@@ -95,7 +96,8 @@ export async function makeListingPictures(submissionId: string) {
     await makeShopPictures(submissionId, submission.rawImages, submission.type);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await prisma.submission.update({ where: { id: submissionId }, data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) } });
+    // An AI failure is kept as its code, so the admin's screen can say what happened in their language.
+    await prisma.submission.update({ where: { id: submissionId }, data: { attempts: { increment: 1 }, lastError: (aiErrorCode(error) ?? message).slice(0, 500) } });
     console.error(`Pictures of submission ${submissionId} failed`, error);
   }
 }
@@ -186,7 +188,7 @@ export async function processSubmission(submissionId: string) {
     const message = error instanceof Error ? error.message : String(error);
     const failed = await prisma.submission.update({
       where: { id: submissionId },
-      data: { attempts: { increment: 1 }, lastError: message.slice(0, 500) },
+      data: { attempts: { increment: 1 }, lastError: (aiErrorCode(error) ?? message).slice(0, 500) },
     });
     console.error(`Submission ${submissionId} failed (attempt ${failed.attempts})`, error);
     const reviewer = ADMIN_WHATSAPP_NUMBER;

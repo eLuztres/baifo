@@ -4,6 +4,7 @@ import { Loader2, Mic, Square } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { aiErrorText } from '@/lib/ai-errors';
 import { useVoiceRecorder, type VoiceError } from '@/hooks/use-voice-recorder';
 import { cn } from '@/lib/utils';
 
@@ -24,7 +25,7 @@ export default function VoiceInputButton({ onText, className }: VoiceInputButton
   const { state, seconds, start, stop } = useVoiceRecorder({
     language: locale,
     onText,
-    onError: (error) => toast({ variant: 'destructive', description: t(ERROR_KEYS[error]) }),
+    onError: (error, aiCode) => toast({ variant: 'destructive', description: aiErrorText(t, aiCode) ?? t(ERROR_KEYS[error]) }),
   });
   const isRecording = state === 'recording';
 

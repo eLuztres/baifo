@@ -8,6 +8,8 @@ import { isAdmin } from '@/lib/auth-guard';
 import { absoluteUrl } from '@/lib/brand';
 import { SERVER_URL } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
+import { aiErrorText } from '@/lib/ai-errors';
+import { getT } from '@/lib/i18n-server';
 import { formatError } from '@/lib/utils';
 import {
   KEEP_IDENTICAL,
@@ -123,7 +125,7 @@ export async function generateRingView(photoUrl: string, view: string, categoryI
     const [photo, scene] = await Promise.all([download(url), findScene(categoryId)]);
     return { success: true, message: '', url: await makeRingView(photo, viewSchema.parse(view), scene, seedOf(url)) };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }
 
@@ -154,7 +156,7 @@ export async function regenerateRingViews(productId: string) {
     revalidatePath('/', 'layout');
     return { success: true, message: '' };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }
 
@@ -186,7 +188,7 @@ export async function generateCategoryCover(description: string, name = '') {
         : await generateImage(categoryCoverPrompt(text || title), PORTRAIT);
     return { success: true, message: '', url: await uploadImage(image, 'category') };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }
 
@@ -202,6 +204,6 @@ export async function draftRingText(photoUrl: string, notes?: string, infoUrl?: 
     const text = await draftText(photo, makerNotes, info);
     return { success: true, message: '', name: text.name ?? '', description: text.description ?? '' };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }
 }

@@ -7,12 +7,14 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
 import { fromShopDateTime } from '@/lib/event-date';
-import { getEnabledLocales, getLocale, getShopLocale } from '@/lib/i18n-server';
+import { getEnabledLocales, getLocale, getShopLocale, getT } from '@/lib/i18n-server';
+import { aiErrorText } from '@/lib/ai-errors';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
 import { suggestAddresses } from './address-search';
-import { HOUSE_SELLER } from './config';
+import { HOUSE_SELLER, publishUrl } from './config';
+import { botText, localeOf } from './messages';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
@@ -275,7 +277,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
     }
   } catch (error) {
     console.error(`Text of listing ${id} not made`, error);
-    return { success: false, message: 'La IA no pudo hacer el texto. Inténtalo otra vez.' };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo hacer el texto. Inténtalo otra vez.' };
   }
   await prisma.submission.update({ where: { id }, data: { textMode: mode, textVersions: { ...versions, [mode]: texts } } });
   return { success: true, message: '', texts };
@@ -291,7 +293,7 @@ export async function translateListingText(id: string, text: { title: string; de
     return { success: true, message: '', translations: await translateText(parsed.data, shopLocale, otherLocales) };
   } catch (error) {
     console.error(`Listing ${id} not translated`, error);
-    return { success: false, message: 'No se pudo traducir. Inténtalo otra vez.' };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'No se pudo traducir. Inténtalo otra vez.' };
   }
 }
 
@@ -327,7 +329,7 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
-    return { success: false, message: 'La IA no pudo crear la foto. Inténtalo otra vez.' };
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo crear la foto. Inténtalo otra vez.' };
   }
 }
 
@@ -353,6 +355,25 @@ export async function publishAdminListing(id: string, plan: 'normal' | 'big') {
   return product
     ? { success: true, message: 'Anuncio online', slug: product.slug }
     : { success: false, message: 'Este anuncio ya no se puede publicar' };
+}
+
+/**
+ * "Enviar por WhatsApp": the person gets their private link to see the listing, choose a plan and pay. Opened in the
+ * admin's own WhatsApp (wa.me), not sent by the Cloud API, which refuses a message outside the 24-hour window.
+ */
+export async function shareAdminListing(id: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const listing = await prisma.submission.findFirst({
+    where: { id, status: { in: ['IN_REVIEW', 'AWAITING_PAYMENT'] } },
+    select: { payToken: true, seller: { select: { waId: true } } },
+  });
+  if (!listing) return { success: false, message: 'Este anuncio ya no se puede enviar' };
+  const { waId } = listing.seller;
+  if (waId === HOUSE_SELLER) return { success: false, message: 'Este anuncio no tiene el WhatsApp de la persona' };
+  // The private page only opens for a listing waiting for payment.
+  await prisma.submission.updateMany({ where: { id, status: 'IN_REVIEW' }, data: { status: 'AWAITING_PAYMENT' } });
+  const message = botText(localeOf(waId), 'approved', { url: publishUrl(listing.payToken) });
+  return { success: true, message: '', url: `https://wa.me/${waId}?text=${encodeURIComponent(message)}` };
 }
 
 export async function rejectAdminListing(id: string) {

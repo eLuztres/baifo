@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, Plus, Save, Sparkles, Star, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, MessageCircle, Plus, Save, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
@@ -19,6 +19,7 @@ import {
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
+  shareAdminListing,
   translateListingText,
   updateAdminListing,
   type AdminListing,
@@ -151,6 +152,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // A wanted ad's price is a budget range, and it may take any condition.
   const isWanted = listing.type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
+  // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
+  const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
@@ -233,6 +236,22 @@ export default function ListingEditor({ listing, categories, places, languages, 
     });
 
   const publish = () => run(() => publishAdminListing(listing.id, plan), onPublished);
+
+  // The tab opens on the click itself: one opened after the save and the action would be blocked as a pop-up.
+  const sendByWhatsApp = () => {
+    const tab = window.open('', '_blank');
+    run(
+      async () => {
+        const result = await shareAdminListing(listing.id);
+        if (result.success && 'url' in result && result.url) {
+          if (tab) tab.location.href = result.url;
+          else window.location.assign(result.url);
+        } else tab?.close();
+        return result;
+      },
+      () => {}
+    );
+  };
 
   // The edits so far stay with the current text; the other one comes back as it was, or is made once.
   const switchText = async (mode: TextMode) => {
@@ -610,6 +629,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
         <p role='alert' className='rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive'>
           {error}
         </p>
+      )}
+
+      {/* Instead of publishing for free: the person sees their listing first and pays to publish it. */}
+      {isOpen && hasPersonWhatsApp && (
+        <div className='space-y-1'>
+          <Button variant='outline' className='h-12 w-full rounded-full' disabled={isPending} onClick={sendByWhatsApp}>
+            <MessageCircle /> {texts.sendWhatsApp}
+          </Button>
+          <p className='text-center text-xs text-muted-foreground'>{texts.sendWhatsAppHint}</p>
+        </div>
       )}
 
       {isOpen && (

@@ -48,7 +48,8 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
         <div className='space-y-3'>
           <p className='eyebrow'>{texts.title}</p>
           <h1 className='text-3xl leading-tight'>{title}</h1>
-          {submission.price && <ProductPrice value={Number(submission.price)} />}
+          {/* A wanted ad's budget shows as its range; no price (a free event, a service without one) shows nothing. */}
+          {Number(submission.price) > 0 && <ProductPrice value={Number(submission.price)} maxValue={submission.priceMax?.toString()} />}
           {description && <p className='whitespace-pre-line text-foreground/85'>{description}</p>}
         </div>
 
