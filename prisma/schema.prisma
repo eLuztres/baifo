@@ -335,6 +335,10 @@ model Submission {
   aiImages          String[]         @default([])
   // False when the admin went on without AI: photos and videos stay exactly as uploaded.
   usesAi            Boolean          @default(true)
+  // ❌ Rechazar was tapped on WhatsApp: the admin's next text is the reason the seller gets.
+  rejectAskedAt     DateTime?        @db.Timestamp(6)
+  // Why the admin rejected it, as the seller got it.
+  rejectReason      String?
   attempts          Int              @default(0)
   lastError         String?
   createdAt         DateTime         @default(now()) @db.Timestamp(6)

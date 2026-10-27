@@ -17,6 +17,9 @@ export function parseReviewButton(buttonId: string): { action: ReviewAction; sub
   return ACTIONS.includes(action as ReviewAction) && submissionId ? { action: action as ReviewAction, submissionId } : null;
 }
 
+const REJECT_QUESTION =
+  '¿Por qué lo rechazas? Escribe el motivo y se lo mando al vendedor.\nEscribe "sin motivo" para mandarle solo el mensaje amable, o "cancelar" para dejarlo en revisión.';
+
 const EDIT_HELP =
   'Responde con lo que cambias, por ejemplo:\nprecio 25\ntítulo Mesa de teca\ndesc Mesa robusta, poco usada.\ncat Muebles';
 
@@ -58,28 +61,52 @@ const findInReview = (submissionId: string) =>
 export async function approveSubmission(submissionId: string) {
   const submission = await findInReview(submissionId);
   if (!submission) return null;
-  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'AWAITING_PAYMENT' } });
+  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'AWAITING_PAYMENT', rejectAskedAt: null } });
   const locale = localeOf(submission.seller.waId);
   await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken) }));
   return submission;
 }
 
-/** Rejected: the seller gets a polite message. Null when it isn't waiting for review. */
-export async function rejectSubmission(submissionId: string) {
+/** Rejected: the seller gets a polite message, with the admin's reason when there is one. Null when it isn't waiting for review. */
+export async function rejectSubmission(submissionId: string, reason?: string) {
   const submission = await findInReview(submissionId);
   if (!submission) return null;
-  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'REJECTED' } });
-  await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'rejected'));
+  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'REJECTED', rejectReason: reason ?? null, rejectAskedAt: null } });
+  const locale = localeOf(submission.seller.waId);
+  await sendText(submission.seller.waId, reason ? botText(locale, 'rejectedReason', { reason }) : botText(locale, 'rejected'));
   return submission;
+}
+
+const NO_REASON = ['sin motivo', 'no reason', '-'];
+const KEEP_IN_REVIEW = ['cancelar', 'cancel'];
+
+/** The admin's answer after ❌ Rechazar: the reason for the seller, "sin motivo", or "cancelar" to keep it in review. */
+async function handleRejectReason(text: string, submission: Submission, adminWaId: string) {
+  const answer = text.trim();
+  const word = answer.toLowerCase().replace(/[!.¡¿?"]/g, '').trim();
+  const title = submission.title ?? submission.id;
+  if (KEEP_IN_REVIEW.includes(word)) {
+    await prisma.submission.update({ where: { id: submission.id }, data: { rejectAskedAt: null } });
+    return sendText(adminWaId, `Vale, sigue pendiente de revisión: ${title}`);
+  }
+  const reason = NO_REASON.includes(word) ? undefined : answer.slice(0, 500);
+  const rejected = await rejectSubmission(submission.id, reason);
+  if (!rejected) return sendText(adminWaId, 'Este anuncio ya no está pendiente de revisión.');
+  return sendText(adminWaId, reason ? `❌ Rechazado, motivo enviado: ${title}` : `❌ Rechazado: ${title}`);
 }
 
 /** The admin (real or simulated) tapped a review button. */
 export async function handleReviewButton(action: ReviewAction, submissionId: string, adminWaId: string) {
   if (action === 'edit') return sendText(adminWaId, EDIT_HELP);
-  const submission = action === 'approve' ? await approveSubmission(submissionId) : await rejectSubmission(submissionId);
-  if (!submission) return sendText(adminWaId, 'Este anuncio ya no está pendiente de revisión.');
-  const title = submission.title ?? submission.id;
-  return sendText(adminWaId, action === 'approve' ? `✅ Aprobado, enlace enviado: ${title}` : `❌ Rechazado: ${title}`);
+  const notPending = () => sendText(adminWaId, 'Este anuncio ya no está pendiente de revisión.');
+  // Rejecting waits for the reason: the admin's next text (handleAdminText).
+  if (action === 'reject') {
+    const { count } = await prisma.submission.updateMany({ where: { id: submissionId, status: 'IN_REVIEW' }, data: { rejectAskedAt: new Date() } });
+    return count > 0 ? sendText(adminWaId, REJECT_QUESTION) : notPending();
+  }
+  const submission = await approveSubmission(submissionId);
+  if (!submission) return notPending();
+  return sendText(adminWaId, `✅ Aprobado, enlace enviado: ${submission.title ?? submission.id}`);
 }
 
 type ListingField = 'price' | 'title' | 'description' | 'category';
@@ -102,8 +129,11 @@ export function parseEdit(text: string): { field: ListingField; value: string } 
   return null;
 }
 
-/** A text from the admin: an edit of the listing most recently sent to this admin for review. */
+/** A text from the admin: the reason for a rejection just asked for, else an edit of the listing most recently sent for review. */
 export async function handleAdminText(text: string, adminWaId: string) {
+  const rejecting = await prisma.submission.findFirst({ where: { status: 'IN_REVIEW', rejectAskedAt: { not: null } }, orderBy: { rejectAskedAt: 'desc' } });
+  if (rejecting) return handleRejectReason(text, rejecting, adminWaId);
+
   const edit = parseEdit(text);
   const where = { status: 'IN_REVIEW' as const };
   const submission = await prisma.submission.findFirst({ where, orderBy: { updatedAt: 'desc' } });
