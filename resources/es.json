@@ -571,6 +571,7 @@
   "EXPLORE_SEARCH_EMPTY": "No hay nada para «{query}». Prueba con otra palabra.",
   "EXPLORE_INTRO": "Todo lo de {shop} en un solo sitio, cosas y servicios mezclados. Desliza y descubre.",
   "EXPLORE_ALL": "Todo",
+  "EXPLORE_CATEGORY_BUTTON": "Categorías",
   "WANTED_BUDGET": "Presupuesto",
   "PRICE_FROM": "desde",
   "EVENT_FREE": "Gratis",

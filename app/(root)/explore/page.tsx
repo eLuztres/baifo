@@ -14,6 +14,7 @@ import { composeFeed } from '@/lib/feed';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import ExploreFilterMenu from '@/components/shared/explore-filter-menu';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { findMatchingListingIds } from '@/lib/search';
@@ -45,14 +46,6 @@ const exploreHref = ({ tipo, c, sub, isToday }: ExploreFilters, query = '') => {
   const search = [isToday && 'hoy', params].filter(Boolean).join('&');
   return search ? `/explore?${search}` : '/explore';
 };
-
-const chipClass = (isActive: boolean) =>
-  cn(
-    'shrink-0 rounded-full border px-4 py-2 text-sm transition-colors',
-    isActive
-      ? 'border-primary bg-primary text-primary-foreground'
-      : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-  );
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -143,62 +136,50 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             </Link>
           </p>
         )}
-        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-          <Link
-            href={exploreHref({ c: focus?.slug }, query)}
-            aria-current={!typeParam && !isTodayOnly ? 'page' : undefined}
-            className={chipClass(!typeParam && !isTodayOnly)}
-          >
-            {t('EXPLORE_ALL')}
-          </Link>
-          {filledTypes.map((item) => (
-            <Link
-              key={item}
-              href={exploreHref({ c: focus?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query)}
-              aria-current={item === type && !isTodayOnly ? 'page' : undefined}
-              className={chipClass(item === type && !isTodayOnly)}
-            >
-              {t(LISTING_TYPE_KEYS[item])}
-            </Link>
-          ))}
-          {todayListings.length > 0 && (
-            <Link href={exploreHref({ c: focus?.slug, isToday: true }, query)} aria-current={isTodayOnly ? 'page' : undefined} className={chipClass(isTodayOnly)}>
-              {t('EXPLORE_TODAY')}
-            </Link>
-          )}
+        {/* Two buttons, the category and the listing type, so the filters fit on any phone. */}
+        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='flex items-center gap-2'>
+          <ExploreFilterMenu
+            label={subcategory ? localize(subcategory.name, locale) : focus ? localize(focus.name, locale) : t('EXPLORE_CATEGORY_BUTTON')}
+            isFiltered={Boolean(focus)}
+            items={[
+              { key: 'all', label: t('CATEGORY_ALL'), href: exploreHref({ ...filters, c: undefined }, query), isActive: !focus },
+              ...filledCategories.flatMap((category) => [
+                {
+                  key: category.id,
+                  label: localize(category.name, locale),
+                  href: exploreHref({ ...filters, c: category.slug }, query),
+                  isActive: category.id === focus?.id && !subcategory,
+                },
+                // The chosen category's subcategories, right under it.
+                ...(category.id === focus?.id
+                  ? subcategories.map((item) => ({
+                      key: item.id,
+                      label: localize(item.name, locale),
+                      href: exploreHref({ ...filters, sub: item.slug }, query),
+                      isActive: item.id === subcategory?.id,
+                      isSub: true,
+                    }))
+                  : []),
+              ]),
+            ]}
+          />
+          <ExploreFilterMenu
+            label={isTodayOnly ? t('EXPLORE_TODAY') : type ? t(LISTING_TYPE_KEYS[type]) : t('EXPLORE_ALL')}
+            isFiltered={Boolean(typeParam) || isTodayOnly}
+            items={[
+              { key: 'all', label: t('EXPLORE_ALL'), href: exploreHref({ c: focus?.slug }, query), isActive: !typeParam && !isTodayOnly },
+              ...filledTypes.map((item) => ({
+                key: item,
+                label: t(LISTING_TYPE_KEYS[item]),
+                href: exploreHref({ c: focus?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query),
+                isActive: item === type && !isTodayOnly,
+              })),
+              ...(todayListings.length > 0
+                ? [{ key: 'today', label: t('EXPLORE_TODAY'), href: exploreHref({ c: focus?.slug, isToday: true }, query), isActive: isTodayOnly }]
+                : []),
+            ]}
+          />
         </nav>
-        <nav aria-label={t('CATEGORY_ALL')} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-          <Link href={exploreHref({ ...filters, c: undefined }, query)} aria-current={!focus ? 'page' : undefined} className={chipClass(!focus)}>
-            {t('CATEGORY_ALL')}
-          </Link>
-          {filledCategories.map((category) => (
-            <Link
-              key={category.id}
-              href={exploreHref({ ...filters, c: category.slug }, query)}
-              aria-current={category.id === focus?.id && !subcategory ? 'page' : undefined}
-              className={chipClass(category.id === focus?.id)}
-            >
-              {localize(category.name, locale)}
-            </Link>
-          ))}
-        </nav>
-        {focus && subcategories.length > 0 && (
-          <nav aria-label={localize(focus.name, locale)} className='-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]'>
-            <Link href={exploreHref(filters, query)} aria-current={!subcategory ? 'page' : undefined} className={chipClass(!subcategory)}>
-              {t('CATEGORY_SUB_ALL')}
-            </Link>
-            {subcategories.map((item) => (
-              <Link
-                key={item.id}
-                href={exploreHref({ ...filters, sub: item.slug }, query)}
-                aria-current={item.id === subcategory?.id ? 'page' : undefined}
-                className={chipClass(item.id === subcategory?.id)}
-              >
-                {localize(item.name, locale)}
-              </Link>
-            ))}
-          </nav>
-        )}
       </div>
 
       {feed.length === 0 && query ? (
