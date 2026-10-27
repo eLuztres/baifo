@@ -168,6 +168,20 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
             )}
           />
         </div>
+        {/* Short name */}
+        <FormField
+          control={form.control}
+          name='shortName'
+          render={({ field }: { field: ControllerRenderProps<ProductFormValues, 'shortName'> }) => (
+            <FormItem className='w-full md:w-1/2'>
+              <FormLabel>{t('FIELD_SHORT_NAME')}</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ''} maxLength={40} placeholder={form.watch('name')} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className='flex flex-col md:flex-row gap-5'>
           {/* Category */}
           <FormField

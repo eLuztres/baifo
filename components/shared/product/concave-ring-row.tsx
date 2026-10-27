@@ -40,7 +40,7 @@ const MAX_STAGGERED_TILES = 6;
 // The tiles' photo size; the preloader asks for the same one, so the tiles find their photos in the browser's cache.
 const TILE_SIZES = '16rem';
 const TURN_BUTTON_CLASS =
-  'size-10 rounded-full border-primary/40 bg-background/50 text-primary shadow-lg backdrop-blur-md hover:border-primary hover:bg-background/70 [&_svg]:size-5';
+  'size-10 shrink-0 rounded-full border-primary/40 bg-background/50 text-primary shadow-lg backdrop-blur-md hover:border-primary hover:bg-background/70 [&_svg]:size-5';
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
@@ -168,31 +168,19 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
             <ProductMedia key={product.slug} src={product.image} fill sizes={TILE_SIZES} loading='eager' />
           ))}
         </div>
-        {hasBefore && (
-          <Button
-            variant='outline'
-            size='icon'
-            className={cn(TURN_BUTTON_CLASS, 'absolute left-0 top-1/2 z-10 -translate-y-1/2 lg:left-[calc(50%-50vw+1.5rem)]')}
-            aria-label={t('STORE_RINGS_PREVIOUS')}
-            onClick={() => setStep((current) => current - 1)}
-          >
-            <ChevronLeft />
-          </Button>
-        )}
-        {hasAfter && (
-          <Button
-            variant='outline'
-            size='icon'
-            className={cn(TURN_BUTTON_CLASS, 'absolute right-0 top-1/2 z-10 -translate-y-1/2 lg:right-[calc(50%-50vw+1.5rem)]')}
-            aria-label={t('STORE_RINGS_NEXT')}
-            onClick={() => setStep((current) => current + 1)}
-          >
-            <ChevronRight />
-          </Button>
-        )}
       </div>
-      {/* A fixed height keeps the row from jumping; keyed, so each front ring's name fades in as its tile grows. */}
-      <div className='flex h-8 shrink-0 items-center justify-center px-4' aria-live='polite'>
+      {/* A fixed height keeps the row from jumping; keyed, so each front ring's name fades in as its tile grows. An arrow
+          with no ring left to turn to stays as an invisible spot, so the name keeps to the middle. */}
+      <div className='flex h-10 shrink-0 items-center justify-center gap-2 px-2' aria-live='polite'>
+        <Button
+          variant='outline'
+          size='icon'
+          className={cn(TURN_BUTTON_CLASS, !hasBefore && 'invisible')}
+          aria-label={t('STORE_RINGS_PREVIOUS')}
+          onClick={() => setStep((current) => current - 1)}
+        >
+          <ChevronLeft />
+        </Button>
         {frontProduct && (
           <Link
             key={frontProduct.slug}
@@ -203,6 +191,15 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
             <span className='block truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.shortName}</span>
           </Link>
         )}
+        <Button
+          variant='outline'
+          size='icon'
+          className={cn(TURN_BUTTON_CLASS, !hasAfter && 'invisible')}
+          aria-label={t('STORE_RINGS_NEXT')}
+          onClick={() => setStep((current) => current + 1)}
+        >
+          <ChevronRight />
+        </Button>
       </div>
     </>
   );

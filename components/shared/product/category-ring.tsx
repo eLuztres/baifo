@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import ConcaveRingRow from './concave-ring-row';
 import { GoldBand, GoldEngraving } from './product-ring';
 import styles from './product-ring.module.css';
-import { useNeighbourSpots } from './use-neighbour-spots';
+import { useCaptionSpots } from './use-caption-spots';
 
 export interface RingCategory {
   id: string;
@@ -61,7 +61,7 @@ const MIN_WIDE_RING_CARDS = 16;
 // The width where the ring reaches the screen edges (product-ring.module.css).
 const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
 const TURN_MS = 1400;
-// The arrows on the neighbour cards show once the cards are nearly in place (about two thirds into the turn's
+// The arrows beside the front card's name show once the cards are nearly in place (about two thirds into the turn's
 // soft curve), and take their exact place once the ring has settled (a turn, or the 1.4s entrance on load).
 const ARROWS_APPEAR_MS = 900;
 const SETTLE_MS = 1400;
@@ -171,7 +171,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   // Ring radius per unit of card spacing for this many cards; the spacing itself grows with the screen (CSS).
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
   const hasPiece = center !== 'band' && center !== 'none';
-  const neighbourSpots = useNeighbourSpots(stageRef, frontIndex, count, ARROWS_APPEAR_MS, SETTLE_MS);
+  const captionSpots = useCaptionSpots(stageRef, frontIndex, ARROWS_APPEAR_MS, SETTLE_MS);
 
   // The front category goes into the URL, so the back button and shared links return to it. A fresh visit keeps a clean URL.
   useEffect(() => {
@@ -256,9 +256,8 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
           </ul>
         </div>
       </div>
-      {/* An arrow on each neighbour card, so it's clear that tapping there turns the ring; beside the stage, whose faded
-          edges would hide them where a phone puts them. */}
-      {neighbourSpots.map(({ offset, x, y }) => (
+      {/* An arrow on each side of the front card's name; beside the stage, whose faded edges would hide them on a phone. */}
+      {captionSpots.map(({ offset, x, y }) => (
         <button
           key={offset}
           type='button'

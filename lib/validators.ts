@@ -21,6 +21,8 @@ export const idSchema = z.string().uuid(message('VALIDATION_ID_INVALID'));
 // Schema for inserting products
 export const insertProductSchema = z.object({
   name: z.string().min(3, message('VALIDATION_NAME_MIN')),
+  // The store's ring row shows it; empty: the name.
+  shortName: z.string().trim().max(40).nullish(),
   slug: z.string().min(3, message('VALIDATION_SLUG_MIN')),
   category: z.string().min(3, message('VALIDATION_CATEGORY_MIN')),
   brand: z.string().min(3, message('VALIDATION_BRAND_MIN')),

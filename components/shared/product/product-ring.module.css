@@ -479,15 +479,14 @@
     }
 }
 
-/* The arrow on the cards left and right of the front one: a glass disc over the middle of the photo
-   (left and top come from the measured card). It sits beside the stage, so the cards' width isn't known here;
-   about a fifth of a phone card (half the screen) is 11vw. */
+/* The arrows on both sides of the front card's name: glass discs the size of the rings' row arrows below
+   (left and top come from the measured name). */
 .turnHint {
     position: absolute;
     z-index: 1;
     display: grid;
     place-items: center;
-    width: clamp(2.25rem, 11vw, 3.25rem);
+    width: 2.5rem;
     aspect-ratio: 1;
     translate: -50% -50%;
     border-radius: 9999px;
@@ -705,10 +704,14 @@
         --piece-scale: 1.7;
         --piece-lift: -0.3;
         height: calc(var(--card-w) * 2.6);
+        /* The big front card's name, framed by its arrows, ends just above the stage's foot: lifted, with a short fade. */
+        mask-image:
+            linear-gradient(to right, transparent, black 8%, black 92%, transparent),
+            linear-gradient(to bottom, transparent, black 22%, black 99%, transparent);
     }
 
     .pieceStage > .tilt {
-        translate: 0 0;
+        translate: 0 calc(var(--card-w) * -0.1);
     }
 }
 

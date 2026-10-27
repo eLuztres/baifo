@@ -377,6 +377,7 @@
   "AUTH_SIGNED_UP": "Your account has been created",
   "FIELD_ID": "ID",
   "FIELD_NAME": "Name",
+  "FIELD_SHORT_NAME": "Short name",
   "FIELD_EMAIL": "Email",
   "FIELD_PASSWORD": "Password",
   "FIELD_CONFIRM_PASSWORD": "Confirm password",

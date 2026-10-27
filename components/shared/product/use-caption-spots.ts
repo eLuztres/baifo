@@ -2,30 +2,31 @@
 
 import { RefObject, useEffect, useState } from 'react';
 
-export interface NeighbourSpot {
-  /** -1 for the card left of the front one, 1 for the card right of it. */
+export interface CaptionSpot {
+  /** -1 for the arrow left of the front card's name, 1 for the one right of it. */
   offset: -1 | 1;
   x: number;
   y: number;
 }
 
 const OFFSETS = [-1, 1] as const;
-// How close an arrow's middle may come to the stage's edge: on a phone the neighbour cards' middles lie off screen.
-const EDGE_PX = 30;
+// From an arrow's middle to the name: half the arrow (2.5rem, .turnHint) and a little air.
+const NAME_GAP_PX = 28;
+// How close an arrow's middle may come to the stage's edge, so a long name never pushes it off screen.
+const EDGE_PX = 24;
 
 /**
- * Where the cards left and right of the front one show on screen, shortly after a turn starts (empty right after it),
- * kept inside the stage and given relative to its parent, where the arrows sit outside the stage's faded edges.
+ * Where the arrows on both sides of the front card's name show, shortly after a turn starts (empty right after it),
+ * given relative to the stage's parent, where the arrows sit outside the stage's faded edges.
  * Measured instead of drawn inside the 3D cards: Chrome sometimes paints a card's photo over anything placed on it.
  */
-export function useNeighbourSpots(
+export function useCaptionSpots(
   stageRef: RefObject<HTMLDivElement | null>,
   frontIndex: number,
-  count: number,
   appearMs: number,
   settleMs: number
 ) {
-  const [spots, setSpots] = useState<NeighbourSpot[]>([]);
+  const [spots, setSpots] = useState<CaptionSpot[]>([]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -33,12 +34,14 @@ export function useNeighbourSpots(
     const measure = () => {
       const stageBox = stage.getBoundingClientRect();
       const parentBox = (stage.parentElement ?? stage).getBoundingClientRect();
-      const slots = stage.querySelectorAll('li');
+      const name = stage.querySelectorAll('li')[frontIndex]?.querySelector('p > span');
+      if (!name) return;
+      const box = name.getBoundingClientRect();
       setSpots(
         OFFSETS.map((offset) => {
-          const box = slots[(frontIndex + offset + count) % count].getBoundingClientRect();
-          const middle = Math.min(Math.max(box.left + box.width / 2, stageBox.left + EDGE_PX), stageBox.right - EDGE_PX);
-          return { offset, x: middle - parentBox.left, y: box.top + box.height / 2 - parentBox.top };
+          const side = offset === -1 ? box.left - NAME_GAP_PX : box.right + NAME_GAP_PX;
+          const x = Math.min(Math.max(side, stageBox.left + EDGE_PX), stageBox.right - EDGE_PX);
+          return { offset, x: x - parentBox.left, y: box.top + box.height / 2 - parentBox.top };
         })
       );
     };
@@ -57,7 +60,7 @@ export function useNeighbourSpots(
       clearTimeout(settleTimer);
       observer.disconnect();
     };
-  }, [stageRef, frontIndex, count, appearMs, settleMs]);
+  }, [stageRef, frontIndex, appearMs, settleMs]);
 
   return spots;
 }
