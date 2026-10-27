@@ -39,9 +39,6 @@ export function createWheelGestureGate() {
   };
 }
 
-/** Travel before a swipe on the ring or a row picks its direction: later than elsewhere, so the start of a thumb's arc doesn't decide it. */
-export const SIDE_MOVER_LOCK_PX = 16;
-
 /** Things that move sideways themselves keep their sideways swipes: the category selector (data-swipe-owner),
     carousels, scrolling rows and inputs; so does the shop's tree (data-scroll-owner). pan-x only stops native
     up-and-down scrolling of a part. */

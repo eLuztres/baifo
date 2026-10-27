@@ -102,14 +102,3 @@
   }
 }
 
-/* The store is exactly one screen: touches there only move sideways (ring and banner), never the page up or down.
-   Held sideways the store is taller than the screen, so there it scrolls again. */
-.noVerticalPan {
-  touch-action: pan-x;
-}
-
-@media (max-height: 500px) {
-  .noVerticalPan {
-    touch-action: auto;
-  }
-}

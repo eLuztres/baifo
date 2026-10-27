@@ -11,7 +11,6 @@ import { isClearlyVertical } from '@/components/shared/home/one-page';
 import { cn } from '@/lib/utils';
 import ProductPrice from './product-price';
 import styles from './product-ring.module.css';
-import { useRingDrag } from './use-ring-drag';
 
 interface ConcaveRingRowProps {
   products: MaterialRing[];
@@ -101,7 +100,6 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
       const next = typeof update === 'function' ? update(current) : update;
       return isEndless ? next : Math.min(Math.max(next, 0), tiles.length - 1);
     });
-  const dragHandlers = useRingDrag({ setStep });
   // How many rings a tile is from the front one, negative on the left.
   const offsetFromFront = (index: number) =>
     isEndless ? mod(index - frontIndex + Math.floor(count / 2), count) - Math.floor(count / 2) : index - step;
@@ -140,7 +138,6 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
         <div
           ref={stageRef}
           className={styles.rowStage}
-          {...dragHandlers}
           style={{ '--ring-tan': ringTan, '--spin': step / count, '--turn-ms': `${TURN_MS}ms` } as CSSProperties}
         >
           <div className={styles.rowTilt}>

@@ -162,7 +162,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
               <ShareButton title={name} className='-mr-2 -mt-1' />
             </div>
-            {(condition || serviceKey || isEvent || (place && !place.corralName)) && (
+            {(condition || serviceKey || isEvent || place) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
                 {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
                 {serviceKey && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(serviceKey)}</p>}
@@ -182,7 +182,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                     <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{product.address}</span>
                   </a>
                 )}
-                {place && !place.corralName && (
+                {place && (
                   <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
                     <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
                   </p>
@@ -204,23 +204,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 ) : (
                   isEvent && SHOWS_PRICES && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
                 )}
-                {/* The Corral and the way to write side by side, so the description keeps the room. */}
                 <div className='flex shrink-0 items-center gap-2'>
-                  {place?.corralName && (
-                    <Link
-                      href={`/corral/${place.slug}`}
-                      className='inline-flex h-11 min-w-0 shrink items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 text-sm text-primary transition hover:bg-primary/15'
-                    >
-                      <MapPin className='size-4 shrink-0' aria-hidden /> <span className='truncate'>{place.corralName}</span>
-                    </Link>
-                  )}
                   {hasSellerContact ? (
                     <ContactSellerButton productId={product.id} productName={name} className='flex-1 shrink-0' />
                   ) : corralChatUrl ? (
                     <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
                       <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
-                        {/* Next to the Corral's name, a short label is enough. */}
-                        <MessageCircle /> {place?.corralName ? t('CONTACT_WHATSAPP_SHORT') : t('CONTACT_SHOP_WHATSAPP')}
+                        <MessageCircle /> {t('CONTACT_SELLER')}
                       </a>
                     </Button>
                   ) : (

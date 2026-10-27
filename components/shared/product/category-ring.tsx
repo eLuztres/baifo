@@ -14,7 +14,6 @@ import ConcaveRingRow from './concave-ring-row';
 import { GoldBand, GoldEngraving } from './product-ring';
 import styles from './product-ring.module.css';
 import { useNeighbourSpots } from './use-neighbour-spots';
-import { useRingDrag } from './use-ring-drag';
 
 export interface RingCategory {
   id: string;
@@ -102,7 +101,7 @@ interface FiguresProps {
   figures: RingFigure[];
 }
 
-/** The pictures standing on the center piece, in the cards' scene, so the cards in front hide them (boats never sail over a card). */
+/** The pictures standing on the center piece, in a scene behind the cards, so the cards in front hide them (boats never sail over a card). */
 const Figures = ({ figures }: FiguresProps) => (
   <div className={styles.centerPiece} aria-hidden='true'>
     {figures.map((figure, index) => (
@@ -172,7 +171,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   // Ring radius per unit of card spacing for this many cards; the spacing itself grows with the screen (CSS).
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
   const hasPiece = center !== 'band' && center !== 'none';
-  const dragHandlers = useRingDrag({ setStep });
   const neighbourSpots = useNeighbourSpots(stageRef, frontIndex, count, ARROWS_APPEAR_MS, SETTLE_MS);
 
   // The front category goes into the URL, so the back button and shared links return to it. A fresh visit keeps a clean URL.
@@ -191,14 +189,13 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   };
 
   return (
-    // data-swipe-owner: sideways swipes here browse the categories and rings, never turn the page to another part.
+    // data-swipe-owner: a sideways swipe here never turns the page to another part; the arrows and side cards turn the rings.
     <section className={cn('relative flex min-h-0 flex-1 flex-col justify-center gap-4', styles.categorySection)} data-swipe-owner=''>
       <div
         ref={stageRef}
         role='region'
         aria-label={label}
         className={cn(styles.stage, styles.categoryStage, hasPiece && styles.pieceStage)}
-        {...dragHandlers}
         style={
           {
             '--ring-tan': ringTan,
@@ -214,10 +211,20 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
           </div>
         )}
         {hasPiece && sea && <Sea src={sea} />}
+        {/* The piece and its figures are scenes of their own too: Safari sorts a figure behind the piece's top (it doesn't
+            split planes), so boats on the far side vanished during a turn. The cards' scene comes later and covers both. */}
+        {hasPiece && (
+          <div className={styles.tilt}>
+            <CenterPiece src={center} sea={sea} />
+          </div>
+        )}
+        {hasPiece && figures.length > 0 && (
+          <div className={styles.tilt}>
+            <Figures figures={figures} />
+          </div>
+        )}
         <div className={styles.tilt}>
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
-          {hasPiece && <CenterPiece src={center} sea={sea} />}
-          {hasPiece && figures.length > 0 && <Figures figures={figures} />}
           {hasPiece && flyers.length > 0 && <Flyers srcs={flyers} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {

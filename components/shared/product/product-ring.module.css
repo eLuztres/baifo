@@ -13,9 +13,7 @@
         linear-gradient(to right, transparent, black 8%, black 92%, transparent),
         linear-gradient(to bottom, black 88%, transparent);
     mask-composite: intersect;
-    /* The selector owns every touch: sideways turns the ring, up and down does nothing (no page scrolling here). */
-    touch-action: none;
-    cursor: grab;
+    /* No swiping: the arrows and side cards turn the ring, so a finger here always scrolls the page. */
     user-select: none;
     /* Starts gently, gathers speed and settles softly: a turn that answers at full speed looked abrupt. */
     --turn-ease: cubic-bezier(0.45, 0, 0.2, 1);
@@ -551,9 +549,6 @@
     /* A short viewing distance makes the curve read clearly: the rings beside the front one turn in toward it. */
     perspective: calc(var(--card-w) * 4.5);
     mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
-    /* Sideways turns the ring (use-ring-drag), like the category ring. */
-    touch-action: none;
-    cursor: grab;
     user-select: none;
 }
 
