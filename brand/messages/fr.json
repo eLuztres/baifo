@@ -39,5 +39,12 @@
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Comment ça marche",
   "WORKSHOP_TITLE": "Fait sur l'île, pour l'île.",
-  "WORKSHOP_INTRO": "Comme les petites annonces du journal d'autrefois. Ce que tu vends ou cherches, cours, services, ateliers, art, sorties : tout ce qui est légal et d'ici a sa place. Aucun algorithme ne décide de ce que tu vois. Et si tu passes à El Corral, on t'aide avec ton annonce et on te raconte ce qu'il y a à faire sur l'île."
+  "WORKSHOP_INTRO": "Comme les petites annonces du journal d'autrefois. Ce que tu vends ou cherches, cours, services, ateliers, art, sorties : tout ce qui est légal et d'ici a sa place. Aucun algorithme ne décide de ce que tu vois. Et si tu passes à El Corral, on t'aide avec ton annonce et on te raconte ce qu'il y a à faire sur l'île.",
+  "BACK_TO_SHOP": "Retour aux annonces",
+  "STORE_CATEGORY_RINGS": "{count} annonces",
+  "STORE_RINGS_PREVIOUS": "Annonces précédentes",
+  "STORE_RINGS_NEXT": "Plus d'annonces",
+  "PRODUCT_FALLBACK_TITLE": "Annonce",
+  "CONTACT_INTRO_SHOWCASE": "Une question sur une annonce ? Nous répondons en général sous un jour.",
+  "TURN_UPRIGHT": "Tourne ton téléphone à la verticale pour voir les annonces"
 }

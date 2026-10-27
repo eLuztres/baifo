@@ -66,7 +66,7 @@ describe('processSubmission without a photo', () => {
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', 'sub-1');
     expect(enhancePhoto).not.toHaveBeenCalled();
     expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
   });

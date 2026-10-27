@@ -34,7 +34,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
   const enhanced = await Promise.all(
     sources.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
-      return uploadImage(await enhancePhoto(photo, type), `listing-${submissionId}-${index}`);
+      return uploadImage(await enhancePhoto(photo, type, submissionId), `listing-${submissionId}-${index}`);
     })
   );
   await prisma.submission.update({
@@ -50,7 +50,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
 
 /** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
 async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, videos: string[]) {
-  const picture = await uploadImage(await createPicture(text, type), `listing-${submissionId}-0`);
+  const picture = await uploadImage(await createPicture(text, type, submissionId), `listing-${submissionId}-0`);
   await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture, ...videos], lastError: null } });
 }
 

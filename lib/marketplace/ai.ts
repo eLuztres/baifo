@@ -4,15 +4,30 @@ import { PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType } from '@/lib/const
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
+import { seedOf } from '@/lib/studio/prompts.mjs';
+import { stampPicture } from '@/lib/studio/stamp.mjs';
 import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
+// Local settings for item photos, picked per listing: the feed varies, while one listing's photos match.
+const ITEM_SCENES = [
+  'on a ledge of light volcanic stone, the soft shadow of a palm leaf falling across it',
+  'on a sunlit ledge in front of a whitewashed wall, a strip of blue sky at the top edge',
+  'on a weathered wooden terrace table, the sea far behind it',
+  'on a pale stone surface in front of a lime-washed wall, a branch of pink bougainvillea at one side',
+];
+
+const itemScene = (seed: string) => ITEM_SCENES[seedOf(seed) % ITEM_SCENES.length];
+
 // Keeps the seller's actual item: a used product must look like itself, wear included.
-const PHOTO_PROMPT =
+const photoPrompt = (scene: string) =>
   'Turn this phone photo of a second-hand item into a clean marketplace photo. The item must stay IDENTICAL: same ' +
   'object, shape, colors, materials, wear and scratches; do not repair, add or remove anything on it. Remove the ' +
-  'clutter around it and place it on a calm, warm sand-colored surface with a soft plain background, soft daylight ' +
+  `clutter around it and place it ${scene}, the background softly out of focus so the item stands out, soft daylight ` +
   'and a gentle contact shadow. The whole item visible and centered, upright 3:4 photo, photorealistic. ' +
   'No hands, no people, no text, no logos, no watermark.';
+
+// Only items for sale carry the shop's stamp; a wanted ad's picture is just an example.
+const stampItem = (picture: Buffer, type: ListingType) => (type === 'PRODUCT' ? stampPicture(picture) : picture);
 
 // A service photo shows real people: they must stay exactly themselves, only the photo gets better.
 const SERVICE_PHOTO_PROMPT =
@@ -222,16 +237,19 @@ const translatePrompt = (from: Locale, locales: Locale[]) =>
 // Upright like a phone photo, so it fills the feed's 3:4 tiles; nobody posts square pictures any more.
 const LISTING_PHOTO_SIZE = '1152x1536';
 
-/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. */
-export const enhancePhoto = (photo: Buffer, type: ListingType = 'PRODUCT') =>
-  editImage(type === 'PRODUCT' || type === 'WANTED' ? PHOTO_PROMPT : SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
+/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. The seed (the
+    listing's id) picks the item's scene. */
+export const enhancePhoto = async (photo: Buffer, type: ListingType, seed: string) =>
+  type === 'PRODUCT' || type === 'WANTED'
+    ? stampItem(await editImage(photoPrompt(itemScene(seed)), [photo], { size: LISTING_PHOTO_SIZE }), type)
+    : editImage(SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
 
 // The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
 const PICTURE_STYLE =
   'Upright 3:4 photo, photorealistic, soft warm daylight, calm sand and sea tones like a local Fuerteventura marketplace. ' +
   'No text, no logos, no watermark.';
 
-const picturePrompt = ({ title, description }: { title: string; description: string }, type: ListingType) =>
+const picturePrompt = ({ title, description }: { title: string; description: string }, type: ListingType, scene: string) =>
   (type === 'EVENT'
     ? 'An inviting photo of this event or workshop happening in Fuerteventura. People only from behind, from afar or ' +
       'as hands, never a recognisable face. '
@@ -239,15 +257,16 @@ const picturePrompt = ({ title, description }: { title: string; description: str
       ? 'A friendly photo that shows this local service being done in Fuerteventura. People only from behind, from afar or ' +
         'as hands at work, never a recognisable face, because it is not the real person. '
       : type === 'WANTED'
-        ? 'A clean photo of the kind of thing someone is looking for, alone on a warm sand-colored surface with a soft plain ' +
-          'background, as an example of what they want. '
-        : 'A clean marketplace photo of this second-hand item, alone on a warm sand-colored surface with a soft plain ' +
-          'background and a gentle contact shadow, the whole item visible and centered. ') +
+        ? `A clean photo of the kind of thing someone is looking for, alone ${scene}, the background softly out of ` +
+          'focus, as an example of what they want. '
+        : `A clean marketplace photo of this second-hand item, alone ${scene}, the background softly out of focus ` +
+          'and a gentle contact shadow, the whole item visible and centered. ') +
   `${PICTURE_STYLE}\nThe listing: ${title}. ${description}`;
 
-/** A picture made from the listing's text alone, for a listing without any photo. */
-export const createPicture = (text: { title: string; description: string }, type: ListingType = 'PRODUCT') =>
-  generateImage(picturePrompt(text, type), { size: LISTING_PHOTO_SIZE });
+/** A picture made from the listing's text alone, for a listing without any photo. The seed (the listing's id) picks
+    an item's scene. */
+export const createPicture = async (text: { title: string; description: string }, type: ListingType, seed: string) =>
+  stampItem(await generateImage(picturePrompt(text, type, itemScene(seed)), { size: LISTING_PHOTO_SIZE }), type);
 
 /** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
     an item also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.

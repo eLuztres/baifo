@@ -4,6 +4,8 @@ import { draftText } from '@/lib/studio/openai.mjs';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
 jest.mock('@/lib/studio/openai.mjs', () => ({ draftText: jest.fn(), editImage: jest.fn(), onUsage: jest.fn() }));
+jest.mock('@/lib/studio/prompts.mjs', () => ({ seedOf: () => 0 }));
+jest.mock('@/lib/studio/stamp.mjs', () => ({ stampPicture: jest.fn() }));
 
 const draft = draftText as jest.Mock;
 

@@ -39,5 +39,12 @@
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Come funziona",
   "WORKSHOP_TITLE": "Fatto sull'isola, per l'isola.",
-  "WORKSHOP_INTRO": "Come gli annunci del giornale di una volta. Quello che vendi o cerchi, lezioni, servizi, laboratori, arte, programmi: tutto ciò che è legale e di qui ha il suo posto. Nessun algoritmo decide cosa vedi. E se passi da El Corral, ti aiutiamo con il tuo annuncio e ti raccontiamo cosa c'è da fare sull'isola."
+  "WORKSHOP_INTRO": "Come gli annunci del giornale di una volta. Quello che vendi o cerchi, lezioni, servizi, laboratori, arte, programmi: tutto ciò che è legale e di qui ha il suo posto. Nessun algoritmo decide cosa vedi. E se passi da El Corral, ti aiutiamo con il tuo annuncio e ti raccontiamo cosa c'è da fare sull'isola.",
+  "BACK_TO_SHOP": "Torna agli annunci",
+  "STORE_CATEGORY_RINGS": "{count} annunci",
+  "STORE_RINGS_PREVIOUS": "Annunci precedenti",
+  "STORE_RINGS_NEXT": "Altri annunci",
+  "PRODUCT_FALLBACK_TITLE": "Annuncio",
+  "CONTACT_INTRO_SHOWCASE": "Domande su un annuncio? Di solito rispondiamo entro un giorno.",
+  "TURN_UPRIGHT": "Gira il telefono in verticale per vedere gli annunci"
 }

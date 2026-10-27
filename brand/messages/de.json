@@ -39,5 +39,12 @@
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "So funktioniert's",
   "WORKSHOP_TITLE": "Von der Insel, für die Insel.",
-  "WORKSHOP_INTRO": "Wie die Kleinanzeigen in der Zeitung von früher. Was du verkaufst oder suchst, Kurse, Dienstleistungen, Workshops, Kunst, Unternehmungen: Alles, was legal ist und von hier kommt, hat seinen Platz. Kein Algorithmus entscheidet, was du siehst. Und wenn du im El Corral vorbeikommst, helfen wir dir mit deiner Anzeige und erzählen dir, was auf der Insel los ist."
+  "WORKSHOP_INTRO": "Wie die Kleinanzeigen in der Zeitung von früher. Was du verkaufst oder suchst, Kurse, Dienstleistungen, Workshops, Kunst, Unternehmungen: Alles, was legal ist und von hier kommt, hat seinen Platz. Kein Algorithmus entscheidet, was du siehst. Und wenn du im El Corral vorbeikommst, helfen wir dir mit deiner Anzeige und erzählen dir, was auf der Insel los ist.",
+  "BACK_TO_SHOP": "Zurück zu den Anzeigen",
+  "STORE_CATEGORY_RINGS": "{count} Anzeigen",
+  "STORE_RINGS_PREVIOUS": "Vorherige Anzeigen",
+  "STORE_RINGS_NEXT": "Weitere Anzeigen",
+  "PRODUCT_FALLBACK_TITLE": "Anzeige",
+  "CONTACT_INTRO_SHOWCASE": "Fragen zu einer Anzeige? Wir antworten meist innerhalb eines Tages.",
+  "TURN_UPRIGHT": "Dreh dein Handy hochkant, um die Anzeigen zu sehen"
 }

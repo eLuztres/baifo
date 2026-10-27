@@ -39,5 +39,12 @@
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "How it works",
   "WORKSHOP_TITLE": "Made on the island, for the island.",
-  "WORKSHOP_INTRO": "Like the classifieds in the local paper. What you sell or look for, classes, services, workshops, art, plans: anything legal and local has its place. No algorithm decides what you see. And if you drop by El Corral, we help you with your listing and tell you what's on around the island."
+  "WORKSHOP_INTRO": "Like the classifieds in the local paper. What you sell or look for, classes, services, workshops, art, plans: anything legal and local has its place. No algorithm decides what you see. And if you drop by El Corral, we help you with your listing and tell you what's on around the island.",
+  "BACK_TO_SHOP": "Back to listings",
+  "STORE_CATEGORY_RINGS": "{count} listings",
+  "STORE_RINGS_PREVIOUS": "Previous listings",
+  "STORE_RINGS_NEXT": "More listings",
+  "PRODUCT_FALLBACK_TITLE": "Listing",
+  "CONTACT_INTRO_SHOWCASE": "Questions about a listing? We usually reply within a day.",
+  "TURN_UPRIGHT": "Turn your phone upright to see the listings"
 }

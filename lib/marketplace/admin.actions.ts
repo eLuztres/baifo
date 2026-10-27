@@ -322,7 +322,7 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
   const text = parsed.data ? { title: parsed.data, description: '' } : { title: submission.title ?? '', description: submission.description ?? '' };
   if (!text.title && !text.description) return { success: false, message: 'Describe la foto que quieres' };
   try {
-    const picture = await createPicture(text, submission.type);
+    const picture = await createPicture(text, submission.type, id);
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);

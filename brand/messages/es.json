@@ -39,5 +39,12 @@
   "HOME_HERO_WORD_3": "",
   "WORKSHOP_EYEBROW": "Cómo funciona",
   "WORKSHOP_TITLE": "Hecho en la isla, para la isla.",
-  "WORKSHOP_INTRO": "Como los anuncios del periódico de toda la vida. Lo que vendes o buscas, clases, servicios, talleres, arte, planes: todo lo que sea legal y de aquí tiene su sitio. Ningún algoritmo decide lo que ves. Y si te pasas por El Corral, te ayudamos con tu anuncio y te contamos qué hay para hacer en la isla."
+  "WORKSHOP_INTRO": "Como los anuncios del periódico de toda la vida. Lo que vendes o buscas, clases, servicios, talleres, arte, planes: todo lo que sea legal y de aquí tiene su sitio. Ningún algoritmo decide lo que ves. Y si te pasas por El Corral, te ayudamos con tu anuncio y te contamos qué hay para hacer en la isla.",
+  "BACK_TO_SHOP": "Volver a los anuncios",
+  "STORE_CATEGORY_RINGS": "{count} anuncios",
+  "STORE_RINGS_PREVIOUS": "Anuncios anteriores",
+  "STORE_RINGS_NEXT": "Más anuncios",
+  "PRODUCT_FALLBACK_TITLE": "Anuncio",
+  "CONTACT_INTRO_SHOWCASE": "¿Preguntas sobre un anuncio? Solemos responder en un día.",
+  "TURN_UPRIGHT": "Gira el móvil para ver los anuncios"
 }
