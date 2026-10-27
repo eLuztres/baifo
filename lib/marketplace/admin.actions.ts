@@ -135,10 +135,12 @@ export async function swapListingPicture(id: string, url: string) {
   return { success: true, message: 'Guardado', images };
 }
 
-const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000) });
+const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000), short: z.string().trim().max(40).optional() });
 
 const editSchema = z.object({
   title: z.string().trim().min(2).max(120),
+  // Empty: the ring row shows the title.
+  shortTitle: z.string().trim().max(40).transform((value) => value || null).optional(),
   description: z.string().trim().max(3000),
   // The other shop languages; the shop language's text is title and description.
   translations: z.record(z.string(), textSchema),
@@ -204,7 +206,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   // Only a wanted ad has a range, and only one whose upper end is above its lower end.
   const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
-  const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description } };
+  const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
   if (textMode !== current?.textMode) {
     await prisma.submission.update({ where: { id }, data: { textVersions: { ...versions, [textMode]: editedVersion } } });
@@ -216,11 +218,12 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, description, price, images, condition, placeId, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, condition, placeId, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
         name: title,
+        shortName: shortTitle,
         description,
         translations: toProductTranslations(translations),
         price: price ?? 0,
@@ -260,7 +263,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
   try {
     if (!texts && mode === 'original') {
       if (!submission.rawText.trim()) return { success: false, message: 'No hay texto original' };
-      const own = { title: submission.originalTitle || submission.title || '', description: submission.rawText };
+      const own = { title: submission.originalTitle || submission.title || '', description: submission.rawText, short: submission.shortTitle ?? '' };
       texts = { [shopLocale]: own, ...(await translateText(own, shopLocale, otherLocales)) };
     }
     if (!texts) {
@@ -278,7 +281,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
 }
 
 /** The shop-language title and description translated again into every other language, after the admin changed them. */
-export async function translateListingText(id: string, text: { title: string; description: string }) {
+export async function translateListingText(id: string, text: { title: string; description: string; short?: string }) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = textSchema.safeParse(text);
   if (!parsed.success) return { success: false, message: 'Revisa el título y la descripción' };

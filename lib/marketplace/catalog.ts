@@ -5,8 +5,8 @@ import type { Locale } from '@/lib/i18n-core';
 // The showroom only shows products in a store category, so an unsure or unknown one goes here.
 export const FALLBACK_CATEGORY_SLUG = 'otros';
 
-/** A listing's title and description in the shop's other languages: { en: { title, description } }. */
-export type ListingTranslations = Partial<Record<Locale, { title: string; description: string }>>;
+/** A listing's title, description and short title in the shop's other languages: { en: { title, description, short } }. */
+export type ListingTranslations = Partial<Record<Locale, { title: string; description: string; short?: string }>>;
 
 /** Every category a listing can go in, whatever its type, with what the AI needs to sort it into one. */
 export const getListingCategories = () =>
@@ -37,8 +37,8 @@ export function findCategory<T extends { slug: string; name: unknown }>(categori
 /** The category's name in a language, for the product's own category text and the admin's messages. */
 export const categoryName = (category: { name: unknown } | undefined, locale: Locale) => (category ? localize(category.name, locale) : '');
 
-/** A listing's translations as the product keeps them ({ en: { name, description } }). */
+/** A listing's translations as the product keeps them ({ en: { name, description, shortName } }). */
 export const toProductTranslations = (translations: unknown): ProductTranslations =>
   Object.fromEntries(
-    Object.entries((translations ?? {}) as ListingTranslations).map(([locale, text]) => [locale, { name: text?.title, description: text?.description }])
+    Object.entries((translations ?? {}) as ListingTranslations).map(([locale, text]) => [locale, { name: text?.title, description: text?.description, shortName: text?.short }])
   );

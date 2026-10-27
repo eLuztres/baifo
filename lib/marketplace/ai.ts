@@ -25,7 +25,8 @@ const SERVICE_PHOTO_PROMPT =
 
 const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Spanish', en: 'English', it: 'Italian', de: 'German', fr: 'French' };
 
-const textSchema = z.object({ title: z.string(), description: z.string() });
+// Only a listing's texts have a short title.
+const textSchema = z.object({ title: z.string(), description: z.string(), short: z.string().optional() });
 
 // From a seller's words and photos the AI only tells an item for sale from a wanted ad; services and events are chosen by the admin.
 const GOODS_TYPES = ['PRODUCT', 'WANTED'] as const satisfies readonly ListingType[];
@@ -58,9 +59,16 @@ const textJsonSchema = {
   additionalProperties: false,
 };
 
-const textsJsonSchema = (locales: Locale[]) => ({
+const listingTextJsonSchema = {
   type: 'object',
-  properties: Object.fromEntries(locales.map((locale) => [locale, textJsonSchema])),
+  properties: { title: { type: 'string' }, description: { type: 'string' }, short: { type: 'string' } },
+  required: ['title', 'description', 'short'],
+  additionalProperties: false,
+};
+
+const textsJsonSchema = (locales: Locale[], text: object = textJsonSchema) => ({
+  type: 'object',
+  properties: Object.fromEntries(locales.map((locale) => [locale, text])),
   required: locales,
   additionalProperties: false,
 });
@@ -68,7 +76,7 @@ const textsJsonSchema = (locales: Locale[]) => ({
 const serviceJsonSchema = (locales: Locale[], slugs: string[]) => ({
   type: 'object',
   properties: {
-    texts: textsJsonSchema(locales),
+    texts: textsJsonSchema(locales, listingTextJsonSchema),
     category: { type: 'string', enum: slugs },
     serviceType: { type: 'string', enum: SERVICE_TYPES },
     price: { type: ['number', 'null'] },
@@ -79,7 +87,7 @@ const serviceJsonSchema = (locales: Locale[], slugs: string[]) => ({
 const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
   type: 'object',
   properties: {
-    texts: textsJsonSchema(locales),
+    texts: textsJsonSchema(locales, listingTextJsonSchema),
     category: { type: 'string', enum: slugs },
     price: { type: ['number', 'null'] },
     startsAt: { type: ['string', 'null'] },
@@ -91,7 +99,7 @@ const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
 const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
   type: 'object',
   properties: {
-    texts: textsJsonSchema(locales),
+    texts: textsJsonSchema(locales, listingTextJsonSchema),
     // An enum of the slugs: the AI can only answer with a category that exists.
     category: { type: 'string', enum: slugs },
     type: { type: 'string', enum: GOODS_TYPES },
@@ -123,6 +131,11 @@ const placeRule = (places: ListingPlace[]) =>
 const categoryLine = ({ slug, name, keywords }: ListingCategory) =>
   `  - ${slug}: ${localize(name, 'es')} / ${localize(name, 'en')}` + (keywords.length > 0 ? ` (e.g. ${keywords.join(', ')})` : '');
 
+// The store's ring row has room for a word or three, not a whole title.
+const SHORT_RULE =
+  '- short (in every text): the title cut down to 1–3 words, at most 20 characters, naming what it is, e.g. ' +
+  '"Boss RC-500", "Cables", "Apple Watch Ultra", "Ana, canguro", "Busco surf".\n';
+
 // The same list for every type: any listing goes in any category.
 const categoryRule = (what: string, categories: ListingCategory[]) =>
   `- category: the slug of the ONE category a visitor would look in for ${what}. The categories:\n` +
@@ -142,6 +155,7 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   'naming what the item is (brand and model only if visible or stated), and a description of 2–4 short, friendly ' +
   'sentences about the item and its visible condition. The same facts in every language. Never invent sizes, brands ' +
   'or defects that are not visible or stated.\n' +
+  SHORT_RULE +
   categoryRule('this item (decide by what the main item is, not by the background or the props around it)', categories) +
   WANTED_RULE +
   '- condition: for an item for sale exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
@@ -158,6 +172,7 @@ const servicePrompt = (adminText: string, categories: ListingCategory[], locales
   'with the person\'s first name (if stated) and the service, e.g. "Ana, canguro en Corralejo", and a description of ' +
   '2–4 short, friendly sentences: what they offer, where and when, languages, experience. The same facts in every ' +
   'language. Never mention a price in the texts, and never invent qualifications, places, times or experience that are not stated.\n' +
+  SHORT_RULE +
   categoryRule('this service', categories) +
   '- serviceType: class (lessons, courses, teaching), support (someone who goes along with or looks after a person: ' +
   'company, care, accompaniment) or service (work done for you; anything else).\n' +
@@ -170,6 +185,7 @@ const eventPrompt = (adminText: string, categories: ListingCategory[], locales: 
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–7 words ` +
   'naming the event, and a description of 2–4 short, friendly sentences: what it is, for whom, what to bring. The same ' +
   'facts in every language. Never invent times, places, prices or names that are not stated.\n' +
+  SHORT_RULE +
   categoryRule('this event', categories) +
   '- price: the entry or ticket price in euros, 0 if it is free, null if not stated.\n' +
   `- startsAt: when it starts, as YYYY-MM-DDTHH:mm in local time, or null if no date is stated. Today is ${toShopDateTime(new Date())}; ` +
@@ -270,7 +286,7 @@ export async function writeListing(
   // The AI may still tidy the admin's words; their own text wins.
   if (kept) {
     const own = result.texts[locales[0]];
-    result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description };
+    result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description, short: own?.short };
   }
   const resolvedType = type === 'PRODUCT' && result.type === 'WANTED' ? 'WANTED' : type;
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
@@ -294,12 +310,16 @@ export async function writeCategoryText(text: { title: string; description: stri
   return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
 }
 
-/** The same title and description in other languages, translated, not rewritten. */
-export async function translateText(text: { title: string; description: string }, from: Locale, locales: Locale[]) {
+/** The same title and description (and a listing's short title) in other languages, translated, not rewritten. */
+export async function translateText(text: { title: string; description: string; short?: string }, from: Locale, locales: Locale[]) {
   if (locales.length === 0) return {};
+  const hasShort = text.short !== undefined;
   const result = await draftText(null, '', null, {
-    prompt: translatePrompt(from, locales) + `Title: ${text.title}\nDescription: ${text.description}\n`,
-    schema: { type: 'object', properties: { texts: textsJsonSchema(locales) }, required: ['texts'] },
+    prompt:
+      translatePrompt(from, locales) +
+      `Title: ${text.title}\nDescription: ${text.description}\n` +
+      (hasShort ? `Short title (keep it 1–3 words): ${text.short || text.title}\n` : ''),
+    schema: { type: 'object', properties: { texts: textsJsonSchema(locales, hasShort ? listingTextJsonSchema : textJsonSchema) }, required: ['texts'] },
   });
   return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
 }

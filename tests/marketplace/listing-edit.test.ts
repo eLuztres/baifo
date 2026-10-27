@@ -248,7 +248,7 @@ describe('text versions', () => {
 
     expect(db.submission.update.mock.calls[0][0].data.textVersions).toEqual({
       original: OWN,
-      ai: { es: { title: 'Bici de paseo', description: 'Bici cómoda.' }, en: { title: 'City bike', description: 'Comfy bike.' } },
+      ai: { es: { title: 'Bici de paseo', description: 'Bici cómoda.', short: '' }, en: { title: 'City bike', description: 'Comfy bike.' } },
     });
   });
 
@@ -276,7 +276,8 @@ describe('text versions', () => {
     (translateText as jest.Mock).mockResolvedValue({ en: OWN.en });
 
     expect(await chooseListingText(ID, 'original')).toMatchObject({ texts: OWN });
-    expect(translateText).toHaveBeenCalledWith(OWN.es, 'es', ['en']);
+    // Without a short title yet, the AI makes one from the title.
+    expect(translateText).toHaveBeenCalledWith({ ...OWN.es, short: '' }, 'es', ['en']);
   });
 
   it('refuses "my text as is" without a text', async () => {

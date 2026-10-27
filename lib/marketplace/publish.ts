@@ -50,6 +50,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
     const created = await tx.product.create({
       data: {
         name: title,
+        shortName: submission.shortTitle,
         slug: `${slugify(title, { lower: true, strict: true })}-${submission.id.slice(0, 6)}`,
         category: categoryName(category, getShopLocale()) || 'Varios',
         condition: submission.condition,

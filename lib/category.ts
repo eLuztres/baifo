@@ -13,13 +13,19 @@ export function localize(value: unknown, locale: Locale, fallbackLocale?: Locale
   return texts[locale] || (fallbackLocale && texts[fallbackLocale]) || Object.values(texts).find(Boolean) || '';
 }
 
-/** Per-language texts of a product: { en: { name, description } }. */
-export type ProductTranslations = Partial<Record<Locale, { name?: string; description?: string }>>;
+/** Per-language texts of a product: { en: { name, description, shortName } }. */
+export type ProductTranslations = Partial<Record<Locale, { name?: string; description?: string; shortName?: string }>>;
 
-/** A product's name and description in the visitor's language, else its own. */
-export function localizeProduct<T extends { name: string; description?: string; translations?: unknown }>(product: T, locale: Locale) {
+/** A product's name, description and short name in the visitor's language, else its own; the short name falls back to the name. */
+export function localizeProduct<T extends { name: string; description?: string; shortName?: string | null; translations?: unknown }>(
+  product: T,
+  locale: Locale
+) {
   const text = ((product.translations ?? {}) as ProductTranslations)[locale];
-  return { name: text?.name || product.name, description: text?.description || product.description || '' };
+  const name = text?.name || product.name;
+  // A translated name keeps its own language: the shop-language short name only stands in when there is no translation.
+  const shortName = text?.shortName || (text?.name ? '' : product.shortName) || name;
+  return { name, description: text?.description || product.description || '', shortName };
 }
 
 /** What the category editor needs; only admins get it. */

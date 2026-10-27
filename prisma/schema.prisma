@@ -11,6 +11,8 @@ datasource db {
 model Product {
   id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
+  // A name of 1–3 words for small spaces (the store's ring row); the name shows where it's missing.
+  shortName     String?
   slug          String      @unique(map: "product_slug_idx")
   category      String
   images        String[]
@@ -44,7 +46,7 @@ model Product {
   contactPhone   String?
   // Second-hand: how the item is (new, like_new, good, fair; PRODUCT_CONDITIONS); shown when set.
   condition      String?
-  // Name and description in other languages: { "en": { "name": "…", "description": "…" } }; a missing one shows name and description.
+  // Name, description and short name in other languages: { "en": { "name": "…", "description": "…", "shortName": "…" } }; a missing one shows its own.
   translations   Json      @default("{}")
   // Baifo: the private seller who listed it by WhatsApp, and when the listing goes offline.
   sellerId       String?   @db.Uuid
@@ -307,8 +309,10 @@ model Submission {
   images            String[]         @default([])
   rawText           String           @default("")
   title             String?
+  // The product's shortName in the shop's language.
+  shortTitle        String?
   description       String?
-  // Title and description in the shop's other languages: { "en": { "title": "…", "description": "…" } }.
+  // Title, description and short title in the shop's other languages: { "en": { "title": "…", "description": "…", "short": "…" } }.
   translations      Json             @default("{}")
   // The store category's slug, as the AI recognized it or the admin chose it.
   category          String?

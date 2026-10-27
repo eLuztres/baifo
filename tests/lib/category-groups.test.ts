@@ -14,9 +14,16 @@ describe('localizeProduct', () => {
   const product = { name: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { name: 'City bike', description: 'Comfy bike.' } } };
 
   it("shows a product's name and description in the visitor's language, else its own", () => {
-    expect(localizeProduct(product, 'en')).toEqual({ name: 'City bike', description: 'Comfy bike.' });
-    expect(localizeProduct(product, 'it')).toEqual({ name: 'Bici de paseo', description: 'Bici cómoda.' });
-    expect(localizeProduct({ name: 'Anillo', translations: {} }, 'en')).toEqual({ name: 'Anillo', description: '' });
+    expect(localizeProduct(product, 'en')).toEqual({ name: 'City bike', description: 'Comfy bike.', shortName: 'City bike' });
+    expect(localizeProduct(product, 'it')).toEqual({ name: 'Bici de paseo', description: 'Bici cómoda.', shortName: 'Bici de paseo' });
+    expect(localizeProduct({ name: 'Anillo', translations: {} }, 'en')).toEqual({ name: 'Anillo', description: '', shortName: 'Anillo' });
+  });
+
+  it('shows the short name in the visitor\'s language, never the shop language\'s next to a translated name', () => {
+    const withShort = { ...product, shortName: 'Bici', translations: { en: { name: 'City bike', shortName: 'Bike' }, de: { name: 'Stadtrad' } } };
+    expect(localizeProduct(withShort, 'en').shortName).toBe('Bike');
+    expect(localizeProduct(withShort, 'de').shortName).toBe('Stadtrad');
+    expect(localizeProduct(withShort, 'it').shortName).toBe('Bici');
   });
 });
 

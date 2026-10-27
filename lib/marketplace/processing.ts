@@ -147,6 +147,7 @@ export async function processSubmission(submissionId: string) {
         where: { id: submissionId },
         data: {
           title: own?.title,
+          shortTitle: own?.short,
           description: own?.description,
           translations: others,
           textVersions: { [submission.textMode]: text.texts },

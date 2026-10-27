@@ -71,8 +71,10 @@ type Plan = 'normal' | 'big';
 
 interface EditorFields {
   title: string;
+  /** The few words the store's ring row shows; empty: the title. */
+  shortTitle: string;
   description: string;
-  translations: Record<string, { title: string; description: string }>;
+  translations: Record<string, { title: string; description: string; short: string }>;
   category: string;
   price: string;
   priceMax: string;
@@ -109,11 +111,12 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const [isMakingPicture, setIsMakingPicture] = useState(false);
   const [fields, setFields] = useState({
     title: listing.title ?? '',
+    shortTitle: listing.shortTitle ?? '',
     description: listing.description ?? '',
     translations: Object.fromEntries(
       languages.map(({ id }) => {
         const text = (listing.translations as ListingTranslations)[id];
-        return [id, { title: text?.title ?? '', description: text?.description ?? '' }];
+        return [id, { title: text?.title ?? '', description: text?.description ?? '', short: text?.short ?? '' }];
       })
     ),
     category: listing.category ?? '',
@@ -148,16 +151,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isWanted = listing.type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   const isShopLanguage = language === shopLanguage.id;
-  const text = isShopLanguage ? { title: fields.title, description: fields.description } : fields.translations[language];
+  const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
   const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
-  const setText = (name: 'title' | 'description') => (event: { target: { value: string } }) => {
+  const setText = (name: 'title' | 'description' | 'short') => (event: { target: { value: string } }) => {
     if (isShopLanguage && languages.length > 0) setIsTranslationStale(true);
     setFields((current) =>
       isShopLanguage
-        ? { ...current, [name]: event.target.value }
+        ? { ...current, [name === 'short' ? 'shortTitle' : name]: event.target.value }
         : { ...current, translations: { ...current.translations, [language]: { ...current.translations[language], [name]: event.target.value } } }
     );
   };
@@ -165,7 +168,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const withTranslations = (current: EditorFields, made: ListingTexts): EditorFields => ({
     ...current,
     translations: Object.fromEntries(
-      languages.map(({ id }) => [id, made[id] ? { title: made[id].title, description: made[id].description } : current.translations[id]])
+      languages.map(({ id }) => [id, made[id] ? { title: made[id].title, description: made[id].description, short: made[id].short ?? '' } : current.translations[id]])
     ),
   });
   const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
@@ -240,14 +243,14 @@ export default function ListingEditor({ listing, categories, places, languages, 
     if (!('texts' in result && result.texts)) return setError(result.message);
     const own = result.texts[shopLanguage.id];
     setTextMode(mode);
-    setFields((current) => ({ ...withTranslations(current, result.texts), title: own?.title ?? '', description: own?.description ?? '' }));
+    setFields((current) => ({ ...withTranslations(current, result.texts), title: own?.title ?? '', shortTitle: own?.short ?? '', description: own?.description ?? '' }));
     setIsTranslationStale(false);
   };
 
   const updateTranslations = async () => {
     setError('');
     setTextWork('translate');
-    const result = await translateListingText(listing.id, { title: fields.title, description: fields.description });
+    const result = await translateListingText(listing.id, { title: fields.title, description: fields.description, short: fields.shortTitle });
     setTextWork(null);
     if (!('translations' in result && result.translations)) return setError(result.message);
     setFields((current) => withTranslations(current, result.translations));
@@ -424,6 +427,19 @@ export default function ListingEditor({ listing, categories, places, languages, 
             placeholder={texts.titleLabel}
             className={`${INLINE_CLASS} h-auto py-1 font-display text-2xl md:text-2xl`}
           />
+          <div className='flex items-center gap-1 px-2'>
+            <Label htmlFor='short' className='shrink-0 text-xs text-muted-foreground'>
+              {texts.shortLabel}
+            </Label>
+            <Input
+              id='short'
+              value={text?.short ?? ''}
+              onChange={setText('short')}
+              placeholder={text?.title}
+              maxLength={40}
+              className={`${INLINE_CLASS} h-8 min-w-0 text-sm md:text-sm`}
+            />
+          </div>
           <Label htmlFor='description' className='sr-only'>
             {texts.descriptionLabel}
           </Label>

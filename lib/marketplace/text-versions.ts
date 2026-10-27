@@ -7,7 +7,7 @@ export const TEXT_MODES = ['original', 'ai'] as const;
 export type TextMode = (typeof TEXT_MODES)[number];
 
 /** A title and description in each language. */
-export type ListingTexts = Partial<Record<Locale, { title: string; description: string }>>;
+export type ListingTexts = Partial<Record<Locale, { title: string; description: string; short?: string }>>;
 
 /** Both texts of a listing in every shop language (Submission.textVersions). */
 export type TextVersions = Partial<Record<TextMode, ListingTexts>>;

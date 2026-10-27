@@ -37,6 +37,8 @@ export interface CollectionRing {
   createdAt: Date;
   /** How a second-hand item is (PRODUCT_CONDITIONS), if known. */
   condition: string | null;
+  /** Server only: a name of 1–3 words, for localizeProduct (null: none yet). */
+  shortName?: string | null;
   /** Server only: its name in other languages (localizeProduct). */
   translations: unknown;
   /** Server only: where it is, for the visitor's place filter. */
@@ -63,6 +65,7 @@ export async function getInStockRings(): Promise<CollectionRing[]> {
       id: true,
       slug: true,
       name: true,
+      shortName: true,
       images: true,
       price: SHOWS_PRICES,
       priceMax: SHOWS_PRICES,

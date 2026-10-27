@@ -9,7 +9,6 @@ import { useI18n } from '@/components/i18n-provider';
 import type { MaterialRing } from '@/components/shared/home/materials';
 import { isClearlyVertical } from '@/components/shared/home/one-page';
 import { cn } from '@/lib/utils';
-import ProductPrice from './product-price';
 import styles from './product-ring.module.css';
 
 interface ConcaveRingRowProps {
@@ -45,7 +44,7 @@ const TURN_BUTTON_CLASS =
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
-/** One ring in the row under the selector: only its photo; the front ring's name and price show below the row. */
+/** One ring in the row under the selector: only its photo; the front ring's name shows below the row. */
 const BannerTile = ({ product, categoryId }: BannerTileProps) => {
   const { t } = useI18n();
 
@@ -198,13 +197,10 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: Concav
           <Link
             key={frontProduct.slug}
             href={`/product/${frontProduct.slug}?c=${categoryId}`}
-            className='flex min-w-0 items-baseline gap-3 duration-500 animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards'
+            className='min-w-0 duration-500 animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards'
             style={{ animationDelay: `${TURN_MS * 0.6}ms` }}
           >
-            <span className='truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.name}</span>
-            {frontProduct.price && (
-              <ProductPrice value={Number(frontProduct.price)} maxValue={frontProduct.priceMax} label={frontProduct.type === 'WANTED' ? t('WANTED_BUDGET') : frontProduct.isFromPrice ? t('PRICE_FROM') : undefined} className='shrink-0 text-base font-medium text-foreground sm:text-lg' />
-            )}
+            <span className='block truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.shortName}</span>
           </Link>
         )}
       </div>
