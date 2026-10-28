@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import WhatsAppLogo from '@/components/shared/whatsapp-logo';
 import { getProductContact } from '@/lib/actions/product.actions';
 import {
   cleanNickname,
@@ -31,6 +32,8 @@ interface SellerContact {
   phone: string;
   whatsappUrl: string;
 }
+
+const ICON_BUTTON = 'size-14 rounded-full [&_svg]:size-6';
 
 interface WavingMascotProps {
   image?: string;
@@ -99,6 +102,11 @@ export default function ContactSellerButton({ productId, messageTexts, image, cl
     whatsappLink.current?.click();
   };
 
+  const contacted = () => {
+    storeNickname(cleanNickname(nickname));
+    setIsOpen(false);
+  };
+
   if (contact === null) return <p className={cn('text-sm text-muted-foreground', className)}>{t('CONTACT_SELLER_UNAVAILABLE')}</p>;
 
   const chatUrl = (name: string) => contact && `${contact.whatsappUrl}?text=${encodeURIComponent(contactMessage(messageTexts, name))}`;
@@ -137,39 +145,31 @@ export default function ContactSellerButton({ productId, messageTexts, image, cl
               <p id={`${nicknameId}-hint`} className='text-xs text-muted-foreground'>{t('CONTACT_NICKNAME_HINT')}</p>
             </div>
 
-            <div className='flex flex-col items-center gap-3'>
+            <div className='flex justify-center gap-4'>
               {contact ? (
                 <>
-                  <Button asChild className='h-12 w-full rounded-full'>
+                  <Button asChild variant='outline' className={ICON_BUTTON}>
+                    <a href={`tel:${contact.phone}`} aria-label={t('CONTACT_SELLER_CALL')} title={t('CONTACT_SELLER_CALL')} onClick={contacted}>
+                      <Phone />
+                    </a>
+                  </Button>
+                  <Button asChild className={ICON_BUTTON}>
                     <a
                       ref={whatsappLink}
                       href={chatUrl(nickname)}
                       target='_blank'
                       rel='noopener noreferrer'
-                      onClick={() => {
-                        storeNickname(cleanNickname(nickname));
-                        setIsOpen(false);
-                      }}
+                      aria-label={t('CONTACT_SELLER_WHATSAPP')}
+                      title={t('CONTACT_SELLER_WHATSAPP')}
+                      onClick={contacted}
                     >
-                      <MessageCircle /> {t('CONTACT_SELLER_WHATSAPP')}
+                      <WhatsAppLogo />
                     </a>
                   </Button>
-                  <a
-                    href={chatUrl('')}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    onClick={() => setIsOpen(false)}
-                    className='text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline'
-                  >
-                    {t('CONTACT_SKIP')}
-                  </a>
-                  <a href={`tel:${contact.phone}`} className='inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground'>
-                    <Phone className='size-4' aria-hidden /> {contact.phone}
-                  </a>
                 </>
               ) : (
-                <Button type='button' disabled className='h-12 w-full rounded-full'>
-                  <Loader2 className='animate-spin' /> {t('CONTACT_SELLER_WHATSAPP')}
+                <Button type='button' disabled aria-label={t('CONTACT_SELLER_WHATSAPP')} className={ICON_BUTTON}>
+                  <Loader2 className='animate-spin' />
                 </Button>
               )}
             </div>

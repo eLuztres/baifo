@@ -565,7 +565,7 @@
   "CONTACT_DIALOG_TEXT": "Tu mensaje ya está escrito. Añade tu nombre para que sepan quién escribe.",
   "CONTACT_NICKNAME": "Tu nombre o apodo",
   "CONTACT_NICKNAME_HINT": "Opcional. Vale un apodo.",
-  "CONTACT_SKIP": "Saltar",
+  "CONTACT_SELLER_CALL": "Llamar",
   "CONTACT_MESSAGE_HELLO": "¡Hola!",
   "CONTACT_MESSAGE_HELLO_NAMED": "¡Hola! Soy {nick}",
   "CONTACT_MESSAGE_PRODUCT": "{hello} 👋 Te escribo por tu anuncio «{name}» en {shop}: {url}",

@@ -30,7 +30,7 @@ describe('ContactSellerButton', () => {
     await userEvent.click(screen.getByRole('button', { name: t('CONTACT_SELLER') }));
     expect(mockContact).toHaveBeenCalledWith(PRODUCT_ID);
 
-    expect(await screen.findByRole('link', { name: '+34600111222' })).toHaveAttribute('href', 'tel:+34600111222');
+    expect(await screen.findByRole('link', { name: t('CONTACT_SELLER_CALL') })).toHaveAttribute('href', 'tel:+34600111222');
     await userEvent.type(screen.getByLabelText(t('CONTACT_NICKNAME')), 'Lula');
     const whatsapp = screen.getByRole('link', { name: t('CONTACT_SELLER_WHATSAPP') });
     expect(whatsapp.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/34600111222\?text=/);
@@ -40,16 +40,33 @@ describe('ContactSellerButton', () => {
     expect(localStorage.getItem(NICKNAME_STORAGE_KEY)).toBe('Lula');
   });
 
-  it('fills in the remembered nickname, and skipping writes without it', async () => {
+  it('fills in the remembered nickname, and an empty field writes without a name and forgets it', async () => {
     localStorage.setItem(NICKNAME_STORAGE_KEY, 'Lula');
     mockContact.mockResolvedValue({ phone: '+34600111222', whatsappUrl: 'https://wa.me/34600111222' });
     renderButton();
 
     await userEvent.click(screen.getByRole('button', { name: t('CONTACT_SELLER') }));
 
-    expect(screen.getByLabelText(t('CONTACT_NICKNAME'))).toHaveValue('Lula');
-    const skip = await screen.findByRole('link', { name: t('CONTACT_SKIP') });
-    expect(messageOf(skip)).toBe('¡Hola! 👋 Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
+    const field = screen.getByLabelText(t('CONTACT_NICKNAME'));
+    expect(field).toHaveValue('Lula');
+    await userEvent.clear(field);
+    const whatsapp = await screen.findByRole('link', { name: t('CONTACT_SELLER_WHATSAPP') });
+    expect(messageOf(whatsapp)).toBe('¡Hola! 👋 Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
+
+    await userEvent.click(whatsapp);
+    expect(localStorage.getItem(NICKNAME_STORAGE_KEY)).toBeNull();
+  });
+
+  it('remembers the nickname when calling too', async () => {
+    mockContact.mockResolvedValue({ phone: '+34600111222', whatsappUrl: 'https://wa.me/34600111222' });
+    renderButton();
+
+    await userEvent.click(screen.getByRole('button', { name: t('CONTACT_SELLER') }));
+    const call = await screen.findByRole('link', { name: t('CONTACT_SELLER_CALL') });
+    await userEvent.type(screen.getByLabelText(t('CONTACT_NICKNAME')), 'Lula');
+    await userEvent.click(call);
+
+    expect(localStorage.getItem(NICKNAME_STORAGE_KEY)).toBe('Lula');
   });
 
   it('says so when the seller has no number anymore', async () => {
