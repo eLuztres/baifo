@@ -1,16 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { prisma } from '@/db/prisma';
+import { CalendarDays, Eye, MapPin } from 'lucide-react';
 import ProductImages from '@/components/shared/product/product-images';
 import ProductPrice from '@/components/shared/product/product-price';
+import ScrollText from '@/components/shared/product/scroll-text';
 import { Button } from '@/components/ui/button';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { LISTING_DAYS, LISTING_PRICES } from '@/lib/marketplace/config';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES } from '@/lib/marketplace/config';
 import { publishPageTexts } from '@/lib/marketplace/page-texts';
-import { getLocale } from '@/lib/i18n-server';
+import { getListingPreview } from '@/lib/marketplace/preview';
+import { conditionKey } from '@/lib/constants';
+import { formatEventDate } from '@/lib/event-date';
+import { getT } from '@/lib/i18n-server';
+import { serviceTypeKey } from '@/lib/listing-labels';
+import { getShopPlaces } from '@/lib/places';
 import PublishForm from './publish-form';
 
-// A private link: no search engine should list it.
+// A private link: no search engine should list or follow it.
 export const metadata: Metadata = { title: 'Baifo', robots: { index: false, follow: false } };
 
 interface PublishPageProps {
@@ -18,58 +24,105 @@ interface PublishPageProps {
   searchParams: Promise<{ pagado?: string }>;
 }
 
-const UUID = /^[0-9a-f-]{36}$/i;
+const CHIP_CLASS = 'inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm';
 
-/** The seller's page after the review: the listing as it will look, the plan, and the payment. */
+/** The person's private page: their listing as it will look, their OK to show their number, the plan and how to pay. */
 export default async function PublishPage({ params, searchParams }: PublishPageProps) {
-  const [{ token }, { pagado }, locale] = await Promise.all([params, searchParams, getLocale()]);
+  const [{ token }, { pagado }, { t, locale }] = await Promise.all([params, searchParams, getT()]);
   const texts = publishPageTexts(locale);
-  const submission = UUID.test(token)
-    ? await prisma.submission.findUnique({ where: { payToken: token }, include: { product: { select: { slug: true } } } })
-    : null;
+  const listing = await getListingPreview(token);
 
-  if (!submission || !['AWAITING_PAYMENT', 'LIVE'].includes(submission.status)) {
+  if (!listing) {
     return <p className='mx-auto max-w-xl py-16 text-center text-muted-foreground'>{texts.unavailable}</p>;
   }
 
-  const isLive = submission.status === 'LIVE';
-  // The seller sees the listing in their language; the shop language's text is the fallback.
-  const translation = (submission.translations as ListingTranslations)[locale];
-  const title = translation?.title || submission.title || '';
-  const description = translation?.description || submission.description;
+  const isLive = listing.status === 'LIVE';
+  // The person sees the listing in their language; the shop language's text is the fallback.
+  const translation = (listing.translations as ListingTranslations)[locale];
+  const title = translation?.title || listing.title || '';
+  const description = translation?.description || listing.description;
+  const condition = conditionKey(listing.condition);
+  const serviceKey = listing.type === 'SERVICE' ? serviceTypeKey(listing.serviceType) : undefined;
+  const isEvent = listing.type === 'EVENT';
+  const place = listing.place ? (await getShopPlaces(locale)).find((item) => item.id === listing.place?.id) : undefined;
+  // As on the product page: 0 is a free event or a service without a "from" price.
+  const hasPrice = listing.type === 'PRODUCT' || listing.type === 'WANTED' || Number(listing.price) > 0;
+  const priceLabel = listing.type === 'WANTED' ? t('WANTED_BUDGET') : listing.type === 'SERVICE' ? t('PRICE_FROM') : undefined;
+  const corral = listing.place?.corral;
 
   return (
-    <section className='mx-auto grid max-w-5xl gap-8 py-6 lg:grid-cols-2 lg:gap-12'>
-      <div className='aspect-square'>
-        <ProductImages images={submission.images.length > 0 ? submission.images : submission.rawImages} alt={title} />
+    <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
+      <div className='relative aspect-square'>
+        <ProductImages images={listing.images.length > 0 ? listing.images : listing.rawImages} alt={title} />
+        <span className='pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow-sm'>
+          <Eye className='size-3.5 text-primary' aria-hidden /> {texts.previewBadge}
+        </span>
       </div>
 
-      <div className='space-y-6'>
-        <div className='space-y-3'>
+      <div className='min-w-0 space-y-6'>
+        <div className='space-y-3 rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 sm:p-7'>
           <p className='eyebrow'>{texts.title}</p>
-          <h1 className='text-3xl leading-tight'>{title}</h1>
-          {/* A wanted ad's budget shows as its range; no price (a free event, a service without one) shows nothing. */}
-          {Number(submission.price) > 0 && <ProductPrice value={Number(submission.price)} maxValue={submission.priceMax?.toString()} />}
-          {description && <p className='whitespace-pre-line text-foreground/85'>{description}</p>}
+          <h1 className='text-xl leading-tight sm:text-3xl'>{title}</h1>
+          {(condition || serviceKey || isEvent || place) && (
+            <div className='flex flex-wrap gap-2'>
+              {condition && <p className={CHIP_CLASS}>{t(condition)}</p>}
+              {serviceKey && <p className={CHIP_CLASS}>{t(serviceKey)}</p>}
+              {isEvent && listing.startsAt && (
+                <p className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary'>
+                  <CalendarDays className='size-3.5' aria-hidden /> {formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'))}
+                </p>
+              )}
+              {isEvent && listing.address && (
+                <p className={CHIP_CLASS}>
+                  <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{listing.address}</span>
+                </p>
+              )}
+              {place && (
+                <p className={CHIP_CLASS}>
+                  <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> {place.name}
+                </p>
+              )}
+            </div>
+          )}
+          {description && (
+            <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
+              {description}
+            </ScrollText>
+          )}
+          {hasPrice ? (
+            <ProductPrice value={Number(listing.price)} maxValue={listing.priceMax?.toString()} label={priceLabel} />
+          ) : (
+            isEvent && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
+          )}
         </div>
 
         {isLive || pagado ? (
           <div className='space-y-4 rounded-3xl border border-primary/30 bg-primary/10 p-6'>
             <p>{isLive ? texts.live : texts.paid}</p>
-            {submission.product && (
+            {listing.product && (
               <Button asChild className='rounded-full'>
-                <Link href={`/product/${submission.product.slug}`}>{texts.viewListing}</Link>
+                <Link href={`/product/${listing.product.slug}`}>{texts.viewListing}</Link>
               </Button>
             )}
           </div>
         ) : (
-          <PublishForm
-            token={token}
-            texts={texts}
-            prices={LISTING_PRICES}
-            days={LISTING_DAYS}
-            paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
-          />
+          <>
+            <p className='text-muted-foreground'>{texts.intro}</p>
+            <PublishForm
+              token={token}
+              texts={texts}
+              prices={LISTING_PRICES}
+              days={LISTING_DAYS}
+              initial={{ plan: listing.plan === 'big' ? 'big' : 'normal', isConfirmed: Boolean(listing.consentAt) }}
+              payment={{
+                methods: LISTING_PAYMENT_METHODS,
+                bizumPhone: BIZUM_PHONE,
+                code: listing.payCode ?? '',
+                cashPlace: corral ? `${corral.name} · ${corral.address}` : texts.corral,
+              }}
+              paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
+            />
+          </>
         )}
       </div>
     </section>

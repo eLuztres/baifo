@@ -9,6 +9,7 @@ import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type L
 import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
+import { lacksConsent } from './listing-payment';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -24,6 +25,13 @@ export type PublishOutcome = 'published' | 'already-published' | 'wrong-amount' 
 
 type SubmissionWithSeller = Submission & { seller: Seller };
 
+/** A fee to book together with the listing going live. */
+interface FeeRecord {
+  method: 'stripe' | 'paypal' | 'bizum' | 'cash';
+  amount: string;
+  recordedBy?: string;
+}
+
 /** Only real phone numbers get WhatsApp messages (the house seller of admin listings has none). */
 const isPhoneNumber = (waId: string) => /^\d+$/.test(waId);
 
@@ -31,7 +39,7 @@ const isPhoneNumber = (waId: string) => /^\d+$/.test(waId);
  * The listing becomes a product, once: the status check inside the transaction keeps parallel
  * payments (or a payment and an admin click) from publishing twice. Returns null when it already went live.
  */
-async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[], paymentLabel: string) {
+async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[], paymentLabel: string, fee?: FeeRecord) {
   const plan = (submission.plan ?? 'normal') as ListingPlan;
   const expiresAt = new Date(Date.now() + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
@@ -44,7 +52,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const product = await prisma.$transaction(async (tx) => {
     const { count } = await tx.submission.updateMany({
       where: { id: submission.id, status: { in: from } },
-      data: { status: 'LIVE', paidAt: new Date(), paymentProvider: paymentLabel, expiresAt },
+      data: { status: 'LIVE', paidAt: new Date(), paymentProvider: paymentLabel, expiresAt, remindedAt: null },
     });
     if (count === 0) return null;
     const created = await tx.product.create({
@@ -75,6 +83,11 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
       },
     });
     await tx.submission.update({ where: { id: submission.id }, data: { productId: created.id } });
+    if (fee) {
+      await tx.listingFee.create({
+        data: { submissionId: submission.id, title, method: fee.method, amount: fee.amount, payCode: submission.payCode, recordedBy: fee.recordedBy },
+      });
+    }
     return created;
   });
   if (!product) return null;
@@ -113,8 +126,21 @@ export async function publishSubmission(payment: ListingPayment): Promise<Publis
   if (!submission) return 'not-found';
   if (submission.status !== 'AWAITING_PAYMENT') return 'already-published';
   if (payment.amountPaid !== LISTING_PRICES[(submission.plan ?? 'normal') as ListingPlan]) return 'wrong-amount';
-  const product = await goLive(submission, ['AWAITING_PAYMENT'], `${payment.provider}:${payment.paymentId}`);
+  const fee: FeeRecord = { method: payment.provider === 'Stripe' ? 'stripe' : 'paypal', amount: payment.amountPaid };
+  const product = await goLive(submission, ['AWAITING_PAYMENT'], `${payment.provider}:${payment.paymentId}`, fee);
   return product ? 'published' : 'already-published';
+}
+
+export type AdminPaymentOutcome = 'published' | 'no-consent' | 'not-waiting';
+
+/** "Pagado": the admin got the fee by Bizum or in cash, books it and puts the listing online. */
+export async function publishPaidByAdmin(submissionId: string, plan: ListingPlan, fee: FeeRecord & { method: 'bizum' | 'cash' }): Promise<AdminPaymentOutcome> {
+  const waiting = await prisma.submission.findFirst({ where: { id: submissionId, status: 'AWAITING_PAYMENT' }, include: { seller: true } });
+  if (!waiting) return 'not-waiting';
+  if (lacksConsent(waiting)) return 'no-consent';
+  const submission = await prisma.submission.update({ where: { id: submissionId }, data: { plan }, include: { seller: true } });
+  const product = await goLive(submission, ['AWAITING_PAYMENT'], fee.method === 'bizum' ? 'Bizum' : 'Efectivo', fee);
+  return product ? 'published' : 'not-waiting';
 }
 
 /** The admin puts a listing online without payment (own listings, or a seller who paid otherwise). */
@@ -125,6 +151,21 @@ export async function publishByAdmin(submissionId: string, plan: ListingPlan) {
     include: { seller: true },
   });
   return goLive(submission, ['IN_REVIEW', 'AWAITING_PAYMENT'], 'Admin');
+}
+
+/**
+ * An expired listing comes back from what it kept: online for a new period if it was live before, waiting for its
+ * payment again if it never was. Null when it isn't expired (any more).
+ */
+export async function enableListing(submissionId: string) {
+  const submission = await prisma.submission.findFirst({ where: { id: submissionId, status: 'EXPIRED' }, include: { seller: true } });
+  if (!submission) return null;
+  if (!submission.paidAt) {
+    // No sentAt: the 48 hours start again when the admin sends the link.
+    const { count } = await prisma.submission.updateMany({ where: { id: submissionId, status: 'EXPIRED' }, data: { status: 'AWAITING_PAYMENT', sentAt: null } });
+    return count > 0 ? ('waiting' as const) : null;
+  }
+  return (await goLive(submission, ['EXPIRED'], 'Admin')) ? ('live' as const) : null;
 }
 
 /** A live listing leaves the shop (sold or expired); the submission keeps the record. */

@@ -6,6 +6,7 @@ import { prisma } from '@/db/prisma';
 import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
 import { LISTING_PRICES, publishUrl, type ListingPlan } from './config';
+import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission } from './publish';
 
 // The seller's choices on /publicar; the token is the only thing that identifies them.
@@ -25,14 +26,25 @@ interface ActionResult {
   orderId?: string;
 }
 
-/** Saves the plan and extras of an approved listing and returns it, or null for an invalid link or choice. */
+/** Saves the plan, extras and the person's OK of an approved listing and returns it, or null for an invalid or expired link. */
 async function saveChoice(input: unknown) {
   const choice = choiceSchema.safeParse(input);
   if (!choice.success) return null;
   const { token, ...data } = choice.data;
   const submission = await prisma.submission.findFirst({ where: { payToken: token, status: 'AWAITING_PAYMENT' } });
-  if (!submission) return null;
+  if (!submission || isLinkExpired(submission.sentAt)) return null;
+  await recordConsent({ id: submission.id }, 'publish-page');
   return prisma.submission.update({ where: { id: submission.id }, data });
+}
+
+/** "Confirmar": the person agrees to show their number and picks a plan; the page then shows how to pay. */
+export async function confirmListing(input: ListingChoice): Promise<ActionResult> {
+  try {
+    return { success: Boolean(await saveChoice(input)) };
+  } catch (error) {
+    console.error('[listing] confirmation failed', error);
+    return { success: false };
+  }
 }
 
 /** Stripe's hosted checkout for the listing fee; the stripe-listing webhook publishes after payment. */

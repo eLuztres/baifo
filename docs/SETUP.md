@@ -15,7 +15,7 @@ This guide takes a new shop from "created by the wizard" to "live with payments"
 | 7 | [PayPal](#7-paypal) | if you take PayPal | 10 min |
 | 8 | [Emails (Resend)](#8-emails-resend) | recommended | 10 min |
 | 9 | [Image uploads (UploadThing)](#9-image-uploads-uploadthing) | to add products | 5 min |
-| 10 | [Own domain](#10-own-domain) | optional | 10 min |
+| 10 | [Own domain](#10-own-domain) (+ Google Search Console) | optional | 15 min |
 | 11 | [Final check](#11-final-check) | yes | 5 min |
 
 ---
@@ -174,6 +174,11 @@ Optional: the **AI product studio** (`/admin/studio`) turns one product photo in
    - `NEXT_PUBLIC_SERVER_URL=https://<domain>`
    - the Google origins and redirect URIs (step 5)
    - the Stripe webhook URL (step 6)
+3. **Google Search Console**, once the domain is live, so Google picks up the shop and its listings quickly. One Google account can hold every shop:
+   1. <https://search.google.com/search-console> → **Add property** → **Domain** → `<domain>` (without `www`; it covers www, http and all subdomains).
+   2. Verify by DNS: at GoDaddy and other big registrars **Start verification** adds the TXT entry by itself after logging in there; elsewhere copy the `google-site-verification=…` TXT value into the domain's DNS.
+   3. **Sitemaps** → submit `https://<domain>/sitemap.xml`.
+   4. **URL inspection** → `https://<domain>/` → **Request indexing**. Do this again after changing the home page's title or description (`HOME_SEO_TITLE`, `BRAND_DESCRIPTION`).
 
 ## 11. Final check
 
@@ -184,4 +189,5 @@ Optional: the **AI product studio** (`/admin/studio`) turns one product photo in
 - [ ] Test order with Stripe `4242…` → order becomes *Paid*, receipt email arrives
 - [ ] Test order with PayPal sandbox (if configured)
 - [ ] Contact page and footer show the right contact details
+- [ ] Search Console: domain verified, sitemap submitted (if the shop has its own domain)
 - [ ] Switch to live payment keys when the customer is ready

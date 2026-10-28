@@ -1,4 +1,5 @@
 import { localize, localizeProduct } from '@/lib/category';
+import { NEW_LISTING_HOURS } from '@/lib/constants';
 import type { Locale } from '@/lib/i18n-core';
 import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CollectionRing } from './in-stock-rings';
@@ -14,6 +15,8 @@ export interface MaterialGroup {
   id: string;
   name: string;
   text: string;
+  /** How many of its rings went into the shop in the last NEW_LISTING_HOURS ("3 new" on its ring card). */
+  newCount: number;
   rings: MaterialRing[];
 }
 
@@ -24,18 +27,21 @@ export function groupByCategory(
   locale: Locale,
   shouldKeepEmpty = false
 ): MaterialGroup[] {
+  const newSince = Date.now() - NEW_LISTING_HOURS * 60 * 60 * 1000;
   return categories
-    .map((category) => ({
-      id: category.slug,
-      name: localize(category.name, locale),
-      text: localize(category.text, locale),
-      rings: rings
-        .filter((ring) => ring.categoryIds.includes(category.id))
-        .map((ring) => {
+    .map((category) => {
+      const inCategory = rings.filter((ring) => ring.categoryIds.includes(category.id));
+      return {
+        id: category.slug,
+        name: localize(category.name, locale),
+        text: localize(category.text, locale),
+        newCount: inCategory.filter((ring) => ring.createdAt.getTime() > newSince).length,
+        rings: inCategory.map((ring) => {
           const { name, shortName } = localizeProduct(ring, locale);
           return { id: ring.id, slug: ring.slug, name, shortName, image: ring.image, price: ring.price, priceMax: ring.priceMax, type: ring.type, isFromPrice: ring.isFromPrice, isReserved: ring.isReserved };
         }),
-    }))
+      };
+    })
     .filter((group) => shouldKeepEmpty || group.rings.length > 0);
 }
 

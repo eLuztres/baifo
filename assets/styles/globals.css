@@ -202,3 +202,16 @@
 .upload-field .text-white {
   color: var(--foreground) !important;
 }
+
+/* The category ring's front card grows into the feed's header picture (use-open-feed.ts); the rest of the page fades. */
+::view-transition-group(category-cover) {
+  animation-duration: 550ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(category-cover),
+::view-transition-new(category-cover) {
+  height: 100%;
+  object-fit: cover;
+  border-radius: 1.25rem;
+}

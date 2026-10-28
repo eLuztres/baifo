@@ -3,8 +3,9 @@ import { prisma } from '@/db/prisma';
 import { formatCurrency } from '@/lib/utils';
 import { sendButtons, sendText } from '@/lib/whatsapp-cloud/client';
 import { categoryName, findCategory, getListingCategories } from './catalog';
-import { ADMIN_WHATSAPP_NUMBER, HOUSE_SELLER, publishUrl } from './config';
+import { ADMIN_WHATSAPP_NUMBER, HOUSE_SELLER, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
+import { markSent } from './listing-payment';
 import { parsePrice } from './price';
 import { coverPicture } from '@/lib/video';
 
@@ -61,9 +62,10 @@ const findInReview = (submissionId: string) =>
 export async function approveSubmission(submissionId: string) {
   const submission = await findInReview(submissionId);
   if (!submission) return null;
-  await prisma.submission.update({ where: { id: submission.id }, data: { status: 'AWAITING_PAYMENT', rejectAskedAt: null } });
+  await prisma.submission.update({ where: { id: submission.id }, data: { rejectAskedAt: null } });
+  await markSent(submission.id, ['IN_REVIEW']);
   const locale = localeOf(submission.seller.waId);
-  await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken) }));
+  await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken), hours: UNPAID_LISTING_HOURS }));
   return submission;
 }
 

@@ -19,6 +19,8 @@ interface ConcaveRingRowProps {
   renderActions?: (product: MaterialRing) => ReactNode;
   /** Admins' tile for adding a ring, after the last one. */
   addTile?: ReactNode;
+  /** The tile after the last one shown, when the category has more: it leads into the feed with all of them. */
+  moreTile?: ReactNode;
 }
 
 interface BannerTileProps {
@@ -75,11 +77,12 @@ const BannerTile = ({ product, categoryId }: BannerTileProps) => {
  * The front category's rings on a ring seen from the inside: it turns like the category ring above, but curves the
  * other way (concave), so the rings beside the front one come toward the viewer and face the middle.
  */
-const ConcaveRingRow = ({ products, categoryId, renderActions, addTile }: ConcaveRingRowProps) => {
+const ConcaveRingRow = ({ products, categoryId, renderActions, addTile, moreTile }: ConcaveRingRowProps) => {
   const { t } = useI18n();
   const stageRef = useRef<HTMLDivElement>(null);
   const tiles = [
     ...products.map((product) => ({ key: product.slug, content: <BannerTile product={product} categoryId={categoryId} />, product })),
+    ...(moreTile ? [{ key: 'more', content: moreTile, product: undefined }] : []),
     ...(addTile ? [{ key: 'add', content: addTile, product: undefined }] : []),
   ];
   const count = Math.max(tiles.length, MIN_SLOTS);

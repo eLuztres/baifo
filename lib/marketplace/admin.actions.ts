@@ -13,13 +13,14 @@ import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
 import { suggestAddresses } from './address-search';
-import { HOUSE_SELLER, publishUrl } from './config';
+import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { pictureCounterpart } from './pictures';
-import { publishByAdmin, takeDown } from './publish';
+import { lacksConsent, markSent } from './listing-payment';
+import { enableListing, publishByAdmin, takeDown } from './publish';
 import { rejectSubmission } from './review';
 
 // Server actions are public endpoints: every one checks for an admin itself.
@@ -119,7 +120,8 @@ export async function getAdminListing(id: string) {
   });
   if (!submission) return null;
   const { price, priceMax, ...rest } = submission;
-  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null };
+  // The plan prices come along: the editor's "Pagado" starts from the chosen plan's price.
+  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -349,8 +351,10 @@ const planSchema = z.enum(['normal', 'big']);
 export async function publishAdminListing(id: string, plan: 'normal' | 'big') {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success || !planSchema.safeParse(plan).success) return NOT_ALLOWED;
   // An event goes online only with its date (a database rule too).
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { type: true, startsAt: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { type: true, startsAt: true, consentAt: true, seller: { select: { waId: true } } } });
   if (listing?.type === 'EVENT' && !listing.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
+  // The person's number only goes online with their recorded OK (on their page, or "SÍ" on WhatsApp).
+  if (listing?.seller && lacksConsent(listing)) return { success: false, message: 'Falta su permiso para mostrar su número' };
   const product = await publishByAdmin(id, plan);
   return product
     ? { success: true, message: 'Anuncio online', slug: product.slug }
@@ -370,16 +374,25 @@ export async function shareAdminListing(id: string) {
   if (!listing) return { success: false, message: 'Este anuncio ya no se puede enviar' };
   const { waId } = listing.seller;
   if (waId === HOUSE_SELLER) return { success: false, message: 'Este anuncio no tiene el WhatsApp de la persona' };
-  // The private page only opens for a listing waiting for payment.
-  await prisma.submission.updateMany({ where: { id, status: 'IN_REVIEW' }, data: { status: 'AWAITING_PAYMENT' } });
-  const message = botText(localeOf(waId), 'approved', { url: publishUrl(listing.payToken) });
-  return { success: true, message: '', url: `https://wa.me/${waId}?text=${encodeURIComponent(message)}` };
+  // The private page only opens for a listing waiting for payment; its 48 hours start now.
+  if (!(await markSent(id))) return { success: false, message: 'Este anuncio ya no se puede enviar' };
+  const message = botText(localeOf(waId), 'approved', { url: publishUrl(listing.payToken), hours: UNPAID_LISTING_HOURS });
+  // Straight to api.whatsapp.com: the wa.me redirect turns emoji like 👋 into "�".
+  return { success: true, message: '', url: `https://api.whatsapp.com/send?phone=${waId}&text=${encodeURIComponent(message)}` };
 }
 
 export async function rejectAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const rejected = await rejectSubmission(id);
   return rejected ? { success: true, message: 'Anuncio rechazado' } : { success: false, message: 'Ya no está pendiente de revisión' };
+}
+
+/** "Activar de nuevo": an expired listing comes back with its pictures and texts. */
+export async function enableAdminListing(id: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const outcome = await enableListing(id);
+  if (!outcome) return { success: false, message: 'Este anuncio ya no está caducado' };
+  return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el pago de nuevo' };
 }
 
 export async function markAdminListingSold(id: string) {

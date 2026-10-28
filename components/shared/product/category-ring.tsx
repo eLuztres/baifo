@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { CSSProperties, MouseEvent, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,12 +14,15 @@ import ConcaveRingRow from './concave-ring-row';
 import { GoldBand, GoldEngraving } from './product-ring';
 import styles from './product-ring.module.css';
 import { useCaptionSpots } from './use-caption-spots';
+import { useOpenFeed } from './use-open-feed';
 
 export interface RingCategory {
   id: string;
   name: string;
   text: string;
   image: string;
+  /** How many of its listings are new ("New: 3" under its card), a reason to turn the ring and to come back. */
+  newCount?: number;
   products: MaterialRing[];
 }
 
@@ -66,6 +69,8 @@ const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 16;
 const FLYER_COUNT = 3;
+// Only the first few of a category show under the ring, a taste; a "+12" tile leads into the feed with all of them.
+const ROW_PREVIEW_COUNT = 8;
 // The home page's search param with the category in front, e.g. from a listing's way back.
 const CATEGORY_PARAM = 'category';
 
@@ -170,6 +175,13 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
   const hasPiece = center !== 'band' && center !== 'none';
   const captionSpots = useCaptionSpots(stageRef, frontIndex, SETTLE_MS);
+  const openFeed = useOpenFeed(stageRef);
+  const feedHref = `/explore?c=${front.id}`;
+  const rowProducts = front.products.slice(0, ROW_PREVIEW_COUNT);
+  const hiddenCount = front.products.length - rowProducts.length;
+
+  // The feed of the front category is the likely next page: fetched ahead, so the morph into it doesn't wait.
+  useEffect(() => router.prefetch(feedHref), [router, feedHref]);
 
   // The front category goes into the URL, so the back button and shared links return to it. A fresh visit keeps a clean URL.
   useEffect(() => {
@@ -179,11 +191,18 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
     window.history.replaceState(null, '', url);
   }, [front.id, categories]);
 
-  // A card at the side turns to the front; the front card opens its category as a grid.
+  // A card at the side turns to the front; the front card opens its category's feed.
   const handleCardClick = (index: number) => {
     const offset = mod(index - frontIndex + Math.floor(count / 2), count) - Math.floor(count / 2);
-    if (offset === 0) router.push(`/category/${front.id}`);
+    if (offset === 0) openFeed(feedHref);
     else setStep((current) => current + offset);
+  };
+
+  // A plain click morphs into the feed; a new-tab or middle click stays a normal link.
+  const handleFeedLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    openFeed(feedHref);
   };
 
   return (
@@ -246,6 +265,9 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
                     </div>
                     <p className={styles.caption}>
                       <span className={styles.captionName}>{category.name}</span>
+                      {Boolean(category.newCount) && (
+                        <span className={styles.captionNew}>{t('CATEGORY_NEW_COUNT', { count: category.newCount ?? 0 })}</span>
+                      )}
                     </p>
                   </button>
                 </li>
@@ -271,12 +293,27 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
       {/* The rings of the front category on a second ring below, curved the other way; keyed, so a new category starts at its first ring. */}
       <ConcaveRingRow
         key={front.id}
-        products={front.products}
+        products={rowProducts}
         categoryId={front.id}
         renderActions={
           admin && ((product) => <RingTileActions productId={product.id} name={product.name} ringIds={front.products.map((ring) => ring.id)} />)
         }
         addTile={admin && frontAdminCategory && <AddRingTile href={admin.addProductHrefs[frontAdminCategory.id]} name={front.name} />}
+        moreTile={
+          hiddenCount > 0 && (
+            <Link
+              href={feedHref}
+              onClick={handleFeedLinkClick}
+              draggable={false}
+              className='flex size-full flex-col items-center justify-center gap-1 rounded-2xl border border-primary/40 bg-card text-primary transition hover:border-primary'
+            >
+              <span className='font-display text-4xl'>+{hiddenCount}</span>
+              <span className='inline-flex items-center gap-0.5 text-sm font-medium'>
+                {t('CATEGORY_SEE_ALL')} <ChevronRight className='size-4' aria-hidden />
+              </span>
+            </Link>
+          )
+        }
       />
 
       {/* The name already shows under the front card; a fixed height keeps the banner from jumping. */}
@@ -284,10 +321,11 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
         <p className='sr-only'>{front.name}</p>
         <p className='line-clamp-2 text-balance text-sm leading-5 text-muted-foreground'>{front.text}</p>
         <Link
-          href={`/explore?c=${front.id}`}
+          href={feedHref}
+          onClick={handleFeedLinkClick}
           className='inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline'
         >
-          {t('CATEGORY_SEE_ALL')} <ChevronRight className='size-3.5' aria-hidden />
+          {t('CATEGORY_SEE_ALL_IN', { category: front.name, count: front.products.length })} <ChevronRight className='size-3.5' aria-hidden />
         </Link>
       </div>
     </section>

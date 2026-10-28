@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, MessageCircle, Plus, Save, Sparkles, Star, X } from 'lucide-react';
+import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   chooseListingText,
   createAdminListingPicture,
+  enableAdminListing,
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
@@ -24,6 +25,7 @@ import {
   updateAdminListing,
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
+import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
@@ -34,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { isVideoUrl, videoPoster } from '@/lib/video';
 import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
+import PaymentPanel, { type AdminPayMethod } from './payment-panel';
 import PhotoUpload from './photo-upload';
 import TextModeSwitch from './text-mode-switch';
 
@@ -154,6 +157,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
   const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
+  const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
@@ -253,6 +257,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
     );
   };
 
+  const markPaid = (method: AdminPayMethod, amount: string) => run(() => markListingPaid(listing.id, { plan, method, amount }), onPublished);
+
   // The edits so far stay with the current text; the other one comes back as it was, or is made once.
   const switchText = async (mode: TextMode) => {
     setError('');
@@ -282,6 +288,14 @@ export default function ListingEditor({ listing, categories, places, languages, 
   return (
     <div className='mx-auto w-full max-w-xl space-y-4'>
       <ListingStatus status={listing.status} saveState={saveState} texts={texts} />
+      {listing.status === 'EXPIRED' && (
+        <div className='space-y-1'>
+          <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
+            {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {texts.enableAgain}
+          </Button>
+          <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
+        </div>
+      )}
       {listing.status === 'LIVE' && (
         <div className='flex flex-wrap gap-3'>
           {listing.product && (
@@ -635,10 +649,22 @@ export default function ListingEditor({ listing, categories, places, languages, 
       {isOpen && hasPersonWhatsApp && (
         <div className='space-y-1'>
           <Button variant='outline' className='h-12 w-full rounded-full' disabled={isPending} onClick={sendByWhatsApp}>
-            <MessageCircle /> {texts.sendWhatsApp}
+            <MessageCircle /> {isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}
           </Button>
-          <p className='text-center text-xs text-muted-foreground'>{texts.sendWhatsAppHint}</p>
+          <p className='text-center text-xs text-muted-foreground'>{isAwaitingPayment ? texts.resendLinkHint : texts.sendWhatsAppHint}</p>
         </div>
+      )}
+
+      {isOpen && (hasPersonWhatsApp || isAwaitingPayment) && (
+        <PaymentPanel
+          listing={listing}
+          plan={plan}
+          hasPersonNumber={hasPersonWhatsApp}
+          texts={texts}
+          isPending={isPending}
+          onConsent={() => run(() => recordWhatsAppConsent(listing.id))}
+          onPaid={markPaid}
+        />
       )}
 
       {isOpen && (

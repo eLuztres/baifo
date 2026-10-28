@@ -319,6 +319,32 @@
     text-wrap: balance;
 }
 
+/* "New: 3" under a category's name: what changed since the last visit, a reason to turn the ring. */
+.captionNew {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    /* Grows with the card like the name, so it still reads on the smaller cards at the sides. */
+    font-size: clamp(0.75rem, calc(var(--card-w) * 0.06), 1rem);
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* Phones: the front card's name already fills the room above the row below; its listings show right there anyway. */
+@media (max-width: 1023px) {
+    .card[aria-current] .captionNew {
+        display: none;
+    }
+}
+
+.captionNew::before {
+    content: '';
+    width: 0.4rem;
+    aspect-ratio: 1;
+    border-radius: 9999px;
+    background: currentColor;
+}
+
 /* The ring's photos cross-fade in the featured card, each drifting in with a slow zoom. */
 /* Views fade through the dark, never overlapping: differently framed photos would show two rings at once. */
 .galleryImage {

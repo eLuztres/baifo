@@ -225,6 +225,13 @@ describe('publishAdminListing', () => {
     expect((await publishAdminListing(ID, 'normal')).success).toBe(false);
     expect(publishByAdmin).not.toHaveBeenCalled();
   });
+
+  it('puts the person\'s number online only with their recorded OK', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', startsAt: null, consentAt: null, seller: { waId: '34600111222' } });
+
+    expect((await publishAdminListing(ID, 'normal')).success).toBe(false);
+    expect(publishByAdmin).not.toHaveBeenCalled();
+  });
 });
 
 describe('retryAdminListing', () => {

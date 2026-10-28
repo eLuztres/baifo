@@ -147,7 +147,7 @@ For each chosen service:
 | PayPal | § 7 | `PAYPAL_CLIENT_ID`, `PAYPAL_APP_SECRET`, `PAYPAL_API_URL` |
 | Resend | § 8 | `RESEND_API_KEY`, `SENDER_EMAIL` |
 | UploadThing | § 9 | `UPLOADTHING_TOKEN` |
-| Domain | § 10 | `NEXT_PUBLIC_SERVER_URL`, plus the Google/Stripe URLs |
+| Domain + Search Console | § 10 | `NEXT_PUBLIC_SERVER_URL`, plus the Google/Stripe URLs. Then Search Console: the user signs in to Google and approves the DNS verification themselves; submitting the sitemap and requesting indexing can be done in their Chrome |
 
 Start payments in test/sandbox mode. Switch to live keys only when the user says the customer is ready.
 

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import ProductMedia from '@/components/ProductMedia';
+import { FEED_COVER_TRANSITION } from '@/components/shared/product/feed-cover';
 import FeedCard from '@/components/shared/product/feed-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +41,9 @@ interface ExploreFilters {
   sub?: string;
   isToday?: boolean;
 }
+
+/** The home page's category ring, turned to this category (category-ring.tsx reads `category`). */
+const ringHref = (slug?: string) => (slug ? `/?category=${slug}#showroom` : '/#showroom');
 
 /** The feed's link with these filters and the search; `hoy` stays a bare flag (/explore?hoy). */
 const exploreHref = ({ tipo, c, sub, isToday }: ExploreFilters, query = '') => {
@@ -92,21 +97,89 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     : [];
   const subcategory = subcategories.find((item) => item.slug === subSlug);
   const slugOf = new Map(categories.map((category) => [category.id, category.slug]));
-  const feed = composeFeed(shownListings, subcategory?.id ?? focus?.id, `${todayOnTheIsland()}:${typeParam ?? ''}:${focus?.slug ?? ''}:${subcategory?.slug ?? ''}`);
+  // Coming from the ring the feed opens inside that category: all of it first, then the rest of the island mixed.
+  const focusId = subcategory?.id ?? focus?.id;
+  const focusFeed = focusId ? shownListings.filter((listing) => listing.categoryIds.includes(focusId)) : [];
+  const restFeed = composeFeed(
+    shownListings.filter((listing) => !focusFeed.includes(listing)),
+    undefined,
+    `${todayOnTheIsland()}:${typeParam ?? ''}:${focus?.slug ?? ''}:${subcategory?.slug ?? ''}`
+  );
+  const feed = [...focusFeed, ...restFeed];
+  // The ring's categories in its order; the way back turns it to the one after this.
+  const ringCategories = categories.filter((category) => placedListings.some((listing) => listing.categoryIds.includes(category.id)));
+  const focusRingIndex = ringCategories.findIndex((category) => category.id === focus?.id);
+  const nextCategory = focusRingIndex >= 0 && ringCategories.length > 1 ? ringCategories[(focusRingIndex + 1) % ringCategories.length] : undefined;
+  const focusCover = focus && (focus.image ?? focusFeed[0]?.image);
   // Type and category combine: each chip changes its own filter and keeps the other one and the search.
   const filters: ExploreFilters = { tipo: typeParam, c: focus?.slug, isToday: isTodayOnly };
   const now = new Date();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
 
+  // Every ninth tile is big; each part of the feed (the category, then the rest) starts its own mosaic.
+  const renderTiles = (tiles: typeof feed) => (
+    <ul className={styles.grid}>
+      {tiles.map((listing, index) => {
+        const isLarge = index % BLOCK_SIZE === 0;
+        const isRight = Math.floor(index / BLOCK_SIZE) % 2 === 1;
+        // The listing's own category, so its page leads back to a feed that opens with similar things.
+        const categorySlug = listing.categoryIds.map((id) => slugOf.get(id)).find(Boolean);
+        // A listing's product is created when it goes live, so createdAt is its publish time.
+        const isNew = now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
+        return (
+          <li key={listing.id} className={cn(styles.tile, isLarge && styles.large, isLarge && isRight && styles.right)}>
+            <FeedCard
+              href={categorySlug ? `/product/${listing.slug}?c=${categorySlug}` : `/product/${listing.slug}`}
+              name={localizeProduct(listing, locale).name}
+              images={listing.images}
+              price={listing.price}
+              priceMax={listing.priceMax}
+              {...feedCardLabels(listing, t, locale, now)}
+              note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
+              isReserved={listing.isReserved}
+              reservedLabel={t('RESERVE_BADGE')}
+              newLabel={isNew ? t('EXPLORE_NEW_BADGE') : undefined}
+              listedAgo={[timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
+              isLarge={isLarge}
+            />
+          </li>
+        );
+      })}
+    </ul>
+  );
+
   return (
-    <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:py-10'>
-      <header className='space-y-2'>
-        <div className='flex flex-wrap items-baseline gap-x-4 gap-y-1'>
-          <h1 className='text-balance font-display text-4xl leading-tight sm:text-5xl'>{t('EXPLORE_TITLE')}</h1>
-          <p className='text-sm tabular-nums text-muted-foreground'>{t('STORE_CATEGORY_RINGS', { count: feed.length })}</p>
-        </div>
-        <p className='max-w-2xl text-pretty text-muted-foreground'>{t('EXPLORE_INTRO', { shop: APP_NAME })}</p>
-      </header>
+    // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
+    <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:py-10' data-feed-page=''>
+      {focus ? (
+        // Inside a category: its ring card, small, so the visitor sees where they came in; the ring's front card grows into it.
+        <header className='flex items-center gap-4 sm:gap-6'>
+          {focusCover && (
+            <div
+              className='relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-2xl border border-primary/40 shadow-lg sm:w-28'
+              style={{ viewTransitionName: FEED_COVER_TRANSITION }}
+            >
+              <ProductMedia src={focusCover} alt='' fill sizes='7rem' />
+            </div>
+          )}
+          <div className='min-w-0 space-y-1'>
+            {/* Long one-word names (Musikinstrumente) break instead of running off a phone. */}
+            <h1 className='hyphens-auto text-balance break-words font-display text-3xl leading-tight sm:text-5xl'>{localize(focus.name, locale)}</h1>
+            <p className='text-sm tabular-nums text-muted-foreground'>{t('STORE_CATEGORY_RINGS', { count: focusFeed.length })}</p>
+            <Link href={ringHref(focus.slug)} className='inline-flex items-center gap-0.5 text-sm font-medium text-primary underline-offset-4 hover:underline'>
+              <ChevronLeft className='size-4' aria-hidden /> {t('EXPLORE_TO_RING')}
+            </Link>
+          </div>
+        </header>
+      ) : (
+        <header className='space-y-2'>
+          <div className='flex flex-wrap items-baseline gap-x-4 gap-y-1'>
+            <h1 className='text-balance font-display text-4xl leading-tight sm:text-5xl'>{t('EXPLORE_TITLE')}</h1>
+            <p className='text-sm tabular-nums text-muted-foreground'>{t('STORE_CATEGORY_RINGS', { count: feed.length })}</p>
+          </div>
+          <p className='max-w-2xl text-pretty text-muted-foreground'>{t('EXPLORE_INTRO', { shop: APP_NAME })}</p>
+        </header>
+      )}
 
       {/* Stays under the header while scrolling, so another category is always one tap away. */}
       <div className='sticky top-[calc(4rem+1px)] z-10 -mx-4 space-y-2 bg-background/85 px-4 py-3 backdrop-blur-md sm:top-[calc(5rem+1px)]'>
@@ -197,34 +270,23 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       ) : feed.length === 0 ? (
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : (
-        <ul className={styles.grid}>
-          {feed.map((listing, index) => {
-            const isLarge = index % BLOCK_SIZE === 0;
-            const isRight = Math.floor(index / BLOCK_SIZE) % 2 === 1;
-            // The listing's own category, so its page leads back to a feed that opens with similar things.
-            const categorySlug = listing.categoryIds.map((id) => slugOf.get(id)).find(Boolean);
-            // A listing's product is created when it goes live, so createdAt is its publish time.
-            const isNew = now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
-            return (
-              <li key={listing.id} className={cn(styles.tile, isLarge && styles.large, isLarge && isRight && styles.right)}>
-                <FeedCard
-                  href={categorySlug ? `/product/${listing.slug}?c=${categorySlug}` : `/product/${listing.slug}`}
-                  name={localizeProduct(listing, locale).name}
-                  images={listing.images}
-                  price={listing.price}
-                  priceMax={listing.priceMax}
-                  {...feedCardLabels(listing, t, locale, now)}
-                  note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
-                  isReserved={listing.isReserved}
-                  reservedLabel={t('RESERVE_BADGE')}
-                  newLabel={isNew ? t('EXPLORE_NEW_BADGE') : undefined}
-                  listedAgo={[timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
-                  isLarge={isLarge}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {renderTiles(focusFeed)}
+          {/* The category ends here: said so, with the way back to the ring, before the rest of the island. */}
+          {focus && focusFeed.length > 0 && restFeed.length > 0 && (
+            <div className='flex flex-col items-center gap-2 py-10 text-center'>
+              <span aria-hidden='true' className='h-px w-16 bg-gradient-to-r from-transparent via-primary to-transparent' />
+              <p className='text-balance font-display text-2xl sm:text-3xl'>{t('EXPLORE_CATEGORY_DONE', { category: localize(focus.name, locale) })}</p>
+              <p className='text-pretty text-muted-foreground'>{t('EXPLORE_CATEGORY_REST')}</p>
+              {nextCategory && (
+                <Link href={ringHref(nextCategory.slug)} className='mt-1 inline-flex items-center gap-0.5 text-sm font-medium text-primary underline-offset-4 hover:underline'>
+                  {t('EXPLORE_NEXT_CATEGORY', { category: localize(nextCategory.name, locale) })} <ChevronRight className='size-4' aria-hidden />
+                </Link>
+              )}
+            </div>
+          )}
+          {renderTiles(restFeed)}
+        </>
       )}
 
       {/* A clear end instead of a void: browsers who found nothing are invited to sell or offer something. */}
@@ -233,8 +295,15 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           <span aria-hidden='true' className='h-px w-16 bg-gradient-to-r from-transparent via-primary to-transparent' />
           <p className='text-balance font-display text-2xl sm:text-3xl'>{t('EXPLORE_END_TITLE')}</p>
           <p className='max-w-md text-pretty text-muted-foreground'>{t('EXPLORE_END_TEXT', { shop: APP_NAME })}</p>
+          {/* The end leads back to the ring, the visit's high point, turned to the next category. */}
+          <Button asChild variant='outline' size='lg' className='mt-2 rounded-full'>
+            <Link href={ringHref(nextCategory?.slug)}>
+              {nextCategory ? t('EXPLORE_NEXT_CATEGORY', { category: localize(nextCategory.name, locale) }) : t('EXPLORE_TO_RING')}
+              <ChevronRight aria-hidden />
+            </Link>
+          </Button>
           {whatsappUrl && (
-            <Button asChild size='lg' className='mt-2 rounded-full'>
+            <Button asChild size='lg' className='rounded-full'>
               <a href={whatsappUrl} target='_blank' rel='noopener noreferrer'>
                 {t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE })}
               </a>

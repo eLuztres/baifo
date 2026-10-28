@@ -68,4 +68,13 @@ describe('groupByCategory', () => {
   it('keeps empty categories for admins', () => {
     expect(groupByCategory(categories, rings, 'es', true).map((group) => group.id)).toEqual(['lava', 'wood', 'carbon']);
   });
+
+  it('counts the rings that went into the shop lately, for "New: 1" on the ring card', () => {
+    const fresh = { ...ring('c', ['c2']), createdAt: new Date() };
+    const groups = groupByCategory(categories, [...rings, fresh], 'es');
+    expect(groups.map((group) => [group.id, group.newCount])).toEqual([
+      ['lava', 0],
+      ['wood', 1],
+    ]);
+  });
 });

@@ -1,4 +1,5 @@
 [
   {"href": "/admin/listings", "label": {"es": "Anuncios", "en": "Listings", "it": "Annunci", "fr": "Annonces", "de": "Anzeigen"}},
-  {"href": "/admin/places", "label": {"es": "Lugares", "en": "Places", "it": "Luoghi", "fr": "Lieux", "de": "Orte"}}
+  {"href": "/admin/payments", "label": {"es": "Pagos", "en": "Payments", "it": "Pagamenti", "fr": "Paiements", "de": "Zahlungen"}},
+  {"href": "/admin/places","label": {"es": "Lugares", "en": "Places", "it": "Luoghi", "fr": "Lieux", "de": "Orte"}}
 ]

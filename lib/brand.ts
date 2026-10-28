@@ -140,7 +140,8 @@ export const BRAND = {
     phone: env('CONTACT_PHONE') ?? (whatsapp ? `+${whatsapp}` : undefined),
     whatsappUrl: whatsapp ? `https://wa.me/${whatsapp}` : undefined,
     /** The "sell" links and QR code: the chat opens with the message already typed, in the visitor's language. */
-    sellWhatsappUrl: (message: string) => (whatsapp ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(message)}` : undefined),
+    // api.whatsapp.com directly: the wa.me redirect turns emoji like 📸 into "�".
+    sellWhatsappUrl: (message: string) => (whatsapp ? `https://api.whatsapp.com/send?phone=${whatsapp}&text=${encodeURIComponent(message)}` : undefined),
     instagram,
     instagramUrl: socialUrl('https://www.instagram.com/', instagram),
     // Whether the website shows each one; the email still sends and receives the shop's mail when hidden.
