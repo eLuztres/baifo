@@ -31,7 +31,8 @@ export default async function PaymentsPage() {
         <p className='text-muted-foreground'>{texts.paymentsEmpty}</p>
       ) : (
         <div className='overflow-x-auto'>
-          <Table>
+          {/* Cells stay on one line; on a phone the table scrolls sideways instead of squeezing headers into letters. */}
+          <Table className='whitespace-nowrap'>
             <TableHeader>
               <TableRow>
                 <TableHead>{texts.paymentsDate}</TableHead>

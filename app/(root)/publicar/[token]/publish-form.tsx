@@ -114,7 +114,8 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
         </div>
         {isBizum && (
           <div className='space-y-2 rounded-2xl bg-muted p-4'>
-            <p className='font-semibold'>{fill(texts.payBizum, { price, phone: payment.bizumPhone ?? '' })}</p>
+            {/* Non-breaking spaces: the number must stay on one line to be read and typed in. */}
+            <p className='font-semibold'>{fill(texts.payBizum, { price, phone: (payment.bizumPhone ?? '').replace(/ /g, ' ') })}</p>
             <div className='flex flex-wrap items-center gap-2 text-sm'>
               <span className='text-muted-foreground'>{texts.payConcept}</span>
               <span className='font-mono text-base font-semibold tracking-wider'>{payment.code}</span>

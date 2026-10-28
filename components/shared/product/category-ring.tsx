@@ -242,7 +242,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
         )}
         <div className={styles.tilt}>
           {center === 'band' && <GoldEngraving className={cn(styles.centerBand, styles.turning)} />}
-          {hasPiece && flyers.length > 0 && <Flyers srcs={flyers} />}
           <ul className={cn(styles.ring, styles.turning)}>
             {Array.from({ length: count }, (_, index) => {
               const category = categories[index % categories.length];
@@ -275,6 +274,12 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
             })}
           </ul>
         </div>
+        {/* A scene of their own after the cards', so the gulls fly over the cards instead of behind them. */}
+        {hasPiece && flyers.length > 0 && (
+          <div className={styles.tilt}>
+            <Flyers srcs={flyers} />
+          </div>
+        )}
       </div>
       {/* An arrow on each side of the front card's name; beside the stage, whose faded edges would hide them on a phone. */}
       {captionSpots.map(({ offset, x, y }) => (

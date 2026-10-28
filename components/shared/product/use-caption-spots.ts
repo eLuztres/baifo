@@ -10,7 +10,7 @@ export interface CaptionSpot {
 }
 
 const OFFSETS = [-1, 1] as const;
-// From an arrow's middle to the name: half the arrow (2.5rem, .turnHint) and a little air.
+// From an arrow's middle to the caption: half the arrow (2.5rem, .turnHint) and a little air.
 const NAME_GAP_PX = 28;
 // How close an arrow's middle may come to the stage's edge, so a long name never pushes it off screen.
 const EDGE_PX = 24;
@@ -32,15 +32,18 @@ export function useCaptionSpots(stageRef: RefObject<HTMLDivElement | null>, fron
     const measure = () => {
       const stageBox = stage.getBoundingClientRect();
       const parentBox = (stage.parentElement ?? stage).getBoundingClientRect();
-      const name = stage.querySelectorAll('li')[frontIndex]?.querySelector('p > span');
-      if (!name) return;
+      const caption = stage.querySelectorAll('li')[frontIndex]?.querySelector('p');
+      const name = caption?.querySelector('span');
+      if (!caption || !name) return;
       const box = name.getBoundingClientRect();
+      // Beside the caption, as wide as the card whatever the name: beside the name they moved with every name's length.
+      const captionBox = caption.getBoundingClientRect();
       const stageSize = `${Math.round(stageBox.width)}x${Math.round(stageBox.height)}`;
       if (height.current?.stageSize !== stageSize) height.current = { y: box.top + box.height / 2 - parentBox.top, stageSize };
       const { y } = height.current;
       setSpots(
         OFFSETS.map((offset) => {
-          const side = offset === -1 ? box.left - NAME_GAP_PX : box.right + NAME_GAP_PX;
+          const side = offset === -1 ? captionBox.left - NAME_GAP_PX : captionBox.right + NAME_GAP_PX;
           const x = Math.min(Math.max(side, stageBox.left + EDGE_PX), stageBox.right - EDGE_PX);
           return { offset, x: x - parentBox.left, y };
         })
@@ -53,8 +56,15 @@ export function useCaptionSpots(stageRef: RefObject<HTMLDivElement | null>, fron
       measure();
       observer.observe(stage);
     }, settleMs);
+    // The ring's entrance only plays once the ring shows, often long after the timer: its end sets the height anew.
+    const remeasure = () => {
+      height.current = null;
+      measure();
+    };
+    stage.addEventListener('animationend', remeasure);
     return () => {
       clearTimeout(settleTimer);
+      stage.removeEventListener('animationend', remeasure);
       observer.disconnect();
     };
   }, [stageRef, frontIndex, settleMs]);
