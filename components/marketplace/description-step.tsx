@@ -39,10 +39,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   // Only a click on "the person's WhatsApp" jumps to the number, not the page opening with it chosen.
   const [hasPickedPerson, setHasPickedPerson] = useState(false);
   const [sellerPhone, setSellerPhone] = useState('');
-  // Chosen before the AI runs: improve the text, or keep the admin's words and only translate them.
+  // Chosen before the AI runs: improve the text, or keep the admin's words (maybe with their mistakes fixed) and translate them.
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
   const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
   const isOriginal = textMode === 'original';
+  const isOwnWords = textMode !== 'ai';
+  const modeResults = { ai: texts.textModeAiResult, corrected: texts.textModeCorrectedResult, original: texts.textModeOriginalResult };
   const languageList = languages.map(({ label }) => label).join(', ');
   const { t } = useI18n();
   const [error, setError] = useState('');
@@ -55,7 +57,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   // The AI's pictures run on their own since the upload (without a photo: since sending), so the admin writes meanwhile.
   const showsPictureWork = listing.usesAi && !listing.lastError && (!hasNoPhoto || isWriting);
   const hasText = Boolean(listing.title);
-  const placeholder = isOriginal
+  const placeholder = isOwnWords
     ? texts.tellOriginalPlaceholder
     : isService
       ? texts.tellServicePlaceholder
@@ -119,7 +121,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
           {/* Spoken words land in the field, where they can still be corrected before sending. */}
           {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
         </div>
-        {isOriginal && (
+        {isOwnWords && (
           <div className='space-y-1'>
             <Label htmlFor='original-title' className='px-1 text-xs text-muted-foreground'>
               {texts.originalTitleLabel}
@@ -148,7 +150,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
           <TextModeSwitch value={textMode} onChange={setTextMode} texts={texts} disabled={isWriting} />
           {languageList && (
             <p className='px-1 text-xs text-muted-foreground'>
-              {fillText(isOriginal ? texts.textModeOriginalResult : texts.textModeAiResult, { languages: languageList })}
+              {fillText(modeResults[textMode], { languages: languageList })}
             </p>
           )}
         </div>
@@ -221,7 +223,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
         {/* Solid even when disabled: it floats over the form, which must not show through it. */}
         <Button
           className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
-          disabled={isPending || isWriting || ((isOriginal || hasNoPhoto) && !notes.trim())} onClick={send}>
+          disabled={isPending || isWriting || ((isOwnWords || hasNoPhoto) && !notes.trim())} onClick={send}>
           {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
           {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
           {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}

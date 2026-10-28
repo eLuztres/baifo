@@ -9,13 +9,13 @@ import {
   setAdminListingCategory,
   updateAdminListing,
 } from '@/lib/marketplace/admin.actions';
-import { createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
+import { correctText, createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { publishByAdmin } from '@/lib/marketplace/publish';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
-jest.mock('@/lib/marketplace/ai', () => ({ translateText: jest.fn(), writeListing: jest.fn(), createPicture: jest.fn(async () => Buffer.from('')) }));
+jest.mock('@/lib/marketplace/ai', () => ({ correctText: jest.fn(), translateText: jest.fn(), writeListing: jest.fn(), createPicture: jest.fn(async () => Buffer.from('')) }));
 jest.mock('@/lib/marketplace/media', () => ({
   fetchImage: jest.fn(async () => Buffer.from('')),
   uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
@@ -192,6 +192,16 @@ describe('describeAdminListing', () => {
     expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: 'baifo' });
   });
 
+  it('keeps the admin\'s title for "only fix mistakes", but not for the AI\'s text', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'corrected', originalTitle: 'Mi bici' });
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'ai', originalTitle: 'Mi bici' });
+
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ textMode: 'corrected', originalTitle: 'Mi bici' });
+    expect(db.submission.updateMany.mock.calls[1][0].data).toMatchObject({ textMode: 'ai', originalTitle: null });
+  });
+
   it('starts the text only once, when the description was already sent', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
@@ -330,6 +340,14 @@ describe('text versions', () => {
     expect(db.submission.update.mock.calls[0][0].data.textMode).toBe('original');
   });
 
+  it('brings back the corrected version made before without asking the AI again', async () => {
+    db.submission.findUnique.mockResolvedValue({ textVersions: { corrected: OWN }, rawText: 'bici comoda' });
+
+    expect(await chooseListingText(ID, 'corrected')).toMatchObject({ success: true, texts: OWN });
+    expect(correctText).not.toHaveBeenCalled();
+    expect(translateText).not.toHaveBeenCalled();
+  });
+
   it('translates the admin\'s own words the first time the original is chosen', async () => {
     db.submission.findUnique.mockResolvedValue({ textVersions: {}, rawText: 'bici comoda', originalTitle: 'Mi bici', title: 'Bici de paseo' });
     (translateText as jest.Mock).mockResolvedValue({ en: OWN.en });
@@ -339,8 +357,20 @@ describe('text versions', () => {
     expect(translateText).toHaveBeenCalledWith({ ...OWN.es, short: '' }, 'es', ['en']);
   });
 
-  it('refuses "my text as is" without a text', async () => {
+  it('corrects and translates the admin\'s own words the first time "only fix mistakes" is chosen', async () => {
+    db.submission.findUnique.mockResolvedValue({ textVersions: {}, rawText: 'bici comoda', originalTitle: 'Mi bici', title: 'Bici de paseo' });
+    const corrected = { es: { title: 'Mi bici', description: 'Bici cómoda' }, en: OWN.en };
+    (correctText as jest.Mock).mockResolvedValue(corrected);
+
+    expect(await chooseListingText(ID, 'corrected')).toMatchObject({ texts: corrected });
+    expect(correctText).toHaveBeenCalledWith({ ...OWN.es, short: '' }, 'es', ['en']);
+    expect(writeListing).not.toHaveBeenCalled();
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ textMode: 'corrected', textVersions: { corrected } });
+  });
+
+  it('refuses "my text as is" and "only fix mistakes" without a text', async () => {
     expect((await describeAdminListing(ID, { notes: '  ', textMode: 'original' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: '  ', textMode: 'corrected' })).success).toBe(false);
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 });

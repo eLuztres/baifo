@@ -11,7 +11,7 @@ import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
-import { createPicture, translateText, writeListing } from './ai';
+import { correctText, createPicture, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
@@ -74,7 +74,7 @@ const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema,
-  // 'original': the notes are the description as they are, only translated.
+  // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
 });
@@ -87,7 +87,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, textMode, originalTitle } = parsed.data;
-  if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
+  if (textMode !== 'ai' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true } });
   // A video without a still counts as no photo: the AI makes the picture from the description.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
@@ -103,7 +103,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       rawText: notes,
       sellerId: seller.id,
       textMode,
-      originalTitle: (textMode === 'original' && originalTitle) || null,
+      originalTitle: (textMode !== 'ai' && originalTitle) || null,
       lastError: null,
     },
   });
@@ -262,8 +262,9 @@ const listingLocales = () => {
   return [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
 };
 
-/** Switches between the admin's own text and the AI's. A version made before comes back at once; a missing one is
-    written now (AI) or translated now (original), once. The editor saves what it gets back. */
+/** Switches between the admin's own text, the same corrected, and the AI's. A version made before comes back at once; a
+    missing one is written now (AI), corrected and translated now (corrected) or translated now (original), once. The
+    editor saves what it gets back. */
 export async function chooseListingText(id: string, mode: TextMode) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success || !textModeSchema.safeParse(mode).success) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id } });
@@ -272,10 +273,11 @@ export async function chooseListingText(id: string, mode: TextMode) {
   const [shopLocale, ...otherLocales] = listingLocales();
   let texts = versions[mode];
   try {
-    if (!texts && mode === 'original') {
+    if (!texts && mode !== 'ai') {
       if (!submission.rawText.trim()) return { success: false, message: 'No hay texto original' };
       const own = { title: submission.originalTitle || submission.title || '', description: submission.rawText, short: submission.shortTitle ?? '' };
-      texts = { [shopLocale]: own, ...(await translateText(own, shopLocale, otherLocales)) };
+      texts =
+        mode === 'corrected' ? await correctText(own, shopLocale, otherLocales) : { [shopLocale]: own, ...(await translateText(own, shopLocale, otherLocales)) };
     }
     if (!texts) {
       const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);

@@ -199,18 +199,24 @@ const eventPrompt = (adminText: string, categories: ListingCategory[], locales: 
   '- address: where it is (venue, street, town), as stated, or null.\n' +
   (adminText ? `What the admin wrote about the event (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
-/** The admin's own words, used as they are: the AI only translates them, and names a missing title. */
+/** The admin's own words, used as they are: the AI only translates them, and names a missing title. With
+    `isCorrected`, it also fixes their spelling and grammar first. */
 export interface KeptText {
   title?: string;
   description: string;
+  isCorrected?: boolean;
 }
+
+const CORRECTION_RULE =
+  'with only its spelling, grammar and punctuation mistakes fixed: keep their words, style, tone and order, and never ' +
+  'rewrite, add or leave out anything';
 
 // Added after the usual prompt, so category, condition and price are still read from the text.
 const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   `IMPORTANT: the admin wants their own words, so the texts rule above does not apply. In ${locales[0]}, the ` +
-  (kept.title ? `title is exactly "${kept.title}"` : 'title is 2–6 words taken from their text') +
-  ' and the description is exactly their text, word for word. Every other language gets a faithful translation of ' +
-  'that title and description, adding and leaving out nothing.\n';
+  (kept.title ? `title is ${kept.isCorrected ? '' : 'exactly '}"${kept.title}"` : 'title is 2–6 words taken from their text') +
+  (kept.isCorrected ? ` and the description is their text, both ${CORRECTION_RULE}.` : ' and the description is exactly their text, word for word.') +
+  ' Every other language gets a faithful translation of that title and description, adding and leaving out nothing.\n';
 
 // Added when the admin started the listing as "Busco": the wanted rule above is the one that applies.
 const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow the WANTED rule for texts, condition, price and category.\n';
@@ -256,7 +262,7 @@ export const createPicture = (text: { title: string; description: string }, type
   generateImage(picturePrompt(text, type, ITEM_SCENE), { size: LISTING_PHOTO_SIZE });
 
 /** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
-    an item also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.
+    an item also gets condition and price. With `kept`, the admin's own text stays as it is (or only corrected) and is translated.
     Without a photo the AI goes by the text alone. A PRODUCT may come back as WANTED (someone looking for it); the
     other types stay as the admin chose them. With several live `places`, it also names the town. */
 export async function writeListing(
@@ -289,8 +295,8 @@ export async function writeListing(
       ),
     })
   );
-  // The AI may still tidy the admin's words; their own text wins.
-  if (kept) {
+  // The AI may still tidy the admin's words; their own text wins, unless it was only to fix their mistakes.
+  if (kept && !kept.isCorrected) {
     const own = result.texts[locales[0]];
     result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description, short: own?.short };
   }
@@ -312,6 +318,23 @@ export async function writeCategoryText(text: { title: string; description: stri
   const result = await draftText(null, '', null, {
     prompt: categoryTextPrompt(locales) + `Name: ${text.title}\nWhat the admin wrote: ${text.description || '(nothing)'}\n`,
     schema: { type: 'object', properties: { texts: textsJsonSchema(locales) }, required: ['texts'] },
+  });
+  return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
+}
+
+/** The admin's title and description with only their mistakes fixed, in their language and translated into the others. */
+export async function correctText(text: { title: string; description: string; short?: string }, from: Locale, locales: Locale[]) {
+  const result = await draftText(null, '', null, {
+    prompt:
+      `Correct this listing's title and description in ${LANGUAGE_NAMES[from]}, ${CORRECTION_RULE}. Write the short ` +
+      'title as 1–3 words. ' +
+      (locales.length > 0
+        ? `Then translate the corrected texts into ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: faithfully ` +
+          'and naturally, keeping the tone, adding and leaving out nothing, names, places and numbers as they are. '
+        : '') +
+      'Return JSON with texts.\n' +
+      `Title: ${text.title}\nDescription: ${text.description}\nShort title: ${text.short || text.title}\n`,
+    schema: { type: 'object', properties: { texts: textsJsonSchema([from, ...locales], listingTextJsonSchema) }, required: ['texts'] },
   });
   return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;
 }

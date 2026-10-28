@@ -98,7 +98,11 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   const shopLocale = getShopLocale();
   const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
   // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
-  const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
+  // 'corrected': the same, with their spelling and grammar fixed first.
+  const kept =
+    submission.textMode === 'ai'
+      ? undefined
+      : { title: submission.originalTitle ?? undefined, description: submission.rawText, isCorrected: submission.textMode === 'corrected' };
   const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
   const livePlaces = places.filter((place) => place.isLive);
   const text = await writeListing(firstPhoto, submission.rawText, categories, locales, submission.type, kept, livePlaces);

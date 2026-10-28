@@ -1,5 +1,5 @@
 import { categoryRefs, findCategory, toProductTranslations } from '@/lib/marketplace/catalog';
-import { translateText, writeListing } from '@/lib/marketplace/ai';
+import { correctText, translateText, writeListing } from '@/lib/marketplace/ai';
 import { draftText } from '@/lib/studio/openai.mjs';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
@@ -142,6 +142,38 @@ describe('writeListing with the admin\'s own text', () => {
     const listing = await writeListing(Buffer.from(''), 'bici comoda', CATEGORIES, ['es', 'en'], 'PRODUCT', { description: 'bici comoda' });
 
     expect(listing.texts.es).toEqual({ title: 'Bici de paseo', description: 'bici comoda' });
+  });
+});
+
+describe('writeListing with the admin\'s own text, only corrected', () => {
+  beforeEach(() => draft.mockReset());
+
+  it('keeps the AI\'s corrected words and asks it only to fix mistakes', async () => {
+    const corrected = { title: 'Mi bici', description: 'Bici cómoda, 80 €.' };
+    draft.mockResolvedValue({ texts: { es: corrected, en: TEXTS.en }, category: 'motor', condition: 'good', price: 80 });
+
+    const listing = await writeListing(Buffer.from(''), 'bici comoda 80€', CATEGORIES, ['es', 'en'], 'PRODUCT', {
+      title: 'Mi bici',
+      description: 'bici comoda 80€',
+      isCorrected: true,
+    });
+
+    expect(listing.texts.es).toEqual(corrected);
+    expect(draft.mock.calls[0][3].prompt).toContain('only its spelling, grammar and punctuation mistakes fixed');
+  });
+});
+
+describe('correctText', () => {
+  beforeEach(() => draft.mockReset());
+
+  it('corrects the shop-language text and translates it in one go', async () => {
+    draft.mockResolvedValue({ texts: TEXTS });
+
+    expect(await correctText({ title: 'Bici', description: 'bici comoda' }, 'es', ['en'])).toEqual(TEXTS);
+    const [photo, , , { prompt, schema }] = draft.mock.calls[0];
+    expect(photo).toBeNull();
+    expect(prompt).toContain('bici comoda');
+    expect(schema.properties.texts.required).toEqual(['es', 'en']);
   });
 });
 

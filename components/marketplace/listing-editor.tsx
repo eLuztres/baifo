@@ -490,7 +490,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </div>
         {textWork && (
           <div className='absolute inset-0 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium backdrop-blur-sm'>
-            <Loader2 className='size-4 animate-spin text-primary' /> {textWork === 'ai' ? texts.improvingNow : texts.translatingNow}
+            <Loader2 className='size-4 animate-spin text-primary' /> {textWork === 'ai' ? texts.improvingNow : textWork === 'corrected' ? texts.correctingNow : texts.translatingNow}
           </div>
         )}
       </section>

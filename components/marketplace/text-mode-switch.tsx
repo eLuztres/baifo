@@ -1,42 +1,49 @@
 'use client';
 
-import { PenLine, Sparkles } from 'lucide-react';
+import { PenLine, SpellCheck, Sparkles } from 'lucide-react';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 import { cn } from '@/lib/utils';
 
-/** Only the labels it shows, so the category editor can pass its own. */
+/** Only the labels it shows, so the category editor can pass its own; it has no "only fix mistakes". */
 export type TextModeTexts = Pick<
   AdminTexts,
   'textModeQuestion' | 'textModeAi' | 'textModeAiHint' | 'textModeOriginal' | 'textModeOriginalHint' | 'textAiShort' | 'textOriginalShort'
->;
+> &
+  Partial<Pick<AdminTexts, 'textModeCorrected' | 'textModeCorrectedHint' | 'textCorrectedShort'>>;
 
 interface TextModeSwitchProps {
   value: TextMode;
   onChange: (mode: TextMode) => void;
   texts: TextModeTexts;
   disabled?: boolean;
-  /** Two cards with a line each, for the choice before the AI runs; small pills in the editor. */
+  /** Cards with a line each, for the choice before the AI runs (three are stacked on phones); small pills in the editor. */
   isCompact?: boolean;
 }
 
 const OPTIONS = [
   { mode: 'ai', icon: Sparkles },
+  { mode: 'corrected', icon: SpellCheck },
   { mode: 'original', icon: PenLine },
 ] as const;
 
-/** The admin's choice between the AI's text and their own words, which are only translated. */
+/** The admin's choice between the AI's text, their own words with only the mistakes fixed, and their own words as they
+    are; the last two are only translated. Without the "only fix mistakes" labels, that choice isn't offered. */
 export default function TextModeSwitch({ value, onChange, texts, disabled, isCompact }: TextModeSwitchProps) {
-  const labelOf = (mode: TextMode) =>
-    isCompact ? (mode === 'ai' ? texts.textAiShort : texts.textOriginalShort) : mode === 'ai' ? texts.textModeAi : texts.textModeOriginal;
+  const options = OPTIONS.filter(({ mode }) => mode !== 'corrected' || texts.textModeCorrected);
+  const labels = {
+    ai: { label: texts.textModeAi, short: texts.textAiShort, hint: texts.textModeAiHint },
+    corrected: { label: texts.textModeCorrected, short: texts.textCorrectedShort, hint: texts.textModeCorrectedHint },
+    original: { label: texts.textModeOriginal, short: texts.textOriginalShort, hint: texts.textModeOriginalHint },
+  };
 
   return (
     <div
       role='radiogroup'
       aria-label={texts.textModeQuestion}
-      className={cn(isCompact ? 'inline-flex rounded-full bg-muted p-1' : 'grid grid-cols-2 gap-2')}
+      className={isCompact ? 'inline-flex rounded-full bg-muted p-1' : cn('grid gap-2', options.length === 3 ? 'sm:grid-cols-3' : 'grid-cols-2')}
     >
-      {OPTIONS.map(({ mode, icon: Icon }) => {
+      {options.map(({ mode, icon: Icon }) => {
         const isChecked = mode === value;
         return (
           <button
@@ -50,7 +57,7 @@ export default function TextModeSwitch({ value, onChange, texts, disabled, isCom
               'transition disabled:opacity-60',
               isCompact
                 ? cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium',
+                    'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium sm:px-3',
                     isChecked ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                   )
                 : cn(
@@ -60,10 +67,10 @@ export default function TextModeSwitch({ value, onChange, texts, disabled, isCom
             )}
           >
             <span className={cn('inline-flex items-center gap-1.5', !isCompact && 'font-medium')}>
-              <Icon className={cn('size-4', isChecked && 'text-primary')} aria-hidden /> {labelOf(mode)}
+              <Icon className={cn('size-4 shrink-0', isChecked && 'text-primary')} aria-hidden /> {isCompact ? labels[mode].short : labels[mode].label}
             </span>
             {!isCompact && (
-              <span className='text-xs text-muted-foreground'>{mode === 'ai' ? texts.textModeAiHint : texts.textModeOriginalHint}</span>
+              <span className='text-xs text-muted-foreground'>{labels[mode].hint}</span>
             )}
           </button>
         );

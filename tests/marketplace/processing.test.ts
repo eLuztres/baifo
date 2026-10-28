@@ -115,6 +115,26 @@ describe('processSubmission without a photo', () => {
     expect(textUpdate().placeId).toBe('place-corralejo');
   });
 
+  it('passes the admin\'s words to be only corrected and saves them as the corrected text', async () => {
+    const corrected = { ...WANTED, textMode: 'corrected', originalTitle: 'Tabla de surf' };
+    db.findUnique.mockResolvedValueOnce(corrected).mockResolvedValue({ ...corrected, title: 'Tabla de surf', description: '' });
+    db.update.mockResolvedValue({ ...corrected, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect((writeListing as jest.Mock).mock.calls[0][5]).toEqual({ title: 'Tabla de surf', description: WANTED.rawText, isCorrected: true });
+    expect(Object.keys(textUpdate().textVersions)).toEqual(['corrected']);
+  });
+
+  it('passes the admin\'s words as they are for "my text as is"', async () => {
+    db.findUnique.mockResolvedValueOnce({ ...WANTED, textMode: 'original', originalTitle: null }).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
+    db.update.mockResolvedValue({ ...WANTED, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect((writeListing as jest.Mock).mock.calls[0][5]).toEqual({ title: undefined, description: WANTED.rawText, isCorrected: false });
+  });
+
   it('saves the type the AI read, so an item sent as for sale can turn out to be a wanted ad', async () => {
     db.findUnique.mockResolvedValueOnce({ ...WANTED, type: 'PRODUCT' }).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
     db.update.mockResolvedValue({ ...WANTED, seller: {} });
