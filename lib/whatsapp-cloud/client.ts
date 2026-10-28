@@ -76,6 +76,18 @@ export function sendButtons(to: string, body: string, buttons: ReplyButton[], im
   });
 }
 
+/** A message with a button that opens a list of up to ten choices; for more than three, where reply buttons stop. */
+export function sendList(to: string, body: string, buttonText: string, rows: ReplyButton[]) {
+  return sendMessage(to, {
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: body.slice(0, 4096) },
+      action: { button: buttonText.slice(0, 20), sections: [{ rows: rows.slice(0, 10).map(({ id, title }) => ({ id, title: title.slice(0, 24) })) }] },
+    },
+  });
+}
+
 /** An approved template: the only kind of message allowed outside the 24-hour window. */
 export function sendTemplate(to: string, name: string, language: string, bodyParameters: string[] = []) {
   const parameters: TemplateParameter[] = bodyParameters.map((text) => ({ type: 'text', text }));

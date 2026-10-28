@@ -122,8 +122,8 @@ export async function processSubmission(submissionId: string) {
     }
 
     const originals = submission.rawImages;
-    // Only the admin starts a listing without a photo (described step by step); the bot always has one.
-    if (originals.length === 0 && !submission.createdByAdmin) throw new Error('No photo to work with');
+    // Without a photo the picture is made from the text; only an item for sale from the bot always has one.
+    if (originals.length === 0 && !submission.createdByAdmin && submission.type === 'PRODUCT') throw new Error('No photo to work with');
     const [firstPhotoUrl] = photosOf(originals);
     const firstPhoto = firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null;
 

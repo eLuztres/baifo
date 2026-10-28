@@ -54,9 +54,12 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
       <div className='relative aspect-square'>
         <ProductImages images={listing.images.length > 0 ? listing.images : listing.rawImages} alt={title} />
-        <span className='pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow-sm'>
-          <Eye className='size-3.5 text-primary' aria-hidden /> {texts.previewBadge}
-        </span>
+        {/* Centered: a portrait photo is narrower than its square, so a corner badge would float beside it. */}
+        {!isLive && (
+          <span className='pointer-events-none absolute left-1/2 top-3 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow-sm'>
+            <Eye className='size-3.5 text-primary' aria-hidden /> {texts.previewBadge}
+          </span>
+        )}
       </div>
 
       <div className='min-w-0 space-y-6'>

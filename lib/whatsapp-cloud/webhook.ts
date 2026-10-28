@@ -10,7 +10,7 @@ export interface InboundMessage {
   type: 'text' | 'image' | 'button' | 'other';
   text?: string;
   mediaId?: string;
-  /** The id of a tapped reply button. */
+  /** The id of a tapped reply button or a picked list row. */
   buttonId?: string;
 }
 
@@ -29,7 +29,10 @@ const messageSchema = z.object({
   text: z.object({ body: z.string() }).optional(),
   image: z.object({ id: z.string(), caption: z.string().optional() }).optional(),
   interactive: z
-    .object({ button_reply: z.object({ id: z.string(), title: z.string() }).optional() })
+    .object({
+      button_reply: z.object({ id: z.string(), title: z.string() }).optional(),
+      list_reply: z.object({ id: z.string(), title: z.string() }).optional(),
+    })
     .optional(),
   button: z.object({ payload: z.string().optional(), text: z.string().optional() }).optional(),
 });
@@ -55,9 +58,9 @@ function toInbound(message: z.infer<typeof messageSchema>, profileName?: string)
   if (message.type === 'image' && message.image) {
     return { ...base, type: 'image', mediaId: message.image.id, text: message.image.caption };
   }
-  if (message.type === 'interactive' && message.interactive?.button_reply) {
-    return { ...base, type: 'button', buttonId: message.interactive.button_reply.id, text: message.interactive.button_reply.title };
-  }
+  // A row picked from a list message counts like a tapped button.
+  const reply = message.type === 'interactive' ? (message.interactive?.button_reply ?? message.interactive?.list_reply) : undefined;
+  if (reply) return { ...base, type: 'button', buttonId: reply.id, text: reply.title };
   // Quick-reply buttons of templates arrive as type "button" with their payload.
   if (message.type === 'button' && message.button) {
     return { ...base, type: 'button', buttonId: message.button.payload, text: message.button.text };

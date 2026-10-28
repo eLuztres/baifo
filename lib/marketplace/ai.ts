@@ -39,7 +39,7 @@ const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Spanish', en: 'English', i
 // Only a listing's texts have a short title.
 const textSchema = z.object({ title: z.string(), description: z.string(), short: z.string().optional() });
 
-// From a seller's words and photos the AI only tells an item for sale from a wanted ad; services and events are chosen by the admin.
+// From a seller's words and photos the AI only tells an item for sale from a wanted ad; services and events are chosen (admin or WhatsApp welcome).
 const GOODS_TYPES = ['PRODUCT', 'WANTED'] as const satisfies readonly ListingType[];
 
 const listingSchema = z.object({

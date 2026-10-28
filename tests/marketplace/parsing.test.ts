@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { parsePrice } from '@/lib/marketplace/price';
-import { commandOf, localeOf } from '@/lib/marketplace/messages';
+import { choiceOf, commandOf, localeOf } from '@/lib/marketplace/messages';
 import { isValidSignature, parseMessages } from '@/lib/whatsapp-cloud/webhook';
 import { parseEdit, parseReviewButton } from '@/lib/marketplace/review';
 
@@ -31,6 +31,25 @@ describe('commands and language', () => {
     expect(commandOf('Löschen')).toBe('cancel');
     expect(commandOf('Vendu !')).toBe('sold');
     expect(commandOf('vendo una mesa')).toBeUndefined();
+    expect(commandOf('Hola')).toBe('greeting');
+  });
+
+  it.each([
+    ['1', 'PRODUCT'],
+    ['2)', 'WANTED'],
+    [' 4 ', 'EVENT'],
+    ['Vendo una mesa', 'PRODUCT'],
+    ['busco piso', 'WANTED'],
+    ['Clases de yoga', 'SERVICE'],
+    ['vendo clases de surf', 'SERVICE'],
+    ['Taller de cerámica el sábado', 'EVENT'],
+    ['Ich suche ein Fahrrad', 'WANTED'],
+  ])('reads "%s" as the choice %s', (text, type) => {
+    expect(choiceOf(text)).toBe(type);
+  });
+
+  it.each(['5', '12', 'mesa de teca', 'hola'])('reads no choice in "%s"', (text) => {
+    expect(choiceOf(text)).toBeUndefined();
   });
 
   it('writes to each number in its country language and English to others', () => {
@@ -85,6 +104,7 @@ describe('webhook', () => {
                   { id: 'm1', from: '34600111222', type: 'image', image: { id: 'media-1', caption: '20€' } },
                   { id: 'm2', from: '34600111222', type: 'interactive', interactive: { button_reply: { id: 'done', title: 'Listo' } } },
                   { id: 'm3', from: '34600111222', type: 'sticker' },
+                  { id: 'm4', from: '34600111222', type: 'interactive', interactive: { list_reply: { id: 'type:WANTED', title: 'Algo que buscas' } } },
                 ],
               },
             },
@@ -97,6 +117,7 @@ describe('webhook', () => {
       { id: 'm1', from: '34600111222', profileName: 'Ana', type: 'image', mediaId: 'media-1', text: '20€' },
       { id: 'm2', from: '34600111222', profileName: 'Ana', type: 'button', buttonId: 'done', text: 'Listo' },
       { id: 'm3', from: '34600111222', profileName: 'Ana', type: 'other' },
+      { id: 'm4', from: '34600111222', profileName: 'Ana', type: 'button', buttonId: 'type:WANTED', text: 'Algo que buscas' },
     ]);
   });
 

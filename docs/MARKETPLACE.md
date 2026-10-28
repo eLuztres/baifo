@@ -9,7 +9,7 @@ This code is Baifo's own and lives only in `lib/marketplace/`, `lib/whatsapp-clo
 
 | Status | What happens |
 | :--- | :--- |
-| `COLLECTING` | The seller sends photos and texts; the bot offers a "✅ Listo" button |
+| `COLLECTING` | The bot welcomes like the quick replies (`docs/whatsapp-quick-replies.md`): a list of the four types (or a typed 1–4 / "busco", "clase" …), then that type's checklist. The seller sends photos and texts; the bot offers a "✅ Listo" button. An item for sale needs a photo; Busco, Servicio and Evento can go from words alone (the AI makes the picture). A photo sent before choosing counts as an item for sale |
 | `PROCESSING` | Photos → UploadThing, AI photo (OpenAI image edit), AI title/description/category/price |
 | `IN_REVIEW` | You get the listing on `ADMIN_WHATSAPP_NUMBER` with Aprobar / Editar / Rechazar. Edit by replying `precio 25`, `título …`, `desc …`, `cat …` |
 | `AWAITING_PAYMENT` | The person gets the private `/publicar/<token>` link (valid `UNPAID_LISTING_HOURS`): a preview of the listing without any contact, where they give their OK to show their number (`consentAt`), pick a plan and see how to pay (Bizum with their code, e.g. `BAIFO-7Q2K`, or cash at the Corral) |

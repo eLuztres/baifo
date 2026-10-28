@@ -6,10 +6,10 @@ Cuando el anuncio esté hecho en el admin, **Lista: enviar a la persona** abre W
 ## 0. Bienvenida (`/hola`)
 
 ¡Hola! 👋 Gracias por escribir a Baifo. ¿Qué quieres publicar?
-1️⃣ Algo que vendes
-2️⃣ Algo que buscas
-3️⃣ Un servicio o clase
-4️⃣ Un evento o taller
+1. Algo que vendes
+2. Algo que buscas
+3. Un servicio o clase
+4. Un evento o taller
 
 Contesta con el número y te digo qué necesito.
 
@@ -17,7 +17,7 @@ Contesta con el número y te digo qué necesito.
 
 Perfecto. Mándame:
 📸 De 1 a 5 fotos
-✏️ Qué es
+📝 Qué es
 ✨ Cómo está: nuevo, como nuevo, bueno o aceptable
 💶 El precio
 📍 La zona
@@ -42,7 +42,7 @@ Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 ## 3. Servicio o clase (`/servicio`)
 
 Perfecto. Cuéntame:
-✏️ Qué ofreces
+📝 Qué ofreces
 🧭 Si es una clase, un servicio o un acompañamiento
 💶 Precio «a partir de» (si quieres ponerlo)
 📍 La zona
@@ -55,11 +55,11 @@ Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 ## 4. Evento o taller (`/evento`)
 
 Perfecto. Mándame:
-✏️ El título
+📝 El título
 📅 Fecha y hora
 📍 La dirección
-🎟️ La entrada (0 = gratis)
-📝 Una descripción
+🎫 La entrada (0 = gratis)
+💬 Una descripción
 📸 El cartel o una foto
 
 Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
@@ -70,5 +70,5 @@ Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 
 Para quien paga en efectivo en El Corral sin abrir su enlace. Cuando conteste «SÍ», marca en el admin «La persona aceptó por WhatsApp (respondió SÍ)».
 
-Una cosa antes de publicarlo: tu número de WhatsApp se verá junto a tu anuncio para que quien lo vea te escriba directamente. Se mostrará mientras el anuncio esté online o hasta que nos pidas quitarlo. El responsable es Baifo; puedes pedirnos ver, corregir o borrar tus datos y reclamar ante la AEPD. Más en baifo.es/privacy.
+Una cosa antes de publicarlo: tu número de WhatsApp se verá junto a tu anuncio para que quien lo vea te escriba directamente. Se mostrará mientras el anuncio esté online o hasta que nos pidas quitarlo. El responsable es Baifo; puedes pedirnos ver, corregir o borrar tus datos y reclamar ante la AEPD. Más en baifo.es/privacy
 ¿Aceptas que publiquemos tu número? Responde SÍ.

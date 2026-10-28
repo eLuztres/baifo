@@ -4,6 +4,7 @@ import { fetchImage, uploadImage } from '@/lib/marketplace/media';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { cleanUpVideo } from '@/lib/marketplace/video-cleanup';
 import { getShopPlaces } from '@/lib/places';
+import { sendForReview } from '@/lib/marketplace/review';
 
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn() }));
@@ -110,14 +111,26 @@ describe('processSubmission without a photo', () => {
     expect(db.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', category: 'deporte', serviceType: null, startsAt: null });
   });
 
-  it('still refuses a WhatsApp submission without a photo', async () => {
-    db.findUnique.mockResolvedValue({ ...WANTED, createdByAdmin: false });
+  it('still refuses a WhatsApp item for sale without a photo', async () => {
+    db.findUnique.mockResolvedValue({ ...WANTED, type: 'PRODUCT', createdByAdmin: false });
     db.update.mockResolvedValue({ attempts: 1 });
 
     await processSubmission('sub-1');
 
     expect(writeListing).not.toHaveBeenCalled();
     expect(db.update.mock.calls[0][0].data.lastError).toBe('No photo to work with');
+  });
+
+  it('makes a WhatsApp wanted ad without a photo from its words, then sends it for review', async () => {
+    const fromWhatsapp = { ...WANTED, createdByAdmin: false };
+    db.findUnique.mockResolvedValueOnce(fromWhatsapp).mockResolvedValue({ ...fromWhatsapp, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' });
+    db.update.mockResolvedValue({ ...fromWhatsapp, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', 'sub-1');
+    expect(sendForReview).toHaveBeenCalled();
   });
 });
 
