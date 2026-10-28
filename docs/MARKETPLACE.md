@@ -59,6 +59,8 @@ Store categories: Baifo's defaults come from a migration (casa, moda, electronic
 
 Listing types (`Product.type`, `ListingType`): **Producto** (fixed price), **Busco** (`WANTED`, budget range), **Servicio** ("desde" price, optional, plus Clase / Servicio / Acompañamiento) and **Evento** (date and time, address, entry price where 0 is "Gratis"; uses the organiser's own photos). Type and category are independent, like in a newspaper: any type goes in any category. The AI picks both; from WhatsApp it tells an item for sale from a "Busco". The feed filters by type (`/explore?tipo=servicios`) and category (`?c=…`), combinable. An event shows "Jueves 29/11 · 19:00" or "Hoy · 19:00" and leaves the shop by itself the day after; the feed's "Hoy" chip (`/explore?hoy`) shows today's events.
 
+Contact: "Contactar" on a listing with a seller number opens a pop-up (the `BRAND_CONTACT_IMAGE` mascot waving, else the loader picture or a 👋) with an optional nickname, remembered on that phone. "Escribir por WhatsApp" opens `wa.me` with the message written in the listing's language (the seller's, from their number's country code; else the shop's), worded for the listing type (`CONTACT_MESSAGE_*`), with the title and link. "Saltar" writes it without a name. The number is only fetched when the pop-up opens.
+
 Every new listing emails the printable list of live products (photo, price, WhatsApp, link) to `LISTINGS_EMAIL`.
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).
