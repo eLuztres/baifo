@@ -38,7 +38,7 @@ LISTING_PRICE_BIG=10
 LISTING_DAYS=90
 UNPAID_LISTING_HOURS=48         # the private link of an unpaid listing works this long after it was sent, then it expires
 LISTINGS_EMAIL=                 # gets the printable list of live products
-# ADDRESS_AREA=-14.55,27.99,-13.80,28.78  # where event addresses are searched (west,south,east,north); default Fuerteventura, none: everywhere
+# ADDRESS_AREA=-14.55,27.99,-13.80,28.78  # the area npm run island-addresses takes event addresses from (west,south,east,north); default Fuerteventura
 
 # How people pay the listing fee on their page: stripe, paypal, bizum, cash. For now Bizum and cash only (no card papers yet);
 # the admin taps "Pagado" in the editor when the money is there. Card payments put the product live by themselves.

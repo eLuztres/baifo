@@ -1,42 +1,47 @@
 import { prisma } from '@/db/prisma';
-import { formatPlace, suggestAddresses } from '@/lib/marketplace/address-search';
+import { addressesNear, loadAddresses } from '@/lib/marketplace/address-search';
+import { matchAddresses } from '@/lib/marketplace/match-addresses';
 
 jest.mock('@/db/prisma', () => ({ prisma: { product: { findMany: jest.fn() } } }));
+jest.mock('@/brand/addresses.json', () => ({
+  towns: { corralejo: [28.73, -13.867], 'morro-jable': [28.05, -14.35] },
+  addresses: [
+    ['Calle Lejos, Lajares', 28.677, -13.94],
+    ['Beach Bar Waikiki, Corralejo', 28.734, -13.866],
+    ['Playa del Matorral, Morro Jable', 28.049, -14.33],
+  ],
+}));
 
 const findMany = prisma.product.findMany as jest.Mock;
-const photonAnswer = (places: object[]) =>
-  jest.fn(async () => ({ ok: true, json: async () => ({ features: places.map((properties) => ({ properties })) }) }));
 
-describe('formatPlace', () => {
-  it('joins name, street with number, district and town', () => {
-    expect(formatPlace({ name: 'Beach Bar Waikiki', street: 'Calle Dr Arístides', housenumber: '11', district: 'Corralejo', city: 'La Oliva' })).toBe(
-      'Beach Bar Waikiki, Calle Dr Arístides 11, Corralejo, La Oliva'
-    );
+describe('addressesNear', () => {
+  it('keeps the town and its surroundings, nearest first', () => {
+    expect(addressesNear('corralejo')).toEqual(['Beach Bar Waikiki, Corralejo', 'Calle Lejos, Lajares']);
   });
 
-  it('names each part once and skips missing ones', () => {
-    expect(formatPlace({ name: 'Corralejo', district: 'Corralejo', city: 'La Oliva' })).toBe('Corralejo, La Oliva');
+  it('offers the whole island for a place that is no known town', () => {
+    expect(addressesNear('nowhere')).toHaveLength(3);
+    expect(addressesNear(undefined)).toHaveLength(3);
   });
 });
 
-describe('suggestAddresses', () => {
-  afterEach(() => jest.restoreAllMocks());
+describe('loadAddresses', () => {
+  it('puts earlier event venues first, without doubles', async () => {
+    findMany.mockResolvedValue([{ address: 'Beach Bar Waikiki, Corralejo' }, { address: 'Centro Cultural, Lajares' }]);
+    expect(await loadAddresses('corralejo')).toEqual(['Beach Bar Waikiki, Corralejo', 'Centro Cultural, Lajares', 'Calle Lejos, Lajares']);
+  });
+});
 
-  it('puts earlier event venues first, then the map search, without doubles', async () => {
-    findMany.mockResolvedValue([{ address: 'Waikiki Beach, Corralejo, La Oliva' }]);
-    global.fetch = photonAnswer([{ name: 'Waikiki Beach', district: 'Corralejo', city: 'La Oliva' }, { name: 'Beach Bar Waikiki', city: 'La Oliva' }]) as never;
+describe('matchAddresses', () => {
+  const list = ['Calle Arístides Hernández 11, Corralejo', 'Plaza Patricio Calero, Corralejo', 'Playa del Moro, Corralejo'];
 
-    expect(await suggestAddresses('waikiki', 'es')).toEqual(['Waikiki Beach, Corralejo, La Oliva', 'Beach Bar Waikiki, La Oliva']);
-    const url = String((global.fetch as jest.Mock).mock.calls[0][0]);
-    expect(url).toContain('bbox=');
-    expect(url).not.toContain('lang=');
+  it('finds every typed word, ignoring accents and case', () => {
+    expect(matchAddresses(list, 'aristides corr', 6)).toEqual(['Calle Arístides Hernández 11, Corralejo']);
+    expect(matchAddresses(list, 'PLA', 6)).toEqual(['Plaza Patricio Calero, Corralejo', 'Playa del Moro, Corralejo']);
   });
 
-  it('still offers earlier venues when the map search fails', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    findMany.mockResolvedValue([{ address: 'Centro Cultural, Lajares' }]);
-    global.fetch = jest.fn(async () => ({ ok: false, status: 503 })) as never;
-
-    expect(await suggestAddresses('lajares', 'en')).toEqual(['Centro Cultural, Lajares']);
+  it('stops at the limit and finds nothing for an empty query', () => {
+    expect(matchAddresses(list, 'corralejo', 2)).toHaveLength(2);
+    expect(matchAddresses(list, '  ', 6)).toEqual([]);
   });
 });

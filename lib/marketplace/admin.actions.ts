@@ -7,12 +7,12 @@ import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
 import { fromShopDateTime } from '@/lib/event-date';
-import { getEnabledLocales, getLocale, getShopLocale, getT } from '@/lib/i18n-server';
+import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { pictureOf } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { createPicture, translateText, writeListing } from './ai';
-import { suggestAddresses } from './address-search';
+import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { fetchImage, uploadImage } from './media';
@@ -341,14 +341,11 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
   }
 }
 
-const addressQuerySchema = z.string().trim().min(3).max(100);
-
-/** Addresses for an event while the admin types one: earlier events' venues, then OpenStreetMap's places on the island. */
-export async function findAddresses(query: string) {
+/** The addresses an event's address field suggests, loaded once when the editor opens: around the listing's corral town. */
+export async function findAddresses(placeId: string) {
   if (!(await isAdmin())) return { ...NOT_ALLOWED, addresses: [] };
-  const parsed = addressQuerySchema.safeParse(query);
-  if (!parsed.success) return { success: true, message: '', addresses: [] };
-  return { success: true, message: '', addresses: await suggestAddresses(parsed.data, await getLocale()) };
+  const place = idSchema.safeParse(placeId).success ? await prisma.place.findUnique({ where: { id: placeId }, select: { slug: true } }) : null;
+  return { success: true, message: '', addresses: await loadAddresses(place?.slug) };
 }
 
 const planSchema = z.enum(['normal', 'big']);

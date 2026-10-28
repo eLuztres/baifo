@@ -534,6 +534,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 id='address'
                 value={fields.address}
                 onChange={(address) => set('address')({ target: { value: address } })}
+                placeId={fields.placeId}
                 placeholder={texts.addressPlaceholder}
                 className='h-12 rounded-2xl bg-card text-base md:text-base'
               />

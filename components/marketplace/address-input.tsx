@@ -1,54 +1,51 @@
 'use client';
 
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Loader2, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { findAddresses } from '@/lib/marketplace/admin.actions';
+import { matchAddresses } from '@/lib/marketplace/match-addresses';
 import { cn } from '@/lib/utils';
 
-// Waits for a short pause in typing, so the map search isn't asked on every key.
-const SEARCH_DELAY_MS = 300;
-const MIN_QUERY_LENGTH = 3;
+const MIN_QUERY_LENGTH = 2;
+const MAX_SUGGESTIONS = 6;
 
 interface AddressInputProps {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  /** The listing's place: the addresses around its town are suggested. */
+  placeId: string;
   placeholder?: string;
   className?: string;
 }
 
 /** An address field that suggests places while typing; picking one fills it in. Anything typed stays valid too. */
-export default function AddressInput({ id, value, onChange, placeholder, className }: AddressInputProps) {
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+export default function AddressInput({ id, value, onChange, placeId, placeholder, className }: AddressInputProps) {
+  // Loaded once per place, so typing filters on the device without waiting for the server.
+  const [addresses, setAddresses] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isOpen, setIsOpen] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  // Only the latest search may show its answer; an earlier one can arrive after it.
-  const searchCount = useRef(0);
   const listId = `${id}-suggestions`;
 
   useEffect(() => {
-    if (!isOpen || value.trim().length < MIN_QUERY_LENGTH) {
-      setSuggestions([]);
-      return;
-    }
-    const count = ++searchCount.current;
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      const { addresses } = await findAddresses(value).catch(() => ({ addresses: [] as string[] }));
-      if (count !== searchCount.current) return;
-      setIsSearching(false);
-      setSuggestions(addresses);
-      setActiveIndex(-1);
-    }, SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [value, isOpen]);
+    let isCurrent = true;
+    findAddresses(placeId)
+      .then((result) => isCurrent && setAddresses(result.addresses))
+      .catch(() => undefined);
+    return () => {
+      isCurrent = false;
+    };
+  }, [placeId]);
+
+  const suggestions = useMemo(
+    () => (isOpen && value.trim().length >= MIN_QUERY_LENGTH ? matchAddresses(addresses, value, MAX_SUGGESTIONS) : []),
+    [addresses, value, isOpen]
+  );
 
   const pick = (address: string) => {
     onChange(address);
     setIsOpen(false);
-    setSuggestions([]);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -75,6 +72,7 @@ export default function AddressInput({ id, value, onChange, placeholder, classNa
         onChange={(event) => {
           onChange(event.target.value);
           setIsOpen(true);
+          setActiveIndex(-1);
         }}
         onKeyDown={handleKeyDown}
         onBlur={() => setIsOpen(false)}
@@ -86,11 +84,8 @@ export default function AddressInput({ id, value, onChange, placeholder, classNa
         aria-controls={listId}
         aria-autocomplete='list'
         aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
-        className={cn('pr-10', className)}
+        className={className}
       />
-      {isSearching && isOpen && (
-        <Loader2 className='absolute right-3.5 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground' aria-hidden='true' />
-      )}
       {isListShown && (
         <ul id={listId} role='listbox' className='absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-lg'>
           {suggestions.map((address, index) => (

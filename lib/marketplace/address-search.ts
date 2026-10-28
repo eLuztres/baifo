@@ -1,57 +1,46 @@
 import { prisma } from '@/db/prisma';
-import { ADDRESS_AREA } from './config';
+import island from '@/brand/addresses.json';
 
-// Photon is OpenStreetMap's search made for typing along; Nominatim's public server doesn't allow that.
-const PHOTON_URL = 'https://photon.komoot.io/api/';
-const PHOTON_LANGUAGES = ['en', 'de', 'fr'];
-const MAX_SUGGESTIONS = 6;
+// The corral's town and its surroundings, e.g. Lajares and El Cotillo for Corralejo.
+const NEARBY_KM = 10;
+const KM_PER_DEGREE = 111;
+const MAX_EARLIER_ADDRESSES = 200;
 
-/** The properties of a Photon result that make up an address. */
-export interface PhotonPlace {
-  name?: string;
-  street?: string;
-  housenumber?: string;
-  district?: string;
-  locality?: string;
-  city?: string;
+interface IslandAddresses {
+  towns: Record<string, [number, number]>;
+  addresses: [string, number, number][];
 }
 
-/** "Beach Bar Waikiki, Calle Dr Arístides Hernández Morán 11, Corralejo, La Oliva": each part once. */
-export function formatPlace({ name, street, housenumber, district, locality, city }: PhotonPlace) {
-  const parts = [name, street && [street, housenumber].filter(Boolean).join(' '), district ?? locality, city];
-  return parts.filter((part, index): part is string => Boolean(part) && parts.indexOf(part) === index).join(', ');
-}
+// JSON imports type the pairs as plain number arrays.
+const { towns, addresses } = island as unknown as IslandAddresses;
 
-async function searchOpenStreetMap(query: string, locale: string) {
-  const params = new URLSearchParams({ q: query, limit: String(MAX_SUGGESTIONS) });
-  if (ADDRESS_AREA) params.set('bbox', ADDRESS_AREA);
-  if (PHOTON_LANGUAGES.includes(locale)) params.set('lang', locale);
-  const response = await fetch(`${PHOTON_URL}?${params}`, { signal: AbortSignal.timeout(4000) });
-  if (!response.ok) throw new Error(`Photon answered ${response.status}`);
-  const { features } = (await response.json()) as { features: { properties: PhotonPlace }[] };
-  return features.map(({ properties }) => formatPlace(properties));
+const kmBetween = ([latA, lonA]: [number, number], [latB, lonB]: [number, number]) =>
+  KM_PER_DEGREE * Math.hypot(latA - latB, (lonA - lonB) * Math.cos((latA * Math.PI) / 180));
+
+/** The island's addresses around a town (brand/addresses.json), nearest first; the whole island for an unknown town. */
+export function addressesNear(townSlug: string | undefined) {
+  const center = townSlug ? towns[townSlug] : undefined;
+  if (!center) return addresses.map(([label]) => label);
+  return addresses
+    .map(([label, lat, lon]) => ({ label, km: kmBetween(center, [lat, lon]) }))
+    .filter(({ km }) => km <= NEARBY_KM)
+    .sort((a, b) => a.km - b.km)
+    .map(({ label }) => label);
 }
 
 // Events come back to the same venues, so their addresses are the first suggestions.
-async function searchEarlierAddresses(query: string) {
+async function earlierAddresses() {
   const products = await prisma.product.findMany({
-    where: { type: 'EVENT', address: { contains: query, mode: 'insensitive' } },
+    where: { type: 'EVENT', address: { not: null } },
     select: { address: true },
     distinct: ['address'],
     orderBy: { createdAt: 'desc' },
-    take: MAX_SUGGESTIONS,
+    take: MAX_EARLIER_ADDRESSES,
   });
   return products.flatMap(({ address }) => address ?? []);
 }
 
-/** Addresses for what was typed: earlier events' first, then OpenStreetMap's. The map search may fail; then only the earlier ones. */
-export async function suggestAddresses(query: string, locale: string) {
-  const [earlier, found] = await Promise.all([
-    searchEarlierAddresses(query),
-    searchOpenStreetMap(query, locale).catch((error) => {
-      console.error('Address search failed', error);
-      return [];
-    }),
-  ]);
-  return [...new Set([...earlier, ...found])].filter(Boolean).slice(0, MAX_SUGGESTIONS);
+/** Every address the event field suggests: earlier events' venues first, then the town's surroundings. */
+export async function loadAddresses(townSlug: string | undefined) {
+  return [...new Set([...(await earlierAddresses()), ...addressesNear(townSlug)])].filter(Boolean);
 }
