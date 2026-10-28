@@ -1,0 +1,126 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Baifo art 4/5: color palettes</title>
+<style>
+body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#FAF7F0;color:#1F2A2E}main{max-width:1200px;margin:auto;padding:24px 16px}
+h1{font-size:28px;margin:0 0 8px}h2{margin:48px 0 4px;font-size:24px}h2 em{font-size:13px;font-style:normal;background:#0A716D;color:#fff;border-radius:99px;padding:2px 10px;vertical-align:middle}
+h3{margin:20px 0 8px;font-size:17px}h3 small{font-weight:400;color:#5C5047;font-size:13px;display:block}.tag{font-weight:600;margin:0}ul{padding-left:20px}
+nav a{margin-right:12px;color:#0A716D}.sw{display:flex;flex-wrap:wrap;gap:8px;font-size:12px}.sw span{width:92px;overflow-wrap:anywhere}.sw i{display:block;height:36px;border-radius:8px;border:1px solid #0002;margin-bottom:2px}
+.shots{display:flex;gap:8px;overflow-x:auto;padding:8px 0}.shots img{height:260px;border-radius:8px;border:1px solid #0002;display:block}
+pre{background:#1F2A2E;color:#F2E9DA;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px}summary{cursor:pointer;color:#0A716D;font-weight:600}
+@media (max-width:600px){.shots img{height:200px}h1{font-size:22px}}
+</style></head><body><main>
+<h1>Baifo art 4/5: color palettes</h1>
+<p>Three palettes for light and dark, shown on the real home and listing pages (screenshots of the running shop with only the theme tokens swapped). All three keep the teal of the logo, use the island colors from the moodboard (sea turquoise, dune sand, volcanic red-brown, whitewashed houses) and pass WCAG AA for text and buttons. Pick one; it's applied only through <code>BRAND_COLOR_*</code> / <code>BRAND_DARK_COLOR_*</code> in <code>.env</code>. Click a screenshot to see it full size.</p>
+<nav><a href="#current">Today</a><a href="#dune">A · Dune & Lagoon</a><a href="#atlantic">B · Atlantic & Whitewash</a><a href="#sunset">C · Whitewash & Sunset</a></nav>
+<section id="current"><h2>Today, for comparison</h2><p class="tag">Turquoise-tinted light theme, dark teal night theme (card #70)</p><h3>Light</h3><div class="shots"><a href="04-palettes/current-light-home-desktop.jpg"><img loading="lazy" src="04-palettes/current-light-home-desktop.jpg" alt="current light home-desktop" class=""></a><a href="04-palettes/current-light-listing-desktop.jpg"><img loading="lazy" src="04-palettes/current-light-listing-desktop.jpg" alt="current light listing-desktop" class=""></a><a href="04-palettes/current-light-home-phone.jpg"><img loading="lazy" src="04-palettes/current-light-home-phone.jpg" alt="current light home-phone" class="ph"></a><a href="04-palettes/current-light-listing-phone.jpg"><img loading="lazy" src="04-palettes/current-light-listing-phone.jpg" alt="current light listing-phone" class="ph"></a></div><h3>Dark</h3><div class="shots"><a href="04-palettes/current-dark-home-desktop.jpg"><img loading="lazy" src="04-palettes/current-dark-home-desktop.jpg" alt="current dark home-desktop" class=""></a><a href="04-palettes/current-dark-listing-desktop.jpg"><img loading="lazy" src="04-palettes/current-dark-listing-desktop.jpg" alt="current dark listing-desktop" class=""></a><a href="04-palettes/current-dark-home-phone.jpg"><img loading="lazy" src="04-palettes/current-dark-home-phone.jpg" alt="current dark home-phone" class="ph"></a><a href="04-palettes/current-dark-listing-phone.jpg"><img loading="lazy" src="04-palettes/current-dark-listing-phone.jpg" alt="current dark listing-phone" class="ph"></a></div></section>
+<section id="dune"><h2>A · Dune & Lagoon <em>recommended</em></h2><p class="tag">Warm sand pages, Atlantic-teal buttons, terracotta highlights</p><ul><li>Sand and cream feel warm and welcoming, like the dunes in the artwork, and are easier on the eyes than white.</li><li>Teal buttons keep the logo identity and read as trustworthy; terracotta (volcanic rust) marks small highlights only.</li><li>At night the page turns into warm lava brown with lagoon-turquoise buttons and coral highlights.</li></ul>
+<h3>Light <small>WCAG: text 12.8:1 · soft text 7.5:1 · button 5.8:1 · highlight 5.1:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#F6EFE0"></i>background<br><code>#F6EFE0</code></span><span><i style="background:#FFFAF0"></i>card<br><code>#FFFAF0</code></span><span><i style="background:#EFE5D0"></i>muted<br><code>#EFE5D0</code></span><span><i style="background:#DCCAA8"></i>border<br><code>#DCCAA8</code></span><span><i style="background:#1F2A2E"></i>foreground<br><code>#1F2A2E</code></span><span><i style="background:#0A716D"></i>primary<br><code>#0A716D</code></span><span><i style="background:#A8472E"></i>accent<br><code>#A8472E</code></span></div><div class="shots"><a href="04-palettes/dune-light-home-desktop.jpg"><img loading="lazy" src="04-palettes/dune-light-home-desktop.jpg" alt="dune light home-desktop" class=""></a><a href="04-palettes/dune-light-listing-desktop.jpg"><img loading="lazy" src="04-palettes/dune-light-listing-desktop.jpg" alt="dune light listing-desktop" class=""></a><a href="04-palettes/dune-light-home-phone.jpg"><img loading="lazy" src="04-palettes/dune-light-home-phone.jpg" alt="dune light home-phone" class="ph"></a><a href="04-palettes/dune-light-listing-phone.jpg"><img loading="lazy" src="04-palettes/dune-light-listing-phone.jpg" alt="dune light listing-phone" class="ph"></a></div><h3>Dark <small>WCAG: text 15.4:1 · soft text 7.9:1 · button 7.5:1 · highlight 7.2:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#161311"></i>background<br><code>#161311</code></span><span><i style="background:#211C18"></i>card<br><code>#211C18</code></span><span><i style="background:#2A231E"></i>muted<br><code>#2A231E</code></span><span><i style="background:#3A312A"></i>border<br><code>#3A312A</code></span><span><i style="background:#F2E9DA"></i>foreground<br><code>#F2E9DA</code></span><span><i style="background:#4EC3BF"></i>primary<br><code>#4EC3BF</code></span><span><i style="background:#E8876F"></i>accent<br><code>#E8876F</code></span></div><div class="shots"><a href="04-palettes/dune-dark-home-desktop.jpg"><img loading="lazy" src="04-palettes/dune-dark-home-desktop.jpg" alt="dune dark home-desktop" class=""></a><a href="04-palettes/dune-dark-listing-desktop.jpg"><img loading="lazy" src="04-palettes/dune-dark-listing-desktop.jpg" alt="dune dark listing-desktop" class=""></a><a href="04-palettes/dune-dark-home-phone.jpg"><img loading="lazy" src="04-palettes/dune-dark-home-phone.jpg" alt="dune dark home-phone" class="ph"></a><a href="04-palettes/dune-dark-listing-phone.jpg"><img loading="lazy" src="04-palettes/dune-dark-listing-phone.jpg" alt="dune dark listing-phone" class="ph"></a></div>
+<details><summary>.env values for A · Dune & Lagoon</summary><pre>BRAND_COLOR_BACKGROUND="#F6EFE0"
+BRAND_COLOR_FOREGROUND="#1F2A2E"
+BRAND_COLOR_CARD="#FFFAF0"
+BRAND_COLOR_CARD_FOREGROUND="#1F2A2E"
+BRAND_COLOR_POPOVER="#FFFAF0"
+BRAND_COLOR_POPOVER_FOREGROUND="#1F2A2E"
+BRAND_COLOR_PRIMARY="#0A716D"
+BRAND_COLOR_PRIMARY_FOREGROUND="#FFFFFF"
+BRAND_COLOR_SECONDARY="#EADFC8"
+BRAND_COLOR_SECONDARY_FOREGROUND="#1F2A2E"
+BRAND_COLOR_MUTED="#EFE5D0"
+BRAND_COLOR_MUTED_FOREGROUND="#5C5047"
+BRAND_COLOR_ACCENT="#A8472E"
+BRAND_COLOR_ACCENT_FOREGROUND="#FFFFFF"
+BRAND_COLOR_BORDER="#DCCAA8"
+BRAND_COLOR_INPUT="#DCCAA8"
+BRAND_COLOR_RING="#0A716D"
+
+BRAND_DARK_COLOR_BACKGROUND="#161311"
+BRAND_DARK_COLOR_FOREGROUND="#F2E9DA"
+BRAND_DARK_COLOR_CARD="#211C18"
+BRAND_DARK_COLOR_CARD_FOREGROUND="#F2E9DA"
+BRAND_DARK_COLOR_POPOVER="#27211C"
+BRAND_DARK_COLOR_POPOVER_FOREGROUND="#F2E9DA"
+BRAND_DARK_COLOR_PRIMARY="#4EC3BF"
+BRAND_DARK_COLOR_PRIMARY_FOREGROUND="#072624"
+BRAND_DARK_COLOR_SECONDARY="#2C2520"
+BRAND_DARK_COLOR_SECONDARY_FOREGROUND="#F2E9DA"
+BRAND_DARK_COLOR_MUTED="#2A231E"
+BRAND_DARK_COLOR_MUTED_FOREGROUND="#BFAF98"
+BRAND_DARK_COLOR_ACCENT="#E8876F"
+BRAND_DARK_COLOR_ACCENT_FOREGROUND="#2A0E07"
+BRAND_DARK_COLOR_BORDER="#3A312A"
+BRAND_DARK_COLOR_INPUT="#3A312A"
+BRAND_DARK_COLOR_RING="#4EC3BF"</pre></details></section>
+<section id="atlantic"><h2>B · Atlantic & Whitewash <em>chosen</em></h2><p class="tag">Calm and cool like today, but whiter and softer; coral only at night</p><ul><li>Closest to today: same teal family, but the pages turn near-white with only a hint of sea, so they look less tinted.</li><li>Feels clean, calm and trustworthy. Least change, least risk.</li><li>At night: deep Atlantic blue, turquoise buttons and coral highlights, a warm touch the current dark theme lacks.</li></ul>
+<h3>Light <small>WCAG: text 13.7:1 · soft text 6.9:1 · button 5.8:1 · highlight 5.3:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#F4F8F6"></i>background<br><code>#F4F8F6</code></span><span><i style="background:#FFFFFF"></i>card<br><code>#FFFFFF</code></span><span><i style="background:#E7F0ED"></i>muted<br><code>#E7F0ED</code></span><span><i style="background:#CFE1DC"></i>border<br><code>#CFE1DC</code></span><span><i style="background:#1F2A2E"></i>foreground<br><code>#1F2A2E</code></span><span><i style="background:#0A716D"></i>primary<br><code>#0A716D</code></span><span><i style="background:#136F8A"></i>accent<br><code>#136F8A</code></span></div><div class="shots"><a href="04-palettes/atlantic-light-home-desktop.jpg"><img loading="lazy" src="04-palettes/atlantic-light-home-desktop.jpg" alt="atlantic light home-desktop" class=""></a><a href="04-palettes/atlantic-light-listing-desktop.jpg"><img loading="lazy" src="04-palettes/atlantic-light-listing-desktop.jpg" alt="atlantic light listing-desktop" class=""></a><a href="04-palettes/atlantic-light-home-phone.jpg"><img loading="lazy" src="04-palettes/atlantic-light-home-phone.jpg" alt="atlantic light home-phone" class="ph"></a><a href="04-palettes/atlantic-light-listing-phone.jpg"><img loading="lazy" src="04-palettes/atlantic-light-listing-phone.jpg" alt="atlantic light listing-phone" class="ph"></a></div><h3>Dark <small>WCAG: text 15.4:1 · soft text 8.0:1 · button 7.6:1 · highlight 7.1:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#0B1B1F"></i>background<br><code>#0B1B1F</code></span><span><i style="background:#11262B"></i>card<br><code>#11262B</code></span><span><i style="background:#15302F"></i>muted<br><code>#15302F</code></span><span><i style="background:#23413F"></i>border<br><code>#23413F</code></span><span><i style="background:#E6F2F0"></i>foreground<br><code>#E6F2F0</code></span><span><i style="background:#4EC3BF"></i>primary<br><code>#4EC3BF</code></span><span><i style="background:#EE8A70"></i>accent<br><code>#EE8A70</code></span></div><div class="shots"><a href="04-palettes/atlantic-dark-home-desktop.jpg"><img loading="lazy" src="04-palettes/atlantic-dark-home-desktop.jpg" alt="atlantic dark home-desktop" class=""></a><a href="04-palettes/atlantic-dark-listing-desktop.jpg"><img loading="lazy" src="04-palettes/atlantic-dark-listing-desktop.jpg" alt="atlantic dark listing-desktop" class=""></a><a href="04-palettes/atlantic-dark-home-phone.jpg"><img loading="lazy" src="04-palettes/atlantic-dark-home-phone.jpg" alt="atlantic dark home-phone" class="ph"></a><a href="04-palettes/atlantic-dark-listing-phone.jpg"><img loading="lazy" src="04-palettes/atlantic-dark-listing-phone.jpg" alt="atlantic dark listing-phone" class="ph"></a></div>
+<details><summary>.env values for B · Atlantic & Whitewash</summary><pre>BRAND_COLOR_BACKGROUND="#F4F8F6"
+BRAND_COLOR_FOREGROUND="#1F2A2E"
+BRAND_COLOR_CARD="#FFFFFF"
+BRAND_COLOR_CARD_FOREGROUND="#1F2A2E"
+BRAND_COLOR_POPOVER="#FFFFFF"
+BRAND_COLOR_POPOVER_FOREGROUND="#1F2A2E"
+BRAND_COLOR_PRIMARY="#0A716D"
+BRAND_COLOR_PRIMARY_FOREGROUND="#FFFFFF"
+BRAND_COLOR_SECONDARY="#E3EFEC"
+BRAND_COLOR_SECONDARY_FOREGROUND="#1F2A2E"
+BRAND_COLOR_MUTED="#E7F0ED"
+BRAND_COLOR_MUTED_FOREGROUND="#4A5E5C"
+BRAND_COLOR_ACCENT="#136F8A"
+BRAND_COLOR_ACCENT_FOREGROUND="#FFFFFF"
+BRAND_COLOR_BORDER="#CFE1DC"
+BRAND_COLOR_INPUT="#CFE1DC"
+BRAND_COLOR_RING="#0A716D"
+
+BRAND_DARK_COLOR_BACKGROUND="#0B1B1F"
+BRAND_DARK_COLOR_FOREGROUND="#E6F2F0"
+BRAND_DARK_COLOR_CARD="#11262B"
+BRAND_DARK_COLOR_CARD_FOREGROUND="#E6F2F0"
+BRAND_DARK_COLOR_POPOVER="#142C31"
+BRAND_DARK_COLOR_POPOVER_FOREGROUND="#E6F2F0"
+BRAND_DARK_COLOR_PRIMARY="#4EC3BF"
+BRAND_DARK_COLOR_PRIMARY_FOREGROUND="#062523"
+BRAND_DARK_COLOR_SECONDARY="#18343A"
+BRAND_DARK_COLOR_SECONDARY_FOREGROUND="#E6F2F0"
+BRAND_DARK_COLOR_MUTED="#15302F"
+BRAND_DARK_COLOR_MUTED_FOREGROUND="#9FBFBA"
+BRAND_DARK_COLOR_ACCENT="#EE8A70"
+BRAND_DARK_COLOR_ACCENT_FOREGROUND="#2A0E07"
+BRAND_DARK_COLOR_BORDER="#23413F"
+BRAND_DARK_COLOR_INPUT="#23413F"
+BRAND_DARK_COLOR_RING="#4EC3BF"</pre></details></section>
+<section id="sunset"><h2>C · Whitewash & Sunset</h2><p class="tag">White-house pages, coral buttons that pop; teal stays in logo and highlights</p><ul><li>Whitewashed pages like the island houses, with coral buttons from the logo dot that clearly stand out (clear calls to action).</li><li>Teal moves to highlights and links. Boldest and warmest, but the buttons are no longer teal.</li><li>At night: the logo ink blue-grey with coral buttons and turquoise highlights.</li></ul>
+<h3>Light <small>WCAG: text 13.7:1 · soft text 7.6:1 · button 5.6:1 · highlight 5.5:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#FAF7F0"></i>background<br><code>#FAF7F0</code></span><span><i style="background:#FFFFFF"></i>card<br><code>#FFFFFF</code></span><span><i style="background:#F2EADA"></i>muted<br><code>#F2EADA</code></span><span><i style="background:#E4D6BA"></i>border<br><code>#E4D6BA</code></span><span><i style="background:#1F2A2E"></i>foreground<br><code>#1F2A2E</code></span><span><i style="background:#B4432B"></i>primary<br><code>#B4432B</code></span><span><i style="background:#0A716D"></i>accent<br><code>#0A716D</code></span></div><div class="shots"><a href="04-palettes/sunset-light-home-desktop.jpg"><img loading="lazy" src="04-palettes/sunset-light-home-desktop.jpg" alt="sunset light home-desktop" class=""></a><a href="04-palettes/sunset-light-listing-desktop.jpg"><img loading="lazy" src="04-palettes/sunset-light-listing-desktop.jpg" alt="sunset light listing-desktop" class=""></a><a href="04-palettes/sunset-light-home-phone.jpg"><img loading="lazy" src="04-palettes/sunset-light-home-phone.jpg" alt="sunset light home-phone" class="ph"></a><a href="04-palettes/sunset-light-listing-phone.jpg"><img loading="lazy" src="04-palettes/sunset-light-listing-phone.jpg" alt="sunset light listing-phone" class="ph"></a></div><h3>Dark <small>WCAG: text 14.2:1 · soft text 6.8:1 · button 7.3:1 · highlight 7.8:1 (AA ✓)</small></h3><div class="sw"><span><i style="background:#162024"></i>background<br><code>#162024</code></span><span><i style="background:#1E2A2F"></i>card<br><code>#1E2A2F</code></span><span><i style="background:#223035"></i>muted<br><code>#223035</code></span><span><i style="background:#33454B"></i>border<br><code>#33454B</code></span><span><i style="background:#F3EDE2"></i>foreground<br><code>#F3EDE2</code></span><span><i style="background:#EE8A70"></i>primary<br><code>#EE8A70</code></span><span><i style="background:#4EC3BF"></i>accent<br><code>#4EC3BF</code></span></div><div class="shots"><a href="04-palettes/sunset-dark-home-desktop.jpg"><img loading="lazy" src="04-palettes/sunset-dark-home-desktop.jpg" alt="sunset dark home-desktop" class=""></a><a href="04-palettes/sunset-dark-listing-desktop.jpg"><img loading="lazy" src="04-palettes/sunset-dark-listing-desktop.jpg" alt="sunset dark listing-desktop" class=""></a><a href="04-palettes/sunset-dark-home-phone.jpg"><img loading="lazy" src="04-palettes/sunset-dark-home-phone.jpg" alt="sunset dark home-phone" class="ph"></a><a href="04-palettes/sunset-dark-listing-phone.jpg"><img loading="lazy" src="04-palettes/sunset-dark-listing-phone.jpg" alt="sunset dark listing-phone" class="ph"></a></div>
+<details><summary>.env values for C · Whitewash & Sunset</summary><pre>BRAND_COLOR_BACKGROUND="#FAF7F0"
+BRAND_COLOR_FOREGROUND="#1F2A2E"
+BRAND_COLOR_CARD="#FFFFFF"
+BRAND_COLOR_CARD_FOREGROUND="#1F2A2E"
+BRAND_COLOR_POPOVER="#FFFFFF"
+BRAND_COLOR_POPOVER_FOREGROUND="#1F2A2E"
+BRAND_COLOR_PRIMARY="#B4432B"
+BRAND_COLOR_PRIMARY_FOREGROUND="#FFFFFF"
+BRAND_COLOR_SECONDARY="#F2E6CC"
+BRAND_COLOR_SECONDARY_FOREGROUND="#1F2A2E"
+BRAND_COLOR_MUTED="#F2EADA"
+BRAND_COLOR_MUTED_FOREGROUND="#5E5249"
+BRAND_COLOR_ACCENT="#0A716D"
+BRAND_COLOR_ACCENT_FOREGROUND="#FFFFFF"
+BRAND_COLOR_BORDER="#E4D6BA"
+BRAND_COLOR_INPUT="#E4D6BA"
+BRAND_COLOR_RING="#B4432B"
+
+BRAND_DARK_COLOR_BACKGROUND="#162024"
+BRAND_DARK_COLOR_FOREGROUND="#F3EDE2"
+BRAND_DARK_COLOR_CARD="#1E2A2F"
+BRAND_DARK_COLOR_CARD_FOREGROUND="#F3EDE2"
+BRAND_DARK_COLOR_POPOVER="#233237"
+BRAND_DARK_COLOR_POPOVER_FOREGROUND="#F3EDE2"
+BRAND_DARK_COLOR_PRIMARY="#EE8A70"
+BRAND_DARK_COLOR_PRIMARY_FOREGROUND="#2A0E07"
+BRAND_DARK_COLOR_SECONDARY="#26353A"
+BRAND_DARK_COLOR_SECONDARY_FOREGROUND="#F3EDE2"
+BRAND_DARK_COLOR_MUTED="#223035"
+BRAND_DARK_COLOR_MUTED_FOREGROUND="#B5B0A6"
+BRAND_DARK_COLOR_ACCENT="#4EC3BF"
+BRAND_DARK_COLOR_ACCENT_FOREGROUND="#062523"
+BRAND_DARK_COLOR_BORDER="#33454B"
+BRAND_DARK_COLOR_INPUT="#33454B"
+BRAND_DARK_COLOR_RING="#EE8A70"</pre></details></section>
+</main></body></html>
