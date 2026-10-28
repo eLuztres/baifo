@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Banknote, Check, CheckCircle2, Copy, Loader2, MapPin, MessageCircle, Smartphone } from 'lucide-react';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   captureListingPayPalOrder,
+  claimListingPayment,
   confirmListing,
   createListingPayPalOrder,
   startStripeCheckout,
@@ -27,9 +28,22 @@ export interface PaymentOptions {
   bizumPhone?: string;
   /** The Bizum concept that tells the admin whose payment it is. */
   code: string;
-  /** Where cash is handed over: the listing's Corral. */
-  cashPlace: string;
+  /** Where cash is handed over: the listing's Corral, if its place has one. */
+  corral?: PayCorral | null;
+  /** When the private link stops working, in the person's language and the shop's time. */
+  validUntil: string;
+  /** The shop's own WhatsApp for questions; never the person's. */
+  helpUrl?: string;
 }
+
+interface PayCorral {
+  name: string;
+  address: string;
+  hours: string;
+  mapsUrl: string;
+}
+
+type ManualPayMethod = 'bizum' | 'cash';
 
 interface PublishFormProps {
   token: string;
@@ -37,7 +51,7 @@ interface PublishFormProps {
   prices: Record<ListingPlan, string>;
   days: number;
   /** What the person chose before, when they come back to the page. */
-  initial: { isConfirmed: boolean };
+  initial: { isConfirmed: boolean; claimedMethod: ManualPayMethod | null };
   payment: PaymentOptions;
   paypalClientId: string;
 }
@@ -50,6 +64,11 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
   const plan: ListingPlan = 'normal';
   const [hasConsent, setHasConsent] = useState(initial.isConfirmed);
   const [isConfirmed, setIsConfirmed] = useState(initial.isConfirmed);
+  // Bizum and cash are paid outside the page; with only one of them there is nothing to choose.
+  const manualMethods = payment.methods.filter((option): option is ManualPayMethod => option === 'bizum' || option === 'cash');
+  const [method, setMethod] = useState<ManualPayMethod | null>(manualMethods.length === 1 ? manualMethods[0] : null);
+  const [claimedMethod, setClaimedMethod] = useState(initial.claimedMethod);
+  const [isLater, setIsLater] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -99,37 +118,134 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
     });
   };
 
+  const claim = (claimed: ManualPayMethod) =>
+    startTransition(async () => {
+      setError('');
+      const result = await claimListingPayment(token, claimed);
+      if (result.success) setClaimedMethod(claimed);
+      else setError(texts.error);
+    });
+
   const price = formatCurrency(prices[plan]);
-  const isBizum = payment.methods.includes('bizum') && Boolean(payment.bizumPhone);
-  const isCash = payment.methods.includes('cash');
+  // As typed into Bizum: "5" or "7,50".
+  const amount = String(Number(prices[plan])).replace('.', ',');
+
+  if (claimedMethod) {
+    return (
+      <div className='space-y-4 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
+        <div className='space-y-2'>
+          <h2 className='flex items-center gap-2 font-display text-2xl'>
+            <CheckCircle2 className='size-6 shrink-0 text-primary' aria-hidden /> {texts.doneTitle}
+          </h2>
+          <p>{texts.doneText}</p>
+          <p className='text-sm text-muted-foreground'>
+            {claimedMethod === 'cash' ? fill(texts.doneNextCash, { date: payment.validUntil }) : texts.doneNextBizum}
+          </p>
+        </div>
+        <PayExits texts={texts} helpUrl={payment.helpUrl} />
+      </div>
+    );
+  }
+
+  if (isConfirmed && isLater) {
+    return (
+      <div className='space-y-4 rounded-3xl border border-border bg-card p-5 sm:p-6'>
+        <PayProgress texts={texts} />
+        <div className='space-y-1'>
+          <h2 className='font-display text-xl'>{texts.laterTitle}</h2>
+          <p className='text-sm text-muted-foreground'>{fill(texts.laterText, { date: payment.validUntil })}</p>
+        </div>
+        <PayExits texts={texts} helpUrl={payment.helpUrl} />
+        <Button variant='ghost' className='w-full rounded-full' onClick={() => setIsLater(false)}>
+          {texts.backToPay}
+        </Button>
+      </div>
+    );
+  }
 
   if (isConfirmed) {
     return (
-      <div className='space-y-4 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
+      <div className='space-y-5 rounded-3xl border border-primary/30 bg-card p-4 sm:p-6'>
+        <PayProgress texts={texts} />
         <div className='space-y-1'>
           <h2 className='font-display text-xl'>{texts.payTitle}</h2>
           <p className='text-sm text-muted-foreground'>{texts.payIntro}</p>
         </div>
-        {isBizum && (
-          <div className='space-y-2 rounded-2xl bg-muted p-4'>
+        {manualMethods.length > 0 && (
+          <div role='radiogroup' aria-label={texts.payTitle} className={cn('grid gap-2', manualMethods.length > 1 && 'min-[360px]:grid-cols-2')}>
+            {manualMethods.map((option) => (
+              <button
+                key={option}
+                type='button'
+                role='radio'
+                aria-checked={method === option}
+                onClick={() => setMethod(option)}
+                className={cn(
+                  'flex min-w-0 flex-col items-start gap-1 rounded-2xl border-2 p-3 text-left transition',
+                  method === option ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/40'
+                )}
+              >
+                <span className='inline-flex items-center gap-1.5 font-semibold'>
+                  {option === 'bizum' ? <Smartphone className='size-4 shrink-0 text-primary' aria-hidden /> : <Banknote className='size-4 shrink-0 text-primary' aria-hidden />}
+                  {option === 'bizum' ? texts.payChooseBizum : texts.payChooseCash}
+                </span>
+                <span className='text-xs text-muted-foreground'>{option === 'bizum' ? texts.payChooseBizumHint : texts.payChooseCashHint}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {method === 'bizum' && (
+          <div className='space-y-3 rounded-2xl bg-muted p-4'>
+            <p className='text-sm'>{texts.payBizumHow}</p>
+            <CopyRow label={texts.payAmount} value={price} copyValue={amount} texts={texts} />
             {/* Non-breaking spaces: the number must stay on one line to be read and typed in. */}
-            <p className='font-semibold'>{fill(texts.payBizum, { price, phone: (payment.bizumPhone ?? '').replace(/ /g, ' ') })}</p>
-            <div className='flex flex-wrap items-center gap-2 text-sm'>
-              <span className='text-muted-foreground'>{texts.payConcept}</span>
-              <span className='font-mono text-base font-semibold tracking-wider'>{payment.code}</span>
-              <CopyButton value={payment.code} texts={texts} />
+            <CopyRow label={texts.payPhone} value={(payment.bizumPhone ?? '').replace(/ /g, '\u00a0')} copyValue={(payment.bizumPhone ?? '').replace(/\D/g, '')} texts={texts} />
+            <CopyRow label={texts.payConcept} value={payment.code} texts={texts} isCode />
+          </div>
+        )}
+        {method === 'cash' && (
+          <div className='space-y-3 rounded-2xl bg-muted p-4 text-sm'>
+            <p>{texts.payCashHow}</p>
+            <div className='min-w-0'>
+              <p className='text-xs text-muted-foreground'>{texts.payWhere}</p>
+              <p className='font-semibold'>{payment.corral?.name ?? texts.corral}</p>
+              {payment.corral && (
+                <a
+                  href={payment.corral.mapsUrl}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='inline-flex max-w-full items-start gap-1 break-words text-primary underline underline-offset-2'
+                >
+                  <MapPin className='mt-0.5 size-4 shrink-0' aria-hidden />
+                  <span className='min-w-0'>{payment.corral.address}</span>
+                </a>
+              )}
+            </div>
+            {payment.corral?.hours && (
+              <div>
+                <p className='text-xs text-muted-foreground'>{texts.payHours}</p>
+                <p className='whitespace-pre-line'>{payment.corral.hours}</p>
+              </div>
+            )}
+            <div className='flex flex-wrap gap-x-6 gap-y-3'>
+              <div>
+                <p className='text-xs text-muted-foreground'>{texts.payAmount}</p>
+                <p className='text-base font-semibold'>{price}</p>
+              </div>
+              <div>
+                <p className='text-xs text-muted-foreground'>{texts.payCode}</p>
+                <p className='font-mono text-base font-semibold tracking-wider'>{payment.code}</p>
+              </div>
             </div>
           </div>
         )}
-        {isBizum && isCash && <p className='text-center text-sm text-muted-foreground'>{texts.or}</p>}
-        {isCash && (
-          <div className='rounded-2xl bg-muted p-4'>
-            <p className='font-semibold'>
-              {fill(texts.payCash, { place: payment.cashPlace })} · {price}
-            </p>
-          </div>
-        )}
         {error && <p className='text-sm text-destructive'>{error}</p>}
+        {method && (
+          <Button onClick={() => claim(method)} disabled={isPending} className='h-14 w-full rounded-full text-base'>
+            {isPending ? <Loader2 className='animate-spin' /> : <Check />}
+            {method === 'bizum' ? texts.payBizumDone : texts.payCashDone}
+          </Button>
+        )}
         {payment.methods.includes('stripe') && (
           <Button onClick={payWithCard} disabled={isPending} className='h-12 w-full rounded-full text-base'>
             {isPending && <Loader2 className='animate-spin' />}
@@ -149,6 +265,9 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
             </PayPalScriptProvider>
           </div>
         )}
+        <Button variant='ghost' className='w-full rounded-full text-muted-foreground' onClick={() => setIsLater(true)}>
+          {texts.payLater}
+        </Button>
       </div>
     );
   }
@@ -217,6 +336,68 @@ interface ComingSoonProps {
 /** Marks a plan or extra that is shown but can't be chosen yet. */
 function ComingSoon({ texts }: ComingSoonProps) {
   return <span className='ml-2 inline-block rounded-full border border-border px-2 py-0.5 align-middle text-xs font-medium'>{texts.comingSoon}</span>;
+}
+
+interface PayStepProps {
+  texts: PublishPageTexts;
+}
+
+/** Goal gradient: two steps done, only the payment left. */
+function PayProgress({ texts }: PayStepProps) {
+  return (
+    <ol className='flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground'>
+      {[texts.stepListing, texts.stepConsent].map((step) => (
+        <li key={step} className='inline-flex items-center gap-1'>
+          <Check className='size-3.5 text-primary' aria-hidden /> {step}
+        </li>
+      ))}
+      <li className='inline-flex items-center gap-1 font-medium text-foreground' aria-current='step'>
+        <span className='flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground'>3</span> {texts.stepPay}
+      </li>
+    </ol>
+  );
+}
+
+interface PayExitsProps extends PayStepProps {
+  helpUrl?: string;
+}
+
+/** A calm way out of the private page: the shop, or a question to the shop's own WhatsApp. */
+function PayExits({ texts, helpUrl }: PayExitsProps) {
+  return (
+    <div className='grid gap-2 sm:grid-cols-2'>
+      <Button asChild variant='outline' className='h-12 rounded-full'>
+        <Link href='/'>{texts.viewShop}</Link>
+      </Button>
+      {helpUrl && (
+        <Button asChild variant='outline' className='h-12 rounded-full'>
+          <a href={helpUrl} target='_blank' rel='noopener noreferrer'>
+            <MessageCircle /> {texts.askUs}
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface CopyRowProps extends PayStepProps {
+  label: string;
+  value: string;
+  /** What lands on the clipboard, when it differs from what is shown. */
+  copyValue?: string;
+  isCode?: boolean;
+}
+
+function CopyRow({ label, value, copyValue, isCode = false, texts }: CopyRowProps) {
+  return (
+    <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1'>
+      <div className='min-w-0'>
+        <p className='text-xs text-muted-foreground'>{label}</p>
+        <p className={cn('break-words text-base font-semibold', isCode && 'font-mono tracking-wider')}>{value}</p>
+      </div>
+      <CopyButton value={copyValue ?? value} texts={texts} />
+    </div>
+  );
 }
 
 interface CopyButtonProps {

@@ -89,6 +89,8 @@ interface EditorFields {
   /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
   startsAt: string;
   address: string;
+  /** The person's WhatsApp; empty: buyers write through the Corral. */
+  sellerPhone: string;
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
@@ -134,6 +136,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
     serviceType: (SERVICE_TYPES.includes(listing.serviceType as ServiceType) ? listing.serviceType : '') as ServiceType | '',
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
+    sellerPhone: /^\d+$/.test(listing.seller.waId) ? listing.seller.waId : '',
   });
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
@@ -161,7 +164,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address' | 'sellerPhone') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description' | 'short') => (event: { target: { value: string } }) => {
@@ -618,6 +621,22 @@ export default function ListingEditor({ listing, categories, places, languages, 
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {isOpen && (
+            <div className='space-y-1'>
+              <Label htmlFor='seller-phone' className='text-sm font-medium'>
+                {texts.servicePhoneLabel}
+              </Label>
+              <Input
+                id='seller-phone'
+                type='tel'
+                value={fields.sellerPhone}
+                onChange={set('sellerPhone')}
+                placeholder={texts.sellerPlaceholder}
+                className='h-12 rounded-2xl bg-background'
+              />
+              <p className='px-1 text-xs text-muted-foreground'>{texts.sellerPhoneEditHint}</p>
             </div>
           )}
           {isOpen && (

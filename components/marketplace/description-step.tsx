@@ -7,7 +7,6 @@ import { Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lu
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,7 +39,6 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   // Only a click on "the person's WhatsApp" jumps to the number, not the page opening with it chosen.
   const [hasPickedPerson, setHasPickedPerson] = useState(false);
   const [sellerPhone, setSellerPhone] = useState('');
-  const [hasConsent, setHasConsent] = useState(false);
   // Chosen before the AI runs: improve the text, or keep the admin's words and only translate them.
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
   const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
@@ -65,13 +63,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const send = () =>
     startTransition(async () => {
       setError('');
-      // The person's WhatsApp is only shown with their number and their OK; otherwise choose the Corral.
-      if (isForSeller && !(sellerPhone.trim() && hasConsent)) return setError(texts.contactNeedsNumber);
+      // The person's own OK to show their number comes later, on their page or by WhatsApp.
+      if (isForSeller && !sellerPhone.trim()) return setError(texts.contactNeedsNumber);
       const phone = isForSeller ? sellerPhone.trim() : '';
       const result = await describeAdminListing(listing.id, {
         notes,
         sellerPhone: phone || undefined,
-        hasContactConsent: Boolean(phone) && hasConsent,
         textMode,
         originalTitle,
       });
@@ -191,19 +188,6 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             />
             {/* A wanted ad has no seller: the number is the person looking. */}
             <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : texts.sellerHint}</p>
-            {/* Always shown with the number, so nothing pops up while typing. */}
-            <Label className='flex items-start gap-3 pt-1 font-normal leading-5'>
-              <Checkbox
-                checked={hasConsent}
-                onCheckedChange={(value) => {
-                  // The consent is the person's; the admin only records it, so ask once more.
-                  if (value === true) toast({ description: texts.consentCheck });
-                  setHasConsent(value === true);
-                }}
-                className='mt-0.5'
-              />
-              {isService ? texts.serviceConsent : isWanted ? texts.wantedConsent : texts.consent}
-            </Label>
             {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
           </div>
         )}

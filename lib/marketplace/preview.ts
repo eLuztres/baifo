@@ -20,12 +20,11 @@ const PREVIEW_FIELDS = {
   startsAt: true,
   address: true,
   plan: true,
-  crossPostFacebook: true,
-  crossPostWallapop: true,
   consentAt: true,
+  payClaimedMethod: true,
   payCode: true,
   product: { select: { slug: true } },
-  place: { select: { id: true, corral: { select: { name: true, address: true } } } },
+  place: { select: { id: true, corral: { select: { name: true, address: true, venue: true, hours: true } } } },
 } as const;
 
 /** The listing behind a private link, or null for an unknown, expired or no longer open link. */

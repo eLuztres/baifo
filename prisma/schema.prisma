@@ -367,6 +367,9 @@ model Submission {
   payCode           String?          @unique
   // When the private link was last sent; an unpaid listing expires counted from here.
   sentAt            DateTime?        @db.Timestamp(6)
+  // The person says they paid ('bizum') or will pay at the Corral ('cash'); the admin still checks and taps Pagado.
+  payClaimedAt      DateTime?        @db.Timestamp(6)
+  payClaimedMethod  String?
   fees              ListingFee[]
   attempts          Int              @default(0)
   lastError         String?

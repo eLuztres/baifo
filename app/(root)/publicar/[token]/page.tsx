@@ -5,8 +5,11 @@ import ProductImages from '@/components/shared/product/product-images';
 import ProductPrice from '@/components/shared/product/product-price';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { Button } from '@/components/ui/button';
+import { BRAND } from '@/lib/brand';
+import { localize } from '@/lib/category';
+import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES } from '@/lib/marketplace/config';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS } from '@/lib/marketplace/config';
 import { publishPageTexts } from '@/lib/marketplace/page-texts';
 import { getListingPreview } from '@/lib/marketplace/preview';
 import { conditionKey } from '@/lib/constants';
@@ -49,6 +52,17 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   const hasPrice = listing.type === 'PRODUCT' || listing.type === 'WANTED' || Number(listing.price) > 0;
   const priceLabel = listing.type === 'WANTED' ? t('WANTED_BUDGET') : listing.type === 'SERVICE' ? t('PRICE_FROM') : undefined;
   const corral = listing.place?.corral;
+  // Until when the person can still pay: the link stops working this long after it was sent.
+  const validUntil = listing.sentAt
+    ? new Date(listing.sentAt.getTime() + UNPAID_LISTING_HOURS * 3600_000).toLocaleString(locale, {
+        timeZone: SHOP_TIME_ZONE,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
   return (
     <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
@@ -116,12 +130,19 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               texts={texts}
               prices={LISTING_PRICES}
               days={LISTING_DAYS}
-              initial={{ plan: listing.plan === 'big' ? 'big' : 'normal', isConfirmed: Boolean(listing.consentAt) }}
+              initial={{ isConfirmed: Boolean(listing.consentAt), claimedMethod: listing.payClaimedMethod === 'cash' ? 'cash' : listing.payClaimedMethod === 'bizum' ? 'bizum' : null }}
               payment={{
                 methods: LISTING_PAYMENT_METHODS,
                 bizumPhone: BIZUM_PHONE,
                 code: listing.payCode ?? '',
-                cashPlace: corral ? `${corral.name} · ${corral.address}` : texts.corral,
+                corral: corral && {
+                  name: corral.name,
+                  address: corral.address,
+                  hours: localize(corral.hours, locale),
+                  mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([corral.venue, corral.address].filter(Boolean).join(', '))}`,
+                },
+                validUntil,
+                helpUrl: BRAND.contact.whatsappUrl,
               }}
               paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
             />

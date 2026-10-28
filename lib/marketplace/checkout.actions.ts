@@ -5,18 +5,19 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
-import { LISTING_PRICES, publishUrl, type ListingPlan } from './config';
+import { LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission } from './publish';
 
 // The seller's choices on /publicar; the token is the only thing that identifies them.
-const choiceSchema = z.object({
-  token: z.string().uuid(),
-  plan: z.enum(['normal', 'big']),
-  crossPostFacebook: z.boolean(),
-  crossPostWallapop: z.boolean(),
-  hasContactConsent: z.literal(true),
-});
+// Premium and the extras are shown as "coming soon" only, so a request with them is refused.
+const choiceSchema = z
+  .object({
+    token: z.string().uuid(),
+    plan: z.literal('normal'),
+    hasContactConsent: z.literal(true),
+  })
+  .strict();
 
 export type ListingChoice = z.infer<typeof choiceSchema>;
 
@@ -43,6 +44,23 @@ export async function confirmListing(input: ListingChoice): Promise<ActionResult
     return { success: Boolean(await saveChoice(input)) };
   } catch (error) {
     console.error('[listing] confirmation failed', error);
+    return { success: false };
+  }
+}
+
+const claimSchema = z.object({ token: z.string().uuid(), method: z.enum(['bizum', 'cash']) });
+
+/** "Ya he hecho el Bizum" / "Pasaré por El Corral": noted for the admin, who still checks the money and taps Pagado. */
+export async function claimListingPayment(token: string, method: 'bizum' | 'cash'): Promise<ActionResult> {
+  try {
+    const parsed = claimSchema.safeParse({ token, method });
+    if (!parsed.success || !LISTING_PAYMENT_METHODS.includes(parsed.data.method)) return { success: false };
+    const submission = await prisma.submission.findFirst({ where: { payToken: parsed.data.token, status: 'AWAITING_PAYMENT', consentAt: { not: null } } });
+    if (!submission || isLinkExpired(submission.sentAt)) return { success: false };
+    await prisma.submission.update({ where: { id: submission.id }, data: { payClaimedAt: new Date(), payClaimedMethod: parsed.data.method } });
+    return { success: true };
+  } catch (error) {
+    console.error('[listing] payment claim failed', error);
     return { success: false };
   }
 }

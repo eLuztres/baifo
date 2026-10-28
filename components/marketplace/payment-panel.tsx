@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BadgeCheck, Banknote, Loader2, Lock } from 'lucide-react';
+import { BadgeCheck, Banknote, BellRing, Loader2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -64,6 +64,13 @@ export default function PaymentPanel({ listing, plan, hasPersonNumber, texts, is
             {texts.payTitle} ·{' '}
             {fillText(texts.payExpected, { amount: formatCurrency(planPrice), code: listing.payCode ?? '–' })}
           </p>
+          {/* Only what the person says: the admin still checks the money before tapping Pagado. */}
+          {listing.payClaimedAt && (
+            <p className='flex items-start gap-2 rounded-2xl bg-muted p-3 text-sm'>
+              <BellRing className='mt-0.5 size-4 shrink-0 text-primary' aria-hidden />
+              {fillText(listing.payClaimedMethod === 'cash' ? texts.payClaimedCash : texts.payClaimedBizum, { date: dateOf(listing.payClaimedAt) })}
+            </p>
+          )}
           <div className='flex flex-wrap items-end gap-4'>
             <RadioGroup value={method} onValueChange={(value) => setMethod(value as AdminPayMethod)} className='flex gap-4'>
               {(['bizum', 'cash'] as const).map((option) => (

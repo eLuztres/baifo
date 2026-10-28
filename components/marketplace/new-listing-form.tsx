@@ -37,6 +37,8 @@ const POLL_MS = 2500;
 
 const isVideo = (file: File) => file.type.startsWith('video/');
 
+type QueuedStep = 'ai' | 'asIs';
+
 /** Step 1: only the photos. One tap makes the AI pictures, and they show up right here. */
 export default function NewListingForm({ texts, type }: NewListingFormProps) {
   const router = useRouter();
@@ -45,12 +47,22 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [listing, setListing] = useState<AdminListing | null>(null);
   const [shownIndex, setShownIndex] = useState(0);
-  const [progress, setProgress] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
+  // Files still on their way to UploadThing: the admin can pick more or choose the next step meanwhile.
+  const [pendingCount, setPendingCount] = useState(0);
+  // The next step chosen during an upload; it runs by itself once every photo is up.
+  const [queuedStep, setQueuedStep] = useState<QueuedStep | null>(null);
   // After each photo: another one, or straight on to the AI? Asked right away, so nothing needs scrolling.
   const [isAskingMore, setIsAskingMore] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-  const uploadEvents = { onUploadProgress: setProgress, onUploadError: (uploadError: Error) => setError(uploadError.message) };
+  const uploadEvents = {
+    onUploadProgress: setProgress,
+    onUploadError: (uploadError: Error) => {
+      setError(uploadError.message);
+      setQueuedStep(null);
+    },
+  };
   const { startUpload } = useUploadThing('photosUploader', uploadEvents);
   // Videos stay as they are next to the AI pictures; each one carries a still frame for its cover.
   const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
@@ -61,7 +73,7 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
 
   const pictures = listing?.images ?? [];
   const isMaking = Boolean(listing) && pictures.length === 0 && !listing?.lastError;
-  const isUploading = progress !== null;
+  const isUploading = pendingCount > 0;
 
   // The AI takes up to a minute: ask until its pictures (or an error) are there.
   useEffect(() => {
@@ -74,12 +86,14 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
   }, [listing, isMaking]);
 
   const addPhotos = async (files: File[]) => {
-    const free = MAX_PHOTOS - photos.length;
-    if (files.length === 0 || free <= 0 || isUploading || listing) return;
+    const free = MAX_PHOTOS - photos.length - pendingCount;
+    if (files.length === 0 || free <= 0 || listing) return;
+    const chosen = files.slice(0, free);
     setError('');
     setProgress(0);
+    setPendingCount((count) => count + chosen.length);
+    setIsAskingMore(true);
     try {
-      const chosen = files.slice(0, free);
       const videos = chosen.filter(isVideo);
       const photoFiles = chosen.filter((file) => !isVideo(file));
       const [uploadedPhotos, uploadedVideos] = await Promise.all([
@@ -87,12 +101,13 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
         videos.length > 0 ? uploadVideos(videos, startVideoUpload, startUpload) : [],
       ]);
       const uploaded = [...(uploadedPhotos ?? []).map((file) => file.ufsUrl), ...uploadedVideos];
-      if (uploaded.length > 0) {
-        setPhotos((current) => [...current, ...uploaded].slice(0, MAX_PHOTOS));
-        setIsAskingMore(true);
-      }
+      if (uploaded.length > 0) setPhotos((current) => [...current, ...uploaded].slice(0, MAX_PHOTOS));
+      else setQueuedStep(null);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : texts.errorGeneric);
+      setQueuedStep(null);
     } finally {
-      setProgress(null);
+      setPendingCount((count) => count - chosen.length);
     }
   };
 
@@ -136,6 +151,18 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
       if (!('id' in result && result.id)) return setError(result.message);
       router.push(`/admin/listings/${result.id}`);
     });
+
+  const runStep = (step: QueuedStep) => (step === 'ai' ? makePictures() : continueWithoutAi());
+  // Chosen while photos still upload: wait for them, then go on with all of them.
+  const chooseStep = (step: QueuedStep) => (isUploading ? setQueuedStep(step) : runStep(step));
+
+  useEffect(() => {
+    if (!queuedStep || isUploading) return;
+    setQueuedStep(null);
+    runStep(queuedStep);
+    // runStep only changes with the photos, which are complete once isUploading turns false.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedStep, isUploading]);
 
   const retry = () =>
     listing &&
@@ -199,7 +226,7 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
             <span className='text-xs text-muted-foreground'>{texts.videoHint}</span>
           </button>
         )}
-        {isUploading && (
+        {isUploading && photos.length === 0 && (
           <div className='absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm'>
             <Loader2 className='size-8 animate-spin text-primary' />
             <p className='text-sm font-medium'>{fillText(texts.uploading, { progress })}</p>
@@ -246,7 +273,7 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
         )}
       </ListingStage>
 
-      {thumbnails.length > 0 && (
+      {(thumbnails.length > 0 || isUploading) && (
         <ul className='flex gap-3 overflow-x-auto p-1'>
           {thumbnails.map((url, index) => (
             <li key={`${index}-${url}`} className='relative shrink-0'>
@@ -276,12 +303,16 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
               )}
             </li>
           ))}
-          {!listing && photos.length < MAX_PHOTOS && (
+          {Array.from({ length: pendingCount }, (_, index) => (
+            <li key={`pending-${index}`} className='flex size-16 shrink-0 items-center justify-center rounded-2xl bg-muted' aria-label={texts.uploadingPhotos}>
+              <Loader2 className='size-5 animate-spin text-primary' />
+            </li>
+          ))}
+          {!listing && photos.length + pendingCount < MAX_PHOTOS && (
             <li className='shrink-0'>
               <button
                 type='button'
                 onClick={pickPhotos}
-                disabled={isUploading}
                 aria-label={texts.addPhoto}
                 className='flex size-16 items-center justify-center rounded-2xl border-2 border-dashed border-border text-muted-foreground transition hover:border-primary hover:text-primary'
               >
@@ -307,7 +338,7 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
         <DrawerContent>
           <DrawerHeader className='items-center text-center'>
             <DrawerTitle className='font-display text-2xl'>{texts.anotherPhotoTitle}</DrawerTitle>
-            <DrawerDescription>{fillText(texts.anotherPhotoCount, { count: photos.length, max: MAX_PHOTOS })}</DrawerDescription>
+            <DrawerDescription>{fillText(texts.anotherPhotoCount, { count: photos.length + pendingCount, max: MAX_PHOTOS })}</DrawerDescription>
           </DrawerHeader>
           <ul className='flex justify-center gap-2 overflow-x-auto px-4'>
             {photos.map((url) => (
@@ -315,12 +346,17 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
                 <ProductMedia src={url} alt='' fill sizes='3.5rem' />
               </li>
             ))}
+            {Array.from({ length: pendingCount }, (_, index) => (
+              <li key={`pending-${index}`} className='flex size-14 shrink-0 items-center justify-center rounded-xl bg-muted' aria-label={texts.uploadingPhotos}>
+                <Loader2 className='size-4 animate-spin text-primary' />
+              </li>
+            ))}
           </ul>
           <div className='grid grid-cols-2 gap-3 p-4 pb-8'>
             <Button
               variant='outline'
               className='h-14 rounded-full text-base'
-              disabled={photos.length >= MAX_PHOTOS}
+              disabled={photos.length + pendingCount >= MAX_PHOTOS}
               onClick={() => {
                 setIsAskingMore(false);
                 pickPhotos();
@@ -332,23 +368,23 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
               className='h-14 rounded-full text-base shadow-xl shadow-primary/20'
               onClick={() => {
                 setIsAskingMore(false);
-                if (isEvent) continueWithoutAi();
-                else makePictures();
+                chooseStep(isEvent ? 'asIs' : 'ai');
               }}
             >
               {isEvent ? <ArrowRight /> : <Sparkles />} {isEvent ? texts.usePhotos : texts.anotherPhotoNo}
             </Button>
-            {canSkipAi && (
+            {/* An event's main choice already keeps the photos as they are. */}
+            {!isEvent && (
               <Button
                 variant='ghost'
-                className='col-span-2 rounded-full'
+                className='col-span-2 h-auto min-h-10 whitespace-normal rounded-full'
                 disabled={isPending}
                 onClick={() => {
                   setIsAskingMore(false);
-                  continueWithoutAi();
+                  chooseStep('asIs');
                 }}
               >
-                {texts.withoutAi}
+                <ArrowRight /> {canSkipAi ? texts.withoutAi : texts.continueAsIs}
               </Button>
             )}
           </div>
@@ -360,12 +396,12 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
           <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' onClick={() => router.push(`/admin/listings/${listing.id}`)}>
             {texts.toDescription} <ArrowRight />
           </Button>
-        ) : photos.length === 0 ? (
+        ) : photos.length === 0 && !isUploading ? (
           <div className='space-y-2 text-center'>
             <Button
               variant={type === 'WANTED' ? 'default' : 'outline'}
               className={cn('h-14 w-full rounded-full text-base shadow-xl', type === 'WANTED' ? 'shadow-primary/20' : 'bg-background shadow-primary/10')}
-              disabled={isUploading || isPending}
+              disabled={isPending}
               onClick={startWithoutPhoto}
             >
               {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.noPhoto}
@@ -376,14 +412,14 @@ export default function NewListingForm({ texts, type }: NewListingFormProps) {
           <div className='space-y-2'>
             <Button
               className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
-              disabled={isUploading || isPending || isMaking}
-              onClick={isEvent ? continueWithoutAi : makePictures}
+              disabled={isPending || isMaking || Boolean(queuedStep)}
+              onClick={() => chooseStep(isEvent ? 'asIs' : 'ai')}
             >
-              {isPending || isMaking ? <Loader2 className='animate-spin' /> : isEvent ? <ArrowRight /> : <Sparkles />}{' '}
-              {isMaking ? texts.picturesWorking : isEvent ? texts.usePhotos : texts.makePictures}
+              {isPending || isMaking || queuedStep ? <Loader2 className='animate-spin' /> : isEvent ? <ArrowRight /> : <Sparkles />}{' '}
+              {queuedStep ? texts.uploadingPhotos : isMaking ? texts.picturesWorking : isEvent ? texts.usePhotos : texts.makePictures}
             </Button>
-            {canSkipAi && !listing && (
-              <Button variant='outline' className='h-12 w-full rounded-full bg-background' disabled={isUploading || isPending} onClick={continueWithoutAi}>
+            {canSkipAi && !listing && !queuedStep && (
+              <Button variant='outline' className='h-12 w-full rounded-full bg-background' disabled={isPending} onClick={() => chooseStep('asIs')}>
                 {texts.withoutAi}
               </Button>
             )}

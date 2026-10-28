@@ -62,14 +62,19 @@ export async function createAdminListing(input: NewListingInput) {
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
+// The person's WhatsApp as digits; empty: none, buyers write through the Corral.
+const sellerPhoneSchema = z
+  .string()
+  .transform((value) => value.replace(/\D/g, ''))
+  .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15))
+  .optional();
+
+// A Spanish mobile without country code gets +34; no number is the house seller.
+const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits}` : digits) : HOUSE_SELLER);
+
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
-  sellerPhone: z
-    .string()
-    .transform((value) => value.replace(/\D/g, ''))
-    .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15))
-    .optional(),
-  hasContactConsent: z.boolean().default(false),
+  sellerPhone: sellerPhoneSchema,
   // 'original': the notes are the description as they are, only translated.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
@@ -82,15 +87,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
-  const { notes, sellerPhone, hasContactConsent, textMode, originalTitle } = parsed.data;
+  const { notes, sellerPhone, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true } });
   // A video without a still counts as no photo: the AI makes the picture from the description.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
-  // Without the person's number (or their OK to show it), buyers write through the Corral, services included.
-  // A Spanish mobile without country code gets +34.
-  const waId = sellerPhone ? (sellerPhone.length === 9 ? `34${sellerPhone}` : sellerPhone) : HOUSE_SELLER;
+  // Without the person's number, buyers write through the Corral, services included. Their OK comes later, from them.
+  const waId = toWaId(sellerPhone);
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Only once the pictures are there (or there's no photo to make them from), so the AI never makes them twice.
   const { count } = await prisma.submission.updateMany({
@@ -99,7 +103,6 @@ export async function describeAdminListing(id: string, input: ListingDescription
       status: 'PROCESSING',
       rawText: notes,
       sellerId: seller.id,
-      hasContactConsent: Boolean(sellerPhone) && hasContactConsent,
       textMode,
       originalTitle: (textMode === 'original' && originalTitle) || null,
     },
@@ -182,16 +185,29 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
+  // Only before it goes live; missing: the number stays as it is.
+  sellerPhone: sellerPhoneSchema,
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
 
+/** The person's number changed: a new seller, and the old number's consent no longer counts. */
+async function sellerChange(current: { status: string; seller: { waId: string } } | null, sellerPhone?: string) {
+  if (!current || sellerPhone === undefined) return {};
+  const waId = toWaId(sellerPhone);
+  if (waId === current.seller.waId) return {};
+  if (current.status !== 'IN_REVIEW' && current.status !== 'AWAITING_PAYMENT') return null;
+  const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
+  return { sellerId: seller.id, hasContactConsent: false, consentAt: null, consentSource: null, consentTextVersion: null };
+}
+
 export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!sellerPhoneSchema.safeParse(input.sellerPhone).success) return { success: false, message: 'Revisa el teléfono' };
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, type: true, textMode: true, textVersions: true },
+    select: { translations: true, type: true, textMode: true, textVersions: true, status: true, seller: { select: { waId: true } } },
   });
   const isService = current?.type === 'SERVICE';
   const isWanted = current?.type === 'WANTED';
@@ -205,7 +221,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
+  const sellerData = await sellerChange(current, sellerPhone);
+  if (!sellerData) return { success: false, message: 'El WhatsApp solo se puede cambiar antes de publicar' };
   // A service's empty price takes its "from" price away; only a service has a kind of offer.
   const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, serviceType: null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end.
@@ -214,12 +232,12 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
   if (textMode !== current?.textMode) {
-    await prisma.submission.update({ where: { id }, data: { textVersions: { ...versions, [textMode]: editedVersion } } });
+    await prisma.submission.update({ where: { id }, data: { ...sellerData, textVersions: { ...versions, [textMode]: editedVersion } } });
     return { success: true, message: 'Guardado' };
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, ...sellerData, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {

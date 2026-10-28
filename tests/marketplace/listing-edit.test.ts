@@ -36,6 +36,7 @@ jest.mock('@/db/prisma', () => ({
 
 const db = prisma as unknown as {
   submission: Record<'findUnique' | 'update' | 'updateMany' | 'create', jest.Mock>;
+  seller: Record<'upsert', jest.Mock>;
   product: Record<'update', jest.Mock>;
 };
 
@@ -69,6 +70,30 @@ describe('updateAdminListing', () => {
       category: 'Bicis y motor',
       categories: { set: [{ id: 'cat-1' }] },
     });
+  });
+
+  it('changes the person\'s number before it goes live and forgets the old number\'s consent', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'AWAITING_PAYMENT', seller: { waId: '34600111222' } });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611 222 333' })).success).toBe(true);
+    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34611222333' });
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ sellerId: 'seller-1', hasContactConsent: false, consentAt: null, consentSource: null });
+  });
+
+  it('keeps the seller and the consent when the number stays the same', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'IN_REVIEW', seller: { waId: '34600111222' } });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '600111222' })).success).toBe(true);
+    expect(db.seller.upsert).not.toHaveBeenCalled();
+    expect(db.submission.update.mock.calls[0][0].data).not.toHaveProperty('consentAt');
+  });
+
+  it('does not change the number of a live listing, nor take a broken one', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'LIVE', seller: { waId: '34600111222' } });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611222333' })).success).toBe(false);
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '12' })).message).toBe('Revisa el teléfono');
+    expect(db.submission.update).not.toHaveBeenCalled();
   });
 
   it('lets a service go without a "from" price and keeps its kind of offer', async () => {
@@ -140,7 +165,7 @@ describe('describeAdminListing', () => {
     db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', rawImages: ['https://x.ufs.sh/f/clip#video'] });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', sellerPhone: '612345678', hasContactConsent: true })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', sellerPhone: '612345678' })).success).toBe(true);
     expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true });
   });
 
@@ -156,7 +181,7 @@ describe('describeAdminListing', () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     expect((await describeAdminListing(ID, { notes: 'Jardinero en Corralejo' })).success).toBe(true);
-    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ hasContactConsent: false });
+    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: 'baifo' });
   });
 
   it('waits while the AI still makes the pictures', async () => {
