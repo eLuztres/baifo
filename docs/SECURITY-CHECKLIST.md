@@ -1,6 +1,6 @@
 # Security checklist: baifo.es
 
-Checked on 2026-10-28 with read-only lookups (`dig`, `openssl`, `curl`). Nothing was changed.
+Checked on 2026-10-28 and re-checked on 2026-10-29 with read-only lookups (`dig`, `openssl`, `curl`). Nothing was changed, and none of the items below is done yet.
 DNS is at **GoDaddy** (`ns61/ns62.domaincontrol.com`). Website on **Vercel**, incoming mail through **ImprovMX**, outgoing mail through **Resend**.
 
 | # | Item | Priority | Status today |
@@ -30,7 +30,7 @@ send.baifo.es         CNAME  send.forge.rmta.net.               (Resend, see ite
 _dmarc.baifo.es       (none)
 CAA                   (none)
 DS / DNSKEY           (none, so no DNSSEC)
-TLS certificate       Let's Encrypt (YR1/YR2), auto-renewed by Vercel
+TLS certificate       Let's Encrypt (YR1/YR2), valid until 2027-01-21, auto-renewed by Vercel
 ```
 
 ---
@@ -155,7 +155,7 @@ echo | openssl s_client -connect baifo.es:443 -servername baifo.es 2>/dev/null |
 # issuer=… O=Let's Encrypt …
 ```
 
-**Later:** in about 3 months (after the next renewal around Jan 2027), check that the site still loads over HTTPS and that **Vercel → Settings → Domains** shows no certificate error.
+**Later:** after the next renewal (the current certificate runs until 2027-01-21, Vercel renews it before that), check that the site still loads over HTTPS and that **Vercel → Settings → Domains** shows no certificate error.
 
 ---
 
