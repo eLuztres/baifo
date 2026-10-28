@@ -13,6 +13,7 @@ const STEP_TEXTS: { title: TranslationKey; text: TranslationKey }[] = [
   { title: 'WORKSHOP_STEP_1_TITLE', text: 'WORKSHOP_STEP_1_TEXT' },
   { title: 'WORKSHOP_STEP_2_TITLE', text: 'WORKSHOP_STEP_2_TEXT' },
   { title: 'WORKSHOP_STEP_3_TITLE', text: 'WORKSHOP_STEP_3_TEXT' },
+  { title: 'WORKSHOP_STEP_4_TITLE', text: 'WORKSHOP_STEP_4_TEXT' },
 ];
 
 // Sideways only: a vertical overflow would make the one-page scroller treat the row as its own scroller.
@@ -40,7 +41,7 @@ export default async function WorkshopSection() {
       {/* Phones swipe through the steps sideways, so the workshop stays one screen tall. */}
       <WorkshopSteps
         steps={steps}
-        className={cn(SWIPE_ROW_CLASS, styles.fill, 'md:grid md:grid-cols-3 md:overflow-visible')}
+        className={cn(SWIPE_ROW_CLASS, styles.fill, 'md:grid md:overflow-visible', steps.length > 3 ? 'md:grid-cols-4' : 'md:grid-cols-3')}
       />
 
       {WORKSHOP.gallery.length > 0 && (

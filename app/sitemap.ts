@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getInStockRings } from '@/components/shared/home/in-stock-rings';
+import { getInStockSlugs } from '@/components/shared/home/in-stock-rings';
 import { SERVER_URL } from '@/lib/constants';
 import { languageAlternates } from '@/lib/seo';
 
@@ -17,7 +17,7 @@ const entry = (path: string, lastModified?: Date): MetadataRoute.Sitemap[number]
 
 /** Home, the feed and every listing the shop shows; expired and sold ones drop out with it. Category pages only redirect to the feed. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const listings = await getInStockRings();
+  const listings = await getInStockSlugs();
 
   return [
     entry('/'),

@@ -1,8 +1,20 @@
+import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
-import { takeDown } from '@/lib/marketplace/publish';
-import { claimListingPayment, closeListing, confirmListing } from '@/lib/marketplace/checkout.actions';
+import { paypal } from '@/lib/paypal';
+import { isRateLimited } from '@/lib/rate-limit';
+import { publishSubmission, takeDown } from '@/lib/marketplace/publish';
+import {
+  captureListingPayPalOrder,
+  claimListingPayment,
+  closeListing,
+  confirmListing,
+  createListingPayPalOrder,
+  startStripeCheckout,
+} from '@/lib/marketplace/checkout.actions';
 
-jest.mock('@/lib/paypal', () => ({ paypal: {} }));
+jest.mock('@/lib/paypal', () => ({ paypal: { createOrder: jest.fn(), capturePayment: jest.fn() } }));
+jest.mock('next/headers', () => ({ headers: jest.fn() }));
+jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishSubmission: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
 jest.mock('@/lib/marketplace/listing-payment', () => ({ isLinkExpired: () => false, recordConsent: jest.fn() }));
@@ -10,9 +22,16 @@ jest.mock('@/db/prisma', () => ({ prisma: { submission: { findFirst: jest.fn(), 
 
 const db = prisma as unknown as { submission: Record<'findFirst' | 'update', jest.Mock> };
 const TOKEN = 'ff25bd1e-d82d-4561-8ca2-337545aa373e';
+const mockLimited = isRateLimited as jest.Mock;
+const mockPaypal = paypal as unknown as Record<'createOrder' | 'capturePayment', jest.Mock>;
+
+// Only the limit for the given action is used up.
+const limitReached = (action: string) => mockLimited.mockImplementation(async (limit: { action: string }) => limit.action === action);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockLimited.mockResolvedValue(false);
+  (headers as jest.Mock).mockResolvedValue(new Headers({ 'x-forwarded-for': '9.9.9.9' }));
   db.submission.findFirst.mockResolvedValue({ id: 'sub-1', sentAt: new Date() });
 });
 
@@ -69,5 +88,63 @@ describe('closeListing', () => {
     db.submission.findFirst.mockResolvedValue(null);
     expect(await closeListing(TOKEN, '612345678')).toEqual({ success: false });
     expect(takeDown).not.toHaveBeenCalled();
+  });
+});
+
+describe('rate limits on the /publicar buttons', () => {
+  const CHOICE = { token: TOKEN, plan: 'normal', hasContactConsent: true } as const;
+
+  it('counts each press per visitor IP and per link', async () => {
+    await confirmListing(CHOICE);
+    expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'listing-page' }), '9.9.9.9');
+    expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'listing-link' }), TOKEN);
+  });
+
+  it.each(['listing-page', 'listing-link'])('stops confirm, Stripe, PayPal and "I paid" once %s is used up', async (action) => {
+    limitReached(action);
+    expect((await confirmListing(CHOICE)).success).toBe(false);
+    expect((await startStripeCheckout(CHOICE)).success).toBe(false);
+    expect((await createListingPayPalOrder(CHOICE)).success).toBe(false);
+    expect((await claimListingPayment(TOKEN, 'bizum')).success).toBe(false);
+    expect((await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).success).toBe(false);
+    expect(db.submission.findFirst).not.toHaveBeenCalled();
+    expect(db.submission.update).not.toHaveBeenCalled();
+    expect(mockPaypal.createOrder).not.toHaveBeenCalled();
+    expect(mockPaypal.capturePayment).not.toHaveBeenCalled();
+  });
+
+  it('does not count a request with an invalid token', async () => {
+    expect((await closeListing('not-a-token', '612345678')).success).toBe(false);
+    expect(mockLimited).not.toHaveBeenCalled();
+  });
+
+  it.each(['close-listing', 'close-listing-link'])('stops guessing the seller\'s number once %s is used up', async (action) => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', seller: { waId: '34612345678' } });
+    limitReached(action);
+    expect(await closeListing(TOKEN, '612345678')).toEqual({ success: false, isTooMany: true });
+    expect(db.submission.findFirst).not.toHaveBeenCalled();
+    expect(takeDown).not.toHaveBeenCalled();
+  });
+
+  it('limits closing per link, whatever the IP', async () => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', seller: { waId: '34612345678' } });
+    await closeListing(TOKEN, '612345679');
+    expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'close-listing-link', max: 5 }), TOKEN);
+  });
+});
+
+describe('captureListingPayPalOrder', () => {
+  it('only takes the money of a listing that still waits for its fee', async () => {
+    db.submission.findFirst.mockResolvedValue(null);
+    expect((await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).success).toBe(false);
+    expect(db.submission.findFirst.mock.calls[0][0].where).toEqual({ payToken: TOKEN, status: 'AWAITING_PAYMENT' });
+    expect(mockPaypal.capturePayment).not.toHaveBeenCalled();
+  });
+
+  it('captures and publishes a waiting listing', async () => {
+    mockPaypal.capturePayment.mockResolvedValue({ id: 'CAP-1', status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ amount: { value: '5.00' } }] } }] });
+    (publishSubmission as jest.Mock).mockResolvedValue('published');
+    expect(await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).toEqual({ success: true });
+    expect(publishSubmission).toHaveBeenCalledWith(expect.objectContaining({ submissionId: 'sub-1', amountPaid: '5.00' }));
   });
 });

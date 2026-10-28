@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { insertReviewSchema } from '@/lib/validators';
+import { idSchema, insertReviewSchema } from '@/lib/validators';
 import { formatError } from '@/lib/utils';
 import { prisma } from '@/db/prisma';
 import { revalidatePath } from 'next/cache';
@@ -84,6 +84,8 @@ export async function createUpdateReview(
 
 // Get all reviews for a product
 export async function getReviews({ productId }: { productId: string }) {
+  // Public: an object instead of an id would be read by Prisma as a filter.
+  if (!idSchema.safeParse(productId).success) return { data: [] };
   const data = await prisma.review.findMany({
     where: {
       productId: productId,
@@ -110,7 +112,7 @@ export async function getReviewByProductId({
   productId: string;
 }) {
   const userId = await getSessionUserId();
-  if (!userId) return null;
+  if (!userId || !idSchema.safeParse(productId).success) return null;
 
   return await prisma.review.findFirst({
     where: { productId, userId },

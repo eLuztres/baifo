@@ -1,6 +1,7 @@
 import { prisma } from '@/db/prisma';
 import { sendButtons, sendList, sendText } from '@/lib/whatsapp-cloud/client';
 import { handleSellerMessage } from '@/lib/marketplace/conversation';
+import { isRateLimited } from '@/lib/rate-limit';
 import type { InboundMessage } from '@/lib/whatsapp-cloud/webhook';
 
 jest.mock('@/db/prisma', () => {
@@ -19,6 +20,7 @@ jest.mock('@/lib/whatsapp-cloud/client', () => ({
   sendList: jest.fn(async () => {}),
 }));
 jest.mock('@/lib/marketplace/listing', () => ({ markSold: jest.fn() }));
+jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn(async () => false) }));
 
 const db = prisma as unknown as {
   seller: { upsert: jest.Mock };
@@ -63,6 +65,18 @@ describe('handleSellerMessage', () => {
 
     expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { status: 'PROCESSING' } });
     expect(reply).toEqual({ shouldProcess: 'sub-1' });
+    expect(isRateLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'whatsapp-listing', max: 10, windowMs: 24 * 60 * 60 * 1000 }), SELLER);
+  });
+
+  it('keeps the listing open, without AI work, once the number sent too many today', async () => {
+    db.submission.findFirst.mockResolvedValue(openSubmission({ mediaIds: ['media-1'] }));
+    (isRateLimited as jest.Mock).mockResolvedValueOnce(true);
+
+    const reply = await handleSellerMessage(message({ type: 'button', buttonId: 'done' }));
+
+    expect(reply).toEqual({});
+    expect(db.submission.update).not.toHaveBeenCalled();
+    expect(sendText).toHaveBeenCalledWith(SELLER, expect.stringContaining('mañana'));
   });
 
   it('asks an item for sale for a photo when done comes first', async () => {

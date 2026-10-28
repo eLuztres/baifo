@@ -1,13 +1,16 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth-guard';
 import { prisma } from '@/db/prisma';
 import { formatReservationEnd, sendUserNotification } from '@/email';
-import { RESERVATION_HOURS } from '@/lib/constants';
+import { OWNER_MESSAGE_LIMIT, RESERVATION_HOURS } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { alertOwnerOfRing } from '@/lib/owner-alerts';
+import { isRateLimited } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/sign-in-limit';
 import { formatError } from '@/lib/utils';
 import { idSchema, reserveRequestSchema } from '@/lib/validators';
 
@@ -18,6 +21,9 @@ function revalidateRing(slug: string) {
 }
 
 export type ReserveRequest = z.infer<typeof reserveRequestSchema>;
+
+// Both forms email or WhatsApp the owner and are open to guests, so a script could flood the owner.
+const isOwnerMessageLimited = async () => isRateLimited(OWNER_MESSAGE_LIMIT, clientIp(await headers()));
 
 /** Showcase mode: tells the shop who likes a ring and how to reach them. Nothing is reserved. */
 export async function sendInterest(request: ReserveRequest) {
@@ -34,6 +40,7 @@ export async function sendInterest(request: ReserveRequest) {
     const customerName = user?.name || name;
     const customerContact = contact ? `${channel ?? 'contact'}: ${contact}` : user?.email;
     if (!customerName || !customerContact) return { success: false, message: t('RESERVE_MISSING') };
+    if (await isOwnerMessageLimited()) return { success: false, message: t('TOO_MANY_REQUESTS') };
 
     await alertOwnerOfRing({
       product,
@@ -66,6 +73,7 @@ export async function reserveProduct(request: ReserveRequest) {
     const customerName = user?.name || name;
     const customerContact = contact ? `${channel ?? 'contact'}: ${contact}` : user?.email;
     if (!customerName || !customerContact) return { success: false, message: t('RESERVE_MISSING') };
+    if (await isOwnerMessageLimited()) return { success: false, message: t('TOO_MANY_REQUESTS') };
 
     const now = new Date();
     const reservedUntil = new Date(now.getTime() + RESERVATION_HOURS * 60 * 60 * 1000);

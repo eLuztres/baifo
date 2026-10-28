@@ -22,6 +22,13 @@ export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 // Where the shop works for now, e.g. a launch in one town; blank means everywhere and hides the notice.
 export const SERVICE_AREA = process.env.SERVICE_AREA?.trim() || '';
 
+// Offers (admin "Offers"): big announcements on the home page and /ofertas. On by default; without a running offer nothing shows.
+export const OFFERS_ENABLED = process.env.OFFERS_ENABLED !== 'false';
+// The icons an offer can have (lucide names); components/shared/offers/offer-icon.tsx draws them.
+export const OFFER_ICONS = ['GraduationCap', 'Rocket', 'Tag', 'Gift', 'Sparkles', 'Megaphone'] as const;
+export type OfferIcon = (typeof OFFER_ICONS)[number];
+export const OFFERS_PATH = '/ofertas';
+
 // The shop owner's login email: only the owner can make, change or delete admins, and nobody can remove the owner.
 export const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim().toLowerCase() || '';
 
@@ -104,6 +111,12 @@ export const newProductPathFor = (category: { id: string }) =>
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 // How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
+// "Contact seller" reveals per visitor IP within the window, so seller numbers can't be collected in bulk.
+export const CONTACT_LIMIT = {
+  action: 'contact',
+  max: envNumber('CONTACT_LIMIT_MAX', 30),
+  windowMs: envNumber('CONTACT_LIMIT_MINUTES', 10) * 60 * 1000,
+};
 
 // Pricing rules used by the cart; set per shop in .env.
 export const TAX_RATE = envNumber('TAX_RATE', 0);
@@ -121,6 +134,24 @@ export const PRICE_CLASSES: PriceClass[] = (process.env.PRICE_CLASSES || '')
   .map((entry) => entry.split(':').map((part) => part.trim()))
   .filter(([name, price]) => name && price && !Number.isNaN(Number(price)))
   .map(([name, price]) => ({ name, price: Number(price).toFixed(2) }));
+
+// Public actions are limited per visitor IP (and per private link) against spam, guessing and email/WhatsApp costs;
+// e.g. SIGN_UP_LIMIT_MAX=5 and SIGN_UP_LIMIT_MINUTES=60 in .env.
+const envLimit = (action: string, max: number, minutes: number) => {
+  const name = action.toUpperCase().replace(/-/g, '_');
+  return { action, max: envNumber(`${name}_LIMIT_MAX`, max), windowMs: envNumber(`${name}_LIMIT_MINUTES`, minutes) * 60 * 1000 };
+};
+export const SIGN_UP_LIMIT = envLimit('sign-up', 5, 60);
+// "I'm interested" and "Reserve" both message the owner.
+export const OWNER_MESSAGE_LIMIT = envLimit('owner-message', 10, 60);
+// The buttons on a /publicar link (confirm, pay, "I paid"); per IP and per link.
+export const LISTING_PAGE_LIMIT = envLimit('listing-page', 30, 60);
+export const LISTING_LINK_LIMIT = envLimit('listing-link', 20, 60);
+// "Mark as sold" asks for the seller's number: few tries per link, so it can't be guessed.
+export const CLOSE_LISTING_LIMIT = envLimit('close-listing', 10, 60);
+export const CLOSE_LISTING_LINK_LIMIT = envLimit('close-listing-link', 5, 60);
+// Listings one WhatsApp number can send for AI preparation (per number, not per IP).
+export const WHATSAPP_LISTING_LIMIT = envLimit('whatsapp-listing', 10, 24 * 60);
 
 export { CURRENCY, NUMBER_LOCALE, SHOP_TIME_ZONE } from './currency';
 export * from './form-defaults';

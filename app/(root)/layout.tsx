@@ -4,6 +4,7 @@ import ServiceAreaNotice from '@/components/shared/service-area-notice';
 import AdminAddButton from '@/components/shared/admin-add-button';
 import GoldLeafBackground from '@/components/shared/gold-leaf-background';
 import DunesBackground from '@/components/shared/dunes-background';
+import HomeOffers from '@/components/shared/offers/home-offers';
 import { BRAND } from '@/lib/brand';
 
 export default function RootLayout({
@@ -20,6 +21,7 @@ export default function RootLayout({
       <main className='wrapper flex-1 pt-8 sm:pt-12'>{children}</main>
       <Footer />
       <AdminAddButton />
+      <HomeOffers />
     </div>
   );
 }

@@ -4,18 +4,13 @@ import { PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType } from '@/lib/const
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
-import { seedOf } from '@/lib/studio/prompts.mjs';
 import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
-// Local settings for item photos, picked per listing: the feed varies, while one listing's photos match.
-const ITEM_SCENES = [
-  'on a ledge of light volcanic stone, the soft shadow of a palm leaf falling across it',
-  'on a sunlit ledge in front of a whitewashed wall, a strip of blue sky at the top edge',
-  'on a weathered wooden terrace table, the sea far behind it',
-  'on a pale stone surface in front of a lime-washed wall, a branch of pink bougainvillea at one side',
-];
-
-const itemScene = (seed: string) => ITEM_SCENES[seedOf(seed) % ITEM_SCENES.length];
+// One calm studio backdrop in the shop's colors for every item, so the feed looks like one series.
+const ITEM_SCENE =
+  'on a smooth, plain seamless studio backdrop that is mostly soft warm beige, with only a faint, muted hint of pale ' +
+  'turquoise in the upper corners, an even matte gradient without any mottled or painted texture, the surface ' +
+  'flowing into the background without a visible edge or horizon, no props and no decoration';
 
 // Keeps the seller's actual item: a used product must look like itself, wear included.
 const photoPrompt = (scene: string) =>
@@ -233,10 +228,9 @@ const translatePrompt = (from: Locale, locales: Locale[]) =>
 // Upright like a phone photo, so it fills the feed's 3:4 tiles; nobody posts square pictures any more.
 const LISTING_PHOTO_SIZE = '1152x1536';
 
-/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. The seed (the
-    listing's id) picks the item's scene. */
-export const enhancePhoto = (photo: Buffer, type: ListingType, seed: string) =>
-  editImage(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(itemScene(seed)) : SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
+/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. */
+export const enhancePhoto = (photo: Buffer, type: ListingType) =>
+  editImage(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(ITEM_SCENE) : SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
 
 // The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
 const PICTURE_STYLE =
@@ -257,10 +251,9 @@ const picturePrompt = ({ title, description }: { title: string; description: str
           'and a gentle contact shadow, the whole item visible and centered. ') +
   `${PICTURE_STYLE}\nThe listing: ${title}. ${description}`;
 
-/** A picture made from the listing's text alone, for a listing without any photo. The seed (the listing's id) picks
-    an item's scene. */
-export const createPicture = (text: { title: string; description: string }, type: ListingType, seed: string) =>
-  generateImage(picturePrompt(text, type, itemScene(seed)), { size: LISTING_PHOTO_SIZE });
+/** A picture made from the listing's text alone, for a listing without any photo. */
+export const createPicture = (text: { title: string; description: string }, type: ListingType) =>
+  generateImage(picturePrompt(text, type, ITEM_SCENE), { size: LISTING_PHOTO_SIZE });
 
 /** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
     an item also gets condition and price. With `kept`, the admin's own text stays as it is and is only translated.

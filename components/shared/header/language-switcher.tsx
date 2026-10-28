@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import LocaleIcon from './locale-icon';
+import { ThemeMenuItems } from './mode-toggle';
 
 function useChooseLocale() {
   const { locale } = useI18n();
@@ -39,10 +40,12 @@ function useChooseLocale() {
 interface LanguageSwitcherProps {
   /** `compact`: a symbol button with a dropdown (header on desktop). `pills`: all languages side by side (mobile menu). */
   variant?: 'compact' | 'pills';
+  /** `compact` only: light and dark below the languages, instead of a header button of their own. */
+  hasThemeChoice?: boolean;
   className?: string;
 }
 
-export default function LanguageSwitcher({ variant = 'pills', className }: LanguageSwitcherProps) {
+export default function LanguageSwitcher({ variant = 'pills', hasThemeChoice = false, className }: LanguageSwitcherProps) {
   const { t, locales } = useI18n();
   const { locale, choose, isPending } = useChooseLocale();
   // In the shop's own order (LOCALES in .env), not the built-in one.
@@ -81,6 +84,7 @@ export default function LanguageSwitcher({ variant = 'pills', className }: Langu
               )}
             </DropdownMenuItem>
           ))}
+          {hasThemeChoice && <ThemeMenuItems hasSystem={false} />}
         </DropdownMenuContent>
       </DropdownMenu>
     );

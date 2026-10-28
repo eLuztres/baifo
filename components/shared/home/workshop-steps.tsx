@@ -16,7 +16,7 @@ interface WorkshopStepsProps {
   className?: string;
 }
 
-/** The workshop's three steps as photo cards with their title and description; a tap on the photo shows it full screen. */
+/** The workshop's steps (three or four) as photo cards with their title and description; a tap on the photo shows it full screen. */
 const WorkshopSteps = ({ steps, className }: WorkshopStepsProps) => {
   const { t } = useI18n();
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
@@ -42,7 +42,7 @@ const WorkshopSteps = ({ steps, className }: WorkshopStepsProps) => {
               onClick={() => setFullScreenIndex(index)}
             >
               {/* Anchored high: the text covers the bottom, so a wide card crops mostly there and doesn't cut off heads. */}
-              <Image src={step.image} alt={step.title} fill sizes='(min-width: 768px) 33vw, 78vw' className='object-cover object-[50%_30%]' />
+              <Image src={step.image} alt={step.title} fill sizes={`(min-width: 768px) ${Math.ceil(100 / steps.length)}vw, 78vw`} className='object-cover object-[50%_30%]' />
             </button>
             <div className='pointer-events-none absolute inset-x-0 bottom-0 space-y-1 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 pt-16 text-white sm:p-6 sm:pt-20'>
               <p className='eyebrow'>{captions[index].eyebrow}</p>

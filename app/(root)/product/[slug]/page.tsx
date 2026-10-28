@@ -12,8 +12,8 @@ import ShareButton from '@/components/shared/product/share-button';
 import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import ScrollText from '@/components/shared/product/scroll-text';
-import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
-import { findNextRing, groupByCategory } from '@/components/shared/home/materials';
+import { getInStockRings, getRingSummaries, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { findNextRing, orderByCategory } from '@/components/shared/home/materials';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import {
   CancelReservationButton,
@@ -59,17 +59,19 @@ export async function generateMetadata(props: ProductPageProps) {
 const ProductDetailsPage = async (props: ProductPageProps) => {
   const [{ slug }, { c: categoryId }] = await Promise.all([props.params, props.searchParams]);
 
-  const [product, session, { t, locale }, rings, categories, placeIds] = await Promise.all([
+  // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
+  const [product, session, { t, locale }, summaries, [ownRing], categories, placeIds] = await Promise.all([
     getProduct(slug),
     getSession(),
     getT(),
-    getInStockRings(),
+    getRingSummaries(),
+    getInStockRings({ slug }),
     getStoreCategories(),
     getVisitorPlaceIds(),
   ]);
   if (!product) notFound();
   // The page itself always opens (a shared link); what it suggests next stays in the visitor's places.
-  const visibleRings = inPlaces(rings, placeIds);
+  const visibleRings = inPlaces(summaries, placeIds);
   const place = product.placeId ? (await getShopPlaces(locale)).find((item) => item.id === product.placeId) : undefined;
 
   const inStock = product.stock > 0;
@@ -78,7 +80,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const reservedUntil = product.reservedUntil?.toISOString() ?? '';
   // Only what the buttons need goes to the browser (not e.g. who reserved the ring).
   const buyProduct = { id: product.id, stock: product.stock };
-  const nextRing = findNextRing(groupByCategory(categories, visibleRings, locale), slug, categoryId);
+  const nextRing = findNextRing(orderByCategory(categories, visibleRings), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
   const isService = product.type === 'SERVICE';
@@ -88,7 +90,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const serviceKey = isService ? serviceTypeKey(product.serviceType) : undefined;
   // 0 is no "from" price for a service and a free event.
   const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
-  const isIllustrative = rings.some((ring) => ring.slug === slug && ring.isIllustrative);
+  const isIllustrative = Boolean(ownRing?.isIllustrative);
   const priceLabel = product.type === 'WANTED' ? t('WANTED_BUDGET') : isService ? t('PRICE_FROM') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
@@ -104,7 +106,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
-    categories.find((category) => rings.some((ring) => ring.slug === slug && ring.categoryIds.includes(category.id)));
+    categories.find((category) => ownRing?.categoryIds.includes(category.id));
   const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
 
   return (

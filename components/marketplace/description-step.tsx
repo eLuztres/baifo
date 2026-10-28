@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lucide-react';
+import { Check, Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
@@ -47,9 +47,14 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
   const { t } = useI18n();
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
+  // Sent: the AI writes the text, and the pictures may still be on their way. The editor comes once both are there.
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
   // No photo (a video without a still doesn't count): the AI makes the picture from this text, so the text can't be empty.
   const hasNoPhoto = !listing.rawImages.some(pictureOf);
+  const hasPictures = listing.images.length > 0;
+  // The AI's pictures run on their own since the upload (without a photo: since sending), so the admin writes meanwhile.
+  const showsPictureWork = listing.usesAi && !listing.lastError && (!hasNoPhoto || isWriting);
+  const hasText = Boolean(listing.title);
   const placeholder = isOriginal
     ? texts.tellOriginalPlaceholder
     : isService
@@ -89,11 +94,19 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
           <Sparkles className='size-4 shrink-0 text-primary' aria-hidden /> {texts.noPhotoHint}
         </p>
       )}
+      {/* What the AI is doing, part by part; nothing here blocks the form. */}
+      {(showsPictureWork || isWriting) && (
+        <ul aria-live='polite' className='flex flex-wrap gap-2 text-sm'>
+          {showsPictureWork && <WorkState isDone={hasPictures} label={hasPictures ? texts.picturesReady : texts.picturesWorking} />}
+          {isWriting && <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />}
+        </ul>
+      )}
       <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
-        {/* Before the AI picture of a video-only service, its videos. */}
-        {(listing.images.length > 0 ? listing.images : listing.rawImages).map((url, index) => (
+        {/* The originals until the AI pictures arrive, which then take their place. Before the AI picture of a video-only service, its videos. */}
+        {(hasPictures ? listing.images : listing.rawImages).map((url, index) => (
           <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
             <ProductMedia src={url} alt='' fill sizes='6rem' />
+            {showsPictureWork && !hasPictures && <span className='absolute inset-0 animate-pulse bg-primary/20 motion-reduce:animate-none' aria-hidden />}
           </li>
         ))}
       </ul>
@@ -186,8 +199,8 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
               placeholder={texts.sellerPlaceholder}
               className='h-12 rounded-2xl bg-background'
             />
-            {/* A wanted ad has no seller: the number is the person looking. */}
-            <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : texts.sellerHint}</p>
+            {/* Wanted ads and events have no seller: the number is the person behind them. */}
+            <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
             {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
           </div>
         )}
@@ -210,9 +223,25 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
           className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
           disabled={isPending || isWriting || ((isOriginal || hasNoPhoto) && !notes.trim())} onClick={send}>
           {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
-          {isWriting ? (isOriginal ? texts.translatingNow : texts.writing) : isOriginal ? texts.translateButton : texts.writeListing}
+          {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
+          {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
         </Button>
       </div>
     </div>
+  );
+}
+
+interface WorkStateProps {
+  isDone: boolean;
+  label: string;
+}
+
+/** One part of the AI's work (pictures or text): busy, or done. */
+function WorkState({ isDone, label }: WorkStateProps) {
+  return (
+    <li className='inline-flex min-w-0 items-center gap-2 rounded-full bg-muted px-3 py-1.5'>
+      {isDone ? <Check className='size-4 shrink-0 text-primary' aria-hidden /> : <Loader2 className='size-4 shrink-0 animate-spin text-primary' aria-hidden />}
+      {label}
+    </li>
   );
 }

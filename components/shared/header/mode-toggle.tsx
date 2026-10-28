@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 interface ModeToggleProps {
   /** `compact`: an icon button with a dropdown (header on desktop). `pills`: the three choices side by side (mobile menu). */
   variant?: 'compact' | 'pills';
+  /** Offers "Automatic" (the device's setting) next to light and dark. */
+  hasSystem?: boolean;
   className?: string;
 }
 
@@ -27,7 +29,26 @@ const MODES: { id: 'system' | 'light' | 'dark'; label: TranslationKey; icon: typ
   { id: 'dark', label: 'THEME_DARK', icon: MoonIcon },
 ];
 
-const ModeToggle = ({ variant = 'compact', className }: ModeToggleProps) => {
+const modesOf = (hasSystem: boolean) => MODES.filter((mode) => hasSystem || mode.id !== 'system');
+
+/** The theme choices inside another dropdown, e.g. the language menu. */
+export const ThemeMenuItems = ({ hasSystem = true }: { hasSystem?: boolean }) => {
+  const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>{t('THEME_LABEL')}</DropdownMenuLabel>
+      {modesOf(hasSystem).map(({ id, label, icon: Icon }) => (
+        <DropdownMenuCheckboxItem key={id} checked={theme === id} onClick={() => setTheme(id)}>
+          <Icon className='size-4' aria-hidden /> {t(label)}
+        </DropdownMenuCheckboxItem>
+      ))}
+    </>
+  );
+};
+
+const ModeToggle = ({ variant = 'compact', hasSystem = true, className }: ModeToggleProps) => {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   const { t } = useI18n();
@@ -46,10 +67,10 @@ const ModeToggle = ({ variant = 'compact', className }: ModeToggleProps) => {
       <div
         role='group'
         aria-label={t('THEME_LABEL')}
-        // Three equal parts in one row, also on the narrowest phones.
-        className={cn('grid w-full grid-cols-3 gap-1 rounded-3xl border border-border p-1', className)}
+        // Equal parts in one row, also on the narrowest phones.
+        className={cn('grid w-full gap-1 rounded-3xl border border-border p-1', hasSystem ? 'grid-cols-3' : 'grid-cols-2', className)}
       >
-        {MODES.map(({ id, label, icon: Icon }) => (
+        {modesOf(hasSystem).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type='button'
@@ -79,7 +100,7 @@ const ModeToggle = ({ variant = 'compact', className }: ModeToggleProps) => {
       <DropdownMenuContent align='end'>
         <DropdownMenuLabel>{t('THEME_LABEL')}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {MODES.map(({ id, label, icon: Icon }) => (
+        {modesOf(hasSystem).map(({ id, label, icon: Icon }) => (
           <DropdownMenuCheckboxItem key={id} checked={theme === id} onClick={() => setTheme(id)}>
             <Icon className='size-4' aria-hidden /> {t(label)}
           </DropdownMenuCheckboxItem>

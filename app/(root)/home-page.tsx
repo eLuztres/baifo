@@ -7,7 +7,9 @@ import { SECTION_IDS } from '@/components/shared/home/one-page';
 import OnePageScroller from '@/components/shared/home/one-page-scroller';
 import onePage from '@/components/shared/home/one-page.module.css';
 import room from '@/components/shared/home/dark-room.module.css';
-import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { getInStockRings, getRingSummaries, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { pickShowroomRings } from '@/components/shared/home/materials';
+import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { cn, formatPriceTag } from '@/lib/utils';
@@ -17,9 +19,11 @@ const MIN_SPACE_RINGS = 4;
 const CUTOUT_SLUGS = new Set<string>(cutouts);
 
 export default async function HomePage() {
-  // One query feeds the opening scene, the showroom and the shop; only the visitor's places.
-  const [allRings, placeIds] = await Promise.all([getInStockRings(), getVisitorPlaceIds()]);
-  const rings = inPlaces(allRings, placeIds);
+  // A light list of every listing in the visitor's places gives the counts; only the few shown are loaded in full.
+  const [summaries, placeIds, storeCategories] = await Promise.all([getRingSummaries(), getVisitorPlaceIds(), getStoreCategories()]);
+  const placedSummaries = inPlaces(summaries, placeIds);
+  const { ids, counts } = pickShowroomRings(storeCategories, placedSummaries, CUTOUT_SLUGS);
+  const rings = await getInStockRings({ id: { in: ids } });
 
   // Only rings with a cut-out picture (transparent background) can float in the opening scene.
   const spaceRings = rings
@@ -41,7 +45,7 @@ export default async function HomePage() {
           <DarkRoomHero image={BRAND.heroImage} />
         )}
       </section>
-      <ShowroomSection rings={rings} />
+      <ShowroomSection rings={rings} counts={counts} storeCategories={storeCategories} allCount={placedSummaries.length} />
       <WorkshopSection />
       <ContactSection />
     </div>

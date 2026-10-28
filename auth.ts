@@ -49,6 +49,15 @@ export const authServer = betterAuth({
   // No cookie cache: every request reads the session from the database, so a deleted
   // user is signed out and a role change applies at once.
   session: { expiresIn: SESSION_DAYS * 24 * 60 * 60 },
+  // Guards /api/auth/* (the shop's own forms call the server API, limited in user.actions.ts). In the database,
+  // since each Vercel instance would keep its own count in memory. Off in development, as Better Auth's default.
+  rateLimit: {
+    storage: 'database',
+    customRules: {
+      '/sign-in/email': { window: 60, max: 5 },
+      '/sign-up/email': { window: 60 * 60, max: 5 },
+    },
+  },
   databaseHooks: {
     user: {
       create: {

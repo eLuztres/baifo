@@ -22,9 +22,16 @@ interface SellerContact {
 export default function ContactSellerButton({ productId, productName, className }: ContactSellerButtonProps) {
   const { t } = useI18n();
   const [contact, setContact] = useState<SellerContact | null | undefined>(undefined);
+  const [isRateLimited, setIsRateLimited] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const reveal = () => startTransition(async () => setContact(await getProductContact(productId)));
+  const reveal = () =>
+    startTransition(async () => {
+      const result = await getProductContact(productId);
+      const isBlocked = result !== null && 'isRateLimited' in result;
+      setIsRateLimited(isBlocked);
+      if (!isBlocked) setContact(result);
+    });
 
   if (contact === null) return <p className={cn('text-sm text-muted-foreground', className)}>{t('CONTACT_SELLER_UNAVAILABLE')}</p>;
 
@@ -46,9 +53,18 @@ export default function ContactSellerButton({ productId, productName, className 
     );
   }
 
-  return (
+  const button = (
     <Button onClick={reveal} disabled={isPending} className={cn('h-11 rounded-full', className)}>
       {isPending ? <Loader2 className='animate-spin' /> : <MessageCircle />} {t('CONTACT_SELLER')}
     </Button>
+  );
+  if (!isRateLimited) return button;
+
+  // The button stays, so the visitor can try again after the wait.
+  return (
+    <div className={cn('flex flex-col gap-2', className)}>
+      {button}
+      <p role='alert' className='text-sm text-muted-foreground'>{t('CONTACT_SELLER_TOO_MANY')}</p>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import '@/assets/styles/globals.css';
 import { SERVER_URL } from '@/lib/constants';
@@ -54,6 +55,8 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const brandCss = getBrandCss();
+  // Set by the middleware; next-themes' inline script needs it to pass the Content-Security-Policy.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -64,9 +67,10 @@ export default async function RootLayout({
         <ThemeProvider
           attribute='class'
           defaultTheme={BRAND.theme}
-          forcedTheme={BRAND.theme === 'system' ? undefined : BRAND.theme}
+          forcedTheme={BRAND.hasThemeSwitch ? undefined : BRAND.theme}
           enableSystem={BRAND.theme === 'system'}
           disableTransitionOnChange
+          nonce={nonce}
         >
           <I18nProvider
             locale={locale}

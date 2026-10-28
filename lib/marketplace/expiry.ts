@@ -4,6 +4,7 @@ import { sendText } from '@/lib/whatsapp-cloud/client';
 import { botText, localeOf } from './messages';
 import { unpaidCutoff } from './listing-payment';
 import { takeDown } from './publish';
+import { sendWithTemplateFallback } from './templates';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REMIND_BEFORE_MS = 7 * DAY_MS;
@@ -39,8 +40,13 @@ export async function expireListings(now = new Date()) {
   });
   for (const submission of ending) {
     await prisma.submission.update({ where: { id: submission.id }, data: { remindedAt: now } });
+    const { waId } = submission.seller;
     const values = { title: submission.title ?? '', date: dateOf(submission.expiresAt!) };
-    await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'expiring', values)).catch(() => {});
+    await sendWithTemplateFallback(waId, () => sendText(waId, botText(localeOf(waId), 'expiring', values)), {
+      key: 'listingExpiring',
+      locale: localeOf(waId),
+      parameters: [values.title, values.date],
+    }).catch(() => {});
   }
   return { expired: expired.length + expiredServices.count, unpaid: unpaid.count, reminded: ending.length };
 }

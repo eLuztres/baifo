@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
 import { URL_LOCALE_HEADER } from '@/lib/i18n-core';
+import { buildContentSecurityPolicy } from '@/lib/security-headers';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
 const PROTECTED_PATHS = [
@@ -33,7 +34,14 @@ export function middleware(request: NextRequest) {
   requestHeaders.delete(URL_LOCALE_HEADER);
   const urlLocale = request.nextUrl.searchParams.get('lang');
   if (urlLocale) requestHeaders.set(URL_LOCALE_HEADER, urlLocale);
+
+  // Next.js reads the nonce from the request's CSP header and puts it on its own scripts; the layout reads x-nonce.
+  const nonce = btoa(crypto.randomUUID());
+  const contentSecurityPolicy = buildContentSecurityPolicy({ nonce, isDev: process.env.NODE_ENV === 'development' });
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('Content-Security-Policy', contentSecurityPolicy);
 
   // Guests get a cart id so they can shop before signing in.
   if (!SHOWCASE_MODE && !request.cookies.get('sessionCartId')) {

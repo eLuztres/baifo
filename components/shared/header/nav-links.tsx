@@ -10,6 +10,8 @@ import { useActiveNavIndex } from './use-active-section';
 
 interface NavLinksProps {
   links: NavLink[];
+  /** Pages of their own after the home's parts (e.g. the offers), only in the desktop bar; the phone menu lists them. */
+  pageLinks?: { href: string; label: string }[];
   /** `pills` is the desktop bar; `row` is the slim row on small screens that shows briefly when the part changes. */
   variant?: 'pills' | 'row';
 }
@@ -48,7 +50,7 @@ function useIsShownOnPartChange(activeIndex: number) {
   return isShown;
 }
 
-export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
+export default function NavLinks({ links, pageLinks = [], variant = 'pills' }: NavLinksProps) {
   const pathname = usePathname();
   const activeIndex = useActiveNavIndex(links);
   const isRowShown = useIsShownOnPartChange(activeIndex);
@@ -97,6 +99,15 @@ export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
     );
   }
 
+  const pillClass = (isActive: boolean) =>
+    cn(
+      'rounded-full px-5 py-2 text-sm font-medium transition-colors duration-300',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      isActive
+        ? 'bg-primary text-primary-foreground'
+        : 'text-foreground/70 hover:bg-muted hover:text-foreground'
+    );
+
   return (
     <nav className='hidden items-center gap-1 rounded-full border border-border bg-card/70 p-1 lg:flex'>
       {links.map((link, index) => {
@@ -107,14 +118,16 @@ export default function NavLinks({ links, variant = 'pills' }: NavLinksProps) {
             href={link.href}
             onClick={(event) => handleClick(event, link)}
             aria-current={isActive ? 'location' : undefined}
-            className={cn(
-              'rounded-full px-5 py-2 text-sm font-medium transition-colors duration-300',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-foreground/70 hover:bg-muted hover:text-foreground'
-            )}
+            className={pillClass(isActive)}
           >
+            {link.label}
+          </Link>
+        );
+      })}
+      {pageLinks.map((link) => {
+        const isActive = pathname === link.href;
+        return (
+          <Link key={link.href} href={link.href} aria-current={isActive ? 'page' : undefined} className={pillClass(isActive)}>
             {link.label}
           </Link>
         );

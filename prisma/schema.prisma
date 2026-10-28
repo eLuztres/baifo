@@ -198,6 +198,14 @@ model Verification {
   updatedAt  DateTime @updatedAt
 }
 
+// Better Auth's own limit for its HTTP routes (/api/auth/*); in the database so it holds across server instances.
+model RateLimit {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+
 model Cart {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId        String?  @db.Uuid
@@ -424,6 +432,17 @@ model FailedSignIn {
   @@index([email, ip, createdAt])
 }
 
+// One request to a rate-limited public action (e.g. "contact") per IP; rows older than the window are deleted.
+model RateLimitHit {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action    String
+  ip        String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([action, ip, createdAt])
+}
+
+
 // One OpenAI call and what it cost, for the admin's AI costs page.
 model AiUsage {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -450,4 +469,26 @@ model Invite {
   expiresAt   DateTime  @db.Timestamp(6)
   usedAt      DateTime? @db.Timestamp(6)
   usedByEmail String?
+}
+
+// A big announcement on the site (admin "Offers"), e.g. a deal for students; it shows only between startsAt and endsAt.
+// Texts are per language ({ "es": "…", "en": "…" }): written in the shop's language and translated on save.
+model Offer {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     Json     @default("{}")
+  text      Json     @default("{}")
+  // Who it is for, e.g. "Students"; empty means everybody.
+  audience  Json     @default("{}")
+  // One of OFFER_ICONS (lucide).
+  icon      String
+  // Where its button leads; no button without it.
+  linkUrl   String?
+  startsAt  DateTime @db.Timestamp(6)
+  endsAt    DateTime @db.Timestamp(6)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
+
+  @@index([endsAt])
 }

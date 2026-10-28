@@ -198,6 +198,7 @@ PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in
 OWNER_EMAIL=owner@example.com       # the owner: only they can make, change or delete admins, and no admin can remove them
 SIGN_UP_BY_INVITE=true              # nobody signs up alone: admins create one-time invite links in Admin → Users
 SERVICE_AREA=Corralejo              # for now only here: a notice above the header says so (remove it to serve everywhere)
+OFFERS_ENABLED=false                # turns off offers (Admin → Offers: big announcements on the home page and /ofertas); on by default
 ```
 
 ### Home page
@@ -230,7 +231,7 @@ SHOWCASE_SHOW_PRICES=true           # showcase with prices (classifieds); a prod
 | Google login button | `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set |
 | Contact page | at least one contact detail is set |
 | Language switcher | more than one language is enabled |
-| Light/dark switch | `BRAND_THEME=system` |
+| Light/dark switch | `BRAND_THEME=system`, or `BRAND_THEME=dark` + `BRAND_THEME_SWITCH=true` (dark first, switch in the menus) |
 | AI product studio (`/admin/studio`) | `OPENAI_API_KEY` is set |
 | "What can you do?" cards | `brand/home-actions.json` has cards |
 

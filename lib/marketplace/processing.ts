@@ -21,12 +21,19 @@ export const STUCK_AFTER_MS = 10 * 60 * 1000;
 export const MAX_ENHANCED_PHOTOS = 8;
 
 const findSubmission = (id: string) => prisma.submission.findUnique({ where: { id }, include: { seller: true } });
+type FoundSubmission = NonNullable<Awaited<ReturnType<typeof findSubmission>>>;
 
 const photosOf = (originals: string[]) => originals.filter((url) => !isVideoUrl(url));
 const videosOf = (originals: string[]) => originals.filter(isVideoUrl);
 const toPrice = (amount: number | null) => (amount ? amount.toFixed(2) : null);
 // Only videos: their still frames are what the AI makes the shop pictures from.
 const stillsOf = (originals: string[]) => videosOf(originals).flatMap((url) => videoPoster(url) ?? []);
+const hasPictureSource = (originals: string[]) => photosOf(originals).length > 0 || stillsOf(originals).length > 0;
+
+/** An admin's photos get their pictures from makeListingPictures, started with the upload, while the admin writes.
+    Nothing touched the listing for STUCK_AFTER_MS: that run is long dead, so another one makes them. */
+const isUploadRunAlive = (submission: FoundSubmission) =>
+  submission.createdByAdmin && submission.usesAi && hasPictureSource(submission.rawImages) && Date.now() - submission.updatedAt.getTime() < STUCK_AFTER_MS;
 
 /** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures. */
 async function makeShopPictures(submissionId: string, originals: string[], type: ListingType, firstPhoto?: Buffer) {
@@ -35,7 +42,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
   const enhanced = await Promise.all(
     sources.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
-      return uploadImage(await enhancePhoto(photo, type, submissionId), `listing-${submissionId}-${index}`);
+      return uploadImage(await enhancePhoto(photo, type), `listing-${submissionId}-${index}`);
     })
   );
   await prisma.submission.update({
@@ -51,7 +58,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
 
 /** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
 async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, videos: string[]) {
-  const picture = await uploadImage(await createPicture(text, type, submissionId), `listing-${submissionId}-0`);
+  const picture = await uploadImage(await createPicture(text, type), `listing-${submissionId}-0`);
   await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture, ...videos], lastError: null } });
 }
 
@@ -85,15 +92,83 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
   });
 }
 
-/** Step 1 of a listing the admin creates: only the shop pictures; the text waits for the admin's description. */
+/** The AI's title, descriptions, category, condition and price, from the first photo and the seller's words; once. */
+async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null) {
+  if (submission.title) return;
+  const shopLocale = getShopLocale();
+  const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
+  // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
+  const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
+  const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
+  const livePlaces = places.filter((place) => place.isLive);
+  const text = await writeListing(firstPhoto, submission.rawText, categories, locales, submission.type, kept, livePlaces);
+  // A place the admin already set stays; else the town the AI read, else the first live place.
+  const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? livePlaces[0])?.id ?? null;
+  const { [shopLocale]: own, ...others } = text.texts;
+  const { type } = text;
+  const isWanted = type === 'WANTED';
+  // What the seller asked for wins over the AI's suggestion; a service's price is its "from" price, an event's its entry.
+  // A wanted ad's amount in the notes is only one end of its budget, so the AI's range is used.
+  const price = submission.price ?? (isWanted ? null : parsePrice(submission.rawText)) ?? toPrice(text.price);
+  const priceMax = isWanted ? (submission.priceMax ?? toPrice(text.priceMax)) : null;
+  await prisma.submission.update({
+    where: { id: submission.id },
+    data: {
+      title: own?.title,
+      shortTitle: own?.short,
+      description: own?.description,
+      translations: others,
+      textVersions: { [submission.textMode]: text.texts },
+      category: text.category,
+      type,
+      // "Any condition" only fits a wanted ad; an item for sale always is in one.
+      condition: text.condition === ANY_CONDITION && !isWanted ? null : text.condition,
+      placeId,
+      price,
+      priceMax: price && priceMax && Number(priceMax) > Number(price) ? priceMax : null,
+      serviceType: type === 'SERVICE' ? text.serviceType : null,
+      // A date the admin already set stays.
+      startsAt: submission.startsAt ?? (type === 'EVENT' && text.startsAt ? fromShopDateTime(text.startsAt) : null),
+      address: submission.address ?? (type === 'EVENT' ? text.address : null),
+    },
+  });
+}
+
+/** The shop pictures: from the photos (or video stills), else drawn from the listing's words. */
+async function makePictures(submission: FoundSubmission, firstPhoto: Buffer | null) {
+  if (submission.images.length > 0 || isUploadRunAlive(submission)) return;
+  if (hasPictureSource(submission.rawImages)) return makeShopPictures(submission.id, submission.rawImages, submission.type, firstPhoto ?? undefined);
+  // The AI's text once it is there (a retry), else the seller's own words, so the picture needn't wait for the text.
+  const words = submission.title
+    ? { title: submission.title, description: submission.description ?? '' }
+    : { title: submission.originalTitle ?? '', description: submission.rawText };
+  return makeTextPicture(submission.id, words, submission.type, videosOf(submission.rawImages));
+}
+
+/** Text and pictures are there: the videos cleaned up, then off to review. */
+async function finishSubmission(submission: FoundSubmission) {
+  // Videos last, as they take longest; a listing made without AI keeps them as uploaded.
+  if (submission.usesAi) await cleanUpVideos(submission.id, submission);
+  const finished = await prisma.submission.update({
+    where: { id: submission.id },
+    data: { status: 'IN_REVIEW', lastError: null },
+    include: { seller: true },
+  });
+  if (!submission.createdByAdmin) await sendForReview(finished);
+}
+
+/** The pictures of a listing the admin creates, started with the upload: the admin writes the description meanwhile and
+    its text is made at the same time. Whichever of the two is done last finishes the listing. */
 export async function makeListingPictures(submissionId: string) {
   const submission = await findSubmission(submissionId);
-  if (!submission || submission.status !== 'COLLECTING' || submission.images.length > 0) return;
+  if (!submission || !['COLLECTING', 'PROCESSING'].includes(submission.status) || submission.images.length > 0) return;
   try {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
-    // Only videos without a still: the picture is made from the text, after the description.
-    if (photosOf(submission.rawImages).length === 0 && stillsOf(submission.rawImages).length === 0) return;
+    // Only videos without a still: the picture is drawn from the description, once it comes.
+    if (!hasPictureSource(submission.rawImages)) return;
     await makeShopPictures(submissionId, submission.rawImages, submission.type);
+    const pictured = (await findSubmission(submissionId))!;
+    if (pictured.status === 'PROCESSING' && pictured.title) await finishSubmission(pictured);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // An AI failure is kept as its code, so the admin's screen can say what happened in their language.
@@ -103,7 +178,7 @@ export async function makeListingPictures(submissionId: string) {
 }
 
 /**
- * Photos → UploadThing → AI pictures → AI text → review. Every step saves its result, so a retry
+ * Photos → UploadThing → AI pictures and AI text (at once) → review. Every step saves its result, so a retry
  * (after a crash or timeout) continues where the last run stopped instead of paying the AI twice.
  * Listings the admin made on /admin/listings/new skip the WhatsApp review: the admin sees them there.
  */
@@ -127,63 +202,16 @@ export async function processSubmission(submissionId: string) {
     const [firstPhotoUrl] = photosOf(originals);
     const firstPhoto = firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null;
 
-    // The text goes first: it takes seconds, so the admin sees the category while the pictures are made.
-    if (!submission.title) {
-      const shopLocale = getShopLocale();
-      const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
-      // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
-      const kept = submission.textMode === 'original' ? { title: submission.originalTitle ?? undefined, description: submission.rawText } : undefined;
-      const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
-      const livePlaces = places.filter((place) => place.isLive);
-      const text = await writeListing(firstPhoto, submission.rawText, categories, locales, submission.type, kept, livePlaces);
-      // A place the admin already set stays; else the town the AI read, else the first live place.
-      const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? livePlaces[0])?.id ?? null;
-      const { [shopLocale]: own, ...others } = text.texts;
-      const { type } = text;
-      const isWanted = type === 'WANTED';
-      // What the seller asked for wins over the AI's suggestion; a service's price is its "from" price, an event's its entry.
-      // A wanted ad's amount in the notes is only one end of its budget, so the AI's range is used.
-      const price = submission.price ?? (isWanted ? null : parsePrice(submission.rawText)) ?? toPrice(text.price);
-      const priceMax = isWanted ? (submission.priceMax ?? toPrice(text.priceMax)) : null;
-      await prisma.submission.update({
-        where: { id: submissionId },
-        data: {
-          title: own?.title,
-          shortTitle: own?.short,
-          description: own?.description,
-          translations: others,
-          textVersions: { [submission.textMode]: text.texts },
-          category: text.category,
-          type,
-          // "Any condition" only fits a wanted ad; an item for sale always is in one.
-          condition: text.condition === ANY_CONDITION && !isWanted ? null : text.condition,
-          placeId,
-          price,
-          priceMax: price && priceMax && Number(priceMax) > Number(price) ? priceMax : null,
-          serviceType: type === 'SERVICE' ? text.serviceType : null,
-          // A date the admin already set stays.
-          startsAt: submission.startsAt ?? (type === 'EVENT' && text.startsAt ? fromShopDateTime(text.startsAt) : null),
-          address: submission.address ?? (type === 'EVENT' ? text.address : null),
-        },
-      });
-      submission = (await findSubmission(submissionId))!;
+    // Text and pictures at once, each saving its own fields. Only with no words at all the picture waits for the AI's text.
+    if (submission.title || submission.rawText.trim()) await Promise.all([writeText(submission, firstPhoto), makePictures(submission, firstPhoto)]);
+    else {
+      await writeText(submission, firstPhoto);
+      await makePictures((await findSubmission(submissionId))!, firstPhoto);
     }
-
-    if (submission.images.length === 0) {
-      if (firstPhoto) await makeShopPictures(submissionId, originals, submission.type, firstPhoto);
-      else await makeTextPicture(submissionId, { title: submission.title ?? '', description: submission.description ?? '' }, submission.type, videosOf(originals));
-      submission = (await findSubmission(submissionId))!;
-    }
-
-    // Videos last, as they take longest; a listing made without AI keeps them as uploaded.
-    if (submission.usesAi) await cleanUpVideos(submissionId, submission);
-
-    submission = await prisma.submission.update({
-      where: { id: submissionId },
-      data: { status: 'IN_REVIEW', lastError: null },
-      include: { seller: true },
-    });
-    if (!submission.createdByAdmin) await sendForReview(submission);
+    submission = (await findSubmission(submissionId))!;
+    // The upload's run is still making the pictures: it finishes the listing once they're there.
+    if (submission.images.length === 0) return;
+    await finishSubmission(submission);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const failed = await prisma.submission.update({

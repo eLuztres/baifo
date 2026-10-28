@@ -18,7 +18,6 @@ import { botText, localeOf } from './messages';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
-import { pictureCounterpart } from './pictures';
 import { lacksConsent, markSent } from './listing-payment';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { rejectSubmission } from './review';
@@ -43,7 +42,7 @@ const newListingSchema = z.object({
 
 export type NewListingInput = z.input<typeof newListingSchema>;
 
-/** Step 1: the photos alone; the AI makes the shop pictures while the admin looks on. Without photos it goes straight to the description. */
+/** Step 1: the photos alone; the AI starts on the shop pictures while the admin goes on to the description. */
 export async function createAdminListing(input: NewListingInput) {
   if (!(await isAdmin())) return NOT_ALLOWED;
   const parsed = newListingSchema.safeParse(input);
@@ -89,26 +88,29 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, textMode, originalTitle } = parsed.data;
   if (textMode === 'original' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true } });
   // A video without a still counts as no photo: the AI makes the picture from the description.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
   // Without the person's number, buyers write through the Corral, services included. Their OK comes later, from them.
   const waId = toWaId(sellerPhone);
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
-  // Only once the pictures are there (or there's no photo to make them from), so the AI never makes them twice.
+  // Also while the AI still makes the pictures: the text is written at the same time.
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true, ...(hasPhoto && { images: { isEmpty: false } }) },
+    where: { id, status: 'COLLECTING', createdByAdmin: true },
     data: {
       status: 'PROCESSING',
       rawText: notes,
       sellerId: seller.id,
       textMode,
       originalTitle: (textMode === 'original' && originalTitle) || null,
+      lastError: null,
     },
   });
-  if (count === 0) return { success: false, message: 'Las fotos todavía no están listas' };
+  if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   after(() => processSubmission(id));
+  // Before the description only the pictures run, so an error then was theirs: they start again too.
+  if (hasPhoto && listing?.lastError && listing.images.length === 0) after(() => makeListingPictures(id));
   return { success: true, message: 'La IA está escribiendo el anuncio' };
 }
 
@@ -128,20 +130,6 @@ export async function getAdminListing(id: string) {
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
-
-/** Before the text: one picture switched between its original photo and its AI picture, the others untouched.
-    A live listing changes its pictures in the editor, which also updates the product. */
-export async function swapListingPicture(id: string, url: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !photoUrlSchema.safeParse(url).success) return NOT_ALLOWED;
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { images: true, rawImages: true, aiImages: true, productId: true } });
-  const noOtherVersion = { success: false, message: 'Esta foto no tiene otra versión' } as const;
-  if (!submission || submission.productId || !submission.images.includes(url)) return noOtherVersion;
-  const counterpart = pictureCounterpart(submission, url);
-  if (!counterpart) return noOtherVersion;
-  const images = submission.images.map((image) => (image === url ? counterpart.other : image));
-  await prisma.submission.update({ where: { id }, data: { images } });
-  return { success: true, message: 'Guardado', images };
-}
 
 const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000), short: z.string().trim().max(40).optional() });
 
@@ -345,7 +333,7 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
   const text = parsed.data ? { title: parsed.data, description: '' } : { title: submission.title ?? '', description: submission.description ?? '' };
   if (!text.title && !text.description) return { success: false, message: 'Describe la foto que quieres' };
   try {
-    const picture = await createPicture(text, submission.type, id);
+    const picture = await createPicture(text, submission.type);
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
@@ -441,7 +429,7 @@ export async function deleteAdminListing(id: string) {
 /** The AI failed: start the work again from where it stopped. */
 export async function retryAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true } });
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true, images: true, rawImages: true, usesAi: true, createdByAdmin: true } });
   // Still on the photos step: only the pictures are tried again.
   if (submission?.status === 'COLLECTING') {
     await prisma.submission.update({ where: { id }, data: { attempts: 0, lastError: null } });
@@ -449,6 +437,8 @@ export async function retryAdminListing(id: string) {
   } else {
     await prisma.submission.update({ where: { id }, data: { status: 'PROCESSING', attempts: 0, lastError: null } });
     after(() => processSubmission(id));
+    // Pictures from the upload still missing: their own run starts again, as processSubmission leaves them to it.
+    if (submission?.createdByAdmin && submission.usesAi && submission.images.length === 0 && submission.rawImages.some(pictureOf)) after(() => makeListingPictures(id));
   }
   return { success: true, message: 'La IA lo intenta otra vez' };
 }

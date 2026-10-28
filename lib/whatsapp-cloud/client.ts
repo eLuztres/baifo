@@ -88,15 +88,25 @@ export function sendList(to: string, body: string, buttonText: string, rows: Rep
   });
 }
 
-/** An approved template: the only kind of message allowed outside the 24-hour window. */
-export function sendTemplate(to: string, name: string, language: string, bodyParameters: string[] = []) {
+/**
+ * An approved template: the only kind of message allowed outside the 24-hour window.
+ * Button payloads go to the template's quick-reply buttons in order and come back in the webhook when tapped.
+ */
+export function sendTemplate(to: string, name: string, language: string, bodyParameters: string[] = [], buttonPayloads: string[] = []) {
   const parameters: TemplateParameter[] = bodyParameters.map((text) => ({ type: 'text', text }));
+  const buttons = buttonPayloads.map((payload, index) => ({
+    type: 'button',
+    sub_type: 'quick_reply',
+    index: String(index),
+    parameters: [{ type: 'payload', payload }],
+  }));
+  const components = [...(parameters.length > 0 ? [{ type: 'body', parameters }] : []), ...buttons];
   return sendMessage(to, {
     type: 'template',
     template: {
       name,
       language: { code: language },
-      ...(parameters.length > 0 ? { components: [{ type: 'body', parameters }] } : {}),
+      ...(components.length > 0 ? { components } : {}),
     },
   });
 }

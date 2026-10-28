@@ -27,7 +27,7 @@ export default function CloseListingForm({ token, texts, isEvent }: CloseListing
       setError('');
       const result = await closeListing(token, phone);
       if (result.success) setIsClosed(true);
-      else setError(result.isWrongPhone ? texts.closeWrongPhone : texts.error);
+      else setError(result.isWrongPhone ? texts.closeWrongPhone : result.isTooMany ? texts.closeTooMany : texts.error);
     });
   };
 

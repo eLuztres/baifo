@@ -19,6 +19,7 @@ import { serviceTypeKey } from '@/lib/listing-labels';
 import { getShopPlaces } from '@/lib/places';
 import CloseListingForm from './close-listing-form';
 import PublishForm from './publish-form';
+import ShopTeaser from './shop-teaser';
 
 // A private link: no search engine should list or follow it.
 export const metadata: Metadata = { title: 'Baifo', robots: { index: false, follow: false } };
@@ -125,6 +126,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               )}
             </div>
             {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
+            <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
           </>
         ) : (
           <>
@@ -149,6 +151,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
                 helpUrl: BRAND.contact.whatsappUrl,
               }}
               paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
+              shopTeaser={<ShopTeaser texts={texts} />}
             />
           </>
         )}

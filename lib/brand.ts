@@ -129,6 +129,8 @@ export const BRAND = {
   lampSpout: readPoint('BRAND_LAMP_SPOUT'),
 
   theme: readTheme(),
+  /** Visitors can switch light/dark: always with `system`, and with light or dark as the start when BRAND_THEME_SWITCH=true. */
+  hasThemeSwitch: readTheme() === 'system' || env('BRAND_THEME_SWITCH') === 'true',
   colors: readColors('BRAND_COLOR_'),
   darkColors: readColors('BRAND_DARK_COLOR_'),
   radius: env('BRAND_RADIUS'),
@@ -155,7 +157,7 @@ export const hasContactInfo = Boolean(
   BRAND.contact.email || BRAND.contact.phone || BRAND.contact.instagram
 );
 
-/** The workshop section's pictures from brand/workshop.json: up to three step photos and a gallery. */
+/** The workshop section's pictures from brand/workshop.json: up to four step photos and a gallery. */
 export const WORKSHOP: { steps: string[]; gallery: string[] } = workshop;
 
 export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length > 0;

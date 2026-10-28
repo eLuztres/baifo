@@ -18,7 +18,7 @@ import { prisma } from '@/db/prisma';
 import { formatError } from '@/lib/utils';
 import { ShippingAddress } from '@/types';
 import { z } from 'zod';
-import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, SIGN_UP_BY_INVITE, USER_ROLES } from '@/lib/constants';
+import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, SIGN_UP_BY_INVITE, SIGN_UP_LIMIT, USER_ROLES } from '@/lib/constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { getMyCart } from './cart.actions';
@@ -29,6 +29,7 @@ import { findOpenInvite, INVITE_COOKIE } from '@/lib/invites';
 import { safeCallbackUrl } from '@/lib/safe-callback-url';
 import { canGiveRole, canManageUser } from '@/lib/owner';
 import { clearFailedSignIns, clientIp, isSignInBlocked, recordFailedSignIn } from '@/lib/sign-in-limit';
+import { isRateLimited } from '@/lib/rate-limit';
 
 // Without a target, the sign-in page sends signed-in visitors on to their home (admins to ADMIN_HOME_PATH).
 const AFTER_SIGN_IN = '/sign-in';
@@ -115,6 +116,11 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
       password: formData.get('password'),
       confirmPassword: formData.get('confirmPassword'),
     });
+
+    // Each sign-up sends a welcome email, and the "email exists" answer would let a script test addresses.
+    if (await isRateLimited(SIGN_UP_LIMIT, clientIp(await headers()))) {
+      return { success: false, message: 'TOO_MANY_REQUESTS' satisfies TranslationKey };
+    }
 
     // Older accounts may have a mixed-case email, which the case-sensitive unique index lets through.
     const existingUser = await prisma.user.findFirst({

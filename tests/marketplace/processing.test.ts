@@ -56,9 +56,12 @@ const WANTED = {
 
 beforeEach(() => jest.clearAllMocks());
 
+// Text and pictures run at once, so the text's save is found by what it saves, not by its place in the calls.
+const textUpdate = () => db.update.mock.calls.map(([call]) => call.data).find((data) => 'placeId' in data);
+
 describe('processSubmission without a photo', () => {
-  it('writes the text from the words alone, then makes the picture from that text', async () => {
-    const written = { ...WANTED, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' };
+  it('writes the text and draws the picture from the words at the same time', async () => {
+    const written = { ...WANTED, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.', images: ['https://x.ufs.sh/f/made.jpg'] };
     db.findUnique.mockResolvedValueOnce(WANTED).mockResolvedValue(written);
     db.update.mockResolvedValue({ ...written, seller: {} });
 
@@ -67,9 +70,20 @@ describe('processSubmission without a photo', () => {
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', 'sub-1');
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(enhancePhoto).not.toHaveBeenCalled();
     expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
+    expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
+  });
+
+  it('waits for the AI\'s text to draw the picture when there are no words at all', async () => {
+    const written = { ...WANTED, rawText: '', title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' };
+    db.findUnique.mockResolvedValueOnce({ ...WANTED, rawText: '' }).mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED');
   });
 
   it('gives the listing the town the AI read, asking only among the live places', async () => {
@@ -79,7 +93,7 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][6].map((place: { slug: string }) => place.slug)).toEqual(['corralejo', 'el-cotillo']);
-    expect(db.update.mock.calls[0][0].data.placeId).toBe('place-cotillo');
+    expect(textUpdate().placeId).toBe('place-cotillo');
   });
 
   it('keeps a place the admin already set', async () => {
@@ -88,7 +102,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect(db.update.mock.calls[0][0].data.placeId).toBe('place-corralejo');
+    expect(textUpdate().placeId).toBe('place-corralejo');
   });
 
   it('falls back to the first live place when the AI names none', async () => {
@@ -98,7 +112,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect(db.update.mock.calls[0][0].data.placeId).toBe('place-corralejo');
+    expect(textUpdate().placeId).toBe('place-corralejo');
   });
 
   it('saves the type the AI read, so an item sent as for sale can turn out to be a wanted ad', async () => {
@@ -108,7 +122,7 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('PRODUCT');
-    expect(db.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', category: 'deporte', serviceType: null, startsAt: null });
+    expect(textUpdate()).toMatchObject({ type: 'WANTED', category: 'deporte', serviceType: null, startsAt: null });
   });
 
   it('still refuses a WhatsApp item for sale without a photo', async () => {
@@ -123,13 +137,15 @@ describe('processSubmission without a photo', () => {
 
   it('makes a WhatsApp wanted ad without a photo from its words, then sends it for review', async () => {
     const fromWhatsapp = { ...WANTED, createdByAdmin: false };
-    db.findUnique.mockResolvedValueOnce(fromWhatsapp).mockResolvedValue({ ...fromWhatsapp, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' });
+    db.findUnique
+      .mockResolvedValueOnce(fromWhatsapp)
+      .mockResolvedValue({ ...fromWhatsapp, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.', images: ['https://x.ufs.sh/f/made.jpg'] });
     db.update.mockResolvedValue({ ...fromWhatsapp, seller: {} });
 
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', 'sub-1');
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(sendForReview).toHaveBeenCalled();
   });
 });
@@ -205,6 +221,58 @@ describe('processSubmission with a service video', () => {
     await processSubmission('sub-1');
 
     expect(cleanUpVideo).not.toHaveBeenCalled();
+  });
+});
+
+describe('an admin listing whose pictures started with the upload', () => {
+  const PHOTO = 'https://x.ufs.sh/f/bike.jpg';
+  const UPLOADED = { ...WANTED, type: 'PRODUCT', usesAi: true, rawImages: [PHOTO], aiImages: [], updatedAt: new Date() };
+
+  it('writes only the text and leaves the pictures (and finishing) to the upload\'s run', async () => {
+    db.findUnique.mockResolvedValueOnce(UPLOADED).mockResolvedValue({ ...UPLOADED, title: 'Bici' });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+
+    await processSubmission('sub-1');
+
+    expect(writeListing).toHaveBeenCalled();
+    expect(enhancePhoto).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'IN_REVIEW' }) }));
+  });
+
+  it('makes the pictures itself when that run is long dead', async () => {
+    const stale = { ...UPLOADED, updatedAt: new Date(Date.now() - 60 * 60 * 1000) };
+    db.findUnique.mockResolvedValueOnce(stale).mockResolvedValue({ ...stale, title: 'Bici', images: ['https://x.ufs.sh/f/made.jpg'] });
+    db.update.mockResolvedValue({ ...stale, seller: {} });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await processSubmission('sub-1');
+
+    expect(enhancePhoto).toHaveBeenCalledTimes(1);
+    expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
+  });
+
+  it('finishes the listing from the pictures\' run when the text is already written', async () => {
+    db.findUnique
+      .mockResolvedValueOnce({ ...UPLOADED, status: 'PROCESSING' })
+      .mockResolvedValue({ ...UPLOADED, status: 'PROCESSING', title: 'Bici', images: ['https://x.ufs.sh/f/made.jpg'] });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
+  });
+
+  it('leaves finishing to the text while it is still being written', async () => {
+    db.findUnique.mockResolvedValueOnce({ ...UPLOADED, status: 'PROCESSING' }).mockResolvedValue({ ...UPLOADED, status: 'PROCESSING', images: ['https://x.ufs.sh/f/made.jpg'] });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(enhancePhoto).toHaveBeenCalledTimes(1);
+    expect(db.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'IN_REVIEW' }) }));
   });
 });
 

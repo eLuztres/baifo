@@ -53,3 +53,4 @@ storybook-static
 
 # design-taste-frontend skill screenshots (regenerated on every run)
 .taste-skill/inspect/
+.claude/worktrees/

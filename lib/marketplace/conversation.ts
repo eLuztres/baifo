@@ -4,7 +4,8 @@ import { sendButtons as sendButtonsNow, sendList as sendListNow, sendText as sen
 import type { InboundMessage } from '@/lib/whatsapp-cloud/webhook';
 import { botText, CHOICE_TYPES, choiceOf, commandOf, localeOf, type BotLocale } from './messages';
 import { markSold } from './listing';
-import { SERVICE_AREA, type ListingType } from '@/lib/constants';
+import { SERVICE_AREA, WHATSAPP_LISTING_LIMIT, type ListingType } from '@/lib/constants';
+import { isRateLimited } from '@/lib/rate-limit';
 
 export const DONE_BUTTON_ID = 'done';
 // A welcome list row's id, e.g. "type:WANTED".
@@ -143,6 +144,11 @@ export async function handleSellerMessage(message: InboundMessage): Promise<Sell
   if (message.type === 'button' && message.buttonId === DONE_BUTTON_ID) {
     if (!isReady(submission)) {
       await sendText(message.from, submission.type === 'PRODUCT' ? botText(locale, 'askPhoto') : checklistText(locale, submission.type));
+      return {};
+    }
+    // Each listing costs AI pictures and text, and anyone can write to the number: a cap per sender and day.
+    if (await isRateLimited(WHATSAPP_LISTING_LIMIT, message.from)) {
+      await sendText(message.from, botText(locale, 'tooManyListings'));
       return {};
     }
     await prisma.submission.update({ where: { id: submission.id }, data: { status: 'PROCESSING' } });

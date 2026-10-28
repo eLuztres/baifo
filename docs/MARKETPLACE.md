@@ -63,10 +63,26 @@ Every new listing emails the printable list of live products (photo, price, What
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).
 
+## WhatsApp templates (24-hour window)
+
+WhatsApp only delivers free messages within 24 hours of the person's last message. When Meta answers 131047 (window
+closed), the bot sends the approved template of the same name instead, with the message's texts as body parameters
+(`lib/marketplace/templates.ts`). Templates go to the person's language (`es`, `en`, `it`, `fr`, `de`); a language
+that isn't approved falls back to `es`. A template that fails too is only logged. Create them in WhatsApp Manager
+(category Utility; "Spanish" = `es`, "English" = `en`, …). Parameters can't hold line breaks, so they are joined with " · ".
+
+| Template | Languages | Body parameters | Buttons |
+| :--- | :--- | :--- | :--- |
+| `review_request` (to the admin) | `es` | {{1}} title, {{2}} price, {{3}} category, {{4}} description | 3 quick replies: Aprobar, Editar, Rechazar (in this order) |
+| `payment_link` (the private link) | all, at least `es` | {{1}} link, {{2}} hours it works | – |
+| `listing_live` | all, at least `es` | {{1}} days online, {{2}} product link | – |
+| `admin_new_listing` (to the admin) | `es` | {{1}} title, {{2}} plan (Normal/Grande), {{3}} link, {{4}} also post on (Facebook, Wallapop or —) | – |
+| `listing_expiring` | all, at least `es` | {{1}} title, {{2}} end date | – |
+
 ## Admin pages
 
 - **/admin/listings**: every listing by status (to review first), with photo, price, seller and end date.
-- **/admin/listings/new**: one or several photos, optionally a few words, a price and the seller's WhatsApp → "Crear con IA" (or "Continuar" with the photos as they are; photos keep uploading while the admin goes on) → the AI cleans up to four photos and writes title, ES/EN description, category and price → edit → "Publicar ahora" (free) or "Rechazar".
+- **/admin/listings/new**: one or several photos, optionally a few words, a price and the seller's WhatsApp → "Crear con IA" (or "Continuar" with the photos as they are; photos keep uploading while the admin goes on) → straight to the description while the AI already makes the pictures → the AI writes title, descriptions, category and price at the same time as the pictures (progress shown per part; the editor opens once both are there) → edit → "Publicar ahora" (free) or "Rechazar".
 - **/admin/listings/[id]**: the same editor for any listing, plus reject and mark as sold. With the person's WhatsApp: **Lista: enviar a la persona** opens your own WhatsApp (`wa.me`) with the message and the private link, in the person's language (no Cloud API); later **Reenviar enlace** sends it again and restarts the time. The person's WhatsApp can be changed under "Más opciones" until it goes live; a new number clears the recorded consent. While it waits for payment: whether and how the person agreed to show their number, whether they say they paid, their code and amount, and **Pagado** (Bizum / Efectivo, amount) which books the fee and publishes. **Pagado** and **Publicar ahora** stay locked for a listing with a number until the person agreed (on their page, or tick "La persona aceptó por WhatsApp" after they answered SÍ).
 - **/admin/payments**: every listing fee received (date, listing, method, amount) and the total, for the books.
 - WhatsApp Business quick replies for taking listings by hand: `docs/whatsapp-quick-replies.md`.

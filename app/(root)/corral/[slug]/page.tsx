@@ -50,9 +50,7 @@ export default async function CorralPage({ params }: CorralPageProps) {
   if (!place.corral || !place.isLive) return <SoonCorral place={place} />;
 
   const { corral } = place;
-  const rings = await getInStockRings();
-  const listings = rings
-    .filter((ring) => ring.placeId === place.id)
+  const listings = (await getInStockRings({ placeId: place.id }))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, LISTING_COUNT);
   const now = new Date();

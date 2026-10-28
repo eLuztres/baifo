@@ -1,13 +1,16 @@
 'use server';
 import { prisma } from '@/db/prisma';
 import { convertToPlainObject, formatError } from '../utils';
-import { PAGE_SIZE, PRICE_CLASSES, SHOWS_PRICES } from '../constants';
+import { CONTACT_LIMIT, PAGE_SIZE, PRICE_CLASSES, SHOWS_PRICES } from '../constants';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { insertProductSchema, updateProductSchema } from '../validators';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/auth-guard';
 import type { TranslationKey } from '@/lib/i18n-core';
+import { isRateLimited } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/sign-in-limit';
 
 // Get single product by it's slug
 export async function getProductBySlug(slug: string) {
@@ -18,17 +21,25 @@ export async function getProductBySlug(slug: string) {
   });
 }
 
-/** The seller's WhatsApp link of a product that has one (classifieds); fetched on a click, so the number isn't in the page. */
+/** The seller's WhatsApp link of a product that has one (classifieds); fetched on a click, so the number isn't in the page.
+    Limited per IP, so a script can't collect every seller's number. */
 export async function getProductContact(productId: string) {
   const id = z.string().uuid().safeParse(productId);
   if (!id.success) return null;
-  const product = await prisma.product.findUnique({ where: { id: id.data }, select: { contactPhone: true } });
+  if (await isRateLimited(CONTACT_LIMIT, clientIp(await headers()))) return { isRateLimited: true } as const;
+  // Taken-down listings are deleted; this also hides one past its end before the daily expiry has run.
+  const product = await prisma.product.findFirst({
+    where: { id: id.data, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    select: { contactPhone: true },
+  });
   const digits = product?.contactPhone?.replace(/\D/g, '');
   return digits ? { phone: `+${digits}`, whatsappUrl: `https://wa.me/${digits}` } : null;
 }
 
 // Get single product by it's ID
 export async function getProductById(productId: string) {
+  // Only the admin form uses it, and it returns the seller's number: a server action is callable by anyone.
+  if (!(await isAdmin())) return null;
   const data = await prisma.product.findFirst({
     where: { id: productId },
     include: { categories: { select: { id: true } } },

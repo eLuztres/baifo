@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
-import type { MaterialRing } from '@/components/shared/home/materials';
+import { RING_PREVIEW_COUNT, type MaterialRing } from '@/components/shared/home/materials';
 import type { CategoryRingAdmin } from '@/lib/category';
 import { cn } from '@/lib/utils';
 import ConcaveRingRow from './concave-ring-row';
@@ -24,6 +24,8 @@ export interface RingCategory {
   /** How many of its listings are new ("New: 3" under its card), a reason to turn the ring and to come back. */
   newCount?: number;
   products: MaterialRing[];
+  /** All its listings when `products` holds only the first few (the home loads no more). */
+  count?: number;
 }
 
 export interface RingFigure {
@@ -71,8 +73,6 @@ const SETTLE_MS = 1400;
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 16;
 const FLYER_COUNT = 3;
-// Only the first few of a category show under the ring, a taste; a "+12" tile leads into the feed with all of them.
-const ROW_PREVIEW_COUNT = 8;
 // The home page's search param with the category in front, e.g. from a listing's way back.
 const CATEGORY_PARAM = 'category';
 
@@ -179,8 +179,9 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   const captionSpots = useCaptionSpots(stageRef, frontIndex, SETTLE_MS);
   const openFeed = useOpenFeed(stageRef);
   const feedHref = `/explore?c=${front.id}`;
-  const rowProducts = front.products.slice(0, ROW_PREVIEW_COUNT);
-  const hiddenCount = front.products.length - rowProducts.length;
+  const rowProducts = front.products.slice(0, RING_PREVIEW_COUNT);
+  const frontCount = front.count ?? front.products.length;
+  const hiddenCount = frontCount - rowProducts.length;
 
   // The feed of the front category is the likely next page: fetched ahead, so the morph into it doesn't wait.
   useEffect(() => router.prefetch(feedHref), [router, feedHref]);
@@ -342,7 +343,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
           onClick={handleFeedLinkClick}
           className='inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline'
         >
-          {t('CATEGORY_SEE_ALL_IN', { category: front.name, count: front.products.length })} <ChevronRight className='size-3.5' aria-hidden />
+          {t('CATEGORY_SEE_ALL_IN', { category: front.name, count: frontCount })} <ChevronRight className='size-3.5' aria-hidden />
         </Link>
       </div>
     </section>

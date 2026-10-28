@@ -145,20 +145,28 @@ describe('setAdminListingCategory', () => {
 });
 
 describe('describeAdminListing', () => {
-  beforeEach(() => db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/bike.jpg'] }));
+  beforeEach(() => db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/bike.jpg'], images: [], lastError: null }));
 
-  it('starts the text only once the pictures are there', async () => {
+  it('starts the text right away, while the AI still makes the pictures', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
 
-    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({
-      id: ID,
-      status: 'COLLECTING',
-      createdByAdmin: true,
-      images: { isEmpty: false },
-    });
+    expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true });
     expect(processSubmission).toHaveBeenCalledWith(ID);
+    // The pictures' own run is still going: it isn't started twice.
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('starts the pictures again when they had failed before the description', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/bike.jpg'], images: [], lastError: 'overloaded' });
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
+
+    expect(db.submission.updateMany.mock.calls[0][0].data.lastError).toBeNull();
+    expect(processSubmission).toHaveBeenCalledWith(ID);
+    expect(makeListingPictures).toHaveBeenCalledWith(ID);
   });
 
   it('does not wait for pictures when a service has only a video: the AI makes the picture from the text', async () => {
@@ -184,7 +192,7 @@ describe('describeAdminListing', () => {
     expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: 'baifo' });
   });
 
-  it('waits while the AI still makes the pictures', async () => {
+  it('starts the text only once, when the description was already sent', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
     expect((await describeAdminListing(ID, { notes: 'Bici' })).success).toBe(false);
@@ -232,14 +240,14 @@ describe('createAdminListingPicture', () => {
     db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', type: 'WANTED' });
 
     expect(await createAdminListingPicture(ID)).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'WANTED', ID);
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'WANTED');
   });
 
   it('uses what the admin typed instead', async () => {
     db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', type: 'SERVICE' });
 
     await createAdminListingPicture(ID, 'surf lesson at sunrise');
-    expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE', ID);
+    expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE');
   });
 });
 
@@ -267,6 +275,25 @@ describe('retryAdminListing', () => {
 
     expect(makeListingPictures).toHaveBeenCalledWith(ID);
     expect(processSubmission).not.toHaveBeenCalled();
+  });
+
+  it('redoes text and the upload\'s pictures when both are still missing after the description', async () => {
+    db.submission.findUnique.mockResolvedValue({ status: 'PROCESSING', createdByAdmin: true, usesAi: true, images: [], rawImages: ['https://utfs.io/f/bike.jpg'] });
+
+    await retryAdminListing(ID);
+
+    expect(processSubmission).toHaveBeenCalledWith(ID);
+    expect(makeListingPictures).toHaveBeenCalledWith(ID);
+  });
+
+  it('leaves the pictures alone once they are there, or for a WhatsApp listing, whose run makes them itself', async () => {
+    db.submission.findUnique.mockResolvedValueOnce({ status: 'PROCESSING', createdByAdmin: true, usesAi: true, images: ['https://x.ufs.sh/f/made.jpg'], rawImages: ['https://utfs.io/f/bike.jpg'] });
+    await retryAdminListing(ID);
+    db.submission.findUnique.mockResolvedValueOnce({ status: 'PROCESSING', createdByAdmin: false, usesAi: true, images: [], rawImages: ['https://utfs.io/f/bike.jpg'] });
+    await retryAdminListing(ID);
+
+    expect(processSubmission).toHaveBeenCalledTimes(2);
+    expect(makeListingPictures).not.toHaveBeenCalled();
   });
 });
 

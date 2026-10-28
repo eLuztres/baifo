@@ -2,7 +2,9 @@ import type { CSSProperties } from 'react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
+import { OFFERS_PATH } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { getRunningOffers } from '@/lib/offers';
 import { getShopPlaces } from '@/lib/places';
 import { parsePlaceSlugs, PLACES_COOKIE } from '@/lib/places-core';
 import BrandLogo from '@/components/shared/brand-logo';
@@ -21,7 +23,9 @@ const Header = async () => {
   const { t, locale } = await getT();
   const navLinks = getNavLinks(t);
   // A shop without places has no picker and shows everything.
-  const [places, cookieStore] = await Promise.all([getShopPlaces(locale), cookies()]);
+  const [places, cookieStore, offers] = await Promise.all([getShopPlaces(locale), cookies(), getRunningOffers()]);
+  // The offers page is in the bar only while an offer runs.
+  const pageLinks = offers.length > 0 ? [{ href: OFFERS_PATH, label: t('OFFERS_TITLE') }] : [];
 
   // Blur only from lg up: on phones it re-blurs the moving page under it every frame, behind a nearly opaque background.
   return (
@@ -36,11 +40,12 @@ const Header = async () => {
           <BrandLogo withName priority className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
         </Link>
 
-        <NavLinks links={navLinks} />
+        <NavLinks links={navLinks} pageLinks={pageLinks} />
 
         <div className='flex items-center gap-1 justify-self-end'>
           {places.length > 0 && <PlacePicker places={places} savedSlugs={parsePlaceSlugs(cookieStore.get(PLACES_COOKIE)?.value)} />}
-          <LanguageSwitcher variant='compact' className='hidden lg:inline-flex' />
+          {/* A fixed start theme keeps its switch in the language menu: one header button less. */}
+          <LanguageSwitcher variant='compact' className='hidden lg:inline-flex' hasThemeChoice={BRAND.hasThemeSwitch && BRAND.theme !== 'system'} />
           {BRAND.theme === 'system' && <ModeToggle className='hidden lg:inline-flex' />}
           <Menu />
         </div>

@@ -10,6 +10,7 @@ import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getLi
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
 import { lacksConsent } from './listing-payment';
+import { sendWithTemplateFallback } from './templates';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -96,21 +97,34 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const url = productUrl(product.slug);
   const sellerWaId = submission.seller.waId;
   const reviewer = ADMIN_WHATSAPP_NUMBER;
+  const sellerLocale = localeOf(sellerWaId);
+  const planName = plan === 'big' ? 'Grande' : 'Normal';
+  const crossPosts = [submission.crossPostFacebook && 'Facebook', submission.crossPostWallapop && 'Wallapop'].filter(Boolean).join(', ');
   // Telling people is best effort: the listing is live either way.
   await Promise.allSettled([
-    isPhoneNumber(sellerWaId) && sendText(sellerWaId, botText(localeOf(sellerWaId), 'live', { days: LISTING_DAYS, url })),
+    isPhoneNumber(sellerWaId) &&
+      sendWithTemplateFallback(sellerWaId, () => sendText(sellerWaId, botText(sellerLocale, 'live', { days: LISTING_DAYS, url })), {
+        key: 'listingLive',
+        locale: sellerLocale,
+        parameters: [String(LISTING_DAYS), url],
+      }),
     reviewer &&
       !submission.createdByAdmin &&
-      sendText(
+      sendWithTemplateFallback(
         reviewer,
-        [
-          `🟢 Nuevo producto online: ${title} (${plan === 'big' ? 'Grande' : 'Normal'})`,
-          url,
-          submission.crossPostFacebook ? '📌 Publicar también en Facebook' : '',
-          submission.crossPostWallapop ? '📌 Publicar también en Wallapop' : '',
-        ]
-          .filter(Boolean)
-          .join('\n')
+        () =>
+          sendText(
+            reviewer,
+            [
+              `🟢 Nuevo producto online: ${title} (${planName})`,
+              url,
+              submission.crossPostFacebook ? '📌 Publicar también en Facebook' : '',
+              submission.crossPostWallapop ? '📌 Publicar también en Wallapop' : '',
+            ]
+              .filter(Boolean)
+              .join('\n')
+          ),
+        { key: 'adminNewListing', locale: 'es', parameters: [title, planName, url, crossPosts || '—'] }
       ),
     sendListingsEmail(),
   ]);

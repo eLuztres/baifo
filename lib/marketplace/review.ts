@@ -6,6 +6,7 @@ import { categoryName, findCategory, getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, HOUSE_SELLER, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { markSent } from './listing-payment';
+import { sendWithTemplateFallback } from './templates';
 import { parsePrice } from './price';
 import { coverPicture } from '@/lib/video';
 
@@ -43,15 +44,25 @@ export async function sendForReview(submission: SubmissionWithSeller) {
   const reviewer = ADMIN_WHATSAPP_NUMBER;
   if (!reviewer) throw new Error('ADMIN_WHATSAPP_NUMBER is missing in .env');
   const category = categoryName(findCategory(await getListingCategories(), submission.category), 'es');
-  await sendButtons(
+  const buttons = [
+    { id: `approve:${submission.id}`, title: '✅ Aprobar' },
+    { id: `edit:${submission.id}`, title: '✏️ Editar' },
+    { id: `reject:${submission.id}`, title: '❌ Rechazar' },
+  ];
+  await sendWithTemplateFallback(
     reviewer,
-    reviewCaption(submission, category),
-    [
-      { id: `approve:${submission.id}`, title: '✅ Aprobar' },
-      { id: `edit:${submission.id}`, title: '✏️ Editar' },
-      { id: `reject:${submission.id}`, title: '❌ Rechazar' },
-    ],
-    coverPicture(submission.images) ?? coverPicture(submission.rawImages)
+    () => sendButtons(reviewer, reviewCaption(submission, category), buttons, coverPicture(submission.images) ?? coverPicture(submission.rawImages)),
+    {
+      key: 'reviewRequest',
+      locale: 'es',
+      parameters: [
+        submission.title ?? 'Sin título',
+        submission.price ? formatCurrency(submission.price.toString()) : 'sin precio',
+        category,
+        submission.description ?? '',
+      ],
+      buttonPayloads: buttons.map((button) => button.id),
+    }
   );
 }
 
@@ -65,7 +76,12 @@ export async function approveSubmission(submissionId: string) {
   await prisma.submission.update({ where: { id: submission.id }, data: { rejectAskedAt: null } });
   await markSent(submission.id, ['IN_REVIEW']);
   const locale = localeOf(submission.seller.waId);
-  await sendText(submission.seller.waId, botText(locale, 'approved', { url: publishUrl(submission.payToken), hours: UNPAID_LISTING_HOURS }));
+  const values = { url: publishUrl(submission.payToken), hours: UNPAID_LISTING_HOURS };
+  await sendWithTemplateFallback(submission.seller.waId, () => sendText(submission.seller.waId, botText(locale, 'approved', values)), {
+    key: 'paymentLink',
+    locale,
+    parameters: [values.url, String(values.hours)],
+  });
   return submission;
 }
 

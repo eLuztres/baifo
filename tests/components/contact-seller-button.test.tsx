@@ -32,4 +32,15 @@ describe('ContactSellerButton', () => {
 
     expect(await screen.findByText(t('CONTACT_SELLER_UNAVAILABLE'))).toBeInTheDocument();
   });
+
+  it('asks to try again later when there were too many requests, and shows no number', async () => {
+    mockContact.mockResolvedValue({ isRateLimited: true });
+    renderWithI18n(<ContactSellerButton productId={PRODUCT_ID} productName='Bici de paseo' />);
+
+    await userEvent.click(screen.getByRole('button', { name: t('CONTACT_SELLER') }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t('CONTACT_SELLER_TOO_MANY'));
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t('CONTACT_SELLER') })).toBeEnabled();
+  });
 });

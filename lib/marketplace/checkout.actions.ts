@@ -1,10 +1,14 @@
 'use server';
 
+import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
+import { CLOSE_LISTING_LIMIT, CLOSE_LISTING_LINK_LIMIT, LISTING_LINK_LIMIT, LISTING_PAGE_LIMIT } from '@/lib/constants';
 import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
+import { isRateLimited, type RateLimit } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/sign-in-limit';
 import { LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission, takeDown } from './publish';
@@ -27,11 +31,17 @@ interface ActionResult {
   orderId?: string;
 }
 
+// Per IP and per link: the link alone mustn't allow endless Stripe/PayPal sessions or seller numbers to be tried.
+async function isOverLimit(ipLimit: RateLimit, linkLimit: RateLimit, token: string) {
+  return (await isRateLimited(ipLimit, clientIp(await headers()))) || (await isRateLimited(linkLimit, token));
+}
+
 /** Saves the plan, extras and the person's OK of an approved listing and returns it, or null for an invalid or expired link. */
 async function saveChoice(input: unknown) {
   const choice = choiceSchema.safeParse(input);
   if (!choice.success) return null;
   const { token, ...data } = choice.data;
+  if (await isOverLimit(LISTING_PAGE_LIMIT, LISTING_LINK_LIMIT, token)) return null;
   const submission = await prisma.submission.findFirst({ where: { payToken: token, status: 'AWAITING_PAYMENT' } });
   if (!submission || isLinkExpired(submission.sentAt)) return null;
   await recordConsent({ id: submission.id }, 'publish-page');
@@ -55,6 +65,7 @@ export async function claimListingPayment(token: string, method: 'bizum' | 'cash
   try {
     const parsed = claimSchema.safeParse({ token, method });
     if (!parsed.success || !LISTING_PAYMENT_METHODS.includes(parsed.data.method)) return { success: false };
+    if (await isOverLimit(LISTING_PAGE_LIMIT, LISTING_LINK_LIMIT, parsed.data.token)) return { success: false };
     const submission = await prisma.submission.findFirst({ where: { payToken: parsed.data.token, status: 'AWAITING_PAYMENT', consentAt: { not: null } } });
     if (!submission || isLinkExpired(submission.sentAt)) return { success: false };
     await prisma.submission.update({ where: { id: submission.id }, data: { payClaimedAt: new Date(), payClaimedMethod: parsed.data.method } });
@@ -77,10 +88,11 @@ const isSamePhone = (typed: string, waId: string) => {
  * "Marcar como vendido" / "Cancelar el evento": a live product or event leaves the shop. The person types their
  * WhatsApp number as well, so a forwarded link alone can't take the listing down.
  */
-export async function closeListing(token: string, phone: string): Promise<ActionResult & { isWrongPhone?: boolean }> {
+export async function closeListing(token: string, phone: string): Promise<ActionResult & { isWrongPhone?: boolean; isTooMany?: boolean }> {
   try {
     const parsed = closeSchema.safeParse({ token, phone });
     if (!parsed.success) return { success: false };
+    if (await isOverLimit(CLOSE_LISTING_LIMIT, CLOSE_LISTING_LINK_LIMIT, parsed.data.token)) return { success: false, isTooMany: true };
     const submission = await prisma.submission.findFirst({
       where: { payToken: parsed.data.token, status: 'LIVE', type: { in: ['PRODUCT', 'EVENT'] } },
       select: { id: true, type: true, seller: { select: { waId: true } } },
@@ -141,8 +153,10 @@ export async function captureListingPayPalOrder(token: string, orderId: string):
   try {
     const parsed = z.object({ token: z.string().uuid(), orderId: z.string().min(1) }).safeParse({ token, orderId });
     if (!parsed.success) return { success: false };
-    const submission = await prisma.submission.findFirst({ where: { payToken: parsed.data.token } });
-    if (!submission) return { success: false };
+    if (await isOverLimit(LISTING_PAGE_LIMIT, LISTING_LINK_LIMIT, parsed.data.token)) return { success: false };
+    // Only while it waits for the fee: the money of a listing that is already paid or expired isn't taken.
+    const submission = await prisma.submission.findFirst({ where: { payToken: parsed.data.token, status: 'AWAITING_PAYMENT' } });
+    if (!submission || isLinkExpired(submission.sentAt)) return { success: false };
 
     const capture = await paypal.capturePayment(parsed.data.orderId);
     const amount = capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;

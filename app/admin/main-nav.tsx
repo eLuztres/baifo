@@ -7,7 +7,7 @@ import { useI18n } from '@/components/i18n-provider';
 import type { TranslationKey } from '@/lib/i18n-core';
 
 // New product comes first: adding products is what the admin does most.
-const links: { title: TranslationKey; href: string; isSalesOnly?: boolean; isAiOnly?: boolean }[] = [
+const links: { title: TranslationKey; href: string; isSalesOnly?: boolean; isAiOnly?: boolean; isOffersOnly?: boolean }[] = [
   {
     title: 'ADMIN_NEW_PRODUCT',
     href: '/admin/studio',
@@ -27,6 +27,11 @@ const links: { title: TranslationKey; href: string; isSalesOnly?: boolean; isAiO
     isSalesOnly: true,
   },
   {
+    title: 'OFFERS_ADMIN_TITLE',
+    href: '/admin/offers',
+    isOffersOnly: true,
+  },
+  {
     title: 'ADMIN_USERS',
     href: '/admin/users',
   },
@@ -42,6 +47,8 @@ interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
   isShowcase: boolean;
   /** Whether the shop has an OpenAI key; without one there are no AI costs to show. */
   isAiEnabled: boolean;
+  /** Whether the shop has offers (OFFERS_ENABLED). */
+  isOffersEnabled: boolean;
   /** Where "New product" leads (NEW_PRODUCT_PATH). */
   newProductHref: string;
   /** The shop's own admin pages (brand/admin-links.json), already in the visitor's language. */
@@ -59,7 +66,7 @@ const linkClass = (variant: 'inline' | 'tabs', isActive: boolean) =>
       )
     : cn('text-sm font-medium transition-colors hover:text-primary', !isActive && 'text-muted-foreground');
 
-const MainNav = ({ className, isShowcase, isAiEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
+const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
   const pathname = usePathname();
   const { t } = useI18n();
   const navRef = useRef<HTMLElement>(null);
@@ -73,7 +80,7 @@ const MainNav = ({ className, isShowcase, isAiEnabled, newProductHref, extraLink
       className={cn('flex items-center', variant === 'tabs' ? 'gap-2' : 'space-x-4 lg:space-x-6', className)}
       {...props}
     >
-      {links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly)).map((item) => {
+      {links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly) && !(!isOffersEnabled && item.isOffersOnly)).map((item) => {
         const href = item.href === '/admin/studio' ? newProductHref : item.href;
         const isActive = pathname.includes(href);
         return (

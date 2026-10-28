@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { type ReactNode, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Banknote, Check, CheckCircle2, Copy, Loader2, MapPin, MessageCircle, Smartphone } from 'lucide-react';
@@ -54,11 +54,13 @@ interface PublishFormProps {
   initial: { isConfirmed: boolean; claimedMethod: ManualPayMethod | null };
   payment: PaymentOptions;
   paypalClientId: string;
+  /** The way back into the shop, shown once the person has chosen how to pay. */
+  shopTeaser: ReactNode;
 }
 
 const OPTION_CLASS = 'flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-card p-4 has-[:checked]:border-primary';
 
-export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId }: PublishFormProps) {
+export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser }: PublishFormProps) {
   const router = useRouter();
   // Premium is shown but not offered yet, so the plan is always the normal one.
   const plan: ListingPlan = 'normal';
@@ -132,33 +134,41 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
 
   if (claimedMethod) {
     return (
-      <div className='space-y-4 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
-        <div className='space-y-2'>
+      <div className='space-y-6'>
+        <div className='space-y-2 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
           <h2 className='flex items-center gap-2 font-display text-2xl'>
             <CheckCircle2 className='size-6 shrink-0 text-primary' aria-hidden /> {texts.doneTitle}
           </h2>
           <p>{texts.doneText}</p>
           <p className='text-sm text-muted-foreground'>
-            {claimedMethod === 'cash' ? fill(texts.doneNextCash, { date: payment.validUntil }) : texts.doneNextBizum}
+            {claimedMethod === 'cash' ? fill(texts.doneNextCash, { date: payment.validUntil }) : texts.doneNextBizum} {texts.doneComeBack}
           </p>
+          {payment.helpUrl && (
+            <a href={payment.helpUrl} target='_blank' rel='noopener noreferrer' className='inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline'>
+              <MessageCircle className='size-4' aria-hidden /> {texts.askUs}
+            </a>
+          )}
         </div>
-        <PayExits texts={texts} helpUrl={payment.helpUrl} />
+        {shopTeaser}
       </div>
     );
   }
 
   if (isConfirmed && isLater) {
     return (
-      <div className='space-y-4 rounded-3xl border border-border bg-card p-5 sm:p-6'>
-        <PayProgress texts={texts} />
-        <div className='space-y-1'>
-          <h2 className='font-display text-xl'>{texts.laterTitle}</h2>
-          <p className='text-sm text-muted-foreground'>{fill(texts.laterText, { date: payment.validUntil })}</p>
+      <div className='space-y-6'>
+        <div className='space-y-4 rounded-3xl border border-border bg-card p-5 sm:p-6'>
+          <PayProgress texts={texts} />
+          <div className='space-y-1'>
+            <h2 className='font-display text-xl'>{texts.laterTitle}</h2>
+            <p className='text-sm text-muted-foreground'>{fill(texts.laterText, { date: payment.validUntil })}</p>
+          </div>
+          <PayExits texts={texts} helpUrl={payment.helpUrl} />
+          <Button variant='ghost' className='w-full rounded-full' onClick={() => setIsLater(false)}>
+            {texts.backToPay}
+          </Button>
         </div>
-        <PayExits texts={texts} helpUrl={payment.helpUrl} />
-        <Button variant='ghost' className='w-full rounded-full' onClick={() => setIsLater(false)}>
-          {texts.backToPay}
-        </Button>
+        {shopTeaser}
       </div>
     );
   }
