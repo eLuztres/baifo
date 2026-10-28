@@ -563,6 +563,7 @@
   "CONTACT_SELLER_UNAVAILABLE": "Contact through this listing is no longer possible here.",
   "CATEGORY_ALL": "All categories",
   "CATEGORY_SEE_ALL": "See all",
+  "RING_ALL_LISTINGS": "All listings",
   "CATEGORY_NEW_COUNT": "New: {count}",
   "CATEGORY_SEE_ALL_IN": "See all in {category} ({count})",
   "EXPLORE_TO_RING": "Explore by category",

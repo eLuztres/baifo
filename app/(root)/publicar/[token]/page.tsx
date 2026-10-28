@@ -17,6 +17,7 @@ import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
 import { serviceTypeKey } from '@/lib/listing-labels';
 import { getShopPlaces } from '@/lib/places';
+import CloseListingForm from './close-listing-form';
 import PublishForm from './publish-form';
 
 // A private link: no search engine should list or follow it.
@@ -114,14 +115,17 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
         </div>
 
         {isLive || pagado ? (
-          <div className='space-y-4 rounded-3xl border border-primary/30 bg-primary/10 p-6'>
-            <p>{isLive ? texts.live : texts.paid}</p>
-            {listing.product && (
-              <Button asChild className='rounded-full'>
-                <Link href={`/product/${listing.product.slug}`}>{texts.viewListing}</Link>
-              </Button>
-            )}
-          </div>
+          <>
+            <div className='space-y-4 rounded-3xl border border-primary/30 bg-primary/10 p-6'>
+              <p>{isLive ? texts.live : texts.paid}</p>
+              {listing.product && (
+                <Button asChild className='rounded-full'>
+                  <Link href={`/product/${listing.product.slug}`}>{texts.viewListing}</Link>
+                </Button>
+              )}
+            </div>
+            {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
+          </>
         ) : (
           <>
             <p className='text-muted-foreground'>{texts.intro}</p>

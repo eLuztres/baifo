@@ -33,7 +33,7 @@ export default async function ShowroomSection({ rings }: ShowroomSectionProps) {
     <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
-        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyers={RING_FLYERS} figures={figures} />
+        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyers={RING_FLYERS} figures={figures} allCount={rings.length} />
       ) : (
         <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
           {t('STORE_EMPTY')}

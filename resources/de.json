@@ -563,6 +563,7 @@
   "CONTACT_SELLER_UNAVAILABLE": "Über diese Anzeige ist hier kein Kontakt mehr möglich.",
   "CATEGORY_ALL": "Alle Kategorien",
   "CATEGORY_SEE_ALL": "Alle ansehen",
+  "RING_ALL_LISTINGS": "Alle Anzeigen",
   "CATEGORY_NEW_COUNT": "Neu: {count}",
   "CATEGORY_SEE_ALL_IN": "Alles in {category} ansehen ({count})",
   "EXPLORE_TO_RING": "Nach Kategorien stöbern",

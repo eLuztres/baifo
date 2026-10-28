@@ -70,14 +70,19 @@ describe('the private link', () => {
 describe('getListingPreview', () => {
   const LISTING = { status: 'AWAITING_PAYMENT', sentAt: new Date('2026-10-28T08:00:00Z'), title: 'Bici de paseo', payCode: 'BAIFO-7Q2K' };
 
-  it('never loads anything about the seller', async () => {
-    db.findUnique.mockResolvedValue(LISTING);
+  it('never hands the seller\'s number to the page, only whether there is one', async () => {
+    db.findUnique.mockResolvedValue({ ...LISTING, seller: { waId: '34612345678' } });
 
-    expect(await getListingPreview(TOKEN, NOW)).toEqual(LISTING);
+    expect(await getListingPreview(TOKEN, NOW)).toEqual({ ...LISTING, hasSellerPhone: true });
 
     const { select } = db.findUnique.mock.calls[0][0];
-    expect(Object.keys(select)).not.toEqual(expect.arrayContaining(['seller']));
-    expect(JSON.stringify(select)).not.toMatch(/seller|waId|phone|contact|whatsapp/i);
+    expect(select.seller).toEqual({ select: { waId: true } });
+    expect(JSON.stringify({ ...select, seller: undefined })).not.toMatch(/seller|waId|phone|contact|whatsapp/i);
+  });
+
+  it('has no number for a listing the admin made without one', async () => {
+    db.findUnique.mockResolvedValue({ ...LISTING, seller: { waId: 'baifo' } });
+    expect((await getListingPreview(TOKEN, NOW))?.hasSellerPhone).toBe(false);
   });
 
   it('shows nothing for an expired, closed or unknown link', async () => {

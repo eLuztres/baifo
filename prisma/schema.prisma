@@ -284,6 +284,8 @@ enum SubmissionStatus {
   LIVE
   EXPIRED
   SOLD
+  // An event the person called off on their private page.
+  CANCELLED
   REJECTED
 }
 

@@ -7,7 +7,7 @@ import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
 import { LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
-import { publishSubmission } from './publish';
+import { publishSubmission, takeDown } from './publish';
 
 // The seller's choices on /publicar; the token is the only thing that identifies them.
 // Premium and the extras are shown as "coming soon" only, so a request with them is refused.
@@ -61,6 +61,36 @@ export async function claimListingPayment(token: string, method: 'bizum' | 'cash
     return { success: true };
   } catch (error) {
     console.error('[listing] payment claim failed', error);
+    return { success: false };
+  }
+}
+
+const closeSchema = z.object({ token: z.string().uuid(), phone: z.string().max(30) });
+
+// The last nine digits are the Spanish number, so "612 345 678", "+34 612…" and "0034 612…" all match.
+const isSamePhone = (typed: string, waId: string) => {
+  const digits = typed.replace(/\D/g, '');
+  return digits.length >= 9 && digits.slice(-9) === waId.slice(-9);
+};
+
+/**
+ * "Marcar como vendido" / "Cancelar el evento": a live product or event leaves the shop. The person types their
+ * WhatsApp number as well, so a forwarded link alone can't take the listing down.
+ */
+export async function closeListing(token: string, phone: string): Promise<ActionResult & { isWrongPhone?: boolean }> {
+  try {
+    const parsed = closeSchema.safeParse({ token, phone });
+    if (!parsed.success) return { success: false };
+    const submission = await prisma.submission.findFirst({
+      where: { payToken: parsed.data.token, status: 'LIVE', type: { in: ['PRODUCT', 'EVENT'] } },
+      select: { id: true, type: true, seller: { select: { waId: true } } },
+    });
+    if (!submission) return { success: false };
+    if (!isSamePhone(parsed.data.phone, submission.seller.waId)) return { success: false, isWrongPhone: true };
+    await takeDown(submission.id, submission.type === 'EVENT' ? 'CANCELLED' : 'SOLD');
+    return { success: true };
+  } catch (error) {
+    console.error('[listing] closing failed', error);
     return { success: false };
   }
 }

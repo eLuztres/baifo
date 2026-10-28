@@ -168,8 +168,8 @@ export async function enableListing(submissionId: string) {
   return (await goLive(submission, ['EXPIRED'], 'Admin')) ? ('live' as const) : null;
 }
 
-/** A live listing leaves the shop (sold or expired); the submission keeps the record. */
-export async function takeDown(submissionId: string, status: 'SOLD' | 'EXPIRED') {
+/** A live listing leaves the shop (sold, cancelled or expired); the submission keeps the record. */
+export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED') {
   const submission = await prisma.submission.update({ where: { id: submissionId }, data: { status } });
   // Showcase mode shows every product, sold out or not, so the product itself goes.
   if (submission.productId) await prisma.product.delete({ where: { id: submission.productId } }).catch(() => {});
