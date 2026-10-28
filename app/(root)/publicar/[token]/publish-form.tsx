@@ -19,7 +19,7 @@ import {
 import type { ListingPlan, PaymentMethod } from '@/lib/marketplace/config';
 import { fill, type PublishPageTexts } from '@/lib/marketplace/page-texts';
 import { CURRENCY } from '@/lib/constants/currency';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 /** How the person can pay, as the server settings allow it. */
 export interface PaymentOptions {
@@ -37,7 +37,7 @@ interface PublishFormProps {
   prices: Record<ListingPlan, string>;
   days: number;
   /** What the person chose before, when they come back to the page. */
-  initial: { plan: ListingPlan; isConfirmed: boolean };
+  initial: { isConfirmed: boolean };
   payment: PaymentOptions;
   paypalClientId: string;
 }
@@ -46,10 +46,8 @@ const OPTION_CLASS = 'flex cursor-pointer items-start gap-3 rounded-2xl border b
 
 export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId }: PublishFormProps) {
   const router = useRouter();
-  // The cheaper plan is preselected: most listings need nothing more.
-  const [plan, setPlan] = useState<ListingPlan>(initial.plan);
-  const [crossPostFacebook, setCrossPostFacebook] = useState(false);
-  const [crossPostWallapop, setCrossPostWallapop] = useState(false);
+  // Premium is shown but not offered yet, so the plan is always the normal one.
+  const plan: ListingPlan = 'normal';
   const [hasConsent, setHasConsent] = useState(initial.isConfirmed);
   const [isConfirmed, setIsConfirmed] = useState(initial.isConfirmed);
   const [error, setError] = useState('');
@@ -61,7 +59,7 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
       return null;
     }
     setError('');
-    return { token, plan, crossPostFacebook, crossPostWallapop, hasContactConsent: true };
+    return { token, plan, hasContactConsent: true };
   };
 
   const payWithCard = () => {
@@ -159,13 +157,14 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
     <div className='space-y-6'>
       <fieldset className='space-y-3'>
         <legend className='mb-3 font-display text-xl'>{texts.planTitle}</legend>
-        <RadioGroup value={plan} onValueChange={(value) => setPlan(value as ListingPlan)} className='grid gap-3 sm:grid-cols-2'>
+        <RadioGroup value={plan} className='grid gap-3 sm:grid-cols-2'>
           {(['normal', 'big'] as const).map((option) => (
-            <Label key={option} className={OPTION_CLASS}>
-              <RadioGroupItem value={option} className='mt-1' />
+            <Label key={option} className={cn(OPTION_CLASS, option === 'big' && 'cursor-not-allowed bg-muted text-muted-foreground')}>
+              <RadioGroupItem value={option} disabled={option === 'big'} className='mt-1' />
               <span className='space-y-1'>
                 <span className='block text-base font-semibold'>
                   {option === 'big' ? texts.planBig : texts.planNormal} · {formatCurrency(prices[option])}
+                  {option === 'big' && <ComingSoon texts={texts} />}
                 </span>
                 <span className='block text-sm font-normal text-muted-foreground'>
                   {fill(option === 'big' ? texts.planBigText : texts.planNormalText, { days })}
@@ -178,13 +177,12 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
 
       <fieldset className='space-y-3'>
         <legend className='mb-3 font-display text-xl'>{texts.extrasTitle}</legend>
-        <Label className='flex items-center gap-3 font-normal'>
-          <Checkbox checked={crossPostFacebook} onCheckedChange={(value) => setCrossPostFacebook(value === true)} />
-          {texts.extraFacebook}
-        </Label>
-        <Label className='flex items-center gap-3 font-normal'>
-          <Checkbox checked={crossPostWallapop} onCheckedChange={(value) => setCrossPostWallapop(value === true)} />
-          {texts.extraWallapop}
+        <Label className='flex items-start gap-3 font-normal leading-5 text-muted-foreground'>
+          <Checkbox checked={false} disabled className='mt-0.5' />
+          <span>
+            {texts.extraContact}
+            <ComingSoon texts={texts} />
+          </span>
         </Label>
       </fieldset>
 
@@ -204,12 +202,21 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
 
       {error && <p className='text-sm text-destructive'>{error}</p>}
 
-      <Button onClick={confirm} disabled={isPending} className='h-12 w-full rounded-full text-base'>
+      <Button onClick={confirm} disabled={isPending || !hasConsent} className='h-12 w-full rounded-full text-base'>
         {isPending && <Loader2 className='animate-spin' />}
         {texts.confirm}
       </Button>
     </div>
   );
+}
+
+interface ComingSoonProps {
+  texts: PublishPageTexts;
+}
+
+/** Marks a plan or extra that is shown but can't be chosen yet. */
+function ComingSoon({ texts }: ComingSoonProps) {
+  return <span className='ml-2 inline-block rounded-full border border-border px-2 py-0.5 align-middle text-xs font-medium'>{texts.comingSoon}</span>;
 }
 
 interface CopyButtonProps {
