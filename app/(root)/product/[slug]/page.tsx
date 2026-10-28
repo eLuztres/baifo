@@ -27,6 +27,7 @@ import { getT } from '@/lib/i18n-server';
 import { getPlaceWithCorral, getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
+import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { serviceTypeKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
@@ -97,6 +98,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // No seller number: buyers write on WhatsApp to the place's Corral, else to the shop, with the listing's name and link ready.
   const corral = place && !hasSellerContact ? (await getPlaceWithCorral(place.slug, locale))?.corral : undefined;
   const corralNumber = corral?.whatsapp?.replace(/\D/g, '');
+  const sellerMessageTexts = hasSellerContact ? await getContactMessageTexts(product) : undefined;
   const corralChatUrl =
     !hasSellerContact && (corralNumber || BRAND.contact.whatsappUrl)
       ? `${corralNumber ? `https://wa.me/${corralNumber}` : BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
@@ -207,8 +209,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                   isEvent && SHOWS_PRICES && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
                 )}
                 <div className='flex shrink-0 items-center gap-2'>
-                  {hasSellerContact ? (
-                    <ContactSellerButton productId={product.id} productName={name} className='flex-1 shrink-0' />
+                  {sellerMessageTexts ? (
+                    <ContactSellerButton
+                      productId={product.id}
+                      messageTexts={sellerMessageTexts}
+                      image={BRAND.contactImage}
+                      className='flex-1 shrink-0'
+                    />
                   ) : corralChatUrl ? (
                     <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
                       <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
