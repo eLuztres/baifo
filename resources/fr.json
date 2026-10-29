@@ -634,6 +634,7 @@
   "VOICE_FAILED": "L’enregistrement n’a pas pu être transformé en texte. Réessaie.",
   "CATEGORY_SUB_ALL": "Tous",
   "ADMIN_ADD": "Ajouter",
+  "ADMIN_EDIT_LISTING": "Modifier l'annonce",
   "SUBCATEGORIES_ADD": "Ajouter",
   "SUBCATEGORIES_SAVE": "Enregistrer",
   "CATALOG_SUBCATEGORIES": "Sous-catégories ({count})",

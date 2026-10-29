@@ -17,3 +17,10 @@
     height: calc(100svh - 9.5rem);
   }
 }
+
+/* Phones: an admin's pencil and "+" get their own strip below the page, so they don't cover the Contact button. */
+@media (max-width: 639px) {
+  .view:has([data-admin-edit]) {
+    height: calc(100svh - 11rem);
+  }
+}

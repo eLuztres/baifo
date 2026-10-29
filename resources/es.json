@@ -634,6 +634,7 @@
   "VOICE_FAILED": "No se pudo convertir la grabación en texto. Inténtalo de nuevo.",
   "CATEGORY_SUB_ALL": "Todos",
   "ADMIN_ADD": "Añadir",
+  "ADMIN_EDIT_LISTING": "Editar anuncio",
   "SUBCATEGORIES_ADD": "Añadir",
   "SUBCATEGORIES_SAVE": "Guardar",
   "CATALOG_SUBCATEGORIES": "Subcategorías ({count})",

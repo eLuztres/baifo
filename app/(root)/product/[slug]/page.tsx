@@ -9,6 +9,7 @@ import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
+import AdminEditButton from '@/components/shared/admin-edit-button';
 import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import ScrollText from '@/components/shared/product/scroll-text';
@@ -288,6 +289,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           </div>
         </div>
       </div>
+      <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
     </section>
   );
 };

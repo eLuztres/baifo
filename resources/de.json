@@ -634,6 +634,7 @@
   "VOICE_FAILED": "Die Aufnahme konnte nicht in Text umgewandelt werden. Bitte versuch es noch einmal.",
   "CATEGORY_SUB_ALL": "Alle",
   "ADMIN_ADD": "Hinzufügen",
+  "ADMIN_EDIT_LISTING": "Anzeige bearbeiten",
   "SUBCATEGORIES_ADD": "Hinzufügen",
   "SUBCATEGORIES_SAVE": "Speichern",
   "CATALOG_SUBCATEGORIES": "Unterkategorien ({count})",

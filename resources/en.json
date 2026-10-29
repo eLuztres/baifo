@@ -634,6 +634,7 @@
   "VOICE_FAILED": "The recording could not be turned into text. Please try again.",
   "CATEGORY_SUB_ALL": "All",
   "ADMIN_ADD": "Add",
+  "ADMIN_EDIT_LISTING": "Edit listing",
   "SUBCATEGORIES_ADD": "Add",
   "SUBCATEGORIES_SAVE": "Save",
   "CATALOG_SUBCATEGORIES": "Subcategories ({count})",

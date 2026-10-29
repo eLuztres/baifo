@@ -1,6 +1,7 @@
 /* A new page rises softly instead of popping in. No blur: blurring the whole page (with the 3D canvas) flickered. */
 .page {
-    animation: page-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* backwards, not both: a translate kept after the end would pin fixed buttons in the page (admin pencil) to it. */
+    animation: page-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* Fast page changes never show the loader; slow ones fade it in gently. */
