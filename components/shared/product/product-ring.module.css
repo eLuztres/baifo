@@ -462,15 +462,15 @@
 }
 
 /* Category cards: rounder, with a light rim and a soft sheen over the photo, so they read as polished glass.
-   Square beside the front one; the front card grows upward into the whole 3:4 picture (Instagram's post shape),
-   its foot and name staying where they are. */
+   Square beside the front one; the front card grows upward to 4:5 (Instagram's portrait post), its foot and name
+   staying where they are: the full 3:4 hid too much of the ring's middle. */
 .categoryStage .glassCard {
     border-radius: 1.6rem;
     transition: border-color 600ms ease, box-shadow 600ms ease, top var(--shrink-ms) ease-out;
 }
 
 .categoryStage .card[aria-current] .glassCard {
-    top: calc(var(--card-w) / -3);
+    top: calc(var(--card-w) / -4);
     transition: border-color 600ms ease, box-shadow 600ms ease, top var(--grow-ms) var(--grow-ease) var(--grow-delay);
 }
 
@@ -483,6 +483,11 @@
     .categoryStage .card[aria-current] .glassCard {
         top: 0;
     }
+}
+
+/* No float: cards bobbing at their own pace looked like a ring out of shape. */
+.categoryStage .card {
+    animation: none;
 }
 
 /* The names and their arrows keep some air below the cards instead of touching them. */
@@ -505,12 +510,18 @@
         margin-inline: calc(50% - 50vw);
     }
 
-    /* Only the front card and two on each side show: cards turning further round fade out instead of crowding
-       the edges as thin slivers. Fades along with a turn. */
+    /* One clean ring: the cards get smaller and dimmer step by step away from the front (--depth: 1 in front, less
+       further round); the perspective alone made the outer ones look as big as their neighbours. Only the front card
+       and two on each side show: cards turning further round fade out. All of it follows a turn. */
     .categoryStage .card {
-        opacity: clamp(0, calc((cos(calc(var(--angle) + var(--spin) * 360deg)) - 0.42) * 5), 1);
-        /* Repeats the front card's scale timing (.card), which this transition would otherwise replace. */
-        transition: opacity var(--turn-ms) var(--turn-ease), scale var(--shrink-ms) ease-out;
+        --depth: cos(calc(var(--angle) + var(--spin) * 360deg));
+        --side-scale: calc(0.88 * (0.4 + 0.6 * var(--depth)));
+        opacity: clamp(0, calc((var(--depth) - 0.42) * 5), 1);
+        transition: opacity var(--turn-ms) var(--turn-ease), scale var(--turn-ms) var(--turn-ease);
+    }
+
+    .categoryStage .card:not([aria-current]) {
+        scale: var(--side-scale);
     }
 
     .categoryStage .card[aria-current] {
@@ -518,7 +529,29 @@
     }
 
     .categoryStage .card:not([aria-current]):hover {
+        scale: calc(var(--side-scale) * 1.06);
         transition-duration: var(--turn-ms), 300ms;
+    }
+
+    /* Every card has the front card's 4:5 shape. */
+    .categoryStage .glassCard {
+        top: calc(var(--card-w) / -4);
+    }
+
+    /* Fades toward the page's background (a theme token), so the dimming works in light and dark. */
+    .categoryStage .glassCard::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: var(--background);
+        opacity: calc((1 - var(--depth)) * 1.1);
+        pointer-events: none;
+        transition: opacity var(--turn-ms) var(--turn-ease);
+    }
+
+    .categoryStage .card[aria-current] .glassCard::after {
+        opacity: 0;
     }
 }
 
@@ -731,31 +764,85 @@
     }
 }
 
-/* Taller and seen from higher up, so the center piece has room above the front card. Phones get a smaller piece in
-   more sea, with the cards reaching up over its lower part. */
+/* Phones: seen from well above, the ring stands at the stage's foot and the island, the ring's hero, floats big over
+   the front card with its sky above. The stage takes what the rings' row and the text below leave of the screen. */
 .pieceStage {
-    --tilt: -20deg;
-    --piece-scale: 1.15;
-    --piece-lift: -0.5;
-    /* Room below for the bigger front card's name, so it stays clear of the bottom fade. */
-    height: calc(var(--card-w) * 2.3);
-    /* The front name sits low here, so the bottom fades later; the top fades too, where the sea reaches the edge. */
+    --tilt: -34deg;
+    --piece-scale: 1.25;
+    --piece-lift: -0.85;
+    --scene-y: -0.42;
+    height: min(calc(var(--card-w) * 2.2), calc(100svh - 22rem));
+    align-items: end;
+    /* Only a short fade at the top, which would otherwise hide the island's tip. */
     mask-image:
         linear-gradient(to right, transparent, black 8%, black 92%, transparent),
-        linear-gradient(to bottom, transparent, black 22%, black 96%, transparent);
+        linear-gradient(to bottom, transparent, black 4%, black 97%, transparent);
 }
 
 .pieceStage > .tilt {
-    translate: 0 calc(var(--card-w) * 0.14);
+    translate: 0 calc(var(--card-w) * var(--scene-y));
 }
 
-/* Big screens: the wider ring's middle lies further back, so the piece is bigger and the ring flatter. */
+/* Phones see the ring from so far above that the front card drops below its middle by half the radius, which grows
+   with the number of categories: the cards are lifted by that much and the island keeps one depth, so both stay put. */
+@media (max-width: 1023px) {
+    /* Smaller cards than the plain ring's, so the island has the room to be big. */
+    .pieceStage {
+        --card-w: min(44vw, 24svh);
+    }
+
+    .pieceStage > .tilt {
+        --radius: calc(var(--card-w) * 1.3);
+    }
+
+    .pieceStage > .tilt:has(> .ring) {
+        --radius: calc(var(--card-w) * var(--radius-factor));
+        translate: 0 calc(var(--card-w) * (var(--scene-y) + 1.3 * sin(-1 * var(--tilt))) - var(--radius) * sin(-1 * var(--tilt)));
+    }
+}
+
+/* Short phones: a smaller, lower piece, so its top stays in view; the front card may hide a little of its foot. */
+@media (max-height: 700px) {
+    .pieceStage {
+        --piece-scale: 1.05;
+        --piece-lift: -0.75;
+    }
+}
+
+/* Narrow phones: the front name wraps to two lines, so the ring stands a little higher. */
+@media (max-width: 359px) {
+    .pieceStage {
+        --scene-y: -0.6;
+    }
+}
+
+/* Very short phones (320×568): the stage is too low for the island over full-size cards, so the cards shrink a bit
+   and the ring rises, keeping the front name's two lines clear of the stage's foot. */
+@media (max-width: 1023px) and (min-height: 501px) and (max-height: 600px) {
+    .pieceStage {
+        --card-w: min(50vw, 21svh);
+        --piece-scale: 0.7;
+        --piece-lift: -0.75;
+        --scene-y: -0.68;
+    }
+}
+
+/* Held sideways the page scrolls, so the stage keeps its own height instead of the screen's. */
+@media (max-height: 500px) {
+    .pieceStage {
+        height: calc(var(--card-w) * 2.2);
+    }
+}
+
+/* Big screens: the wider ring's middle lies further back, so the piece is bigger and the ring flatter. It floats high
+   above the front card, so the island shows whole between the header and the card. */
 @media (min-width: 1024px) {
     .pieceStage {
         --tilt: -14deg;
-        --piece-scale: 1.7;
-        --piece-lift: -0.3;
+        --piece-scale: 1.15;
+        --piece-lift: -0.58;
         height: calc(var(--card-w) * 2.6);
+        align-items: center;
         /* The big front card's name, framed by its arrows, ends just above the stage's foot: lifted, with a short fade. */
         mask-image:
             linear-gradient(to right, transparent, black 8%, black 92%, transparent),
@@ -764,6 +851,20 @@
 
     .pieceStage > .tilt {
         translate: 0 calc(var(--card-w) * -0.14);
+    }
+}
+
+/* Short big screens (laptops): little room between the header and the front card, so slightly smaller cards, a front
+   card that grows less, and a smaller, lower island that fits whole in between. */
+@media (min-width: 1024px) and (max-height: 800px) {
+    .pieceStage {
+        --card-w: min(29vw, 27svh);
+        --piece-scale: 1;
+        --piece-lift: -0.4;
+    }
+
+    .pieceStage .card[aria-current] {
+        scale: 1.15;
     }
 }
 
