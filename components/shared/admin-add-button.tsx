@@ -14,6 +14,7 @@ const AdminAddButton = async () => {
       href={NEW_PRODUCT_PATH}
       aria-label={t('ADMIN_ADD')}
       title={t('ADMIN_ADD')}
+      data-admin-add
       className='fixed right-4 bottom-4 z-40 flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-105 hover:bg-primary/90 sm:right-6 sm:bottom-6'
     >
       <Plus className='size-7' />
