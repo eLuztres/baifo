@@ -182,32 +182,24 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     </section>
   );
 
-  // The way back home sits in the ring's line: on a phone a row of its own costs too much of the screen.
+  // The way back home is the pull up at the top of the page; its arrow is only for screen readers, so the wheel stands alone.
   const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
 
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
     <div className='mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:space-y-10 sm:py-8' data-feed-page=''>
-      {/* The chosen one is named once, under the ring's middle; the title is only for screen readers. */}
+      {/* The chosen one is named once, under the wheel's front circle; the title is only for screen readers. */}
       <h1 className='sr-only'>{title}</h1>
+      <div className='sr-only'>{pullUpHome}</div>
 
-      {ringItems.length > 1 ? (
-        <div className='flex items-start gap-2'>
-          {/* Level with the ring's circles. */}
-          <div className='mt-3.5 sm:mt-[1.375rem]'>{pullUpHome}</div>
-          <div className='min-w-0 flex-1'>
-            <ExploreRing
-              items={ringItems}
-              activeKey={activeKey}
-              label={t('EXPLORE_CATEGORY_BUTTON')}
-              previousLabel={t('EXPLORE_PREVIOUS')}
-              nextLabel={t('EXPLORE_NEXT')}
-              back={activeKey === 'all' ? undefined : { href: '/explore', label: t('EXPLORE_ALL') }}
-            />
-          </div>
-        </div>
-      ) : (
-        pullUpHome
+      {ringItems.length > 1 && (
+        <ExploreRing
+          items={ringItems}
+          activeKey={activeKey}
+          label={t('EXPLORE_CATEGORY_BUTTON')}
+          previousLabel={t('EXPLORE_PREVIOUS')}
+          nextLabel={t('EXPLORE_NEXT')}
+        />
       )}
 
       {listings.length === 0 && allListings.length > 0 ? (
