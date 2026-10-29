@@ -15,6 +15,11 @@ describe('ProductPrice', () => {
     expect(screen.getByText(displayPrice(10))).toHaveTextContent(/\d[.,]00/);
   });
 
+  it('shows a budget with only an upper end alone, after its "up to" label', () => {
+    render(<ProductPrice value={0} maxValue='60.00' label='Presupuesto hasta' />);
+    expect(screen.getByText('Presupuesto hasta').parentElement).toHaveTextContent(/^Presupuesto hasta60\s€$/);
+  });
+
   it('merges a custom className', () => {
     const { container } = render(<ProductPrice value={1} className='mt-auto' />);
     expect(container.firstChild).toHaveClass('mt-auto', 'font-semibold');

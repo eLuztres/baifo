@@ -30,7 +30,7 @@ import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
-import { serviceTypeKey } from '@/lib/listing-labels';
+import { serviceTypeKey, wantedBudgetKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
@@ -93,7 +93,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // 0 is no "from" price for a service and a free event.
   const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
   const isIllustrative = Boolean(ownRing?.isIllustrative);
-  const priceLabel = product.type === 'WANTED' ? t('WANTED_BUDGET') : isService ? t('PRICE_FROM') : undefined;
+  const priceLabel = product.type === 'WANTED' ? t(wantedBudgetKey(product.price?.toString(), product.priceMax?.toString())) : isService ? t('PRICE_FROM') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
   // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.

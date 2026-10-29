@@ -153,6 +153,21 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
   });
 
+  it('saves a wanted ad with only an upper end, and its empty lower end as none', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, price: '', priceMax: '60', condition: 'any' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: null, priceMax: '60.00' });
+    expect(db.product.update.mock.calls[0][0].data).toMatchObject({ price: 0, priceMax: '60.00' });
+    expect((await updateAdminListing(ID, { ...EDIT, price: '', priceMax: '', condition: 'any' })).success).toBe(false);
+  });
+
+  it('still needs a price on an item for sale', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, price: '', priceMax: '60' })).success).toBe(false);
+  });
+
   it('saves the seller\'s name and language, and empty as none', async () => {
     expect((await updateAdminListing(ID, { ...EDIT, sellerName: ' Lula ', sellerLocale: 'de' })).success).toBe(true);
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ sellerName: 'Lula', sellerLocale: 'de' });

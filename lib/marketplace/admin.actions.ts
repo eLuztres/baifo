@@ -241,7 +241,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) {
     return { success: false, message: 'El nombre del vendedor: sin enlaces ni teléfonos, máximo 30 letras' };
   }
-  if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
+  // A wanted ad may have only an upper end ("hasta 60 €").
+  const hasPrice = parsed.success && (parsed.data.price || (isWanted && parsed.data.priceMax));
+  if (!parsed.success || (!isService && !hasPrice)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   if (current?.type === 'EVENT' && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const category = findCategory(await getListingCategories(), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
@@ -253,10 +255,10 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
   const sellerData = await sellerChange(current, sellerPhone);
-  // A service's empty price takes its "from" price away; only a service has a kind of offer.
-  const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, serviceType: null };
-  // Only a wanted ad has a range, and only one whose upper end is above its lower end.
-  const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price) ? edit.priceMax : null;
+  // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
+  const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
+  // Only a wanted ad has a range, and only one whose upper end is above its lower end (none counts as 0).
+  const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price ?? 0) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.

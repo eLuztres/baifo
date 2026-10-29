@@ -37,7 +37,11 @@ export default function PublishedView({ image, title, price, priceMax, slug, tex
         <div className='relative aspect-[4/5] bg-muted'>{image && <ProductMedia src={image} alt={title} fill sizes='28rem' />}</div>
         <div className='space-y-1 p-4'>
           <p className='font-display text-xl'>{title}</p>
-          {price && <p className='text-lg font-semibold text-primary'>{priceMax ? EURO.formatRange(Number(price), Number(priceMax)) : EURO.format(Number(price))}</p>}
+          {price ? (
+            <p className='text-lg font-semibold text-primary'>{priceMax ? EURO.formatRange(Number(price), Number(priceMax)) : EURO.format(Number(price))}</p>
+          ) : (
+            priceMax && <p className='text-lg font-semibold text-primary'>{`${texts.budgetTo} ${EURO.format(Number(priceMax))}`}</p>
+          )}
         </div>
       </div>
 

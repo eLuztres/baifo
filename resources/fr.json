@@ -597,6 +597,7 @@
   "AI_ERROR_UNKNOWN": "L'IA n'a pas pu le faire. Réessaie.",
   "AI_ERROR_UNKNOWN_BECAUSE": "L'IA n'a pas pu le faire. OpenAI dit : {reason}",
   "WANTED_BUDGET": "Budget",
+  "WANTED_BUDGET_UP_TO": "Budget jusqu'à",
   "PRICE_FROM": "à partir de",
   "EVENT_FREE": "Gratuit",
   "EVENT_TODAY": "Aujourd’hui",

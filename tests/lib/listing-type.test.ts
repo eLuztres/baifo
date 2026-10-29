@@ -1,7 +1,8 @@
 import { LISTING_TYPE_KEYS, LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, newListingPath } from '@/lib/constants';
 import { getTranslator, LOCALES } from '@/lib/i18n';
-import { feedCardLabels } from '@/lib/listing-labels';
+import { feedCardLabels, wantedBudgetKey } from '@/lib/listing-labels';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
+import { formatPriceOrRange } from '@/lib/utils';
 
 const t = getTranslator('es');
 
@@ -45,6 +46,21 @@ describe('feedCardLabels', () => {
 
   it('marks a wanted ad and its budget', () => {
     expect(feedCardLabels({ ...base, type: 'WANTED' }, t, 'es', now)).toMatchObject({ priceLabel: t('WANTED_BUDGET'), badge: t('EXPLORE_WANTED_BADGE') });
+  });
+
+  it('says "up to" on a wanted ad with only an upper end, which shows alone', () => {
+    expect(feedCardLabels({ ...base, type: 'WANTED', price: '0', priceMax: '60.00' }, t, 'es', now).priceLabel).toBe('Presupuesto hasta');
+    expect(feedCardLabels({ ...base, type: 'WANTED', priceMax: '60.00' }, t, 'es', now).priceLabel).toBe('Presupuesto');
+    expect(formatPriceOrRange('0', '60.00').replace(/\s/g, ' ')).toBe('60 €');
+  });
+
+  it('says "up to" only when a wanted ad has an upper end and no lower end, as the pages pass them', () => {
+    expect(wantedBudgetKey('0', '60')).toBe('WANTED_BUDGET_UP_TO');
+    expect(wantedBudgetKey(null, '60.00')).toBe('WANTED_BUDGET_UP_TO');
+    expect(wantedBudgetKey('50', '80')).toBe('WANTED_BUDGET');
+    expect(wantedBudgetKey('60', null)).toBe('WANTED_BUDGET');
+    expect(wantedBudgetKey('0', undefined)).toBe('WANTED_BUDGET');
+    expect(formatPriceOrRange('50.00', '80.00')).toMatch(/^50\D+80\s€$/);
   });
 
   it('shows a service\'s kind of offer and its "from" price', () => {

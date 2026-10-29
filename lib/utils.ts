@@ -106,8 +106,9 @@ export function formatPriceTag(amount: number) {
   return PRICE_TAG_FORMATTER.format(amount);
 }
 
-/** A price, or a wanted ad's budget as a calm "50–80 €" when it has an upper end. */
+/** A price, or a wanted ad's budget as a calm "50–80 €" when it has an upper end ("80 €" with no lower end, its label says "up to"). */
 export function formatPriceOrRange(amount: number | string, max?: number | string | null) {
+  if (max && !Number(amount)) return PRICE_TAG_FORMATTER.format(Number(max));
   return max ? PRICE_TAG_FORMATTER.formatRange(Number(amount), Number(max)) : formatCurrency(amount);
 }
 

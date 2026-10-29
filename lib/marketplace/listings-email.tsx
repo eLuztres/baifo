@@ -25,9 +25,14 @@ interface ListingsEmailProps {
 
 const TEXTS = adminTexts('es');
 
-/** "Busco · 100–150 €", "Servicio" (no "from" price) or just the price of an item. */
+/** "Busco · 100–150 €", "Busco · hasta 60 €", "Servicio" (no "from" price) or just the price of an item. */
 const priceLine = ({ type, price, priceMax }: LiveListing) =>
-  [type !== 'PRODUCT' && TEXTS[`type_${type}`], (type === 'PRODUCT' || Number(price) > 0) && formatPriceOrRange(price, priceMax)].filter(Boolean).join(' · ');
+  [
+    type !== 'PRODUCT' && TEXTS[`type_${type}`],
+    type === 'PRODUCT' || Number(price) > 0 ? formatPriceOrRange(price, priceMax) : priceMax && `${TEXTS.budgetTo} ${formatPriceOrRange(0, priceMax)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 const dateOf = (date: Date | null) => (date ? date.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' }) : '');
 
