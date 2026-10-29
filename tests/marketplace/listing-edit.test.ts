@@ -131,6 +131,21 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
   });
 
+  it('saves the seller\'s name and language, and empty as none', async () => {
+    expect((await updateAdminListing(ID, { ...EDIT, sellerName: ' Lula ', sellerLocale: 'de' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ sellerName: 'Lula', sellerLocale: 'de' });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerName: '', sellerLocale: '' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[1][0].data).toMatchObject({ sellerName: null, sellerLocale: null });
+  });
+
+  it('refuses a seller name with a phone number, with its own message', async () => {
+    const result = await updateAdminListing(ID, { ...EDIT, sellerName: 'Lula 612 345 678' });
+
+    expect(result).toEqual({ success: false, message: 'El nombre del vendedor: sin enlaces ni teléfonos, máximo 30 letras' });
+    expect(db.submission.update).not.toHaveBeenCalled();
+  });
+
   it('refuses a category the store does not have', async () => {
     expect((await updateAdminListing(ID, { ...EDIT, category: 'muebles' })).success).toBe(false);
     expect(db.submission.update).not.toHaveBeenCalled();

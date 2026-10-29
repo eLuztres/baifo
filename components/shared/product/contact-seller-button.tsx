@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 interface ContactSellerButtonProps {
   productId: string;
   productName: string;
+  /** The WhatsApp text in the seller's language; missing: in the visitor's. */
+  message?: string;
   className?: string;
 }
 
@@ -19,7 +21,7 @@ interface SellerContact {
 }
 
 /** Classifieds: the seller's number shows only after a click, so it isn't in the page for scrapers. */
-export default function ContactSellerButton({ productId, productName, className }: ContactSellerButtonProps) {
+export default function ContactSellerButton({ productId, productName, message: sellerMessage, className }: ContactSellerButtonProps) {
   const { t } = useI18n();
   const [contact, setContact] = useState<SellerContact | null | undefined>(undefined);
   const [isRateLimited, setIsRateLimited] = useState(false);
@@ -36,7 +38,7 @@ export default function ContactSellerButton({ productId, productName, className 
   if (contact === null) return <p className={cn('text-sm text-muted-foreground', className)}>{t('CONTACT_SELLER_UNAVAILABLE')}</p>;
 
   if (contact) {
-    const message = t('CONTACT_SELLER_MESSAGE', { name: productName, url: window.location.href });
+    const message = sellerMessage ?? t('CONTACT_SELLER_MESSAGE', { name: productName, url: window.location.href });
     return (
       <div className={cn('flex flex-col gap-2 sm:flex-row', className)}>
         <Button asChild className='h-11 flex-1 rounded-full'>

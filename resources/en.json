@@ -566,6 +566,7 @@
   "CONTACT_SELLER": "Contact",
   "CONTACT_SELLER_WHATSAPP": "Write on WhatsApp",
   "CONTACT_SELLER_MESSAGE": "Hi! I am interested in \"{name}\": {url}",
+  "SELLER_OFFERED_BY": "Offered by {name}",
   "CONTACT_SELLER_UNAVAILABLE": "Contact through this listing is no longer possible here.",
   "CONTACT_SELLER_TOO_MANY": "Too many requests. Try again in a few minutes.",
   "CATEGORY_SEE_ALL": "See all",

@@ -10,6 +10,7 @@ import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { pictureOf } from '@/lib/video';
+import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
@@ -19,6 +20,7 @@ import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { lacksConsent, markSent } from './listing-payment';
+import { sellerIdentity } from './seller';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { rejectSubmission } from './review';
 
@@ -128,7 +130,9 @@ export async function getAdminListing(id: string) {
   if (!submission) return null;
   const { price, priceMax, ...rest } = submission;
   // The plan prices come along: the editor's "Pagado" starts from the chosen plan's price.
-  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES };
+  // The name and language buyers get while the admin sets none.
+  const sellerDefault = sellerIdentity({ sellerName: null, sellerLocale: null, seller: submission.seller });
+  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES, sellerDefault };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -177,6 +181,8 @@ const editSchema = z.object({
     .optional(),
   // Only before it goes live; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema,
+  sellerName: sellerNameSchema.optional(),
+  sellerLocale: sellerLocaleSchema.optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
@@ -201,6 +207,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   const isService = current?.type === 'SERVICE';
   const isWanted = current?.type === 'WANTED';
+  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) {
+    return { success: false, message: 'El nombre del vendedor: sin enlaces ni teléfonos, máximo 30 letras' };
+  }
   if (!parsed.success || (!isService && !parsed.data.price)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   if (current?.type === 'EVENT' && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const category = findCategory(await getListingCategories(), parsed.data.category);

@@ -70,14 +70,14 @@ describe('the private link', () => {
 describe('getListingPreview', () => {
   const LISTING = { status: 'AWAITING_PAYMENT', sentAt: new Date('2026-10-28T08:00:00Z'), title: 'Bici de paseo', payCode: 'BAIFO-7Q2K' };
 
-  it('never hands the seller\'s number to the page, only whether there is one', async () => {
-    db.findUnique.mockResolvedValue({ ...LISTING, seller: { waId: '34612345678' } });
+  it('never hands the seller\'s number to the page, only whether there is one and their public name', async () => {
+    db.findUnique.mockResolvedValue({ ...LISTING, seller: { waId: '34612345678', name: 'Lula' } });
 
-    expect(await getListingPreview(TOKEN, NOW)).toEqual({ ...LISTING, hasSellerPhone: true });
+    expect(await getListingPreview(TOKEN, NOW)).toEqual({ ...LISTING, hasSellerPhone: true, sellerDefault: { name: 'Lula', locale: 'es' } });
 
     const { select } = db.findUnique.mock.calls[0][0];
-    expect(select.seller).toEqual({ select: { waId: true } });
-    expect(JSON.stringify({ ...select, seller: undefined })).not.toMatch(/seller|waId|phone|contact|whatsapp/i);
+    expect(select.seller).toEqual({ select: { waId: true, name: true } });
+    expect(JSON.stringify({ ...select, seller: undefined, sellerName: undefined, sellerLocale: undefined })).not.toMatch(/seller|waId|phone|contact|whatsapp/i);
   });
 
   it('has no number for a listing the admin made without one', async () => {

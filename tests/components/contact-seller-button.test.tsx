@@ -24,6 +24,16 @@ describe('ContactSellerButton', () => {
     expect(whatsapp.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/34600111222\?text=.*Bici%20de%20paseo/);
   });
 
+  it('sends the message written in the seller\'s language when the page has one', async () => {
+    mockContact.mockResolvedValue({ phone: '+4915112345678', whatsappUrl: 'https://wa.me/4915112345678' });
+    renderWithI18n(<ContactSellerButton productId={PRODUCT_ID} productName='Bici de paseo' message='Hallo! Fahrrad' />);
+
+    await userEvent.click(screen.getByRole('button', { name: t('CONTACT_SELLER') }));
+
+    const whatsapp = await screen.findByRole('link', { name: t('CONTACT_SELLER_WHATSAPP') });
+    expect(whatsapp).toHaveAttribute('href', 'https://wa.me/4915112345678?text=Hallo!%20Fahrrad');
+  });
+
   it('says so when the seller has no number anymore', async () => {
     mockContact.mockResolvedValue(null);
     renderWithI18n(<ContactSellerButton productId={PRODUCT_ID} productName='Bici de paseo' />);

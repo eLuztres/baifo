@@ -17,9 +17,11 @@ import { formatCurrency } from '@/lib/utils';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
 import { serviceTypeKey } from '@/lib/listing-labels';
+import { isLocale } from '@/lib/i18n-core';
 import { getShopPlaces } from '@/lib/places';
 import CloseListingForm from './close-listing-form';
 import PublishForm from './publish-form';
+import SellerNameForm from './seller-name-form';
 import ShopTeaser from './shop-teaser';
 
 // A private link: no search engine should list or follow it.
@@ -109,6 +111,16 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     />
   );
 
+  const sellerNameForm = listing.hasSellerPhone && (
+    <SellerNameForm
+      token={token}
+      texts={texts}
+      name={listing.sellerName ?? ''}
+      defaultName={listing.sellerDefault.name}
+      locale={isLocale(listing.sellerLocale) ? listing.sellerLocale : (listing.sellerDefault.locale ?? locale)}
+    />
+  );
+
   return (
     <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
       <div className='relative aspect-square'>
@@ -174,6 +186,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
                 </Button>
               )}
             </div>
+            {isLive && sellerNameForm}
             {isLive && renewForm}
             {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
             <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
@@ -181,6 +194,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
         ) : (
           <>
             <p className='text-muted-foreground'>{texts.intro}</p>
+            {sellerNameForm}
             <PublishForm
               token={token}
               texts={texts}

@@ -1,10 +1,11 @@
 import { prisma } from '@/db/prisma';
 import { HOUSE_SELLER } from './config';
 import { isLinkExpired } from './listing-payment';
+import { sellerIdentity } from './seller';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-// Everything the private page shows. Nothing about the seller: a forwarded link must not reach the person.
+// Everything the private page shows. Of the seller only the public name: a forwarded link must not reach the person.
 const PREVIEW_FIELDS = {
   status: true,
   sentAt: true,
@@ -27,9 +28,11 @@ const PREVIEW_FIELDS = {
   paidAt: true,
   expiresAt: true,
   payCode: true,
+  sellerName: true,
+  sellerLocale: true,
   product: { select: { slug: true } },
   place: { select: { id: true, corral: { select: { name: true, address: true, venue: true, hours: true } } } },
-  seller: { select: { waId: true } },
+  seller: { select: { waId: true, name: true } },
 } as const;
 
 /** Waiting for its first payment, online, or ended after it was paid once (and so renewable). */
@@ -46,7 +49,9 @@ export async function getListingPreview(token: string, now = new Date()) {
   if (!isOpenListing(listing, now)) return null;
   // Only whether there is a number to confirm "sold" with; the number itself stays on the server.
   const { seller, ...preview } = listing;
-  return { ...preview, hasSellerPhone: seller.waId !== HOUSE_SELLER };
+  // What shows while the person has chosen no name or language of their own.
+  const sellerDefault = sellerIdentity({ sellerName: null, sellerLocale: null, seller });
+  return { ...preview, hasSellerPhone: seller.waId !== HOUSE_SELLER, sellerDefault };
 }
 
 export type ListingPreview = NonNullable<Awaited<ReturnType<typeof getListingPreview>>>;

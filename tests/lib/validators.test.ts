@@ -2,6 +2,8 @@ import {
   allowedPaymentMethodSchema,
   cartItemSchema,
   insertReviewSchema,
+  sellerLocaleSchema,
+  sellerNameSchema,
   shippingAddressSchema,
   signInFormSchema,
   signUpFormSchema,
@@ -108,5 +110,27 @@ describe('insertReviewSchema', () => {
 
   it.each([0, 6, 3.5])('rejects a rating of %p', (rating) => {
     expect(insertReviewSchema.safeParse({ ...review, rating }).success).toBe(false);
+  });
+});
+
+describe('sellerNameSchema', () => {
+  it('takes a trimmed nickname, and empty as no name', () => {
+    expect(sellerNameSchema.parse('  Lula  ')).toBe('Lula');
+    expect(sellerNameSchema.parse('Pepe 1990')).toBe('Pepe 1990');
+    expect(sellerNameSchema.parse('')).toBeNull();
+  });
+
+  it('refuses links, phone numbers and long names', () => {
+    for (const name of ['www.lula.es', 'lula.com', 'https://x.y', 'lula@mail', '612 345 678', '+34612345678', 'L'.repeat(31)]) {
+      expect(sellerNameSchema.safeParse(name).success).toBe(false);
+    }
+  });
+});
+
+describe('sellerLocaleSchema', () => {
+  it('takes a shop language, and empty as none', () => {
+    expect(sellerLocaleSchema.parse('de')).toBe('de');
+    expect(sellerLocaleSchema.parse('')).toBeNull();
+    expect(sellerLocaleSchema.safeParse('xx').success).toBe(false);
   });
 });

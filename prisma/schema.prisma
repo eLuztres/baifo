@@ -335,6 +335,10 @@ model Submission {
   crossPostFacebook Boolean          @default(false)
   crossPostWallapop Boolean          @default(false)
   hasContactConsent Boolean          @default(false)
+  // The name buyers see ("Ofrecido por …"), any nickname; empty: the seller's WhatsApp profile name.
+  sellerName        String?
+  // The language a buyer's WhatsApp message to the seller is written in; empty: the language of the seller's number.
+  sellerLocale      String?
   // Secret part of the seller's /publicar link.
   payToken          String           @unique @default(dbgenerated("gen_random_uuid()::text"))
   paymentProvider   String?

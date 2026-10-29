@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { z } from 'zod';
@@ -9,6 +10,7 @@ import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
 import { isRateLimited, type RateLimit } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
+import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission, takeDown } from './publish';
@@ -81,6 +83,28 @@ export async function claimListingPayment(token: string, method: 'bizum' | 'cash
     return { success: true };
   } catch (error) {
     console.error('[listing] payment claim failed', error);
+    return { success: false };
+  }
+}
+
+const sellerSchema = z.object({ token: z.string().uuid(), name: sellerNameSchema, locale: sellerLocaleSchema });
+
+/** The person's name or nickname on the listing and the language buyers write in; any time while the link works. */
+export async function saveSellerName(token: string, name: string, locale: string): Promise<ActionResult & { isInvalidName?: boolean }> {
+  try {
+    const parsed = sellerSchema.safeParse({ token, name, locale });
+    if (!parsed.success) return { success: false, isInvalidName: parsed.error.issues.some((issue) => issue.path[0] === 'name') };
+    if (await isOverLimit(LISTING_PAGE_LIMIT, LISTING_LINK_LIMIT, parsed.data.token)) return { success: false };
+    const submission = await prisma.submission.findFirst({
+      where: { payToken: parsed.data.token, status: { in: ['AWAITING_PAYMENT', 'LIVE'] } },
+      select: { id: true, status: true, sentAt: true, product: { select: { slug: true } } },
+    });
+    if (!submission || (submission.status !== 'LIVE' && isLinkExpired(submission.sentAt))) return { success: false };
+    await prisma.submission.update({ where: { id: submission.id }, data: { sellerName: parsed.data.name, sellerLocale: parsed.data.locale } });
+    if (submission.product) revalidatePath(`/product/${submission.product.slug}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[listing] seller name failed', error);
     return { success: false };
   }
 }

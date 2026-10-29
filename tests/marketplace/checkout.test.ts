@@ -9,11 +9,13 @@ import {
   closeListing,
   confirmListing,
   createListingPayPalOrder,
+  saveSellerName,
   startStripeCheckout,
 } from '@/lib/marketplace/checkout.actions';
 
 jest.mock('@/lib/paypal', () => ({ paypal: { createOrder: jest.fn(), capturePayment: jest.fn() } }));
 jest.mock('next/headers', () => ({ headers: jest.fn() }));
+jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishSubmission: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
@@ -64,6 +66,25 @@ describe('claimListingPayment', () => {
 
   it('refuses a method the page does not offer', async () => {
     expect((await claimListingPayment(TOKEN, 'stripe' as never)).success).toBe(false);
+    expect(db.submission.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('saveSellerName', () => {
+  it('saves a nickname and language, also on a live listing', async () => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', status: 'LIVE', sentAt: null, product: { slug: 'bici' } });
+    expect(await saveSellerName(TOKEN, ' Lula ', 'de')).toEqual({ success: true });
+    expect(db.submission.update.mock.calls[0][0].data).toEqual({ sellerName: 'Lula', sellerLocale: 'de' });
+  });
+
+  it('saves empty as none, so the WhatsApp name shows', async () => {
+    expect(await saveSellerName(TOKEN, '', '')).toEqual({ success: true });
+    expect(db.submission.update.mock.calls[0][0].data).toEqual({ sellerName: null, sellerLocale: null });
+  });
+
+  it('refuses a name with a phone number or a link', async () => {
+    expect(await saveSellerName(TOKEN, 'Lula 612345678', 'es')).toEqual({ success: false, isInvalidName: true });
+    expect(await saveSellerName(TOKEN, 'lula.es', 'es')).toEqual({ success: false, isInvalidName: true });
     expect(db.submission.update).not.toHaveBeenCalled();
   });
 });

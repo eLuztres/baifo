@@ -30,7 +30,7 @@ import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
-import type { Locale } from '@/lib/i18n-core';
+import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, videoPoster } from '@/lib/video';
@@ -91,6 +91,10 @@ interface EditorFields {
   address: string;
   /** The person's WhatsApp; empty: buyers write to the shop's WhatsApp. */
   sellerPhone: string;
+  /** "Ofrecido por …"; empty: their WhatsApp name. */
+  sellerName: string;
+  /** The language buyers write to them in; empty: their number's. */
+  sellerLocale: Locale | '';
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
@@ -137,6 +141,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
     sellerPhone: /^\d+$/.test(listing.seller.waId) ? listing.seller.waId : '',
+    sellerName: listing.sellerName ?? '',
+    sellerLocale: (LOCALES.some(({ id }) => id === listing.sellerLocale) ? listing.sellerLocale : '') as Locale | '',
   });
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
@@ -166,7 +172,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address' | 'sellerPhone') => (event: { target: { value: string } }) =>
+  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address' | 'sellerPhone' | 'sellerName' | 'sellerLocale') => (event: { target: { value: string } }) =>
     setFields((current) => ({ ...current, [name]: event.target.value }));
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description' | 'short') => (event: { target: { value: string } }) => {
@@ -643,6 +649,40 @@ export default function ListingEditor({ listing, categories, places, languages, 
               <p className='px-1 text-xs text-muted-foreground'>{texts.sellerPhoneEditHint}</p>
             </div>
           )}
+          {/* Also once live: the seller may change their name any time. */}
+          <div className='grid gap-3 sm:grid-cols-2'>
+            <div className='space-y-1'>
+              <Label htmlFor='seller-name' className='text-sm font-medium'>
+                {texts.sellerNameLabel}
+              </Label>
+              <Input
+                id='seller-name'
+                maxLength={30}
+                value={fields.sellerName}
+                onChange={set('sellerName')}
+                placeholder={listing.sellerDefault.name ?? ''}
+                className='h-12 rounded-2xl bg-background'
+              />
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='seller-locale' className='text-sm font-medium'>
+                {texts.sellerLocaleLabel}
+              </Label>
+              <select id='seller-locale' value={fields.sellerLocale} onChange={set('sellerLocale')} className={SELECT_CLASS}>
+                <option value=''>
+                  {listing.sellerDefault.locale
+                    ? fillText(texts.sellerLocaleAuto, { language: LOCALES.find(({ id }) => id === listing.sellerDefault.locale)?.name ?? '' })
+                    : texts.sellerLocaleNone}
+                </option>
+                {LOCALES.map(({ id, name }) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className='px-1 text-xs text-muted-foreground sm:col-span-2'>{texts.sellerNameHint}</p>
+          </div>
           {isOpen && (
             <RadioGroup value={plan} onValueChange={(value) => setPlan(value as Plan)} className='flex flex-wrap gap-4'>
               {(['normal', 'big'] as const).map((option) => (

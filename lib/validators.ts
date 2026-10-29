@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { formatNumberWithDecimal } from './utils';
-import type { TranslationKey } from './i18n-core';
+import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
 import { OFFER_ICONS } from './constants';
 import { fromShopDateTime } from './event-date';
 
@@ -276,6 +276,23 @@ export type ContactVisibility = z.infer<typeof contactVisibilitySchema>;
 
 // Who an invite link is for; only the admin sees it.
 export const inviteNoteSchema = z.string().trim().max(80);
+
+// Contact details belong in the Contact button only: a name with a link or a phone number is refused.
+const NAME_LINK = /(https?:|www\.|@|\.(com|es|net|org|eu|io|me|ly|app|info|link|de|it|fr|uk)\b)/i;
+const NAME_PHONE = /(\d\D?){5}/;
+
+/** A seller's name or nickname on their listing; empty is null, so their WhatsApp name shows. */
+export const sellerNameSchema = z
+  .string()
+  .trim()
+  .max(30)
+  .refine((value) => !NAME_LINK.test(value) && !NAME_PHONE.test(value))
+  .transform((value) => value || null);
+
+/** The language buyers write to the seller in; empty is null, so the language of their number counts. */
+export const sellerLocaleSchema = z
+  .union([z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]), z.literal('')])
+  .transform((value) => value || null);
 
 // A place on the island (admin "Places"): the town's name, whether it's open, and its pin in % of the island picture.
 export const placeSchema = z.object({
