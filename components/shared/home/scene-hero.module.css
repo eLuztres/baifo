@@ -66,29 +66,62 @@
   filter: brightness(0.82) saturate(0.95);
 }
 
-/* Small and calm at the top left, on a soft backdrop so palm leaves never run through the words. */
+/* Free on the picture at the top left, where every scene has open sky. A soft shade only behind the words keeps them readable. */
 .panel {
+  position: relative;
   align-self: flex-start;
-  max-width: 30rem;
-  padding: 0.9rem 1rem 1rem;
-  border-radius: 1.25rem;
-  background: color-mix(in srgb, var(--background) 80%, transparent);
-  backdrop-filter: blur(6px);
-  color: var(--foreground);
+  max-width: 34rem;
+  padding: 0.25rem 0.25rem 0.5rem;
+  color: white;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: -4rem -6rem -4rem -40vw;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.38), rgb(0 0 0 / 0.16) 60%, transparent);
+  pointer-events: none;
 }
 
 .title {
-  margin-bottom: 0.75rem;
-  font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
-  font-weight: 600;
-  line-height: 1.2;
+  margin-bottom: 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 1.1rem + 2.2vw, 3rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
   text-wrap: balance;
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 0.45),
+    0 2px 18px rgb(0 0 0 / 0.35);
 }
 
 .buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.6rem;
+}
+
+.solid {
+  box-shadow: 0 6px 20px -6px rgb(0 0 0 / 0.5);
+}
+
+/* Frosted glass, the same look as the advertise pill at the bottom. */
+.glass,
+.advertise {
+  border: 1px solid rgb(255 255 255 / 0.75);
+  background: rgb(0 0 0 / 0.28);
+  backdrop-filter: blur(8px);
+  color: white;
+  box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.45);
+}
+
+.glass:hover,
+.advertise:hover {
+  border-color: white;
+  background: rgb(0 0 0 / 0.36);
+  color: white;
 }
 
 /* Two equal buttons on a phone, so neither looks like the lesser choice. */
@@ -108,16 +141,11 @@
   align-items: center;
   gap: 0.4rem;
   align-self: center;
-  padding: 0.35rem 0.9rem;
+  padding: 0.4rem 1rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--background) 85%, transparent);
-  color: var(--foreground);
   font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
-}
-
-.advertise:hover {
-  color: var(--primary);
 }
 
 .advertise:focus-visible {

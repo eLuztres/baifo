@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Newspaper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME } from '@/lib/constants';
@@ -36,10 +37,13 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       <div className={styles.panel}>
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
         <div className={styles.buttons}>
-          <Button asChild size='lg' className='rounded-full'>
-            <Link href='/explore'>{t('HOME_SCENE_READ')}</Link>
+          <Button asChild size='lg' className={cn('rounded-full', styles.solid)}>
+            <Link href='/explore'>
+              <Newspaper aria-hidden />
+              {t('HOME_SCENE_READ')}
+            </Link>
           </Button>
-          <Button asChild size='lg' variant='outline' className='rounded-full bg-background'>
+          <Button asChild size='lg' variant='outline' className={cn('rounded-full', styles.glass)}>
             <Link href={sectionHref(SECTION_IDS.showroom)}>{t('HOME_SCENE_CATEGORIES')}</Link>
           </Button>
         </div>
