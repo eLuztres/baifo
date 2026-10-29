@@ -7,6 +7,7 @@ import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
 import ListingEditor, { type CategoryOption, type EditorLanguage, type PlaceOption } from './listing-editor';
 import ListingSteps from './listing-steps';
+import NewListingForm from './new-listing-form';
 import PublishedView from './published-view';
 
 interface ListingWorkspaceProps {
@@ -26,6 +27,8 @@ const POLL_MS = 2500;
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
+  // Until the description is sent, the admin can go back to the photos and return to the text as it was.
+  const [isOnPhotos, setIsOnPhotos] = useState(false);
   // Still collecting with photos (or video stills) but no pictures yet: the AI is making them. Without any it waits for the description.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.images.length === 0 && listing.rawImages.some(pictureOf);
   // The AI is busy: on the pictures (still collecting) or on the text.
@@ -58,14 +61,26 @@ export default function ListingWorkspace({ initial, categories, places, language
     );
   }
 
-  const steps = listing.createdByAdmin && listing.status !== 'LIVE' && <ListingSteps current={1} texts={texts} />;
+  const canSwitchSteps = listing.createdByAdmin && listing.status === 'COLLECTING';
+  const steps = listing.createdByAdmin && listing.status !== 'LIVE' && (
+    <ListingSteps current={1} texts={texts} onSelect={canSwitchSteps ? () => setIsOnPhotos(true) : undefined} />
+  );
+
+  const backFromPhotos = (next: AdminListing) => {
+    setListing(next);
+    setIsOnPhotos(false);
+  };
 
   // While the AI still makes the pictures too: the admin writes the description meanwhile.
   if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING') {
+    const showsPhotos = isOnPhotos && canSwitchSteps;
     return (
       <div className='space-y-4'>
-        {steps}
-        <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} />
+        {showsPhotos ? <NewListingForm texts={texts} type={listing.type} listing={listing} onDone={backFromPhotos} /> : steps}
+        {/* Only hidden on the photos, so everything written stays. */}
+        <div hidden={showsPhotos}>
+          <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} />
+        </div>
       </div>
     );
   }

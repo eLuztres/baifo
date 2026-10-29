@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, HandHelping, Package, Search } from 'lucide-react';
-import ListingSteps from '@/components/marketplace/listing-steps';
 import ListingTypeInfo from '@/components/marketplace/listing-type-info';
 import NewListingForm from '@/components/marketplace/new-listing-form';
 import { requireAdmin } from '@/lib/auth-guard';
@@ -61,7 +60,6 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
           })}
         </nav>
       </div>
-      <ListingSteps current={0} texts={texts} />
       <NewListingForm key={listingType} texts={texts} type={listingType} />
     </div>
   );

@@ -28,7 +28,7 @@ jest.mock('@/lib/marketplace/media', () => ({
   uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
 }));
 jest.mock('@/lib/marketplace/video-cleanup', () => ({ cleanUpVideo: jest.fn(async () => Buffer.from('clean')) }));
-jest.mock('@/db/prisma', () => ({ prisma: { submission: { findUnique: jest.fn(), update: jest.fn() } } }));
+jest.mock('@/db/prisma', () => ({ prisma: { submission: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() } } }));
 jest.mock('@/lib/places', () => ({
   getShopPlaces: jest.fn(async () => [
     { id: 'place-corralejo', slug: 'corralejo', name: 'Corralejo', x: 90, y: 7, isLive: true },
@@ -37,7 +37,7 @@ jest.mock('@/lib/places', () => ({
   ]),
 }));
 
-const db = (prisma as unknown as { submission: Record<'findUnique' | 'update', jest.Mock> }).submission;
+const db = (prisma as unknown as { submission: Record<'findUnique' | 'update' | 'updateMany', jest.Mock> }).submission;
 
 const WANTED = {
   id: 'sub-1',
@@ -54,7 +54,10 @@ const WANTED = {
   placeId: null,
 };
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  db.updateMany.mockResolvedValue({ count: 1 });
+});
 
 // Text and pictures run at once, so the text's save is found by what it saves, not by its place in the calls.
 const textUpdate = () => db.update.mock.calls.map(([call]) => call.data).find((data) => 'placeId' in data);
@@ -197,8 +200,8 @@ describe('processSubmission with a service video', () => {
 
     expect(fetchImage).toHaveBeenCalledWith(PHOTO);
     expect(enhancePhoto).toHaveBeenCalledTimes(1);
-    expect(db.update).toHaveBeenCalledWith({
-      where: { id: 'sub-1' },
+    expect(db.updateMany).toHaveBeenCalledWith({
+      where: { id: 'sub-1', rawImages: { equals: [VIDEO, PHOTO] } },
       data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: ['', 'https://x.ufs.sh/f/made.jpg'], lastError: null },
     });
   });
@@ -296,6 +299,40 @@ describe('an admin listing whose pictures started with the upload', () => {
   });
 });
 
+describe('makeListingPictures after the admin changed the photos', () => {
+  const KEPT = 'https://x.ufs.sh/f/kept.jpg';
+  const ADDED = 'https://x.ufs.sh/f/added.jpg';
+  const CHANGED = { ...WANTED, type: 'PRODUCT', status: 'COLLECTING', usesAi: true, rawImages: [KEPT, ADDED], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: [] };
+
+  it('sends only the new photo to the AI and keeps the picture made before', async () => {
+    db.findUnique.mockResolvedValue(CHANGED);
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(fetchImage).toHaveBeenCalledTimes(1);
+    expect(fetchImage).toHaveBeenCalledWith(ADDED);
+    expect(db.updateMany.mock.calls[0][0].data).toMatchObject({
+      images: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/made.jpg'],
+      aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/made.jpg'],
+    });
+  });
+
+  it('saves nothing more when the photos changed again while the AI worked', async () => {
+    db.findUnique.mockResolvedValue(CHANGED);
+    db.updateMany.mockResolvedValue({ count: 0 });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] } });
+    expect(db.findUnique).toHaveBeenCalledTimes(1);
+    expect(db.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('makeListingPictures with only a video', () => {
   const still = 'https://x.ufs.sh/f/still.jpg';
   const video = `https://x.ufs.sh/f/clip#video=${encodeURIComponent(still)}`;
@@ -308,7 +345,7 @@ describe('makeListingPictures with only a video', () => {
     await makeListingPictures('sub-1');
 
     expect(fetchImage).toHaveBeenCalledWith(still);
-    expect(db.update.mock.calls[0][0].data).toMatchObject({ images: ['https://x.ufs.sh/f/made.jpg', video], aiImages: [''] });
+    expect(db.updateMany.mock.calls[0][0].data).toMatchObject({ images: ['https://x.ufs.sh/f/made.jpg', video], aiImages: [''] });
   });
 
   it('waits for the description when the video has no still', async () => {

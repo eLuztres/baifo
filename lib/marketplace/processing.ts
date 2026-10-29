@@ -35,18 +35,22 @@ const hasPictureSource = (originals: string[]) => photosOf(originals).length > 0
 const isUploadRunAlive = (submission: FoundSubmission) =>
   submission.createdByAdmin && submission.usesAi && hasPictureSource(submission.rawImages) && Date.now() - submission.updatedAt.getTime() < STUCK_AFTER_MS;
 
-/** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures. */
-async function makeShopPictures(submissionId: string, originals: string[], type: ListingType, firstPhoto?: Buffer) {
+/** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures.
+    known: AI pictures already made, next to their originals like aiImages; those photos aren't sent to the AI again.
+    False when the admin changed the photos meanwhile: the run for the new ones saves theirs. */
+async function makeShopPictures(submissionId: string, originals: string[], type: ListingType, firstPhoto?: Buffer, known: string[] = []) {
   const photos = photosOf(originals);
   const sources = photos.length > 0 ? photos : stillsOf(originals);
   const enhanced = await Promise.all(
     sources.slice(0, MAX_ENHANCED_PHOTOS).map(async (url, index) => {
+      const madeBefore = known[originals.indexOf(url)];
+      if (madeBefore) return madeBefore;
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
       return uploadImage(await enhancePhoto(photo, type), `listing-${submissionId}-${index}`);
     })
   );
-  await prisma.submission.update({
-    where: { id: submissionId },
+  const { count } = await prisma.submission.updateMany({
+    where: { id: submissionId, rawImages: { equals: originals } },
     // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
     data: {
       images: [...enhanced, ...photos.slice(MAX_ENHANCED_PHOTOS), ...videosOf(originals)],
@@ -54,6 +58,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
       lastError: null,
     },
   });
+  return count > 0;
 }
 
 /** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
@@ -170,7 +175,7 @@ export async function makeListingPictures(submissionId: string) {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
     // Only videos without a still: the picture is drawn from the description, once it comes.
     if (!hasPictureSource(submission.rawImages)) return;
-    await makeShopPictures(submissionId, submission.rawImages, submission.type);
+    if (!(await makeShopPictures(submissionId, submission.rawImages, submission.type, undefined, submission.aiImages))) return;
     const pictured = (await findSubmission(submissionId))!;
     if (pictured.status === 'PROCESSING' && pictured.title) await finishSubmission(pictured);
   } catch (error) {

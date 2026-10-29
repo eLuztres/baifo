@@ -9,7 +9,7 @@ import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from 
 import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
-import { pictureOf } from '@/lib/video';
+import { isVideoUrl, pictureOf } from '@/lib/video';
 import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, translateText, writeListing } from './ai';
@@ -61,6 +61,35 @@ export async function createAdminListing(input: NewListingInput) {
   });
   if (useAi && photos.length > 0) after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
+}
+
+const photosSchema = newListingSchema.pick({ photos: true, useAi: true });
+
+/** Back on step 1 before the description is sent: other photos, or the other choice of AI pictures or none.
+    Photos that stay keep their AI picture, so only new ones go to the AI. */
+export async function updateAdminListingPhotos(id: string, input: z.input<typeof photosSchema>) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = photosSchema.safeParse(input);
+  if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
+  const { photos, useAi } = parsed.data;
+  if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
+  const current = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true } });
+  if (!current) return NOT_ALLOWED;
+  const aiImages = photos.map((url) => current.aiImages[current.rawImages.indexOf(url)] ?? '');
+  const photoFiles = photos.filter((url) => !isVideoUrl(url));
+  const madeBefore = photoFiles.map((url) => aiImages[photos.indexOf(url)]);
+  const hasPictureSource = photos.some(pictureOf);
+  // Only videos: their stills go to the AI again, as those pictures aren't kept next to them.
+  const needsAi = useAi && hasPictureSource && (photoFiles.length === 0 || madeBefore.some((url) => !url));
+  // Nothing new for the AI: the pictures are there at once, in the order the pictures' run saves them.
+  const images = !useAi ? photos : needsAi || !hasPictureSource ? [] : [...madeBefore, ...photos.filter(isVideoUrl)];
+  const { count } = await prisma.submission.updateMany({
+    where: { id, status: 'COLLECTING', createdByAdmin: true },
+    data: { rawImages: photos, aiImages, images, usesAi: useAi, lastError: null, attempts: 0 },
+  });
+  if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  if (needsAi) after(() => makeListingPictures(id));
+  return { success: true, message: 'Fotos guardadas' };
 }
 
 // The person's WhatsApp as digits; empty: none (older listings, and clearing it in the editor).

@@ -8,6 +8,7 @@ import {
   retryAdminListing,
   setAdminListingCategory,
   updateAdminListing,
+  updateAdminListingPhotos,
 } from '@/lib/marketplace/admin.actions';
 import { correctText, createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
@@ -234,6 +235,54 @@ describe('describeAdminListing', () => {
 
     expect((await describeAdminListing(ID, { notes: 'Bici', sellerPhone: '612345678' })).success).toBe(false);
     expect(processSubmission).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateAdminListingPhotos', () => {
+  const KEPT = 'https://x.ufs.sh/f/kept.jpg';
+  const GONE = 'https://x.ufs.sh/f/gone.jpg';
+  const ADDED = 'https://x.ufs.sh/f/added.jpg';
+  const VIDEO = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
+
+  beforeEach(() => {
+    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT, GONE], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/gone-ai.jpg'] });
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('keeps the AI pictures of the photos that stay, without the AI, when one is removed', async () => {
+    expect((await updateAdminListingPhotos(ID, { photos: [KEPT, VIDEO], useAi: true })).success).toBe(true);
+
+    expect(db.submission.updateMany.mock.calls[0][0]).toMatchObject({
+      where: { id: ID, status: 'COLLECTING', createdByAdmin: true },
+      data: { rawImages: [KEPT, VIDEO], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: ['https://x.ufs.sh/f/kept-ai.jpg', VIDEO] },
+    });
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('starts the pictures again when a photo without one is added', async () => {
+    await updateAdminListingPhotos(ID, { photos: [KEPT, ADDED], useAi: true });
+
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: [] });
+    expect(makeListingPictures).toHaveBeenCalledWith(ID);
+  });
+
+  it('uses the photos as they are without AI', async () => {
+    await updateAdminListingPhotos(ID, { photos: [ADDED, KEPT], useAi: false });
+
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: [ADDED, KEPT], usesAi: false });
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('refuses once the description was sent', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 0 });
+
+    expect((await updateAdminListingPhotos(ID, { photos: [ADDED], useAi: true })).success).toBe(false);
+    expect(makeListingPictures).not.toHaveBeenCalled();
+  });
+
+  it('refuses photos from anywhere else', async () => {
+    expect((await updateAdminListingPhotos(ID, { photos: ['https://evil.example/x.jpg'], useAi: true })).success).toBe(false);
+    expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 });
 
