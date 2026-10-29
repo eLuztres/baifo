@@ -248,6 +248,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const category = findCategory(await getListingCategories(), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   if (parsed.data.condition === ANY_CONDITION && !isWanted) return { success: false, message: 'Elige el estado del artículo' };
+  if (isWanted && parsed.data.priceMax && Number(parsed.data.priceMax) <= Number(parsed.data.price)) {
+    return { success: false, message: 'Hasta tiene que ser más que Desde' };
+  }
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }

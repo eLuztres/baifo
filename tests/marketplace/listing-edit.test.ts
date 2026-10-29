@@ -153,6 +153,15 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
   });
 
+  it('refuses a budget range whose upper end is not above its lower end', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
+
+    for (const priceMax of ['50', '40']) {
+      expect(await updateAdminListing(ID, { ...EDIT, price: '50', priceMax, condition: 'any' })).toEqual({ success: false, message: 'Hasta tiene que ser más que Desde' });
+    }
+    expect(db.submission.update).not.toHaveBeenCalled();
+  });
+
   it('saves a wanted ad with only an upper end, and its empty lower end as none', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
 
