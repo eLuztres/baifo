@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { FEED_COVER_TRANSITION } from '@/components/shared/product/feed-cover';
 import FeedCard from '@/components/shared/product/feed-card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
 import { getStoreCategories, getSubcategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
@@ -16,6 +15,8 @@ import { composeFeed } from '@/lib/feed';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import ExploreChips, { type ExploreChip } from '@/components/shared/explore-chips';
+import ExploreSearch from '@/components/shared/explore-search';
 import ExploreStories from '@/components/shared/explore-stories';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import { metaDescription, pageAlternates } from '@/lib/seo';
@@ -113,6 +114,25 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const focusCover = focus && (focus.image ?? focusFeed[0]?.image);
   // Type and category combine: each chip changes its own filter and keeps the other one and the search.
   const filters: ExploreFilters = { tipo: typeParam, c: focus?.slug, isToday: isTodayOnly };
+  const isFiltered = Boolean(typeParam || focus || isTodayOnly);
+  // One row of plain chips: "Todo" really clears everything, a chosen chip is tapped again to drop just that one.
+  const chips: ExploreChip[] = [
+    { key: 'all', label: t('EXPLORE_ALL'), href: '/explore', isActive: !isFiltered && !query },
+    ...(todayListings.length > 0
+      ? [{ key: 'today', label: t('EXPLORE_TODAY'), href: exploreHref({ c: focus?.slug, isToday: !isTodayOnly }, query), isActive: isTodayOnly }]
+      : []),
+    // The chosen type stays visible even when nothing matches it, so it can always be undone.
+    ...(filledTypes.length > 1 || typeParam
+      ? LISTING_TYPES.filter((item) => filledTypes.includes(item) || (item === type && typeParam)).map((item) => {
+          const isActive = item === type && !isTodayOnly;
+          return { key: item, label: t(LISTING_TYPE_KEYS[item]), href: exploreHref({ c: focus?.slug, tipo: isActive ? undefined : LISTING_TYPE_PARAMS[item] }, query), isActive };
+        })
+      : []),
+    ...filledCategories.map((category) => {
+      const isActive = category.id === focus?.id;
+      return { key: category.id, label: localize(category.name, locale), href: exploreHref({ ...filters, c: isActive ? undefined : category.slug }, query), isActive };
+    }),
+  ];
   const now = new Date();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
 
@@ -181,37 +201,15 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </header>
       )}
 
-      <div className='space-y-2'>
-      <form action='/explore' role='search' className='relative'>
-        <Search className='pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' aria-hidden />
-        <Input
-          type='search'
-          name='q'
-          defaultValue={query}
-          maxLength={MAX_QUERY_LENGTH}
-          placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
-          aria-label={t('EXPLORE_SEARCH_LABEL')}
-          className='h-12 rounded-full border-border bg-card pl-12 pr-28 text-base shadow-sm'
-        />
-        <Button type='submit' className='absolute right-1.5 top-1/2 h-9 -translate-y-1/2 rounded-full px-5'>
-          {t('EXPLORE_SEARCH_SUBMIT')}
-        </Button>
-      </form>
-      {query && (
-        <p className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
-          <span>{t('EXPLORE_SEARCH_RESULTS', { query })}</span>
-          <Link
-            href={exploreHref({ ...filters, sub: subcategory?.slug })}
-            className='inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-foreground transition-colors hover:border-primary/40'
-          >
-            <X className='size-3.5' aria-hidden /> {t('EXPLORE_SEARCH_CLEAR')}
-          </Link>
-        </p>
-      )}
-      </div>
-
       {/* Stays under the header while scrolling: every category and type is in sight and one tap away. */}
       <div className='sticky top-[calc(4rem+1px)] z-10 -mx-4 space-y-2 bg-background/85 px-4 py-3 backdrop-blur-md sm:top-[calc(5rem+1px)]'>
+        <ExploreSearch
+          placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
+          label={t('EXPLORE_SEARCH_LABEL')}
+          clearLabel={t('EXPLORE_SEARCH_CLEAR')}
+          maxLength={MAX_QUERY_LENGTH}
+        />
+        {query && <p className='px-1 text-sm text-muted-foreground'>{t('EXPLORE_SEARCH_RESULTS', { query })}</p>}
         <ExploreStories
           label={t('EXPLORE_CATEGORY_BUTTON')}
           unseenSince={new Date(now.getTime() - NEW_LISTING_HOURS * 60 * 60 * 1000).toISOString()}
@@ -230,47 +228,23 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             }),
           ]}
         />
-        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='-mx-4 flex gap-2 overflow-x-auto px-4'>
-          {[
-            { key: 'all', label: t('EXPLORE_ALL'), href: exploreHref({ c: focus?.slug, sub: subcategory?.slug }, query), isActive: !typeParam && !isTodayOnly },
-            ...(todayListings.length > 0
-              ? [{ key: 'today', label: t('EXPLORE_TODAY'), href: exploreHref({ c: focus?.slug, isToday: true }, query), isActive: isTodayOnly }]
-              : []),
-            ...filledTypes.map((item) => ({
-              key: item,
-              label: t(LISTING_TYPE_KEYS[item]),
-              href: exploreHref({ c: focus?.slug, sub: subcategory?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query),
-              isActive: item === type && !isTodayOnly,
-            })),
-            // The chosen category's subcategories follow the types, in the same row.
-            ...subcategories.map((item) => ({
-              key: item.id,
-              label: localize(item.name, locale),
-              href: exploreHref({ ...filters, sub: item.id === subcategory?.id ? undefined : item.slug }, query),
-              isActive: item.id === subcategory?.id,
-            })),
-          ].map((chip) => (
-            <Link
-              key={chip.key}
-              href={chip.href}
-              aria-current={chip.isActive ? 'page' : undefined}
-              className={cn(
-                'inline-flex h-8 shrink-0 items-center rounded-full border px-3.5 text-sm transition-colors',
-                chip.isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/40'
-              )}
-            >
-              {chip.label}
-            </Link>
-          ))}
-        </nav>
+        <ExploreChips label={t('EXPLORE_TYPE_FILTER')} chips={chips} />
       </div>
 
       {feed.length === 0 && query ? (
         <div className='space-y-4 py-16 text-center'>
           <p className='text-muted-foreground'>{t('EXPLORE_SEARCH_EMPTY', { query })}</p>
-          <Button asChild variant='outline' className='rounded-full'>
-            <Link href='/explore'>{t('EXPLORE_SEARCH_CLEAR')}</Link>
-          </Button>
+          {/* Nothing inside the chosen chips is no dead end: the same words over everything are one tap away. */}
+          <div className='flex flex-wrap justify-center gap-2'>
+            {isFiltered && (
+              <Button asChild className='rounded-full'>
+                <Link href={exploreHref({}, query)}>{t('EXPLORE_SEARCH_EVERYWHERE', { query })}</Link>
+              </Button>
+            )}
+            <Button asChild variant='outline' className='rounded-full'>
+              <Link href='/explore'>{t('EXPLORE_SEARCH_CLEAR')}</Link>
+            </Button>
+          </div>
         </div>
       ) : feed.length === 0 && placedListings.length < allListings.length ? (
         <div className='space-y-4 py-16 text-center'>
