@@ -111,8 +111,8 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
   const livePlaces = places.filter((place) => place.isLive);
   const text = await writeListing(firstPhoto, submission.rawText, categories, locales, submission.type, kept, livePlaces);
-  // A place the admin already set stays; else the town the AI read, else the first live place.
-  const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? livePlaces[0])?.id ?? null;
+  // A place the admin already set stays; else the town the AI read. None named stays empty, unless there's only one.
+  const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
   const { type } = text;
   const isWanted = type === 'WANTED';

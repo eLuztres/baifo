@@ -6,13 +6,14 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
-import { fromShopDateTime } from '@/lib/event-date';
+import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
+import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
-import { correctText, createPicture, translateText, writeListing } from './ai';
+import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
@@ -20,6 +21,7 @@ import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { lacksConsent, markSent } from './listing-payment';
+import type { FieldValues } from './listing-fields';
 import { sellerIdentity } from './seller';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { rejectSubmission } from './review';
@@ -371,21 +373,62 @@ export async function setAdminListingCategory(id: string, slug: string) {
 
 const picturePromptSchema = z.string().trim().max(500).optional();
 
-/** One more picture made by the AI, from what the admin typed or else the listing's own text. The editor adds it and saves. */
-export async function createAdminListingPicture(id: string, prompt?: string) {
+/** One more picture made by the AI, from what the admin typed, else the listing's description, else its uploaded photo.
+    With none of them there is nothing to make it from: the AI never invents one. The editor adds it and saves.
+    `edited`: the editor's text, which may not be saved yet. */
+export async function createAdminListingPicture(id: string, prompt?: string, edited?: { title: string; description: string }) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = picturePromptSchema.safeParse(prompt);
-  if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, type: true } });
+  const editedText = textSchema.optional().safeParse(edited);
+  if (!parsed.success || !editedText.success) return { success: false, message: 'Describe la foto en menos palabras' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, type: true, rawImages: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
-  const text = parsed.data ? { title: parsed.data, description: '' } : { title: submission.title ?? '', description: submission.description ?? '' };
-  if (!text.title && !text.description) return { success: false, message: 'Describe la foto que quieres' };
+  const own = editedText.data ?? { title: submission.title ?? '', description: submission.description?.trim() ?? '' };
+  const text = parsed.data ? { title: parsed.data, description: '' } : own;
+  const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);
+  if (!parsed.data && !text.description && !photoUrl) return { success: false, message: 'Escribe primero una descripción o sube una foto' };
   try {
-    const picture = await createPicture(text, submission.type);
+    const picture = parsed.data || text.description ? await createPicture(text, submission.type) : await enhancePhoto(await fetchImage(photoUrl!), submission.type);
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
     return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo crear la foto. Inténtalo otra vez.' };
+  }
+}
+
+const fieldsTextSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().min(1).max(3000) });
+
+/** The editor's fields read again from its title and description, as the editor holds them; only the ones the text
+    names. The editor puts them only into its empty fields, so nothing the admin set is overwritten. */
+export async function fillAdminListingFields(id: string, text: { title: string; description: string }) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = fieldsTextSchema.safeParse(text);
+  if (!parsed.success) return { success: false, message: 'Escribe primero la descripción' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  const { type } = submission;
+  try {
+    const shopLocale = getShopLocale();
+    const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
+    const livePlaces = places.filter((place) => place.isLive);
+    const read = await readListingFields(`${parsed.data.title}\n${parsed.data.description}`, type, categories, livePlaces);
+    const amount = (value: number | null) => (value === null ? '' : value.toFixed(2));
+    const startsAt = type === 'EVENT' && read.startsAt ? fromShopDateTime(read.startsAt) : null;
+    const isGoods = type === 'PRODUCT' || type === 'WANTED';
+    const fields: Partial<FieldValues> = {
+      category: read.category ?? '',
+      price: amount(read.price),
+      priceMax: type === 'WANTED' ? amount(read.priceMax) : '',
+      condition: isGoods && read.condition && (type === 'WANTED' || read.condition !== ANY_CONDITION) ? read.condition : '',
+      serviceType: type === 'SERVICE' ? (read.serviceType ?? '') : '',
+      startsAt: startsAt ? toShopDateTime(startsAt) : '',
+      address: type === 'EVENT' ? (read.address ?? '') : '',
+      placeId: livePlaces.find((place) => place.slug === read.place)?.id ?? '',
+    };
+    return { success: true, message: '', fields };
+  } catch (error) {
+    console.error(`Fields of listing ${id} not read`, error);
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo leer la descripción. Inténtalo otra vez.' };
   }
 }
 

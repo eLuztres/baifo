@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
@@ -31,6 +31,7 @@ import {
   createAdminListingPicture,
   enableAdminListing,
   extendAdminListing,
+  fillAdminListingFields,
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
@@ -42,13 +43,14 @@ import {
 import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
+import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
 import { isAiPicture as isAiPictureAt, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
-import { isVideoUrl, videoPoster } from '@/lib/video';
+import { isVideoUrl, pictureOf, videoPoster } from '@/lib/video';
 import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
 import PaymentPanel, { type AdminPayMethod } from './payment-panel';
@@ -136,6 +138,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const [isAskingPicture, setIsAskingPicture] = useState(false);
   const [picturePrompt, setPicturePrompt] = useState('');
   const [isMakingPicture, setIsMakingPicture] = useState(false);
+  // "Fill what's missing": busy while the AI reads the description; the fields it filled show where they came from.
+  const [isFillingFields, setIsFillingFields] = useState(false);
+  const [filledFromText, setFilledFromText] = useState<FillableField[]>([]);
   // The video whose still frame the server is taking right now.
   const [stillVideo, setStillVideo] = useState<string | null>(null);
   const [fields, setFields] = useState({
@@ -188,8 +193,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  const set = (name: 'price' | 'priceMax' | 'category' | 'condition' | 'placeId' | 'serviceType' | 'startsAt' | 'address' | 'sellerPhone' | 'sellerName' | 'sellerLocale') => (event: { target: { value: string } }) =>
+  // A field changed by hand no longer counts as filled from the description.
+  const set = (name: FillableField | 'sellerPhone' | 'sellerName' | 'sellerLocale') => (event: { target: { value: string } }) => {
+    setFilledFromText((current) => current.filter((field) => field !== name));
     setFields((current) => ({ ...current, [name]: event.target.value }));
+  };
+  // Set, filled from the description, missing, or missing and needed to publish.
+  const stateOf = (name: FillableField) => {
+    const state = fieldState(name, fields[name], listing.type);
+    return state === 'set' && filledFromText.includes(name) ? 'fromText' : state;
+  };
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description' | 'short') => (event: { target: { value: string } }) => {
     if (isShopLanguage && languages.length > 0) setIsTranslationStale(true);
@@ -241,7 +254,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // The new picture joins the others and is stored with the next save, like any added photo.
   const makePicture = async () => {
     setIsMakingPicture(true);
-    const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined);
+    const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined, { title: fields.title, description: fields.description });
     setIsMakingPicture(false);
     if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
     setImages((current) => [...current, result.url]);
@@ -320,6 +333,33 @@ export default function ListingEditor({ listing, categories, places, languages, 
     setFields((current) => withTranslations(current, result.translations));
     setIsTranslationStale(false);
   };
+
+  const fieldLabels: Record<FillableField, string> = {
+    category: texts.categoryLabel,
+    price: isService ? texts.priceFrom : isEvent ? texts.eventPrice : isWanted ? texts.budgetFrom : texts.priceShort,
+    priceMax: texts.budgetTo,
+    condition: texts.conditionLabel,
+    serviceType: texts.serviceTypeLabel,
+    startsAt: texts.eventStartsLabel,
+    address: texts.addressLabel,
+    placeId: texts.placeLabel,
+  };
+
+  // Only empty fields take what the description says; the admin's own values stay.
+  const fillFromDescription = async () => {
+    setError('');
+    setIsFillingFields(true);
+    const result = await fillAdminListingFields(listing.id, { title: fields.title, description: fields.description });
+    setIsFillingFields(false);
+    if (!('fields' in result && result.fields)) return setError(result.message);
+    const { fields: filledFields, filled } = fillEmptyFields(fields, result.fields, listing.type);
+    setFields(filledFields);
+    setFilledFromText((current) => [...current, ...filled]);
+    toast({ description: filled.length > 0 ? fillText(texts.fieldsFilled, { fields: filled.map((name) => fieldLabels[name]).join(', ') }) : texts.fieldsNothingNew });
+  };
+
+  // The AI never invents a picture: it needs words (typed here or the description) or an uploaded photo.
+  const hasPictureSource = picturePrompt.trim() !== '' || fields.description.trim() !== '' || listing.rawImages.some(pictureOf);
 
   const swapPicture = (url: string, other: string) => setImages((current) => current.map((image) => (image === url ? other : image)));
 
@@ -480,22 +520,23 @@ export default function ListingEditor({ listing, categories, places, languages, 
         )}
       </ul>
       {isAskingPicture && (
-        <div className='flex gap-2'>
+        <div className='flex flex-wrap gap-2'>
           <Input
             value={picturePrompt}
             onChange={(event) => setPicturePrompt(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && !isMakingPicture && makePicture()}
+            onKeyDown={(event) => event.key === 'Enter' && !isMakingPicture && hasPictureSource && makePicture()}
             placeholder={texts.newPicturePlaceholder}
             aria-label={texts.newPicture}
             maxLength={500}
             disabled={isMakingPicture}
-            className='h-11 rounded-full bg-card'
+            className='h-11 min-w-48 flex-1 rounded-full bg-card'
           />
-          <Button className='h-11 shrink-0 rounded-full' disabled={isMakingPicture} onClick={makePicture}>
+          <Button className='h-11 shrink-0 rounded-full' disabled={isMakingPicture || !hasPictureSource} onClick={makePicture}>
             {isMakingPicture ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.newPicture}
           </Button>
         </div>
       )}
+      {isAskingPicture && !hasPictureSource && <p className='px-3 text-xs text-muted-foreground'>{texts.pictureNeedsText}</p>}
       <ImageLightbox images={images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
 
       <section className='relative space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
@@ -554,6 +595,21 @@ export default function ListingEditor({ listing, categories, places, languages, 
               className={`${FIELD_CLASS} field-sizing-content max-h-[56svh] min-h-32 resize-none overflow-y-auto leading-relaxed`}
             />
           </div>
+          {/* The description leads: after changing it, the fields still empty can be filled from it. */}
+          {isShopLanguage && (
+            <div className='flex flex-wrap items-center gap-x-3 gap-y-1 px-1'>
+              <Button
+                size='sm'
+                variant='outline'
+                className='h-auto min-h-8 whitespace-normal rounded-full py-1.5 text-left'
+                disabled={isFillingFields || !fields.description.trim()}
+                onClick={fillFromDescription}
+              >
+                {isFillingFields ? <Loader2 className='animate-spin' /> : <WandSparkles />} {isFillingFields ? texts.fillFieldsWorking : texts.fillFields}
+              </Button>
+              <span className='text-xs text-muted-foreground'>{texts.fillFieldsHint}</span>
+            </div>
+          )}
         </div>
         {textWork && (
           <div className='absolute inset-0 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium backdrop-blur-sm'>
@@ -565,12 +621,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
       <div className='grid grid-cols-2 gap-3'>
         {isService && (
           <>
-            <PriceInput id='price' label={texts.priceFrom} value={fields.price} onChange={set('price')} />
+            <PriceInput id='price' label={texts.priceFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
             <div className='space-y-1'>
-              <Label htmlFor='serviceType' className='px-1 text-xs text-muted-foreground'>
-                {texts.serviceTypeLabel}
-              </Label>
-              <select id='serviceType' value={fields.serviceType} onChange={set('serviceType')} className={SELECT_CLASS}>
+              <FieldLabel htmlFor='serviceType' label={texts.serviceTypeLabel} state={stateOf('serviceType')} texts={texts} />
+              <select id='serviceType' value={fields.serviceType} onChange={set('serviceType')} className={cn(SELECT_CLASS, neededClass(stateOf('serviceType')))}>
                 <option value=''>–</option>
                 {SERVICE_TYPES.map((serviceType) => (
                   <option key={serviceType} value={serviceType}>
@@ -585,18 +639,20 @@ export default function ListingEditor({ listing, categories, places, languages, 
           <>
             {/* The native date and time picker needs the whole width on a phone. */}
             <div className='col-span-2 space-y-1 sm:col-span-1'>
-              <Label htmlFor='startsAt' className='px-1 text-xs text-muted-foreground'>
-                {texts.eventStartsLabel}
-              </Label>
-              <Input id='startsAt' type='datetime-local' value={fields.startsAt} onChange={set('startsAt')} className='h-12 rounded-2xl bg-card text-base md:text-base' />
+              <FieldLabel htmlFor='startsAt' label={texts.eventStartsLabel} state={stateOf('startsAt')} texts={texts} />
+              <Input
+                id='startsAt'
+                type='datetime-local'
+                value={fields.startsAt}
+                onChange={set('startsAt')}
+                className={cn('h-12 rounded-2xl bg-card text-base md:text-base', neededClass(stateOf('startsAt')))}
+              />
             </div>
             <div className='col-span-2 sm:col-span-1'>
-              <PriceInput id='price' label={texts.eventPrice} value={fields.price} onChange={set('price')} />
+              <PriceInput id='price' label={texts.eventPrice} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
             </div>
             <div className='col-span-2 space-y-1'>
-              <Label htmlFor='address' className='px-1 text-xs text-muted-foreground'>
-                {texts.addressLabel}
-              </Label>
+              <FieldLabel htmlFor='address' label={texts.addressLabel} state={stateOf('address')} texts={texts} />
               <AddressInput
                 id='address'
                 value={fields.address}
@@ -613,16 +669,14 @@ export default function ListingEditor({ listing, categories, places, languages, 
             {isWanted ? (
               // A wanted ad's budget is a range, so it gets a row of its own.
               <div className='col-span-2 grid grid-cols-2 gap-3'>
-                <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} />
-                <PriceInput id='priceMax' label={texts.budgetTo} value={fields.priceMax} onChange={set('priceMax')} />
+                <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
+                <PriceInput id='priceMax' label={texts.budgetTo} value={fields.priceMax} onChange={set('priceMax')} state={stateOf('priceMax')} texts={texts} />
               </div>
             ) : (
-              <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} />
+              <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
             )}
             <div className={cn('space-y-1', isWanted && 'col-span-2')}>
-              <Label htmlFor='condition' className='px-1 text-xs text-muted-foreground'>
-                {texts.conditionLabel}
-              </Label>
+              <FieldLabel htmlFor='condition' label={texts.conditionLabel} state={stateOf('condition')} texts={texts} />
               <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
                 <option value=''>–</option>
                 {PRODUCT_CONDITIONS.filter((condition) => isWanted || condition !== ANY_CONDITION).map((condition) => (
@@ -635,10 +689,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </>
         )}
         <div className='col-span-2 space-y-1'>
-          <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
-            {texts.categoryLabel}
-          </Label>
-          <select id='category' value={fields.category} onChange={set('category')} className={SELECT_CLASS}>
+          <FieldLabel htmlFor='category' label={texts.categoryLabel} state={stateOf('category')} texts={texts} />
+          <select id='category' value={fields.category} onChange={set('category')} className={cn(SELECT_CLASS, neededClass(stateOf('category')))}>
             {!fields.category && <option value=''>–</option>}
             {categories.map((category) => (
               <option key={category.slug} value={category.slug}>
@@ -649,9 +701,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </div>
         {places.length > 0 && (
           <div className='col-span-2 space-y-1'>
-            <Label htmlFor='place' className='px-1 text-xs text-muted-foreground'>
-              {texts.placeLabel}
-            </Label>
+            <FieldLabel htmlFor='place' label={texts.placeLabel} state={stateOf('placeId')} texts={texts} />
             <select id='place' value={fields.placeId} onChange={set('placeId')} className={SELECT_CLASS}>
               {!fields.placeId && <option value=''>–</option>}
               {places.map((place) => (
@@ -799,21 +849,67 @@ export default function ListingEditor({ listing, categories, places, languages, 
   );
 }
 
+type FieldState = 'set' | 'fromText' | 'missing' | 'needed';
+
+// A field publishing needs, still empty, stands out a little: no error look.
+const neededClass = (state: FieldState) => state === 'needed' && 'border-dashed border-primary/60';
+
+interface FieldLabelProps {
+  htmlFor: string;
+  label: string;
+  state: FieldState;
+  texts: AdminTexts;
+}
+
+/** A field's label with whether it has a value: a calm mark when set, a word when it's still missing. */
+function FieldLabel({ htmlFor, label, state, texts }: FieldLabelProps) {
+  const { icon: Icon, text } = {
+    set: { icon: CheckCircle2, text: texts.fieldSet },
+    fromText: { icon: Sparkles, text: texts.fieldFromText },
+    missing: { icon: Circle, text: texts.fieldMissing },
+    needed: { icon: CircleDot, text: texts.fieldNeeded },
+  }[state];
+  const isEmpty = state === 'missing' || state === 'needed';
+  return (
+    <div className='flex min-w-0 items-center justify-between gap-2 px-1'>
+      <Label htmlFor={htmlFor} className='truncate text-xs font-normal text-muted-foreground'>
+        {label}
+      </Label>
+      <span
+        title={text}
+        className={cn(
+          'flex shrink-0 items-center gap-1 text-[11px] leading-none',
+          state === 'needed' ? 'font-medium text-primary' : state === 'missing' ? 'text-muted-foreground' : 'text-primary'
+        )}
+      >
+        <Icon className='size-3.5' aria-hidden />
+        <span className={isEmpty ? undefined : 'sr-only'}>{text}</span>
+      </span>
+    </div>
+  );
+}
+
 interface PriceInputProps {
   id: string;
   label: string;
   value: string;
   onChange: (event: { target: { value: string } }) => void;
+  state: FieldState;
+  texts: AdminTexts;
 }
 
-function PriceInput({ id, label, value, onChange }: PriceInputProps) {
+function PriceInput({ id, label, value, onChange, state, texts }: PriceInputProps) {
   return (
     <div className='space-y-1'>
-      <Label htmlFor={id} className='px-1 text-xs text-muted-foreground'>
-        {label}
-      </Label>
+      <FieldLabel htmlFor={id} label={label} state={state} texts={texts} />
       <div className='relative'>
-        <Input id={id} inputMode='decimal' value={value} onChange={onChange} className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg' />
+        <Input
+          id={id}
+          inputMode='decimal'
+          value={value}
+          onChange={onChange}
+          className={cn('h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg', neededClass(state))}
+        />
         <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
       </div>
     </div>

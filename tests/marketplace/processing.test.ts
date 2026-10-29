@@ -108,7 +108,18 @@ describe('processSubmission without a photo', () => {
     expect(textUpdate().placeId).toBe('place-corralejo');
   });
 
-  it('falls back to the first live place when the AI names none', async () => {
+  it('leaves the place empty when the text names no town, as there is more than one', async () => {
+    (writeListing as jest.Mock).mockResolvedValueOnce({ ...(await (writeListing as jest.Mock)()), place: null });
+    (writeListing as jest.Mock).mockClear();
+    db.findUnique.mockResolvedValueOnce(WANTED).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
+    db.update.mockResolvedValue({ ...WANTED, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(textUpdate().placeId).toBeNull();
+  });
+
+  it('uses the only live place when there is nothing to choose', async () => {
     (getShopPlaces as jest.Mock).mockResolvedValueOnce([{ id: 'place-corralejo', slug: 'corralejo', name: 'Corralejo', x: 90, y: 7, isLive: true }]);
     db.findUnique.mockResolvedValueOnce(WANTED).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
     db.update.mockResolvedValue({ ...WANTED, seller: {} });

@@ -47,7 +47,7 @@ const listingSchema = z.object({
   price: z.number().nullable().default(null),
   // Only a wanted ad's budget has an upper end.
   priceMax: z.number().nullable().default(null),
-  // Only asked when the shop has more than one live place.
+  // Only asked when the shop has more than one live place; null when no town is named.
   place: z.string().nullable().default(null),
   // Only a service's kind of offer, and an event's start ("2026-11-29T19:00" on the island) and address.
   serviceType: z.enum(SERVICE_TYPES).nullable().default(null),
@@ -102,6 +102,8 @@ const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
   required: ['texts', 'category', 'price', 'startsAt', 'address'],
 });
 
+const NULLABLE_CONDITION = { type: ['string', 'null'], enum: [...PRODUCT_CONDITIONS, null] };
+
 const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
   type: 'object',
   properties: {
@@ -109,12 +111,26 @@ const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
     // An enum of the slugs: the AI can only answer with a category that exists.
     category: { type: 'string', enum: slugs },
     type: { type: 'string', enum: GOODS_TYPES },
-    condition: { type: 'string', enum: PRODUCT_CONDITIONS },
+    // Null: unknown, without a photo and nothing said about it.
+    condition: NULLABLE_CONDITION,
     price: { type: ['number', 'null'] },
     priceMax: { type: ['number', 'null'] },
   },
   required: ['texts', 'category', 'type', 'condition', 'price', 'priceMax'],
 });
+
+/** The fields a listing of this type has, as read from its description alone; null: the text doesn't say. */
+const fieldsJsonSchema = (type: ListingType, slugs: string[]) => {
+  const amount = { type: ['number', 'null'] };
+  const properties = {
+    category: { type: 'string', enum: slugs },
+    price: amount,
+    ...(type === 'SERVICE' && { serviceType: { type: ['string', 'null'], enum: [...SERVICE_TYPES, null] } }),
+    ...(type === 'EVENT' && { startsAt: { type: ['string', 'null'] }, address: { type: ['string', 'null'] } }),
+    ...((type === 'PRODUCT' || type === 'WANTED') && { condition: NULLABLE_CONDITION, priceMax: amount }),
+  };
+  return { type: 'object', properties, required: Object.keys(properties) };
+};
 
 /** A live place a listing can be in, as the AI reads it from the text. */
 export interface ListingPlace {
@@ -126,13 +142,17 @@ export interface ListingPlace {
 const withPlace = <T extends { properties: object; required: string[] }>(schema: T, places: ListingPlace[]) =>
   places.length < 2
     ? schema
-    : { ...schema, properties: { ...schema.properties, place: { type: 'string', enum: places.map(({ slug }) => slug) } }, required: [...schema.required, 'place'] };
+    : {
+        ...schema,
+        properties: { ...schema.properties, place: { type: ['string', 'null'], enum: [...places.map(({ slug }) => slug), null] } },
+        required: [...schema.required, 'place'],
+      };
 
 const placeRule = (places: ListingPlace[]) =>
   places.length < 2
     ? ''
-    : '- place: the slug of the town where the thing is handed over or the service is offered, as written; if no town ' +
-      `is named, ${places[0].slug}. The towns: ${places.map(({ slug, name }) => `${slug} (${name})`).join(', ')}.\n`;
+    : '- place: the slug of the town where the thing is handed over, the service is offered or the event happens, as ' +
+      `written; null if no town is named. The towns: ${places.map(({ slug, name }) => `${slug} (${name})`).join(', ')}.\n`;
 
 const categoryLine = ({ slug, name, keywords }: ListingCategory) =>
   `  - ${slug}: ${localize(name, 'es')} / ${localize(name, 'en')}` + (keywords.length > 0 ? ` (e.g. ${keywords.join(', ')})` : '');
@@ -153,7 +173,7 @@ const WANTED_RULE =
   'of selling it, else PRODUCT. A WANTED ad is different: the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", ' +
   '"Looking for a surfboard"), the description says what they need and when, condition is the worst they accept ' +
   '(good if unsaid, any if they take it in any condition), price and priceMax are the lowest and highest end of their budget (if they name one amount, ' +
-  'that is priceMax and price is a fair lower end; if they name none, a fair second-hand range), and category is where the wanted thing would be found.\n';
+  'that is priceMax and price is null; if they name none, both null: never guess a budget), and category is where the wanted thing would be found.\n';
 
 // Shared by items, services and events: the seller's own words lead, the photo only tells what it is.
 const WRITING_RULE =
@@ -162,6 +182,18 @@ const WRITING_RULE =
   'what the picture does or does not show. Never judge its condition or say anything negative about it (wear, ' +
   'scratches, defects); only what the writer said about it themselves, and that stays in. When a brand or model is clear, you may add one or two short, true and well-known details ' +
   'about that model (what it is good for, a known feature), never sizes, specs or prices that are not stated.\n';
+
+// The fields are read from what was written (and seen), never guessed: one that isn't stated stays null.
+const ITEM_PRICE_RULE = '- price: the price in euros the seller asked for, or null if they named none. Never guess one.\n';
+const SERVICE_FIELD_RULES =
+  '- serviceType: class (lessons, courses, teaching), support (someone who goes along with or looks after a person: ' +
+  'company, care, accompaniment) or service (work done for you; anything else).\n' +
+  '- price: the lowest price in euros the admin named (it is shown as "from"), or null if none is named. Never guess one.\n';
+const eventFieldRules = () =>
+  '- price: the entry or ticket price in euros, 0 if it is free, null if not stated.\n' +
+  `- startsAt: when it starts, as YYYY-MM-DDTHH:mm in local time, or null if no date is stated. Today is ${toShopDateTime(new Date())}; ` +
+  'a weekday without a date is the next one.\n' +
+  '- address: where it is (venue, street, town), as stated, or null.\n';
 
 const listingPrompt = (sellerText: string, categories: ListingCategory[], locales: Locale[]) =>
   'You write second-hand listings for Baifo, a local marketplace in Fuerteventura. Return JSON:\n' +
@@ -176,9 +208,28 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   '- condition: for an item for sale exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
   '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
   'never rate it better than you can see. This field only: the texts never mention it.\n' +
-  '- price: the price in euros the seller asked for, or a fair second-hand price for Fuerteventura if they named none.\n' +
+  ITEM_PRICE_RULE +
   '- priceMax: null, except for a wanted ad.\n' +
   (sellerText ? `What the seller wrote (trust it, it may name the item, condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
+
+// Reading the fields again from a description the admin changed: only what it says, for a type that is already chosen.
+const ITEM_FIELD_RULES =
+  '- condition: exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good (normal ' +
+  'signs of use), fair (clear wear, scratches or defects), as the text says it; null if it says nothing about it.\n' +
+  ITEM_PRICE_RULE +
+  '- priceMax: null.\n';
+const WANTED_FIELD_RULES =
+  '- condition: the worst condition they accept (new, like_new, good, fair, or any if they take it in any condition), ' +
+  'null if unsaid.\n' +
+  '- price and priceMax: the lowest and highest end of their budget in euros; one amount is priceMax and price is null; ' +
+  'none named: both null.\n';
+
+const fieldsPrompt = (type: ListingType, text: string, categories: ListingCategory[]) =>
+  'Read the fields of a listing on Baifo, a local marketplace in Fuerteventura, from what the admin wrote, and return ' +
+  'JSON. Only what the text really says: never guess or invent anything; a field the text does not mention is null.\n' +
+  categoryRule('this listing', categories) +
+  (type === 'EVENT' ? eventFieldRules() : type === 'SERVICE' ? SERVICE_FIELD_RULES : type === 'WANTED' ? WANTED_FIELD_RULES : ITEM_FIELD_RULES) +
+  `What the admin wrote: ${text}\n`;
 
 const servicePrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
   'You write service listings for Baifo, a local marketplace in Fuerteventura: a person offers a service (babysitting, ' +
@@ -190,9 +241,7 @@ const servicePrompt = (adminText: string, categories: ListingCategory[], locales
   WRITING_RULE +
   SHORT_RULE +
   categoryRule('this service', categories) +
-  '- serviceType: class (lessons, courses, teaching), support (someone who goes along with or looks after a person: ' +
-  'company, care, accompaniment) or service (work done for you; anything else).\n' +
-  '- price: the lowest price in euros the admin named (it is shown as "from"), or null if none is named. Never guess one.\n' +
+  SERVICE_FIELD_RULES +
   (adminText ? `What the admin wrote about the person (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
 const eventPrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
@@ -204,10 +253,7 @@ const eventPrompt = (adminText: string, categories: ListingCategory[], locales: 
   WRITING_RULE +
   SHORT_RULE +
   categoryRule('this event', categories) +
-  '- price: the entry or ticket price in euros, 0 if it is free, null if not stated.\n' +
-  `- startsAt: when it starts, as YYYY-MM-DDTHH:mm in local time, or null if no date is stated. Today is ${toShopDateTime(new Date())}; ` +
-  'a weekday without a date is the next one.\n' +
-  '- address: where it is (venue, street, town), as stated, or null.\n' +
+  eventFieldRules() +
   (adminText ? `What the admin wrote about the event (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
 /** The admin's own words, used as they are: the AI only translates them, and names a missing title. With
@@ -235,7 +281,7 @@ const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow t
 // Without a photo, everything comes from the words; the picture is made from the text afterwards.
 const NO_PHOTO_RULE =
   'There is no photo: take everything from what was written. Never describe a look, color or condition that is not stated; ' +
-  'condition is good if unsaid.\n';
+  'condition is null if unsaid.\n';
 
 const translatePrompt = (from: Locale, locales: Locale[]) =>
   `Translate this listing's title and description from ${LANGUAGE_NAMES[from]} into ` +
@@ -315,6 +361,21 @@ export async function writeListing(
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   const category = slugs.includes(result.category) ? result.category : slugs.includes(FALLBACK_CATEGORY_SLUG) ? FALLBACK_CATEGORY_SLUG : slugs[0];
   return { ...result, category, type: resolvedType };
+}
+
+const fieldsSchema = listingSchema.omit({ texts: true, type: true });
+
+// Category null: the AI answered with one deleted meanwhile.
+export type ListingFields = Omit<z.infer<typeof fieldsSchema>, 'category'> & { category: string | null };
+
+/** The editor's fields read again from the listing's title and description, without writing any text: what isn't
+    stated comes back null. With several live `places`, also the town. */
+export async function readListingFields(text: string, type: ListingType, categories: ListingCategory[], places: ListingPlace[] = []): Promise<ListingFields> {
+  const slugs = categories.map((category) => category.slug);
+  const fields = fieldsSchema.parse(
+    await draftText(null, text, null, { prompt: fieldsPrompt(type, text, categories) + placeRule(places), schema: withPlace(fieldsJsonSchema(type, slugs), places) })
+  );
+  return { ...fields, category: slugs.includes(fields.category) ? fields.category : null };
 }
 
 const categoryTextPrompt = (locales: Locale[]) =>

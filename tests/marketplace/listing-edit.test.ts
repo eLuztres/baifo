@@ -5,6 +5,7 @@ import {
   createAdminListing,
   createAdminListingPicture,
   describeAdminListing,
+  fillAdminListingFields,
   extendAdminListing,
   publishAdminListing,
   retryAdminListing,
@@ -12,14 +13,28 @@ import {
   updateAdminListing,
   updateAdminListingPhotos,
 } from '@/lib/marketplace/admin.actions';
-import { correctText, createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
+import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from '@/lib/marketplace/ai';
+import { isAdmin } from '@/lib/auth-guard';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { publishByAdmin } from '@/lib/marketplace/publish';
 import { takeVideoStill } from '@/lib/marketplace/video-cleanup';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
-jest.mock('@/lib/marketplace/ai', () => ({ correctText: jest.fn(), translateText: jest.fn(), writeListing: jest.fn(), createPicture: jest.fn(async () => Buffer.from('')) }));
+jest.mock('@/lib/marketplace/ai', () => ({
+  correctText: jest.fn(),
+  translateText: jest.fn(),
+  writeListing: jest.fn(),
+  readListingFields: jest.fn(),
+  createPicture: jest.fn(async () => Buffer.from('')),
+  enhancePhoto: jest.fn(async () => Buffer.from('')),
+}));
+jest.mock('@/lib/places', () => ({
+  getShopPlaces: jest.fn(async () => [
+    { id: 'place-1', slug: 'corralejo', name: 'Corralejo', isLive: true },
+    { id: 'place-2', slug: 'el-cotillo', name: 'El Cotillo', isLive: true },
+  ]),
+}));
 jest.mock('@/lib/marketplace/media', () => ({
   fetchImage: jest.fn(async () => Buffer.from('')),
   uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
@@ -368,17 +383,92 @@ describe('createAdminListing', () => {
 
 describe('createAdminListingPicture', () => {
   it('makes a picture from the listing text when the admin typed nothing', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', type: 'WANTED' });
+    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', type: 'WANTED', rawImages: [] });
 
     expect(await createAdminListingPicture(ID)).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
     expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'WANTED');
   });
 
   it('uses what the admin typed instead', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', type: 'SERVICE' });
+    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', type: 'SERVICE', rawImages: [] });
 
     await createAdminListingPicture(ID, 'surf lesson at sunrise');
     expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE');
+  });
+
+  it("uses the editor's description even before it is saved", async () => {
+    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: '', type: 'EVENT', rawImages: [] });
+
+    await createAdminListingPicture(ID, undefined, { title: 'Concierto', description: 'Jazz en la playa.' });
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Concierto', description: 'Jazz en la playa.' }, 'EVENT');
+  });
+
+  it('makes it from the uploaded photo when there is no description', async () => {
+    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: '', type: 'EVENT', rawImages: ['https://utfs.io/f/poster.jpg'] });
+
+    expect((await createAdminListingPicture(ID)).success).toBe(true);
+    expect(createPicture).not.toHaveBeenCalled();
+    expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'EVENT');
+  });
+
+  it('makes no picture without a description and without a photo: the AI never invents one', async () => {
+    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: ' ', type: 'EVENT', rawImages: [] });
+
+    expect(await createAdminListingPicture(ID)).toEqual({ success: false, message: 'Escribe primero una descripción o sube una foto' });
+    expect(createPicture).not.toHaveBeenCalled();
+    expect(enhancePhoto).not.toHaveBeenCalled();
+  });
+});
+
+describe('fillAdminListingFields', () => {
+  it("gives back an event's fields as the editor holds them, with the town as its place", async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'EVENT' });
+    (readListingFields as jest.Mock).mockResolvedValue({
+      category: 'motor', price: 10, priceMax: null, condition: null, serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: 'el-cotillo',
+    });
+
+    const result = await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado 29 a las 19h en Bar La Ola, El Cotillo. 10€.' });
+
+    expect(result).toEqual({
+      success: true,
+      message: '',
+      fields: { category: 'motor', price: '10.00', priceMax: '', condition: '', serviceType: '', startsAt: '2026-11-29T19:00', address: 'Bar La Ola', placeId: 'place-2' },
+    });
+    expect((readListingFields as jest.Mock).mock.calls[0][0]).toContain('Bar La Ola');
+  });
+
+  it("keeps only the fields the listing's type has: no 'any' condition for an item for sale", async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT' });
+    (readListingFields as jest.Mock).mockResolvedValue({
+      category: null, price: null, priceMax: 50, condition: 'any', serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: null,
+    });
+
+    const result = await fillAdminListingFields(ID, { title: 'Mesa', description: 'Una mesa de madera' });
+
+    expect(result).toMatchObject({ fields: { category: '', price: '', priceMax: '', condition: '', startsAt: '', address: '', placeId: '' } });
+  });
+
+  it('keeps the budget and any condition of a wanted ad', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'WANTED' });
+    (readListingFields as jest.Mock).mockResolvedValue({
+      category: 'motor', price: null, priceMax: 150, condition: 'any', serviceType: null, startsAt: null, address: null, place: null,
+    });
+
+    const result = await fillAdminListingFields(ID, { title: 'Busco tabla', description: 'Busco tabla, hasta 150€, en cualquier estado' });
+
+    expect(result).toMatchObject({ fields: { price: '', priceMax: '150.00', condition: 'any' } });
+  });
+
+  it('reads nothing for someone who is not an admin', async () => {
+    (isAdmin as jest.Mock).mockResolvedValueOnce(false);
+
+    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado' })).success).toBe(false);
+    expect(readListingFields).not.toHaveBeenCalled();
+  });
+
+  it('needs a description to read from', async () => {
+    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: '' })).success).toBe(false);
+    expect(readListingFields).not.toHaveBeenCalled();
   });
 });
 
