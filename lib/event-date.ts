@@ -30,11 +30,19 @@ export const isShopToday = (date: Date | string, now = new Date(), timeZone = SH
 /** An event counts as over once its day is over, as only its start is known. */
 export const isEventOver = (startsAt: Date | string, now = new Date(), timeZone = SHOP_TIME_ZONE) => shopDay(startsAt, timeZone) < shopDay(now, timeZone);
 
-/** "Jueves 29/11 · 19:00", or "Hoy · 19:00" on the day itself; weekday and day/month in the visitor's language. */
-export function formatEventDate(startsAt: Date | string, locale: string, todayLabel: string, now = new Date(), timeZone = SHOP_TIME_ZONE) {
+/** "Jueves 29/11 · 19:00" ("Jue 29/11 · 19:00" short), or "Hoy · 19:00" on the day itself; weekday and day/month in the
+    visitor's language. */
+export function formatEventDate(
+  startsAt: Date | string,
+  locale: string,
+  todayLabel: string,
+  now = new Date(),
+  timeZone = SHOP_TIME_ZONE,
+  weekdayStyle: 'long' | 'short' = 'long'
+) {
   // English visitors on the island read day/month, not the US month/day.
   const format = (options: Intl.DateTimeFormatOptions) => new Date(startsAt).toLocaleString(locale === 'en' ? 'en-GB' : locale, { ...options, timeZone });
-  const weekday = format({ weekday: 'long' });
+  const weekday = format({ weekday: weekdayStyle });
   const day = isShopToday(startsAt, now, timeZone)
     ? todayLabel
     : `${weekday.charAt(0).toLocaleUpperCase(locale)}${weekday.slice(1)} ${format({ day: 'numeric', month: 'numeric' })}`;

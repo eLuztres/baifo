@@ -10,6 +10,7 @@ import { useSwipe } from '@/hooks/useSwipe';
 import { prefersReducedMotion } from '@/components/shared/home/one-page';
 import { isVideoUrl } from '@/lib/video';
 import { playFullScreen } from '@/lib/video-full-screen';
+import AiPictureMark from './ai-picture-mark';
 import BrandStamp from './brand-stamp';
 import { RingGlassCard } from './product-ring';
 import ringStyles from './product-ring.module.css';
@@ -24,9 +25,11 @@ interface ProductImagesProps {
   alt: string;
   /** The shop's mark on the pictures (items for sale only). */
   stamp?: string;
+  /** Set when the AI made the pictures: what their small mark says. */
+  aiLabel?: string;
 }
 
-const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
+const ProductImages = ({ images, alt, stamp, aiLabel }: ProductImagesProps) => {
   const [current, setCurrent] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
@@ -86,7 +89,9 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
             className={cn('relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
           >
             <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole playsWhenVisible />
-            <BrandStamp src={stamp} />
+            {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-2 right-2' />}
+            {/* Beside the AI mark, which takes the corner. */}
+            <BrandStamp src={stamp} className={cn(aiLabel && 'right-10')} />
           </button>
         ))}
       </div>
@@ -141,7 +146,8 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
             <div ref={cardRef} className='contents'>
               <RingGlassCard product={{ name: alt, images }} imageIndex={current} playsWhenVisible />
             </div>
-            <BrandStamp src={stamp} className='bottom-4 right-4' />
+            {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-3 right-3 size-8 [&_svg]:size-4' />}
+            <BrandStamp src={stamp} className={cn('bottom-4 right-4', aiLabel && 'bottom-[1.1rem] right-13')} />
           </button>
         </div>
       </div>

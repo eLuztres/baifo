@@ -20,6 +20,7 @@ describe('event dates on the island', () => {
     expect(formatEventDate(new Date('2026-11-26T19:00:00Z'), 'es', 'Hoy', now, ZONE)).toBe('Hoy · 19:00');
     expect(formatEventDate(new Date('2026-11-26T19:00:00Z'), 'es', 'Hoy', new Date('2026-11-25T10:00:00Z'), ZONE)).toBe('Jueves 26/11 · 19:00');
     expect(formatEventDate(new Date('2026-11-26T19:00:00Z'), 'en', 'Today', new Date('2026-11-25T10:00:00Z'), ZONE)).toBe('Thursday 26/11 · 19:00');
+    expect(formatEventDate(new Date('2026-11-26T19:00:00Z'), 'es', 'Hoy', new Date('2026-11-25T10:00:00Z'), ZONE, 'short')).toBe('Jue 26/11 · 19:00');
   });
 
   it('keeps an event for its whole day and ends it the day after', () => {

@@ -28,7 +28,8 @@ export function feedCardLabels(listing: LabelledListing, t: Translator, locale: 
     priceText: listing.type === 'EVENT' && SHOWS_PRICES && !listing.price ? t('EVENT_FREE') : undefined,
     badge:
       listing.type === 'EVENT' && listing.startsAt
-        ? formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'), now)
+        ? // Short, so it fits a 320px phone's small tile.
+          formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'), now, undefined, 'short')
         : listing.type === 'SERVICE'
           ? t(serviceKey ?? 'EXPLORE_SERVICE_BADGE')
           : listing.type === 'WANTED'
