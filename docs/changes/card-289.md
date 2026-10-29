@@ -43,3 +43,15 @@
 
 - The card's latest correction wasn't built: main still opened `/explore` when scrolling down from the goat. Fixed: the home no longer passes `belowHomeHref`, so down from the goat turns to the ring and up from the ring turns back. The existing test "pages without `belowHomeHref` keep part-by-part turning" covers it.
 - Checked with Playwright on desktop (wheel, Page Down/Up), 375 and 320 px: home ↓ ring ↑ home, nothing cut off.
+
+## Slide between home and the newspaper / ring (Joe, 29 Oct)
+
+- "Read the paper" and the way back (the ↑ arrow or a pull up at the top of the newspaper) slide: going there, home slides up and the newspaper comes in from below; coming back, the reverse (0.35 s, View Transitions, `components/shared/slide-navigation.ts` + `slide-link.tsx`, CSS in `globals.css`). The header stays still. It starts once the new page is there (`[data-feed-page]` / `#home`).
+- "See the categories" and the nav links glide down to their part (`scroll-behavior: smooth` on the one-page scroller) instead of jumping; scrolling between home and the ring already glided.
+- Reduce motion, or a browser without View Transitions: plain navigation, no slide or glide.
+
+### Review (slide)
+
+- No bugs found. Added a test that the slide lets go after 1.5 s when the new page never shows up, so a slow server never freezes the page.
+- `slide-navigation.ts` waits for the new page the same way `use-open-feed.ts` does (polling with a timer). Left as is; sharing it is a separate decision.
+- Check by hand: "Read the paper" and back, "See the categories" and back, on desktop and a real phone; with "reduce motion" on there's no slide or glide.

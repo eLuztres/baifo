@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowUp } from 'lucide-react';
-import { createWheelGestureGate, isClearlyVertical, isInsideSideMover } from '@/components/shared/home/one-page';
+import { createWheelGestureGate, isClearlyVertical, isInsideSideMover, SECTION_IDS } from '@/components/shared/home/one-page';
+import SlideLink from '@/components/shared/slide-link';
+import { slideTo } from '@/components/shared/slide-navigation';
 import { cn } from '@/lib/utils';
 import styles from './pull-up-home.module.css';
 
@@ -23,6 +24,9 @@ interface PullUpHomeProps {
   label: string;
   className?: string;
 }
+
+// Home has arrived once its opening part is on the page.
+const HOME_READY = `#${SECTION_IDS.home}`;
 
 const isAtTop = () => window.scrollY <= 0;
 
@@ -43,7 +47,7 @@ export default function PullUpHome({ href, label, className }: PullUpHomeProps) 
       setPull(progress);
       if (progress < 1 || hasLeft) return;
       hasLeft = true;
-      router.push(href);
+      slideTo(router, href, 'up', HOME_READY);
     };
     const letGoLater = () => {
       clearTimeout(idleTimer);
@@ -118,9 +122,11 @@ export default function PullUpHome({ href, label, className }: PullUpHomeProps) 
   }, [href, router]);
 
   return (
-    <Link
+    <SlideLink
       ref={hintRef}
       href={href}
+      direction='up'
+      readySelector={HOME_READY}
       aria-label={label}
       title={label}
       className={cn(styles.hint, className)}
@@ -128,6 +134,6 @@ export default function PullUpHome({ href, label, className }: PullUpHomeProps) 
       data-pulling={pull > 0}
     >
       <ArrowUp className='size-4' aria-hidden='true' />
-    </Link>
+    </SlideLink>
   );
 }
