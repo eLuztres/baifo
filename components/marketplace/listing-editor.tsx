@@ -7,7 +7,18 @@ import { CalendarPlus, Camera, CheckCircle2, ExternalLink, Languages, Loader2, M
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
-import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -323,9 +334,26 @@ export default function ListingEditor({ listing, categories, places, languages, 
               <Plus /> {texts.newAnother}
             </Link>
           </Button>
-          <Button variant='ghost' className='rounded-full' disabled={isPending} onClick={() => run(() => markAdminListingSold(listing.id))}>
-            {texts.markSold}
-          </Button>
+          {/* Selling takes the listing out of the shop at once, so it asks first. */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant='ghost' className='rounded-full' disabled={isPending}>
+                {texts.markSold}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{texts.markSold}</AlertDialogTitle>
+                <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
+                <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
+                  {texts.markSold}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
 
