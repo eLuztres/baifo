@@ -23,8 +23,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const texts = adminTexts(locale);
 
   return (
-    <div className='space-y-4'>
-      <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
+    <div className='space-y-3 sm:space-y-4'>
+      <Link href='/admin/listings' className='inline-flex items-center gap-1 text-xs text-muted-foreground sm:text-sm hover:text-foreground'>
         <ChevronLeft className='size-4' /> {texts.back}
       </Link>
       <AdminListingWorkspace id={id} locale={locale} texts={texts} />

@@ -137,6 +137,9 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queuedStep, isUploading]);
 
+  // The photos stay through a type switch, but a step chosen for the old type doesn't (an event never gets AI pictures).
+  useEffect(() => setQueuedStep(null), [type]);
+
   // The description step: like the main button, but a listing made already keeps its choice of AI pictures or none.
   const goToDescription = () => {
     if (photos.length === 0 && !isUploading) return startWithoutPhoto();

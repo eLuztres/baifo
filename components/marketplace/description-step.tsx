@@ -176,16 +176,15 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
         </div>
       )}
 
-      <div className='sticky bottom-4 z-10'>
-        {/* Solid even when disabled: it floats over the form, which must not show through it. */}
-        <Button
-          className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
-          disabled={isPending || isWriting || ((isOwnWords || hasNoPhoto) && !notes.trim())} onClick={send}>
-          {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
-          {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-          {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
-        </Button>
-      </div>
+      {/* Not sticky: on phones a floating button jumped over the field with the keyboard open. */}
+      <Button
+        size='lg'
+        className='w-full rounded-full'
+        disabled={isPending || isWriting || ((isOwnWords || hasNoPhoto) && !notes.trim())} onClick={send}>
+        {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
+        {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
+        {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
+      </Button>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function TextModeSwitch({ value, onChange, texts, disabled, isCom
               'transition disabled:opacity-60',
               isCompact
                 ? cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-medium sm:px-3',
+                    'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium sm:gap-1.5 sm:px-3 sm:text-sm',
                     isChecked ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                   )
                 : cn(
@@ -67,7 +67,7 @@ export default function TextModeSwitch({ value, onChange, texts, disabled, isCom
             )}
           >
             <span className={cn('inline-flex items-center gap-1.5', !isCompact && 'font-medium')}>
-              <Icon className={cn('size-4 shrink-0', isChecked && 'text-primary')} aria-hidden /> {isCompact ? labels[mode].short : labels[mode].label}
+              <Icon className={cn('size-3.5 shrink-0 sm:size-4', isChecked && 'text-primary')} aria-hidden /> {isCompact ? labels[mode].short : labels[mode].label}
             </span>
             {!isCompact && (
               <span className='text-xs text-muted-foreground'>{labels[mode].hint}</span>

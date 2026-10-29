@@ -1,6 +1,6 @@
 'use client';
 
-import { KeyboardEvent, useRef, useState } from 'react';
+import { KeyboardEvent, ReactNode, useRef, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
@@ -25,13 +25,15 @@ interface ImageLightboxProps {
   /** The photo shown full screen; null keeps the viewer closed. */
   index: number | null;
   onIndexChange: (index: number | null) => void;
+  /** A button for the shown photo, top left (e.g. "make main" in the listing editor). */
+  action?: ReactNode;
 }
 
 const ROUND_BUTTON_CLASS = 'size-12 rounded-full bg-background/70 backdrop-blur-md [&_svg]:size-6';
 const KEY_DIRECTIONS: Partial<Record<string, -1 | 1>> = { ArrowLeft: -1, ArrowRight: 1 };
 
 /** Full-screen view of one or more photos: X, Escape or the back gesture closes it; arrows, keys or a swipe browse. */
-const ImageLightbox = ({ images, alt, captions, index, onIndexChange }: ImageLightboxProps) => {
+const ImageLightbox = ({ images, alt, captions, index, onIndexChange, action }: ImageLightboxProps) => {
   const { t } = useI18n();
   const count = images.length;
   const caption = index !== null ? captions?.[index] : undefined;
@@ -143,6 +145,8 @@ const ImageLightbox = ({ images, alt, captions, index, onIndexChange }: ImageLig
           >
             {zoom.isZoomed ? <ZoomOut /> : <ZoomIn />}
           </Button>
+
+          {action && <div className='absolute left-[max(1rem,env(safe-area-inset-left))] right-[calc(max(1rem,env(safe-area-inset-right))+8rem)] top-[max(1rem,env(safe-area-inset-top))]'>{action}</div>}
 
           <DialogPrimitive.Close asChild>
             <Button

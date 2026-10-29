@@ -76,7 +76,8 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
           })}
         </nav>
       </div>
-      <NewListingForm key={listingType} texts={texts} type={listingType} />
+      {/* No key on the type: switching tabs keeps the photos already uploaded. */}
+      <NewListingForm texts={texts} type={listingType} />
     </div>
   );
 }

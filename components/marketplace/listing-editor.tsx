@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
@@ -45,7 +45,7 @@ import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/paymen
 import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
-import { isAiPicture as isAiPictureAt, movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
+import { movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
@@ -112,10 +112,10 @@ interface EditorFields {
 const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
   isService ? { ...fields, images, textMode } : { ...fields, priceMax, condition, images, textMode };
 
-const FIELD_CLASS = 'rounded-2xl bg-background text-base md:text-base';
+const FIELD_CLASS = 'rounded-xl bg-background sm:rounded-2xl text-base md:text-base';
 const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
 // Native selects: on a phone they open the system's own picker.
-const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const SELECT_CLASS = 'h-10 w-full rounded-xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-12 sm:rounded-2xl';
 // What editSchema takes (images max 12).
 const MAX_PICTURES = 12;
 
@@ -210,6 +210,12 @@ export default function ListingEditor({ listing, categories, places, languages, 
       languages.map(({ id }) => [id, made[id] ? { title: made[id].title, description: made[id].description, short: made[id].short ?? '' } : current.translations[id]])
     ),
   });
+  // The viewer stays on the picture, now the first one.
+  const makeViewedMain = () => {
+    if (viewedIndex === null) return;
+    setImages(movePicture(images, viewedIndex, 0));
+    setViewedIndex(0);
+  };
   const [orderNote, setOrderNote] = useState('');
   const movePhoto = (from: number, to: number) => {
     const moved = movePicture(images, from, to);
@@ -370,7 +376,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const swapPicture = (url: string, other: string) => setImages((current) => current.map((image) => (image === url ? other : image)));
 
   return (
-    <div className='mx-auto w-full max-w-xl space-y-4'>
+    <div className='mx-auto w-full max-w-xl space-y-3 sm:space-y-4'>
       <ListingStatus status={listing.status} type={listing.type} saveState={saveState} texts={texts} />
       {listing.status === 'EXPIRED' && (
         <div className='space-y-1'>
@@ -429,18 +435,17 @@ export default function ListingEditor({ listing, categories, places, languages, 
         />
       </div>
 
-      {/* The first picture is the main one, a bit bigger; a tap opens a picture full screen, dragging changes the order. Under each, original or AI. */}
-      <ul ref={photoDrag.listRef} className='flex items-start gap-3 overflow-x-auto p-1'>
+      {/* The first picture is the main one, a bit bigger and framed; a tap opens a picture full screen (where it can become the main one), dragging changes the order. Under each, original or AI. */}
+      <ul ref={photoDrag.listRef} className='flex items-start gap-2 overflow-x-auto p-1 sm:gap-3'>
         {images.map((url, index) => {
           const counterpart = pictureCounterpart(listing, url);
-          const isAiPicture = isAiPictureAt(listing, url, index);
           return (
             <li
               key={`${index}-${url}`}
               {...photoDrag.itemProps(index)}
               className={cn(
-                'relative flex shrink-0 flex-col items-center gap-1.5 transition-transform duration-200',
-                index > 0 && 'pt-8',
+                'relative flex shrink-0 flex-col items-center gap-1 transition-transform duration-200',
+                index > 0 && 'pt-4 sm:pt-8',
                 photoDrag.draggedIndex === index && 'cursor-grabbing drop-shadow-xl'
               )}
             >
@@ -449,20 +454,19 @@ export default function ListingEditor({ listing, categories, places, languages, 
                   type='button'
                   {...photoDrag.handleProps(index)}
                   onClick={() => setViewedIndex(index)}
-                  aria-label={`${texts.photosLabel} ${index + 1}`}
+                  aria-label={`${texts.photosLabel} ${index + 1}${index === 0 ? ` (${texts.mainPhoto})` : ''}`}
                   aria-describedby='photo-order-hint'
                   className={cn(
-                    'relative block cursor-zoom-in select-none overflow-hidden rounded-2xl border-2 bg-muted transition-transform [-webkit-touch-callout:none] hover:scale-[1.03]',
-                    index === 0 ? 'size-32 border-primary' : 'size-24 border-transparent'
+                    'relative block cursor-zoom-in select-none overflow-hidden rounded-xl border-2 bg-muted transition-transform [-webkit-touch-callout:none] hover:scale-[1.03] sm:rounded-2xl',
+                    index === 0 ? 'size-24 border-primary sm:size-32' : 'size-20 border-transparent sm:size-24'
                   )}
                 >
-                  <ProductMedia src={url} alt='' fill sizes='8rem' />
-                  {isAiPicture && (
-                    <Sparkles className='absolute left-1.5 top-1.5 size-5 rounded-full bg-background/90 p-1 text-primary' aria-label={texts.aiPicture} />
-                  )}
+                  {/* A video only plays full screen: here its still frame, never a player. */}
+                  <ProductMedia src={pictureOf(url) ?? url} alt='' fill sizes='8rem' isStill />
                 </button>
+                {/* On a phone the frame alone marks the main picture: the small tile stays free of badges. */}
                 {index === 0 && (
-                  <span className='pointer-events-none absolute right-1.5 top-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium shadow-sm'>
+                  <span className='pointer-events-none absolute right-1.5 top-1.5 hidden rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium shadow-sm sm:block'>
                     {texts.mainPhoto}
                   </span>
                 )}
@@ -473,9 +477,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
                     onClick={() => removePicture(url)}
                     aria-label={texts.removePhoto}
                     title={texts.removePhoto}
-                    className='absolute bottom-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-background/90 shadow transition-colors hover:bg-destructive hover:text-destructive-foreground'
+                    className='absolute bottom-1 right-1 flex size-6 items-center justify-center rounded-full bg-background/90 shadow transition-colors hover:bg-destructive hover:text-destructive-foreground sm:bottom-1.5 sm:right-1.5 sm:size-7'
                   >
-                    <X className='size-4' />
+                    <X className='size-3.5 sm:size-4' />
                   </button>
                 )}
               </div>
@@ -485,7 +489,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
                   onClick={() => addStill(url)}
                   disabled={stillVideo !== null}
                   title={texts.noStill}
-                  className='flex h-7 items-center gap-1 rounded-full bg-muted px-2.5 text-xs font-medium text-primary transition hover:bg-accent disabled:opacity-60'
+                  className='flex h-6 items-center gap-1 rounded-full bg-muted px-2 text-[11px] font-medium text-primary transition hover:bg-accent disabled:opacity-60 sm:h-7 sm:px-2.5 sm:text-xs'
                 >
                   {stillVideo === url ? <Loader2 className='size-3.5 animate-spin' aria-hidden /> : <ImageIcon className='size-3.5' aria-hidden />}
                   {stillVideo === url ? texts.chooseStillWorking : texts.chooseStill}
@@ -509,11 +513,11 @@ export default function ListingEditor({ listing, categories, places, languages, 
                         title={label}
                         onClick={() => !isChecked && swapPicture(url, counterpart.other)}
                         className={cn(
-                          'flex h-7 items-center gap-1 rounded-full px-2 text-xs font-medium transition',
+                          'flex h-7 items-center gap-1 rounded-full px-2 text-xs font-medium transition max-sm:h-6 max-sm:px-1.5 max-sm:text-[11px]',
                           isChecked ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         )}
                       >
-                        <Icon className='size-3.5' aria-hidden /> {short}
+                        <Icon className='size-3.5 max-sm:hidden' aria-hidden /> {short}
                       </button>
                     );
                   })}
@@ -523,15 +527,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
           );
         })}
         {images.length < MAX_PICTURES && (
-          <li className='shrink-0 pt-8'>
+          <li className='shrink-0 pt-4 sm:pt-8'>
             <button
               type='button'
               onClick={() => setIsAskingPicture((current) => !current)}
               aria-expanded={isAskingPicture}
-              className='flex size-24 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-border p-2 text-center text-xs text-muted-foreground transition hover:border-primary hover:text-primary'
+              aria-label={texts.newPicture}
+              className='flex size-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border p-1.5 text-center text-xs leading-tight text-muted-foreground transition hover:border-primary hover:text-primary sm:size-24 sm:rounded-2xl'
             >
-              {isMakingPicture ? <Loader2 className='size-5 animate-spin text-primary' /> : <Sparkles className='size-5' />}
-              {isMakingPicture ? texts.newPictureWorking : texts.newPicture}
+              {isMakingPicture ? <Loader2 className='size-4 animate-spin text-primary' /> : <Sparkles className='size-4' />}
+              {isMakingPicture ? texts.newPictureWorking : texts.newPictureShort}
             </button>
           </li>
         )}
@@ -560,12 +565,18 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </div>
       )}
       {isAskingPicture && !hasPictureSource && <p className='px-3 text-xs text-muted-foreground'>{texts.pictureNeedsText}</p>}
-      <ImageLightbox images={images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
+      <ImageLightbox
+        images={images}
+        alt={texts.photosLabel}
+        index={viewedIndex}
+        onIndexChange={setViewedIndex}
+        action={viewedIndex !== null && <MainPictureButton isMain={viewedIndex === 0} canBeMain={Boolean(pictureOf(images[viewedIndex] ?? ''))} texts={texts} onMakeMain={makeViewedMain} />}
+      />
 
-      <section className='relative space-y-2 rounded-3xl border border-border bg-card p-3 sm:p-4'>
+      <section className='relative space-y-2 rounded-2xl border border-border bg-card p-2.5 sm:rounded-3xl sm:p-4'>
         {hasOriginalText && (
           <div className='flex flex-wrap items-center justify-between gap-2 px-1'>
-            <span className='text-sm font-medium'>{texts.textLabel}</span>
+            <span className='text-xs font-medium sm:text-sm'>{texts.textLabel}</span>
             <TextModeSwitch value={textMode} onChange={switchText} texts={texts} disabled={textWork !== null} isCompact />
           </div>
         )}
@@ -578,7 +589,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
               aria-selected={id === language}
               onClick={() => setLanguage(id)}
               className={cn(
-                'min-w-11 rounded-full px-3 py-1.5 text-sm font-medium transition',
+                'min-w-10 rounded-full px-2.5 py-1 text-xs font-medium transition sm:min-w-11 sm:px-3 sm:py-1.5 sm:text-sm',
                 id === language ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -599,13 +610,13 @@ export default function ListingEditor({ listing, categories, places, languages, 
             <Label htmlFor='title' className={LABEL_CLASS}>
               {texts.titleLabel}
             </Label>
-            <Input id='title' value={text?.title ?? ''} onChange={setText('title')} className={`${FIELD_CLASS} h-12 font-medium`} />
+            <Input id='title' value={text?.title ?? ''} onChange={setText('title')} className={`${FIELD_CLASS} h-10 font-medium sm:h-12`} />
           </div>
           <div className='space-y-1'>
             <Label htmlFor='short' className={LABEL_CLASS}>
               {texts.shortLabel}
             </Label>
-            <Input id='short' value={text?.short ?? ''} onChange={setText('short')} placeholder={text?.title} maxLength={40} className={`${FIELD_CLASS} h-11`} />
+            <Input id='short' value={text?.short ?? ''} onChange={setText('short')} placeholder={text?.title} maxLength={40} className={`${FIELD_CLASS} h-10 sm:h-11`} />
           </div>
           <div className='space-y-1'>
             <Label htmlFor='description' className={LABEL_CLASS}>
@@ -615,7 +626,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
               id='description'
               value={text?.description ?? ''}
               onChange={setText('description')}
-              className={`${FIELD_CLASS} field-sizing-content max-h-[56svh] min-h-32 resize-none overflow-y-auto leading-relaxed`}
+              className={`${FIELD_CLASS} field-sizing-content max-h-[56svh] min-h-24 resize-none sm:min-h-32 overflow-y-auto leading-relaxed`}
             />
           </div>
           {/* The description leads: after changing it, the fields still empty can be filled from it. */}
@@ -641,7 +652,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
         )}
       </section>
 
-      <div className='grid grid-cols-2 gap-3'>
+      <div className='grid grid-cols-2 gap-2 sm:gap-3'>
         {isService && (
           <>
             <PriceInput id='price' label={texts.priceFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
@@ -668,7 +679,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 type='datetime-local'
                 value={fields.startsAt}
                 onChange={set('startsAt')}
-                className={cn('h-12 rounded-2xl bg-card text-base md:text-base', neededClass(stateOf('startsAt')))}
+                className={cn('h-10 rounded-xl bg-card text-base sm:h-12 sm:rounded-2xl md:text-base', neededClass(stateOf('startsAt')))}
               />
             </div>
             <div className='col-span-2 sm:col-span-1'>
@@ -682,7 +693,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 onChange={(address) => set('address')({ target: { value: address } })}
                 placeId={fields.placeId}
                 placeholder={texts.addressPlaceholder}
-                className='h-12 rounded-2xl bg-card text-base md:text-base'
+                className='h-10 rounded-xl bg-card text-base sm:h-12 sm:rounded-2xl md:text-base'
               />
             </div>
           </>
@@ -691,7 +702,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
           <>
             {isWanted ? (
               // A wanted ad's budget is a range, so it gets a row of its own.
-              <div className='col-span-2 grid grid-cols-2 gap-3'>
+              <div className='col-span-2 grid grid-cols-2 gap-2 sm:gap-3'>
                 <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
                 <PriceInput id='priceMax' label={texts.budgetTo} value={fields.priceMax} onChange={set('priceMax')} state={stateOf('priceMax')} texts={texts} />
               </div>
@@ -759,7 +770,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
       {/* Instead of publishing for free: the person sees their listing first and pays to publish it. */}
       {isOpen && hasPersonWhatsApp && (
         <div className='space-y-1'>
-          <Button variant='outline' className='h-12 w-full rounded-full' disabled={isPending} onClick={sendByWhatsApp}>
+          <Button variant='outline' className='h-10 w-full rounded-full sm:h-12' disabled={isPending} onClick={sendByWhatsApp}>
             <MessageCircle /> {isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}
           </Button>
           <p className='text-center text-xs text-muted-foreground'>{isAwaitingPayment ? texts.resendLinkHint : texts.sendWhatsAppHint}</p>
@@ -781,7 +792,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
       {isOpen && (
         // One thumb-sized button: everything above is already filled in by the AI.
         <div className='sticky bottom-4 z-10 space-y-1'>
-          <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending} onClick={publish}>
+          <Button className='h-12 w-full rounded-full text-base shadow-xl shadow-primary/20 sm:h-14' disabled={isPending} onClick={publish}>
             {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
           </Button>
           <p className='text-center text-xs text-muted-foreground'>{texts.publishNowHint}</p>
@@ -873,10 +884,28 @@ function PriceInput({ id, label, value, onChange, state, texts }: PriceInputProp
           inputMode='decimal'
           value={value}
           onChange={onChange}
-          className={cn('h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg', neededClass(state))}
+          className={cn('h-10 rounded-xl bg-card pr-8 text-lg font-semibold text-primary sm:h-12 sm:rounded-2xl md:text-lg', neededClass(state))}
         />
         <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
       </div>
     </div>
+  );
+}
+
+interface MainPictureButtonProps {
+  isMain: boolean;
+  /** A video without a still frame can't be the cover of cards and messages. */
+  canBeMain: boolean;
+  texts: AdminTexts;
+  onMakeMain: () => void;
+}
+
+/** In the full-screen viewer: says the main picture is the main one, or makes the shown one main. */
+function MainPictureButton({ isMain, canBeMain, texts, onMakeMain }: MainPictureButtonProps) {
+  if (!isMain && !canBeMain) return null;
+  return (
+    <Button variant='outline' className='h-auto min-h-10 max-w-full whitespace-normal rounded-full bg-background/70 text-left backdrop-blur-md' disabled={isMain} onClick={onMakeMain}>
+      <Star className={cn(isMain && 'fill-current text-primary')} /> {isMain ? texts.mainPhoto : texts.makeMain}
+    </Button>
   );
 }

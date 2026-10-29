@@ -1,4 +1,5 @@
 import { Column, Heading, Img, Link, Row, Section, Text } from '@react-email/components';
+import QRCode from 'qrcode';
 import { prisma } from '@/db/prisma';
 import { EmailLayout, emailService } from '@/email';
 import type { ListingType } from '@/lib/constants';
@@ -34,6 +35,16 @@ const priceLine = ({ type, price, priceMax }: LiveListing) =>
     .filter(Boolean)
     .join(' · ');
 
+const qrContentId = (slug: string) => `qr-${slug}`;
+
+/** A PNG attached inline, because Gmail blocks data: images. Dark on white so it scans when printed. */
+const qrAttachment = async (slug: string) => ({
+  filename: `${qrContentId(slug)}.png`,
+  content: await QRCode.toBuffer(productUrl(slug), { type: 'png', errorCorrectionLevel: 'M', margin: 2, width: 240 }),
+  contentType: 'image/png',
+  inlineContentId: qrContentId(slug),
+});
+
 const dateOf = (date: Date | null) => (date ? date.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' }) : '');
 
 /** Every live listing with photo, price and the seller's WhatsApp: made to be printed and pinned up. */
@@ -51,9 +62,13 @@ export function ListingsEmail({ listings }: ListingsEmailProps) {
               <Text className='m-0 text-base font-semibold'>{listing.name}</Text>
               <Text className='m-0 text-lg'>{priceLine(listing)}</Text>
               {listing.phone && <Text className='m-0'>WhatsApp: {listing.phone}</Text>}
-              <Text className='m-0 text-xs text-[#6b6259]'>
+              {/* break-all: the long link would otherwise push the QR column off a phone screen */}
+              <Text className='m-0 break-all text-xs text-[#6b6259]'>
                 <Link href={productUrl(listing.slug)}>{productUrl(listing.slug)}</Link> · hasta {dateOf(listing.expiresAt)}
               </Text>
+            </Column>
+            <Column width='110' align='right'>
+              <Img src={`cid:${qrContentId(listing.slug)}`} alt={`QR ${listing.name}`} width='96' height='96' />
             </Column>
           </Row>
         </Section>
@@ -85,6 +100,7 @@ export async function sendListingsEmail({ isAutomatic = true } = {}) {
     to: listingsEmail,
     subject: `Baifo: ${listings.length} anuncios online`,
     react: <ListingsEmail listings={listings} />,
+    attachments: await Promise.all(listings.map(({ slug }) => qrAttachment(slug))),
     tags: [{ name: 'type', value: 'listings' }],
   });
   if (!result.success) console.error(`[email] Listings email not sent: ${result.error}`);

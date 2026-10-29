@@ -4,10 +4,13 @@ import { SECURITY_HEADERS } from "./lib/security-headers";
 // The routes that process listings run ffmpeg (video clean-up); its binary isn't traced on its own.
 const FFMPEG_BINARY = ['./node_modules/ffmpeg-static/ffmpeg'];
 
+// A private preview (PREVIEW_PASSWORD set) stays out of search engines, pictures included.
+const NOINDEX_HEADERS = process.env.PREVIEW_PASSWORD ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] : [];
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: '/:path*', headers: SECURITY_HEADERS }];
+    return [{ source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] }];
   },
   serverExternalPackages: ['ffmpeg-static'],
   outputFileTracingIncludes: {

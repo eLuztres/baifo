@@ -18,9 +18,7 @@
   }
 }
 
-/* Phones: an admin's pencil and "+" get their own strip below the page, so they don't cover the Contact button. */
-@media (max-width: 639px) {
-  .view:has([data-admin-edit]) {
-    height: calc(100svh - 11rem);
-  }
+/* No floating "+" over a listing: the admin edits it with the pencil beside the title. */
+:global(body):has(.view) [data-admin-add] {
+  display: none;
 }

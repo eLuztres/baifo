@@ -14,7 +14,7 @@ interface ListingStepsProps {
 export default function ListingSteps({ current, texts, onSelect }: ListingStepsProps) {
   const steps = [texts.stepPhotos, texts.stepDetails];
   return (
-    <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-2 text-sm'>
+    <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-2 text-xs sm:text-sm'>
       {steps.map((label, index) => (
         <li key={label} className='flex items-center gap-2'>
           {index > 0 && <span className='h-px w-6 bg-border sm:w-10' aria-hidden />}
@@ -25,7 +25,7 @@ export default function ListingSteps({ current, texts, onSelect }: ListingStepsP
           >
             <span
               className={cn(
-                'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs',
+                'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs sm:size-7',
                 index === current ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border'
               )}
             >

@@ -93,6 +93,8 @@ Put the files into `public/brand/` and point to them, or use full URLs:
 ```env
 BRAND_LOGO=/brand/logo.png          # header, footer, sign-in, emails (SVG, PNG, JPG)
 BRAND_LOGO_DARK=/brand/logo-dark.png  # the logo on dark backgrounds (dark mode); default: BRAND_LOGO
+BRAND_LOGO_ANIMATED=/brand/logo-alive.svg  # an animated header logo, still with "reduce motion"; default: off
+BRAND_LOGO_ANIMATED_DARK=/brand/logo-alive-dark.svg  # the animated logo in dark mode
 BRAND_LOGO_HEIGHT=64                  # logo height in the header in px (tablets up, phones 3/4), at most 72
 BRAND_ICON=/brand/icon.png          # browser tab icon
 BRAND_HERO_IMAGE=/brand/hero.jpg    # big picture on the home page (default: logo on a color gradient)

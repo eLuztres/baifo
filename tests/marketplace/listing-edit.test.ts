@@ -153,6 +153,21 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
   });
 
+  it('saves the same pictures in the same order when the category changes back and forth (card 293)', async () => {
+    const categories = (prisma as unknown as { category: Record<'findMany', jest.Mock> }).category.findMany;
+    categories.mockResolvedValue([
+      { id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] },
+      { id: 'cat-2', slug: 'deporte', name: { es: 'Deporte' }, keywords: [] },
+    ]);
+    const images = ['https://utfs.io/f/second.jpg', 'https://utfs.io/f/first-ai.jpg', 'https://utfs.io/f/clip.mp4'];
+
+    for (const category of ['deporte', 'motor', 'deporte']) await updateAdminListing(ID, { ...EDIT, category, images });
+
+    expect(db.submission.update.mock.calls.map(([call]) => call.data.images)).toEqual([images, images, images]);
+    expect(db.submission.update.mock.calls.every(([call]) => !('aiImages' in call.data) && !('rawImages' in call.data))).toBe(true);
+    expect(db.product.update.mock.calls.map(([call]) => call.data.images)).toEqual([images, images, images]);
+  });
+
   it('refuses a budget range whose upper end is not above its lower end', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
 

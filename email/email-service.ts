@@ -8,6 +8,9 @@ export type EmailAttachment = {
   /** File contents, or use `path` for a remote URL. */
   content?: string | Buffer;
   path?: string;
+  contentType?: string;
+  /** Shows the file inline: reference it in the email as `cid:<id>`. */
+  inlineContentId?: string;
 };
 
 export type EmailMessage = {

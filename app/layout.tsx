@@ -40,6 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: getDictionary(locale).BRAND_DESCRIPTION || BRAND.description,
     metadataBase: new URL(SERVER_URL),
     icons: BRAND.icon,
+    ...(process.env.PREVIEW_PASSWORD && { robots: { index: false, follow: false } }),
     openGraph: {
       siteName: BRAND.name,
       locale,

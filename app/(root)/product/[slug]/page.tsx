@@ -168,7 +168,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             />
             <div className='flex shrink-0 items-start justify-between gap-2'>
               <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
-              <ShareButton title={name} className='-mr-2 -mt-1' />
+              <div className='-mr-2 -mt-1 flex shrink-0'>
+                <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
+                <ShareButton title={name} />
+              </div>
             </div>
             {(condition || serviceKey || isEvent || place) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
@@ -290,7 +293,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           </div>
         </div>
       </div>
-      <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
     </section>
   );
 };

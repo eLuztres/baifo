@@ -14,6 +14,7 @@
     "price-classes": "node scripts/price-classes.mjs",
     "short-names": "node scripts/short-names.mjs",
     "island-addresses": "node scripts/island-addresses.mjs",
+    "showcase-copy": "node scripts/showcase-copy.mjs",
     "start": "next start",
     "lint": "next lint --dir app --dir components --dir lib --dir hooks --dir db --dir email --dir types --dir tests --dir e2e --dir stories --file auth.ts --file middleware.ts",
     "postinstall": "prisma generate",
