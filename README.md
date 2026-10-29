@@ -209,7 +209,7 @@ The home page is short and scrolls normally: a compact opening (what the shop is
 
 The hero picture (`BRAND_HERO_IMAGE`) is decorative by default. If it shows something worth describing, put its alt text in `HOME_HERO_IMAGE_ALT` in `brand/messages/<lang>.json`.
 
-**Home slideshow:** pictures in `public/brand/hero/` replace the hero with a full-screen slideshow that crossfades every 7 s (still with "reduce motion"). They play in file name order: `01-beach.webp` (3:4 or square, phones) and `01-beach-wide.webp` (3:2, wider screens). A picture with only one of the two shows only on screens of that shape. Its alt text is `HOME_HERO_ALT_BEACH` (the name without the number) in `brand/messages/<lang>.json`; without one it is decorative.
+**Home slideshow:** pictures in `public/brand/hero/` replace the hero with a full-screen slideshow that crossfades every 7 s (still with "reduce motion"). They play in file name order: `01-beach.webp` (3:4 or square, phones) and `01-beach-wide.webp` (3:2, wider screens). A picture with only one of the two shows only on screens of that shape. An optional `01-beach-figure.webp` (a transparent cut-out) is drawn over that picture and looks up each time the visitor scrolls back to the top. Scrolling away rests the slideshow on its first picture, so going back up always lands there. Its alt text is `HOME_HERO_ALT_BEACH` (the name without the number) in `brand/messages/<lang>.json`; without one it is decorative.
 
 | File | What it does |
 | :--- | :--- |

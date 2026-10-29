@@ -16,18 +16,20 @@ import styles from './scene-hero.module.css';
 
 interface SceneHeroProps {
   pictures: HeroPicture[];
+  /** The first listing of the swipe-through feed; without it there is no feed button. */
+  feedHref?: string;
 }
 
-/** The opening screen: a full-screen island picture of the goat, a small title and the two ways into the listings. */
-export default async function SceneHero({ pictures }: SceneHeroProps) {
+/** The opening screen: a full-screen island picture of the goat, a small title and the ways into the listings. */
+export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) {
   const { t } = await getT();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
-  const scenes = pictures.map(({ name, tall, wide }) => {
+  const scenes = pictures.map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
     const alt = t(key as TranslationKey);
-    return { tall, wide, alt: alt === key ? '' : alt };
+    return { tall, wide, figure, alt: alt === key ? '' : alt };
   });
 
   return (
@@ -46,6 +48,11 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
           <Button asChild size='lg' variant='outline' className={cn('rounded-full', styles.glass)}>
             <Link href={sectionHref(SECTION_IDS.showroom)}>{t('HOME_SCENE_CATEGORIES')}</Link>
           </Button>
+          {feedHref && (
+            <Button asChild size='lg' variant='outline' className={cn('rounded-full', styles.glass)}>
+              <Link href={feedHref}>{t('HOME_SCENE_FEED')}</Link>
+            </Button>
+          )}
         </div>
       </div>
 

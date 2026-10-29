@@ -4,10 +4,16 @@ import path from 'node:path';
 import { getHeroPictures, heroAltKey } from '@/components/shared/home/hero-pictures';
 
 describe('getHeroPictures', () => {
-  it('pairs each picture with its wide version, in file name order', () => {
+  it('pairs each picture with its wide version and cut-out figure, in file name order', () => {
     const pictures = getHeroPictures();
 
     expect(pictures[0]).toEqual({
+      name: '00-lobos',
+      tall: '/brand/hero/00-lobos.webp',
+      wide: '/brand/hero/00-lobos-wide.webp',
+      figure: '/brand/hero/00-lobos-figure.webp',
+    });
+    expect(pictures[1]).toEqual({
       name: '01-newspaper',
       tall: '/brand/hero/01-newspaper.webp',
       wide: '/brand/hero/01-newspaper-wide.webp',
@@ -31,10 +37,10 @@ describe('getHeroPictures', () => {
       expect(getHeroPictures()).toEqual([]);
     });
 
-    it('skips files that are no pictures and keeps a wide-only picture', () => {
+    it('skips files that are no pictures and figures without a picture, and keeps a wide-only picture', () => {
       const dir = path.join(root, 'public', 'brand', 'hero');
       fs.mkdirSync(dir, { recursive: true });
-      for (const file of ['README.md', '.DS_Store', '02-sea-wide.jpg', '01-hill.PNG']) fs.writeFileSync(path.join(dir, file), '');
+      for (const file of ['README.md', '.DS_Store', '02-sea-wide.jpg', '01-hill.PNG', '03-lost-figure.webp']) fs.writeFileSync(path.join(dir, file), '');
 
       expect(getHeroPictures()).toEqual([
         { name: '01-hill', tall: '/brand/hero/01-hill.PNG' },

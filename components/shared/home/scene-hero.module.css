@@ -34,7 +34,12 @@
   opacity: 1;
 }
 
-.scene img {
+.layer {
+  position: absolute;
+  inset: 0;
+}
+
+.scene picture img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -44,12 +49,12 @@
 
 /* A very slow zoom and pan. It runs on every scene all the time, so a scene fading out never jumps back. */
 @media (prefers-reduced-motion: no-preference) {
-  .scene img {
+  .layer {
     animation: drift 26s ease-in-out infinite alternate;
     transform-origin: 30% 80%;
   }
 
-  .scene:nth-child(even) img {
+  .scene:nth-child(even) .layer {
     animation-direction: alternate-reverse;
     transform-origin: 70% 75%;
   }
@@ -62,8 +67,48 @@
 }
 
 /* The sunny picture would glare on a dark page. */
-:global(.dark) .scene img {
+:global(.dark) .layer {
   filter: brightness(0.82) saturate(0.95);
+}
+
+/* The cut-out sits on the sand in the middle, above the advertise link, and never grows into the buttons. */
+.figure {
+  position: absolute;
+  bottom: 3.25rem;
+  left: 50%;
+  width: min(30svh, 58vw);
+  aspect-ratio: 3 / 4;
+  translate: -50% 0;
+  transform-origin: 50% 100%;
+}
+
+/* A soft shadow on the sand, so the goat sits instead of floating. */
+.figure::before {
+  content: '';
+  position: absolute;
+  inset: auto 12% -2% 12%;
+  height: 9%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.22), transparent);
+}
+
+.figure img {
+  object-fit: contain;
+  object-position: 50% 100%;
+}
+
+/* Arriving at the top, the goat lowers the paper and looks up to say hello, then reads on. */
+@media (prefers-reduced-motion: no-preference) {
+  .figure[data-arrived='true'] {
+    animation: look-up 1.6s ease-in-out 0.3s both;
+  }
+}
+
+@keyframes look-up {
+  35%,
+  60% {
+    transform: translateY(-4%) rotate(-4deg);
+  }
 }
 
 /* Free on the picture at the top left, where every scene has open sky. A soft shade only behind the words keeps them readable. */

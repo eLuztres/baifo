@@ -159,6 +159,8 @@
   "HOME_SCENE_TITLE": "Anuncios locales cerca de ti",
   "HOME_SCENE_READ": "Ver todos los anuncios",
   "HOME_SCENE_CATEGORIES": "Ver categorías",
+  "HOME_SCENE_FEED": "Deslizar anuncios",
+  "PULL_UP_HOME": "Volver a {shop}",
   "HOME_FAQ_1_A": "Cada página de producto muestra los detalles que necesitas. Si falta algo, escríbenos y te ayudamos a elegir.",
   "HOME_FAQ_2_A": "Cuéntanos por WhatsApp o por correo qué buscas y veremos qué podemos hacer por ti.",
   "STUDIO_TITLE": "Estudio de producto",

@@ -1,0 +1,54 @@
+/* A small round arrow in the title's line: it fills from the bottom and rises a little with the pull. */
+.hint {
+  position: relative;
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.hint::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--primary);
+  transform: scaleY(var(--pull));
+  transform-origin: bottom;
+}
+
+.hint[data-pulling='true'] {
+  color: var(--primary-foreground);
+}
+
+.hint:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.hint:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hint {
+    translate: 0 calc(var(--pull) * -0.35rem);
+    transition: translate 0.2s ease-out;
+  }
+
+  .hint::before {
+    transition: transform 0.15s ease-out;
+  }
+
+  .hint[data-pulling='true'] {
+    transition: none;
+  }
+}

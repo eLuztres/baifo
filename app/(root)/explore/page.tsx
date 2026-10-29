@@ -15,6 +15,7 @@ import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ExploreRing, { type ExploreRingItem } from '@/components/shared/explore-ring';
 import ExploreRow from '@/components/shared/explore-row';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
+import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
@@ -168,6 +169,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     </ul>
   );
 
+  // The way back home sits in the ring's line: on a phone a row of its own costs too much of the screen.
+  const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
+
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
     <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:space-y-6 sm:py-8' data-feed-page=''>
@@ -189,14 +193,22 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </header>
       )}
 
-      {ringItems.length > 1 && (
-        <ExploreRing
-          items={ringItems}
-          activeKey={activeKey}
-          label={t('EXPLORE_CATEGORY_BUTTON')}
-          previousLabel={t('EXPLORE_PREVIOUS')}
-          nextLabel={t('EXPLORE_NEXT')}
-        />
+      {ringItems.length > 1 ? (
+        <div className='flex items-start gap-2'>
+          {/* Level with the ring's circles. */}
+          <div className='mt-3.5 sm:mt-[1.375rem]'>{pullUpHome}</div>
+          <div className='min-w-0 flex-1'>
+            <ExploreRing
+              items={ringItems}
+              activeKey={activeKey}
+              label={t('EXPLORE_CATEGORY_BUTTON')}
+              previousLabel={t('EXPLORE_PREVIOUS')}
+              nextLabel={t('EXPLORE_NEXT')}
+            />
+          </div>
+        </div>
+      ) : (
+        pullUpHome
       )}
 
       {listings.length === 0 && allListings.length > 0 ? (
