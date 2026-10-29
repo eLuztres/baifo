@@ -207,6 +207,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
     ),
   });
   const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
+  const removePicture = (url: string) => setImages((current) => current.filter((image) => image !== url));
 
   const isDirty = JSON.stringify({ ...fields, images }) !== savedSnapshot.current;
 
@@ -406,6 +407,18 @@ export default function ListingEditor({ listing, categories, places, languages, 
                     )}
                   >
                     <Star className={cn('size-4', index === 0 && 'fill-current')} />
+                  </button>
+                )}
+                {/* The last picture stays: a listing needs at least one. */}
+                {images.length > 1 && (
+                  <button
+                    type='button'
+                    onClick={() => removePicture(url)}
+                    aria-label={texts.removePhoto}
+                    title={texts.removePhoto}
+                    className='absolute bottom-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-background/90 shadow transition-colors hover:bg-destructive hover:text-destructive-foreground'
+                  >
+                    <X className='size-4' />
                   </button>
                 )}
               </div>
