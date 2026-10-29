@@ -14,6 +14,13 @@
   scroll-snap-type: y mandatory;
 }
 
+/* Links to a part (See the categories, the nav) glide down to it instead of jumping. */
+@media (prefers-reduced-motion: no-preference) {
+  :global(div):has(> :global(main) .onePage) {
+    scroll-behavior: smooth;
+  }
+}
+
 /* A flick turns exactly one part, never past one. */
 .onePage > section {
   scroll-snap-align: start;

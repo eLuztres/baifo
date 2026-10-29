@@ -8,6 +8,7 @@ import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 import { cn } from '@/lib/utils';
 import { WhatsAppLogo } from './dark-room-hero';
+import SlideLink from '@/components/shared/slide-link';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey } from './hero-pictures';
@@ -40,10 +41,10 @@ export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) 
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
         <div className={styles.buttons}>
           <Button asChild size='lg' className={cn('rounded-full', styles.solid)}>
-            <Link href='/explore'>
+            <SlideLink href='/explore' direction='down' readySelector='[data-feed-page]'>
               <Newspaper aria-hidden />
               {t('HOME_SCENE_READ')}
-            </Link>
+            </SlideLink>
           </Button>
           <Button asChild size='lg' variant='outline' className={cn('rounded-full', styles.glass)}>
             <Link href={sectionHref(SECTION_IDS.showroom)}>{t('HOME_SCENE_CATEGORIES')}</Link>
