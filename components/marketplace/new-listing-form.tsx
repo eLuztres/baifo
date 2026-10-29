@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { createAdminListing, getAdminListing, updateAdminListingPhotos, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
-import { CREATING_PARAM, type ListingType } from '@/lib/constants';
+import type { ListingType } from '@/lib/constants';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
@@ -109,7 +109,7 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
       if (listing) return savePhotos(listing, chosen, useAi);
       const result = await createAdminListing({ photos: chosen, type, useAi });
       if (!('id' in result && result.id)) return setError(result.message);
-      router.push(`/admin/listings/${result.id}?${CREATING_PARAM}=1`);
+      router.push(`/admin/listings/new?anuncio=${result.id}`);
     });
 
   // Nothing changed: straight back, the AI pictures made already stay.

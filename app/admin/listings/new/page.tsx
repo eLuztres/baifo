@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CalendarDays, ChevronLeft, HandHelping, Package, Search } from 'lucide-react';
+import AdminListingWorkspace from '@/components/marketplace/admin-listing-workspace';
 import ListingTypeInfo from '@/components/marketplace/listing-type-info';
 import NewListingForm from '@/components/marketplace/new-listing-form';
 import { requireAdmin } from '@/lib/auth-guard';
@@ -17,21 +18,36 @@ export async function generateMetadata(): Promise<Metadata> {
 export const maxDuration = 300;
 
 interface NewListingPageProps {
-  /** `tipo`: the listing type's link name (LISTING_TYPE_PARAMS), e.g. servicios; none: a product. */
-  searchParams: Promise<{ tipo?: string }>;
+  /**
+   * `tipo`: the listing type's link name (LISTING_TYPE_PARAMS), e.g. servicios; none: a product.
+   * `anuncio`: the listing made by "Crear con IA", so the whole creation stays on this page (and survives a reload).
+   */
+  searchParams: Promise<{ tipo?: string; anuncio?: string }>;
 }
 
 export default async function NewListingPage({ searchParams }: NewListingPageProps) {
   await requireAdmin();
-  const [texts, { tipo }] = await Promise.all([getLocale().then(adminTexts), searchParams]);
+  const [locale, { tipo, anuncio }] = await Promise.all([getLocale(), searchParams]);
+  const texts = adminTexts(locale);
+  const backLink = (
+    <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
+      <ChevronLeft className='size-4' /> {texts.back}
+    </Link>
+  );
+  if (anuncio) {
+    return (
+      <div className='space-y-4'>
+        {backLink}
+        <AdminListingWorkspace id={anuncio} locale={locale} texts={texts} />
+      </div>
+    );
+  }
   const listingType = listingTypeOf(tipo) ?? 'PRODUCT';
   const icons = { PRODUCT: Package, WANTED: Search, SERVICE: HandHelping, EVENT: CalendarDays };
   const intro = { PRODUCT: '', SERVICE: texts.newServiceIntro, WANTED: texts.newWantedIntro, EVENT: texts.newEventIntro }[listingType];
   return (
     <div className='space-y-8'>
-      <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
-        <ChevronLeft className='size-4' /> {texts.back}
-      </Link>
+      {backLink}
       {/* One form for all four; the choice only changes what the AI writes and which fields there are. */}
       <div className='mx-auto max-w-xl text-center'>
         {/* One row in every language down to 320px: small words and tight padding on phones, no icons. */}
