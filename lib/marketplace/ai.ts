@@ -155,29 +155,39 @@ const WANTED_RULE =
   '(good if unsaid, any if they take it in any condition), price and priceMax are the lowest and highest end of their budget (if they name one amount, ' +
   'that is priceMax and price is a fair lower end; if they name none, a fair second-hand range), and category is where the wanted thing would be found.\n';
 
+// Shared by items, services and events: the seller's own words lead, the photo only tells what it is.
+const WRITING_RULE =
+  '  How to write the texts: build them from what was written, with the same facts and tone, only tidied up; stay close ' +
+  'to those words. Never describe or analyse the photo: no "the image shows", "in the photo you can see", nothing about ' +
+  'what the picture does or does not show. Never judge its condition or say anything negative about it (wear, ' +
+  'scratches, defects); only what the writer said about it themselves, and that stays in. When a brand or model is clear, you may add one or two short, true and well-known details ' +
+  'about that model (what it is good for, a known feature), never sizes, specs or prices that are not stated.\n';
+
 const listingPrompt = (sellerText: string, categories: ListingCategory[], locales: Locale[]) =>
-  'You write second-hand listings for Baifo, a local marketplace in Fuerteventura. Look at the item and return JSON:\n' +
+  'You write second-hand listings for Baifo, a local marketplace in Fuerteventura. Return JSON:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–6 words ` +
   'naming what the item is (brand and model only if visible or stated), and a description of 2–4 short, friendly ' +
-  'sentences about the item and its visible condition. The same facts in every language. Never invent sizes, brands ' +
-  'or defects that are not visible or stated.\n' +
+  'sentences. The same facts in every language. If the seller wrote nothing, only say neutrally and briefly what the ' +
+  'item is.\n' +
+  WRITING_RULE +
   SHORT_RULE +
   categoryRule('this item (decide by what the main item is, not by the background or the props around it)', categories) +
   WANTED_RULE +
   '- condition: for an item for sale exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
   '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
-  'never rate it better than you can see.\n' +
+  'never rate it better than you can see. This field only: the texts never mention it.\n' +
   '- price: the price in euros the seller asked for, or a fair second-hand price for Fuerteventura if they named none.\n' +
   '- priceMax: null, except for a wanted ad.\n' +
   (sellerText ? `What the seller wrote (trust it, it may name the item, condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
 
 const servicePrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
   'You write service listings for Baifo, a local marketplace in Fuerteventura: a person offers a service (babysitting, ' +
-  'gardening, lessons, help with paperwork …). Look at the photos and what the admin wrote, and return JSON:\n' +
+  'gardening, lessons, help with paperwork …). Return JSON from what the admin wrote and the photos:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–7 words ` +
   'with the person\'s first name (if stated) and the service, e.g. "Ana, canguro en Corralejo", and a description of ' +
   '2–4 short, friendly sentences: what they offer, where and when, languages, experience. The same facts in every ' +
   'language. Never mention a price in the texts, and never invent qualifications, places, times or experience that are not stated.\n' +
+  WRITING_RULE +
   SHORT_RULE +
   categoryRule('this service', categories) +
   '- serviceType: class (lessons, courses, teaching), support (someone who goes along with or looks after a person: ' +
@@ -191,6 +201,7 @@ const eventPrompt = (adminText: string, categories: ListingCategory[], locales: 
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–7 words ` +
   'naming the event, and a description of 2–4 short, friendly sentences: what it is, for whom, what to bring. The same ' +
   'facts in every language. Never invent times, places, prices or names that are not stated.\n' +
+  WRITING_RULE +
   SHORT_RULE +
   categoryRule('this event', categories) +
   '- price: the entry or ticket price in euros, 0 if it is free, null if not stated.\n' +

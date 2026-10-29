@@ -57,6 +57,32 @@ describe('writeListing', () => {
     expect(prompt).toContain('motor: Bicis y motor / Bikes and vehicles (e.g. bicicleta, patinete)');
   });
 
+  it('writes every type from the seller\'s words, without analysing the photo or judging the item', async () => {
+    for (const type of ['PRODUCT', 'SERVICE', 'EVENT'] as const) {
+      draft.mockReset();
+      draft.mockResolvedValue({ texts: TEXTS, category: 'motor', condition: 'good', price: 80 });
+      await writeListing(Buffer.from(''), 'bici, 80€', CATEGORIES, ['es', 'en'], type);
+
+      const { prompt } = draft.mock.calls[0][3];
+      expect(prompt).toContain('build them from what was written');
+      expect(prompt).toContain('Never describe or analyse the photo');
+      expect(prompt).toContain('Never judge its condition or say anything negative about it');
+      expect(prompt).not.toContain('visible condition');
+      if (type === 'PRODUCT') expect(prompt).toContain('the texts never mention it');
+    }
+  });
+
+  it('only names the item neutrally when the seller wrote nothing', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', condition: 'good', price: 80 });
+
+    await writeListing(Buffer.from(''), '', CATEGORIES, ['es', 'en']);
+
+    const { prompt } = draft.mock.calls[0][3];
+    expect(prompt).toContain('The seller wrote nothing.');
+    expect(prompt).toContain('only say neutrally and briefly what the item is');
+    expect(prompt).toContain('Never judge its condition');
+  });
+
   it('lets the AI tell an item for sale from a wanted ad, independent of its category', async () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'WANTED', condition: 'good', price: 50, priceMax: 90 });
 
