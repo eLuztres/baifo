@@ -26,7 +26,7 @@ describe('contact message', () => {
       const t = getTranslator(id);
       expect(t('CONTACT_MESSAGE_HELLO_NAMED')).toContain('{nick}');
       for (const key of ['CONTACT_MESSAGE_PRODUCT', 'CONTACT_MESSAGE_WANTED', 'CONTACT_MESSAGE_SERVICE', 'CONTACT_MESSAGE_EVENT'] as const) {
-        expect(t(key)).toMatch(/^\{hello\} .*\{name\}.*\{shop\}.*\{url\}$/);
+        expect(t(key)).toMatch(/^\{hello\}\n.*\{shop\}.*\{name\}.*\{url\}/s);
         // An emoji can arrive as � when a wa.me link opens WhatsApp on a computer.
         expect(t(key)).not.toMatch(/\p{Extended_Pictographic}/u);
       }

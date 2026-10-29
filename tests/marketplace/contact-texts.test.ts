@@ -17,8 +17,8 @@ describe('getContactMessageTexts', () => {
   it("always writes in the shop's language, with the listing's name and its link", () => {
     const texts = getContactMessageTexts(CLOCK);
 
-    expect(contactMessage(texts, 'Lula')).toBe(`¡Hola! Soy Lula. Te escribo por tu anuncio «Reloj antiguo» en ${APP_NAME}: ${CLOCK_URL}`);
-    expect(contactMessage(texts, '')).toBe(`¡Hola! Te escribo por tu anuncio «Reloj antiguo» en ${APP_NAME}: ${CLOCK_URL}`);
+    expect(contactMessage(texts, 'Lula')).toBe(`¡Hola! Soy Lula.\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n`);
+    expect(contactMessage(texts, '')).toBe(`¡Hola!\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n`);
   });
 
   it('fits the wording to a wanted ad, a service and an event', () => {
