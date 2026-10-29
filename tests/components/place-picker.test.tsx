@@ -66,3 +66,37 @@ describe('PlacePicker Corral links', () => {
     expect(corralLinks()).toEqual([]);
   });
 });
+
+describe('PlacePicker label', () => {
+  const pickerLabel = (savedSlugs: string[], places = PLACES) => {
+    renderWithI18n(<PlacePicker places={places} savedSlugs={savedSlugs} />);
+    return screen.getByRole('button').getAttribute('aria-label');
+  };
+
+  it('names the one chosen place', () => {
+    expect(pickerLabel(['el-cotillo'])).toMatch(/: El Cotillo$/);
+  });
+
+  it('names the chosen places, not the whole island, while a place is still to come', () => {
+    expect(pickerLabel(['el-cotillo', 'corralejo'])).toMatch(/: Corralejo · El Cotillo$/);
+    expect(screen.getByText('Corralejo +1')).toBeInTheDocument();
+  });
+
+  it('shows the first place plus a count when more than two are chosen', () => {
+    const places = [...PLACES, { id: '4', slug: 'caleta', name: 'Caleta de Fuste', x: 0, y: 0, isLive: true }];
+    expect(pickerLabel(['caleta', 'el-cotillo', 'corralejo'], places)).toMatch(/: Corralejo · El Cotillo · Caleta de Fuste$/);
+    expect(screen.getByText('Corralejo +2')).toBeInTheDocument();
+    expect(screen.queryByText('Corralejo · El Cotillo · Caleta de Fuste')).not.toBeInTheDocument();
+  });
+
+  it('says whole island only when every place is chosen', () => {
+    const places = PLACES.map((place) => ({ ...place, isLive: true }));
+    expect(pickerLabel([], places)).toMatch(/: Whole island$/);
+  });
+
+  it('offers to choose all live places in the drawer, without calling it the whole island', async () => {
+    const drawer = await openPicker(['corralejo']);
+    expect(within(drawer).getByRole('button', { name: 'Choose all' })).toBeInTheDocument();
+    expect(within(drawer).queryByText('Whole island')).not.toBeInTheDocument();
+  });
+});

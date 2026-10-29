@@ -30,7 +30,7 @@ const Header = async () => {
   // Blur only from lg up: on phones it re-blurs the moving page under it every frame, behind a nearly opaque background.
   return (
     <header className='sticky top-0 z-40 w-full border-b border-border bg-background lg:bg-background/95 lg:backdrop-blur'>
-      <div className='flex h-16 w-full items-center justify-between gap-6 px-4 sm:h-20 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10'>
+      <div className='flex h-16 w-full items-center justify-between gap-2 px-4 sm:gap-6 sm:h-20 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10'>
         <Link
           href='/'
           className='shrink-0 justify-self-start rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background'

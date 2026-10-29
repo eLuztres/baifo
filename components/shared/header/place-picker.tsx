@@ -74,19 +74,26 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
   };
   const toggle = (slug: string) => choose(chosen.includes(slug) ? chosen.filter((item) => item !== slug) : [...chosen, slug]);
 
-  const label =
-    chosen.length === 1
-      ? live.find((place) => place.slug === chosen[0])?.name
-      : chosen.length === live.length
-        ? t('PLACES_ALL_ISLAND')
-        : t('PLACES_COUNT', { count: chosen.length });
+  // Island order, not tap order. "Whole island" only once no place is still to come.
+  const chosenNames = live.filter((place) => chosen.includes(place.slug)).map((place) => place.name);
+  const isWholeIsland = places.length > 1 && chosenNames.length === places.length;
+  const shortLabel = isWholeIsland
+    ? t('PLACES_ALL_ISLAND')
+    : chosenNames.length === 1
+      ? chosenNames[0]
+      : t('PLACES_FIRST_AND_MORE', { place: chosenNames[0], count: chosenNames.length - 1 });
+  const fullLabel = isWholeIsland ? shortLabel : chosenNames.join(' · ');
+  // Phones only have room for one name; wider screens show two in full.
+  const hasRoomForFull = chosenNames.length <= 2;
 
   return (
     <Drawer>
       <DrawerTrigger asChild>
-        <Button variant='ghost' className={cn('h-9 gap-1.5 rounded-full px-3 text-sm', className)} aria-label={`${t('PLACES_TITLE')}: ${label}`}>
-          {isPending ? <Loader2 className='size-4 animate-spin text-primary' /> : <MapPin className='size-4 text-primary' />}
-          <span className='max-w-28 truncate'>{label}</span>
+        <Button variant='ghost' className={cn('h-9 gap-1.5 rounded-full px-2 text-sm sm:px-3', className)} aria-label={`${t('PLACES_TITLE')}: ${fullLabel}`}>
+          {/* At 320px the pin would push the menu button off the screen; the name says enough there. */}
+          {isPending ? <Loader2 className='size-4 animate-spin text-primary' /> : <MapPin className='size-4 text-primary max-[359px]:hidden' />}
+          <span className={cn('whitespace-nowrap', hasRoomForFull && 'sm:hidden')}>{shortLabel}</span>
+          {hasRoomForFull && <span className='hidden whitespace-nowrap sm:inline'>{fullLabel}</span>}
         </Button>
       </DrawerTrigger>
       <DrawerContent className='mx-auto max-w-md'>
@@ -136,7 +143,7 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
           )}
           {live.length > 1 && chosen.length < live.length && (
             <Button variant='outline' className='mt-4 w-full rounded-full' onClick={() => choose(live.map((place) => place.slug))}>
-              {t('PLACES_ALL_ISLAND')}
+              {t('PLACES_CHOOSE_ALL')}
             </Button>
           )}
           <p className='mt-4 text-center text-[0.65rem] text-muted-foreground'>{t('PLACES_MAP_CREDIT')}</p>
