@@ -71,6 +71,7 @@ A shop is customized in **three places only**. The template never changes them a
 | `public/brand/` | logo, icon, hero image, social preview image, font | yes |
 | `brand/messages/<lang>.json` | your own wording, per language | yes |
 | `brand/*.json`, `brand/studio.mjs` | home page pictures and AI studio prompts (see *Home page* below) | yes |
+| `brand/print/` | print files such as stickers, not served by the website (optional) | yes |
 
 Settings are read when a page is requested. Locally, restart `npm run dev`; on Vercel, redeploy. Settings starting with `NEXT_PUBLIC_` are built into the code and always need a rebuild or redeploy.
 
