@@ -43,6 +43,7 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
   const [chosen, setChosen] = useState(() => chosenPlaces(places, savedSlugs).map((place) => place.slug));
   const live = places.filter((place) => place.isLive);
   const soon = places.filter((place) => !place.isLive);
+  const corrals = live.filter((place) => place.corralName && chosen.includes(place.slug));
 
   // The browser's saved choice wins over a cookie that was cleared or never set; the other way round fills the storage.
   useEffect(() => {
@@ -115,24 +116,22 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
               <span className='font-medium text-foreground'>{t('PLACES_SOON_LIST')}</span> {soon.map((place) => place.name).join(' · ')}
             </p>
           )}
-          {/* Each open Corral: the real spot behind the place, one tap away. */}
-          {live.some((place) => place.corralName) && (
+          {/* The Corral of each chosen place: the real spot behind it, one tap away. */}
+          {corrals.length > 0 && (
             <ul className='mt-4 space-y-2'>
-              {live
-                .filter((place) => place.corralName)
-                .map((place) => (
-                  <li key={place.slug}>
-                    <DrawerClose asChild>
-                      <Link
-                        href={`/corral/${place.slug}`}
-                        className='flex items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/15'
-                      >
-                        {t('CORRAL_VISIT', { name: place.corralName ?? '' })}
-                        <ArrowRight className='size-4' aria-hidden />
-                      </Link>
-                    </DrawerClose>
-                  </li>
-                ))}
+              {corrals.map((place) => (
+                <li key={place.slug}>
+                  <DrawerClose asChild>
+                    <Link
+                      href={`/corral/${place.slug}`}
+                      className='flex items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/15'
+                    >
+                      {t('CORRAL_VISIT', { name: place.corralName ?? '' })}
+                      <ArrowRight className='size-4' aria-hidden />
+                    </Link>
+                  </DrawerClose>
+                </li>
+              ))}
             </ul>
           )}
           {live.length > 1 && chosen.length < live.length && (
