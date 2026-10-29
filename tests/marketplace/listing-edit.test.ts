@@ -4,6 +4,7 @@ import {
   chooseListingText,
   createAdminListing,
   createAdminListingPicture,
+  deleteAdminListing,
   describeAdminListing,
   fillAdminListingFields,
   extendAdminListing,
@@ -47,18 +48,19 @@ jest.mock('next/server', () => ({ after: jest.fn((run: () => void) => run()) }))
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
   prisma: {
-    submission: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(async () => ({ id: 'new-1' })) },
+    submission: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(async () => ({ id: 'new-1' })), delete: jest.fn(() => 'delete-submission') },
     seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
-    product: { update: jest.fn() },
+    product: { update: jest.fn(), delete: jest.fn(() => 'delete-product') },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
     $transaction: jest.fn(async (writes: unknown[]) => writes),
   },
 }));
 
 const db = prisma as unknown as {
-  submission: Record<'findUnique' | 'findFirst' | 'update' | 'updateMany' | 'create', jest.Mock>;
+  submission: Record<'findUnique' | 'findFirst' | 'update' | 'updateMany' | 'create' | 'delete', jest.Mock>;
   seller: Record<'upsert', jest.Mock>;
-  product: Record<'update', jest.Mock>;
+  product: Record<'update' | 'delete', jest.Mock>;
+  $transaction: jest.Mock;
 };
 
 const ID = 'ff25bd1e-d82d-4561-8ca2-337545aa373e';
@@ -178,6 +180,44 @@ describe('updateAdminListing', () => {
   it('refuses a category the store does not have', async () => {
     expect((await updateAdminListing(ID, { ...EDIT, category: 'muebles' })).success).toBe(false);
     expect(db.submission.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('deleteAdminListing', () => {
+  it('removes the product and the listing together', async () => {
+    db.submission.findUnique.mockResolvedValue({ productId: 'product-1' });
+
+    expect(await deleteAdminListing(ID)).toEqual({ success: true, message: 'Anuncio eliminado' });
+    expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'product-1' } });
+    expect(db.$transaction).toHaveBeenCalledWith(['delete-product', 'delete-submission']);
+  });
+
+  it('removes a listing that never had a product', async () => {
+    db.submission.findUnique.mockResolvedValue({ productId: null });
+
+    expect((await deleteAdminListing(ID)).success).toBe(true);
+    expect(db.$transaction).toHaveBeenCalledWith(['delete-submission']);
+  });
+
+  it('says so when the listing is already gone', async () => {
+    db.submission.findUnique.mockResolvedValue(null);
+
+    expect(await deleteAdminListing(ID)).toEqual({ success: false, message: 'Este anuncio ya no existe' });
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('gives a friendly message when the product cannot go, e.g. it is in an order', async () => {
+    db.submission.findUnique.mockResolvedValue({ productId: 'product-1' });
+    db.$transaction.mockRejectedValueOnce(new Error('Foreign key constraint failed'));
+    const quiet = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(await deleteAdminListing(ID)).toEqual({ success: false, message: 'No se pudo eliminar este anuncio' });
+    quiet.mockRestore();
+  });
+
+  it('refuses an id that is not a listing id', async () => {
+    expect((await deleteAdminListing('not-an-id')).success).toBe(false);
+    expect(db.submission.findUnique).not.toHaveBeenCalled();
   });
 });
 

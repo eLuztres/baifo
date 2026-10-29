@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
@@ -28,6 +29,7 @@ import {
   addAdminVideoStill,
   chooseListingText,
   createAdminListingPicture,
+  deleteAdminListing,
   enableAdminListing,
   extendAdminListing,
   fillAdminListingFields,
@@ -280,6 +282,13 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   const publish = () => run(() => publishAdminListing(listing.id, plan), onPublished);
 
+  // No save first, unlike run: the listing is gone anyway. The dialog shows the toast.
+  const deleteAndLeave = async (id: string) => {
+    const result = await deleteAdminListing(id);
+    if (result.success) router.push('/admin/listings');
+    return result;
+  };
+
   // The tab opens on the click itself: one opened after the save and the action would be blocked as a pop-up.
   const sendByWhatsApp = () => {
     const tab = window.open('', '_blank');
@@ -362,42 +371,54 @@ export default function ListingEditor({ listing, categories, places, languages, 
           <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
         </div>
       )}
-      {listing.status === 'LIVE' && (
-        <div className='flex flex-wrap gap-3'>
-          {listing.product && (
-            <Button asChild className='rounded-full'>
-              <Link href={`/product/${listing.product.slug}`} target='_blank'>
-                <ExternalLink /> {texts.viewListing}
+      <div className='flex flex-wrap gap-3'>
+        {listing.status === 'LIVE' && (
+          <>
+            {listing.product && (
+              <Button asChild className='rounded-full'>
+                <Link href={`/product/${listing.product.slug}`} target='_blank'>
+                  <ExternalLink /> {texts.viewListing}
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant='outline' className='rounded-full'>
+              <Link href={newListingPath(listing.type)}>
+                <Plus /> {texts.newAnother}
               </Link>
             </Button>
-          )}
-          <Button asChild variant='outline' className='rounded-full'>
-            <Link href={newListingPath(listing.type)}>
-              <Plus /> {texts.newAnother}
-            </Link>
-          </Button>
-          {/* Selling takes the listing out of the shop at once, so it asks first. */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant='ghost' className='rounded-full' disabled={isPending}>
-                {markSoldText(texts, listing.type)}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{markSoldText(texts, listing.type)}</AlertDialogTitle>
-                <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
-                <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
+            {/* Selling takes the listing out of the shop at once, so it asks first. */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant='ghost' className='rounded-full' disabled={isPending}>
                   {markSoldText(texts, listing.type)}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{markSoldText(texts, listing.type)}</AlertDialogTitle>
+                  <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
+                  <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
+                    {markSoldText(texts, listing.type)}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+        <DeleteDialog
+          id={listing.id}
+          action={deleteAndLeave}
+          description={texts.deleteHint}
+          trigger={
+            <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending}>
+              <Trash2 /> {texts.deleteForGood}
+            </Button>
+          }
+        />
+      </div>
 
       {/* The main picture a bit bigger; a tap opens a picture full screen, the star makes it the main one. Under each, original or AI. */}
       <ul className='flex items-start gap-3 overflow-x-auto p-1'>
