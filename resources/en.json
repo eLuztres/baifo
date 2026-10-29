@@ -533,6 +533,7 @@
   "STUDIO_NO_STORE_CATEGORY": "No category (salon look)",
   "STUDIO_STORE_CATEGORY_HINT": "The AI places the product in this category's scene. Pick it before the photo.",
   "PRODUCT_FORM_STORE_CATEGORIES": "Categories in the store",
+  "PRODUCT_FORM_STORE_CATEGORIES_NONE": "None chosen",
   "PRODUCT_FORM_RESTORE_PHOTOS": "Restore the photos from before the AI redo",
   "SETTINGS_NOTIFICATIONS": "Notifications",
   "SETTINGS_NOTIFICATIONS_TEXT": "How you hear about new orders and customers interested in a product.",

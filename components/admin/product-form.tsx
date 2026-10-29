@@ -28,6 +28,13 @@ import { preparePhotos } from '@/lib/prepare-photos';
 import { Card, CardContent } from '../ui/card';
 import Image from 'next/image';
 import { Checkbox } from '../ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 import ProductMedia from "@/components/ProductMedia";
 import { useI18n } from '@/components/i18n-provider';
 import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
@@ -102,6 +109,11 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
       isChecked ? [...categoryIds, id] : categoryIds.filter((categoryId) => categoryId !== id),
       { shouldDirty: true }
     );
+
+  const chosenCategoryNames = storeCategories
+    .filter((category) => categoryIds.includes(category.id))
+    .map((category) => category.name)
+    .join(', ');
 
   const handlePriceClassChange = (name: string) => {
     const selected = priceClasses.find((item) => item.name === name);
@@ -224,17 +236,29 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
         {storeCategories.length > 0 && (
           <FormItem className='w-full'>
             <FormLabel>{t('PRODUCT_FORM_STORE_CATEGORIES')}</FormLabel>
-            <div className='flex flex-wrap gap-x-5 gap-y-2'>
-              {storeCategories.map((category) => (
-                <label key={category.id} className='flex items-center gap-2 text-sm'>
-                  <Checkbox
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type='button' variant='outline' className='w-full justify-between font-normal'>
+                  <span className='truncate'>
+                    {chosenCategoryNames || t('PRODUCT_FORM_STORE_CATEGORIES_NONE')}
+                  </span>
+                  <ChevronDown className='size-4 shrink-0 opacity-60' aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='start' className='max-h-72 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto'>
+                {storeCategories.map((category) => (
+                  <DropdownMenuCheckboxItem
+                    key={category.id}
                     checked={categoryIds.includes(category.id)}
                     onCheckedChange={(checked) => toggleCategory(category.id, checked === true)}
-                  />
-                  {category.name}
-                </label>
-              ))}
-            </div>
+                    // Stays open so several categories can be checked in a row.
+                    onSelect={(event) => event.preventDefault()}
+                  >
+                    {category.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </FormItem>
         )}
         {priceClasses.length > 0 && (

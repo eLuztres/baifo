@@ -533,6 +533,7 @@
   "STUDIO_NO_STORE_CATEGORY": "Keine Kategorie (Salon-Look)",
   "STUDIO_STORE_CATEGORY_HINT": "Die KI setzt das Produkt in die Szene dieser Kategorie. Wähle sie vor dem Foto.",
   "PRODUCT_FORM_STORE_CATEGORIES": "Kategorien im Shop",
+  "PRODUCT_FORM_STORE_CATEGORIES_NONE": "Keine gewählt",
   "PRODUCT_FORM_RESTORE_PHOTOS": "Fotos von vor der KI-Neuauflage zurückholen",
   "SETTINGS_NOTIFICATIONS": "Benachrichtigungen",
   "SETTINGS_NOTIFICATIONS_TEXT": "Wie du von neuen Bestellungen und interessierten Kundinnen und Kunden erfährst.",

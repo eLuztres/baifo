@@ -533,6 +533,7 @@
   "STUDIO_NO_STORE_CATEGORY": "Nessuna categoria (stile salotto)",
   "STUDIO_STORE_CATEGORY_HINT": "L’IA colloca il prodotto nella scena di questa categoria. Sceglila prima della foto.",
   "PRODUCT_FORM_STORE_CATEGORIES": "Categorie nel negozio",
+  "PRODUCT_FORM_STORE_CATEGORIES_NONE": "Nessuna scelta",
   "PRODUCT_FORM_RESTORE_PHOTOS": "Ripristina le foto di prima del rifacimento IA",
   "SETTINGS_NOTIFICATIONS": "Notifiche",
   "SETTINGS_NOTIFICATIONS_TEXT": "Come vieni a sapere di nuovi ordini e di clienti interessati a un prodotto.",

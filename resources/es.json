@@ -533,6 +533,7 @@
   "STUDIO_NO_STORE_CATEGORY": "Sin categoría (estilo salón)",
   "STUDIO_STORE_CATEGORY_HINT": "La IA coloca el producto en la escena de esta categoría. Elígela antes de la foto.",
   "PRODUCT_FORM_STORE_CATEGORIES": "Categorías en la tienda",
+  "PRODUCT_FORM_STORE_CATEGORIES_NONE": "Ninguna elegida",
   "PRODUCT_FORM_RESTORE_PHOTOS": "Recuperar las fotos de antes de rehacerlas con IA",
   "SETTINGS_NOTIFICATIONS": "Avisos",
   "SETTINGS_NOTIFICATIONS_TEXT": "Cómo te enteras de nuevos pedidos y de clientes interesados en un producto.",
