@@ -9,9 +9,9 @@ interface ExploreRowData<T extends { id: string }> {
 }
 
 /** The full rows as they are, and the listings of the thin ones gathered once each, for a single mixed row. */
-export function splitThinRows<T extends { id: string }, R extends ExploreRowData<T>>(rows: R[]) {
+export function splitThinRows<R extends ExploreRowData<{ id: string }>>(rows: R[]) {
   const fullRows = rows.filter((row) => row.listings.length >= MIN_FULL_LISTINGS);
-  const thinListings = rows.filter((row) => row.listings.length < MIN_FULL_LISTINGS).flatMap((row) => row.listings);
+  const thinListings: R['listings'][number][] = rows.filter((row) => row.listings.length < MIN_FULL_LISTINGS).flatMap((row) => row.listings);
   const mixedListings = [...new Map(thinListings.map((listing) => [listing.id, listing])).values()];
   return { fullRows, mixedListings };
 }
