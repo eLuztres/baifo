@@ -47,3 +47,27 @@ export async function cleanUpVideo(video: Buffer): Promise<Buffer> {
     await rm(folder, { recursive: true, force: true });
   }
 }
+
+// A cover doesn't need more than this.
+const STILL_MAX_WIDTH = 1280;
+
+/** A JPEG of the video at about one second (its first frame when it is shorter): the still of a video that came without one. */
+export async function takeVideoStill(video: Buffer): Promise<Buffer> {
+  if (!ffmpegPath) throw new Error('ffmpeg is missing for this platform');
+  const folder = await mkdtemp(path.join(tmpdir(), 'still-'));
+  const input = path.join(folder, 'input');
+  const output = path.join(folder, 'still.jpg');
+  const frameAt = (seconds: number) =>
+    run(ffmpegPath!, ['-y', '-ss', String(seconds), '-i', input, '-frames:v', '1', '-vf', `scale='min(${STILL_MAX_WIDTH},iw)':-2`, '-q:v', '3', output]);
+  try {
+    await writeFile(input, video);
+    await frameAt(1);
+    // Past the end, ffmpeg writes nothing and still succeeds.
+    const still = await readFile(output).catch(() => null);
+    if (still) return still;
+    await frameAt(0);
+    return await readFile(output);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+}

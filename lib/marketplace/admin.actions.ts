@@ -9,7 +9,7 @@ import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from 
 import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
-import { isVideoUrl, pictureOf } from '@/lib/video';
+import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, translateText, writeListing } from './ai';
@@ -23,6 +23,8 @@ import { lacksConsent, markSent } from './listing-payment';
 import { sellerIdentity } from './seller';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { rejectSubmission } from './review';
+import { pictureCounterpart } from './pictures';
+import { takeVideoStill } from './video-cleanup';
 
 // Server actions are public endpoints: every one checks for an admin itself.
 const NOT_ALLOWED = { success: false, message: 'Solo para administradores' } as const;
@@ -379,6 +381,30 @@ export async function createAdminListingPicture(id: string, prompt?: string) {
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
     return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo crear la foto. Inténtalo otra vez.' };
+  }
+}
+
+/** "Elegir imagen": a still frame for a video that came without one, so it can be the cover.
+    Its other version (original or cleaned-up) gets the same still, so switching between them keeps it. */
+export async function addAdminVideoStill(id: string, url: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !photoUrlSchema.safeParse(url).success || !isVideoUrl(url)) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true, images: true } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  try {
+    const still = await uploadImage(await takeVideoStill(await fetchImage(videoSource(url))), `listing-${id}-still`);
+    const withStill = (video: string) => mediaUrl(videoSource(video), 'video/mp4', still);
+    const changed = new Map([[url, withStill(url)]]);
+    const other = pictureCounterpart(submission, url)?.other;
+    if (other && isVideoUrl(other)) changed.set(other, withStill(other));
+    const replace = (urls: string[]) => urls.map((media) => changed.get(media) ?? media);
+    await prisma.submission.update({
+      where: { id },
+      data: { rawImages: replace(submission.rawImages), aiImages: replace(submission.aiImages), images: replace(submission.images) },
+    });
+    return { success: true, message: '', url: withStill(url) };
+  } catch (error) {
+    console.error(`Still of video ${url} of listing ${id} not made`, error);
+    return { success: false, message: 'No se pudo sacar una imagen del vídeo. Inténtalo otra vez.' };
   }
 }
 

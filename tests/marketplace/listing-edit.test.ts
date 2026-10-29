@@ -1,5 +1,6 @@
 import { prisma } from '@/db/prisma';
 import {
+  addAdminVideoStill,
   chooseListingText,
   createAdminListing,
   createAdminListingPicture,
@@ -14,6 +15,7 @@ import {
 import { correctText, createPicture, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { publishByAdmin } from '@/lib/marketplace/publish';
+import { takeVideoStill } from '@/lib/marketplace/video-cleanup';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
@@ -22,6 +24,7 @@ jest.mock('@/lib/marketplace/media', () => ({
   fetchImage: jest.fn(async () => Buffer.from('')),
   uploadImage: jest.fn(async () => 'https://x.ufs.sh/f/made.jpg'),
 }));
+jest.mock('@/lib/marketplace/video-cleanup', () => ({ takeVideoStill: jest.fn(async () => Buffer.from('jpg')) }));
 jest.mock('@/lib/marketplace/processing', () => ({ processSubmission: jest.fn(), makeListingPictures: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishByAdmin: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ approveSubmission: jest.fn(), rejectSubmission: jest.fn() }));
@@ -352,6 +355,53 @@ describe('createAdminListingPicture', () => {
 
     await createAdminListingPicture(ID, 'surf lesson at sunrise');
     expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE');
+  });
+});
+
+describe('addAdminVideoStill', () => {
+  const ORIGINAL = 'https://x.ufs.sh/f/clip#video';
+  const CLEANED = 'https://x.ufs.sh/f/clean#video';
+  const STILL = `#video=${encodeURIComponent('https://x.ufs.sh/f/made.jpg')}`;
+
+  it('gives the video and its cleaned-up version the same still', async () => {
+    db.submission.findUnique.mockResolvedValue({ rawImages: ['https://utfs.io/f/bike.jpg', ORIGINAL], aiImages: ['', CLEANED], images: ['https://utfs.io/f/bike.jpg', CLEANED] });
+
+    expect(await addAdminVideoStill(ID, CLEANED)).toEqual({ success: true, message: '', url: `https://x.ufs.sh/f/clean${STILL}` });
+    expect(db.submission.update.mock.calls[0][0].data).toEqual({
+      rawImages: ['https://utfs.io/f/bike.jpg', `https://x.ufs.sh/f/clip${STILL}`],
+      aiImages: ['', `https://x.ufs.sh/f/clean${STILL}`],
+      images: ['https://utfs.io/f/bike.jpg', `https://x.ufs.sh/f/clean${STILL}`],
+    });
+  });
+
+  it('marks a video named .mp4 and leaves the stored ones alone when it is new in the editor', async () => {
+    const stored = { rawImages: [ORIGINAL], aiImages: [''], images: [ORIGINAL] };
+    db.submission.findUnique.mockResolvedValue(stored);
+
+    expect(await addAdminVideoStill(ID, 'https://x.ufs.sh/f/new.mp4')).toMatchObject({ url: `https://x.ufs.sh/f/new.mp4${STILL}` });
+    expect(db.submission.update.mock.calls[0][0].data).toEqual(stored);
+  });
+
+  it('says so when the listing is gone', async () => {
+    db.submission.findUnique.mockResolvedValue(null);
+
+    expect(await addAdminVideoStill(ID, ORIGINAL)).toEqual({ success: false, message: 'Este anuncio ya no existe' });
+    expect(takeVideoStill).not.toHaveBeenCalled();
+  });
+
+  it('takes no photo and no file from elsewhere', async () => {
+    expect((await addAdminVideoStill(ID, 'https://utfs.io/f/bike.jpg')).success).toBe(false);
+    expect((await addAdminVideoStill(ID, 'https://evil.example/clip.mp4')).success).toBe(false);
+    expect(takeVideoStill).not.toHaveBeenCalled();
+  });
+
+  it('answers kindly when the frame cannot be taken', async () => {
+    db.submission.findUnique.mockResolvedValue({ rawImages: [ORIGINAL], aiImages: [''], images: [ORIGINAL] });
+    (takeVideoStill as jest.Mock).mockRejectedValueOnce(new Error('ffmpeg exited with 1'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    expect(await addAdminVideoStill(ID, ORIGINAL)).toEqual({ success: false, message: 'No se pudo sacar una imagen del vídeo. Inténtalo otra vez.' });
+    expect(db.submission.update).not.toHaveBeenCalled();
   });
 });
 

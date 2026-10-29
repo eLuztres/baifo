@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, ExternalLink, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
@@ -26,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/hooks/use-toast';
 import {
+  addAdminVideoStill,
   chooseListingText,
   createAdminListingPicture,
   enableAdminListing,
@@ -135,6 +136,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const [isAskingPicture, setIsAskingPicture] = useState(false);
   const [picturePrompt, setPicturePrompt] = useState('');
   const [isMakingPicture, setIsMakingPicture] = useState(false);
+  // The video whose still frame the server is taking right now.
+  const [stillVideo, setStillVideo] = useState<string | null>(null);
   const [fields, setFields] = useState({
     title: listing.title ?? '',
     shortTitle: listing.shortTitle ?? '',
@@ -243,6 +246,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
     setImages((current) => [...current, result.url]);
     setPicturePrompt('');
     setIsAskingPicture(false);
+  };
+
+  // The video with its still joins the others with the next save; the stored pairs already have it.
+  const addStill = async (url: string) => {
+    setStillVideo(url);
+    const result = await addAdminVideoStill(listing.id, url);
+    setStillVideo(null);
+    if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
+    swapPicture(url, result.url);
+    router.refresh();
   };
 
   const run = (action: () => Promise<{ success: boolean; message: string }>, onSuccess?: () => void) =>
@@ -396,6 +409,19 @@ export default function ListingEditor({ listing, categories, places, languages, 
                   </button>
                 )}
               </div>
+              {isVideoUrl(url) && !videoPoster(url) && (
+                <button
+                  type='button'
+                  onClick={() => addStill(url)}
+                  disabled={stillVideo !== null}
+                  title={texts.noStill}
+                  className='flex h-7 items-center gap-1 rounded-full bg-muted px-2.5 text-xs font-medium text-primary transition hover:bg-accent disabled:opacity-60'
+                >
+                  {stillVideo === url ? <Loader2 className='size-3.5 animate-spin' aria-hidden /> : <ImageIcon className='size-3.5' aria-hidden />}
+                  {stillVideo === url ? texts.chooseStillWorking : texts.chooseStill}
+                  <span className='sr-only'>{texts.noStill}</span>
+                </button>
+              )}
               {counterpart && (
                 <div role='radiogroup' aria-label={texts.photosLabel} className='flex rounded-full bg-muted p-0.5'>
                   {[
