@@ -7,7 +7,6 @@ import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, RELISTABLE, type ListingPlan } from './config';
 import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
-import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
 import { lacksConsent } from './listing-payment';
 import { sendWithTemplateFallback } from './templates';
@@ -126,7 +125,6 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
           ),
         { key: 'adminNewListing', locale: 'es', parameters: [title, planName, url, crossPosts || '—'] }
       ),
-    sendListingsEmail(),
   ]);
   return product;
 }

@@ -19,7 +19,6 @@ jest.mock('@/db/prisma', () => {
   };
 });
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn(async () => {}) }));
-jest.mock('@/lib/marketplace/listings-email', () => ({ sendListingsEmail: jest.fn(async () => {}) }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/places', () => ({ getDefaultPlaceId: jest.fn(async () => 'place-corralejo') }));
 

@@ -39,7 +39,6 @@ LISTING_PRICE_NORMAL=5
 LISTING_PRICE_BIG=10
 LISTING_DAYS=90
 UNPAID_LISTING_HOURS=48         # the private link of an unpaid listing works this long after it was sent, then it expires
-LISTINGS_EMAIL=                 # gets the printable list of live products
 # ADDRESS_AREA=-14.55,27.99,-13.80,28.78  # the area npm run island-addresses takes event addresses from (west,south,east,north); default Fuerteventura
 
 # How people pay the listing fee on their page: stripe, paypal, bizum, cash. For now Bizum and cash only (no card papers yet);
@@ -62,8 +61,6 @@ Store categories: Baifo's defaults come from a migration (casa, moda, electronic
 Listing types (`Product.type`, `ListingType`): **Producto** (fixed price), **Busco** (`WANTED`, budget range, or only "hasta 60 €" with an empty "Desde"), **Servicio** ("desde" price, optional, plus Clase / Servicio / Acompañamiento) and **Evento** (date and time, address, entry price where 0 is "Gratis"; uses the organiser's own photos). Type and category are independent, like in a newspaper: any type goes in any category. The AI picks both; from WhatsApp it tells an item for sale from a "Busco". The feed (`/explore`) has no text search. A small turning ring at the top chooses one thing at a time: Todo, Hoy (`?hoy`, today's events), Terminan pronto (`?pronto`, listings that go offline within `ENDING_SOON_DAYS`), Eventos (`?tipo=eventos`) and the categories (`?c=…`). Without a choice it shows rows that swipe sideways (Hoy, Terminan pronto, Eventos, then each category), each with "see all". A row with fewer than 4 listings (`MIN_FULL_LISTINGS`, `lib/explore-rows.ts`) isn't shown alone: those listings go together in one grid, "Más anuncios" (or "Todos los anuncios" when no row is full), without "see all". A choice with fewer than 4 listings shows its own first, then "Más anuncios" with up to 12 other live listings. The home ring's "Ver todo en …" link only shows when its row doesn't already show every listing. No title above the ring and no listing counts on the page: the choice is named once, under the ring's middle. On a choice a round "←" button with "Todo" sits left of the ring (after the "↑" home arrow) and goes back to everything; the ring itself then holds only the choices. An event shows "Jueves 29/11 · 19:00" or "Hoy · 19:00" and leaves the shop by itself the day after; the feed's "Hoy" chip (`/explore?hoy`) shows today's events.
 
 Contact: "Contactar" on a listing with a seller number opens a pop-up (the `BRAND_CONTACT_IMAGE` mascot waving, else the loader picture or a 👋) with an optional nickname, remembered on that phone. Two icon buttons: the phone calls the seller (`tel:`), WhatsApp opens `wa.me` with the message written in the listing's language (the seller's, from their number's country code; else the shop's), worded for the listing type (`CONTACT_MESSAGE_*`), with the title and link. An empty nickname writes it without a name. The number is only fetched when the pop-up opens.
-
-Every new listing emails the printable list of live products (photo, price, WhatsApp, link and a QR code that opens the listing) to `LISTINGS_EMAIL`.
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).
 

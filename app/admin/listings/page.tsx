@@ -12,8 +12,6 @@ import { deleteAdminListing } from '@/lib/marketplace/admin.actions';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
-import { getMarketplaceSettings } from '@/lib/marketplace/settings';
-import ListingsEmailCard from '@/components/marketplace/listings-email-card';
 import { adminTexts, fillText, statusText } from '@/lib/marketplace/admin-texts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { coverPicture } from '@/lib/video';
@@ -43,7 +41,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
   const status = STATUSES.find((value) => value === estado);
   const type = listingTypeOf(tipo);
 
-  const [listings, counts, settings, unlisted] = await Promise.all([
+  const [listings, counts, unlisted] = await Promise.all([
     prisma.submission.findMany({
       where: { ...(status ? { status } : { status: { not: 'COLLECTING' } }), ...(type && { type }) },
       orderBy: { updatedAt: 'desc' },
@@ -51,7 +49,6 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       include: { seller: { select: { waId: true, name: true } } },
     }),
     prisma.submission.groupBy({ by: ['status'], where: type && { type }, _count: true }),
-    getMarketplaceSettings(),
     // Products made without a listing (e.g. services from the first services form) are online too and need managing here.
     prisma.product.findMany({
       where: { submission: null, ...(type && { type }) },
@@ -112,8 +109,6 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           </Button>
         </div>
       </header>
-
-      <ListingsEmailCard locale={locale} initialEmail={settings.listingsEmail} initialSendOnPublish={settings.sendOnPublish} />
 
       <nav aria-label={texts.typeFilter} className='flex flex-wrap gap-2'>
         {[undefined, ...LISTING_TYPES].map((value) => (

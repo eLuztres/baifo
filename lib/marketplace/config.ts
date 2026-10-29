@@ -40,9 +40,6 @@ export const LISTING_PAYMENT_METHODS = (env('LISTING_PAYMENT_METHODS') ?? 'bizum
   .filter((method): method is PaymentMethod => ['stripe', 'paypal', 'bizum', 'cash'].includes(method))
   .filter((method) => method !== 'bizum' || Boolean(BIZUM_PHONE));
 
-/** Gets the printable list of all live products after each new listing. */
-export const LISTINGS_EMAIL = env('LISTINGS_EMAIL');
-
 /** A failed AI step is retried this often (by the cron) before the admin is told. */
 export const MAX_PROCESSING_ATTEMPTS = 3;
 
