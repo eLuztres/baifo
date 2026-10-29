@@ -20,6 +20,9 @@ const VIDEO_FILTERS = [
 // Rumble and hiss out, the voice at a common loudness.
 const AUDIO_FILTERS = 'highpass=f=80,afftdn,loudnorm=I=-16:TP=-1.5:LRA=11';
 
+// A long clip could outlast the 300 s function and leave the listing stuck: past this the original video stays.
+export const VIDEO_CLEANUP_TIMEOUT_MS = 150_000;
+
 /**
  * No AI can edit a video any more (OpenAI's Videos API shut down on 2026-09-24), so a phone video gets a
  * clean-up instead, without changing anyone in it. The result is an H.264 MP4 that every browser plays.
@@ -41,7 +44,7 @@ export async function cleanUpVideo(video: Buffer): Promise<Buffer> {
       '-c:a', 'aac', '-b:a', '128k', '-ar', '48000',
       '-movflags', '+faststart',
       output,
-    ]);
+    ], { timeout: VIDEO_CLEANUP_TIMEOUT_MS, killSignal: 'SIGKILL' });
     return await readFile(output);
   } finally {
     await rm(folder, { recursive: true, force: true });
