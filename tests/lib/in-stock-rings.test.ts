@@ -28,6 +28,7 @@ const row = (id: string) => ({
   serviceType: null,
   startsAt: null,
   placeId: null,
+  expiresAt: null,
   categories: [{ id: 'c1' }],
   submission: null,
 });
@@ -56,6 +57,18 @@ describe('getInStockRings', () => {
     expect(args.take).toBeUndefined();
     expect(args.where).toHaveProperty('images');
     expect(rings[0]).toMatchObject({ slug: 'a', image: '/a.jpg', categoryIds: ['c1'], isReserved: false });
+  });
+
+  it("ends a seller's listing with its submission and an admin's with its own end", async () => {
+    const submissionEnd = new Date('2026-11-01T00:00:00Z');
+    const productEnd = new Date('2026-12-01T00:00:00Z');
+    findMany.mockResolvedValue([
+      { ...row('seller'), expiresAt: productEnd, submission: { rawImages: [], expiresAt: submissionEnd } },
+      { ...row('admin'), expiresAt: productEnd },
+      row('forever'),
+    ]);
+    const rings = await getInStockRings();
+    expect(rings.map((ring) => ring.endsAt)).toEqual([submissionEnd, productEnd, null]);
   });
 
   it('narrows the rings in stock without loosening them', async () => {

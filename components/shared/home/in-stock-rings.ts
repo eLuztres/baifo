@@ -38,6 +38,8 @@ export interface CollectionRing {
   categoryIds: string[];
   /** When it went into the shop, for "2 days ago" and the newest first. */
   createdAt: Date;
+  /** When it goes offline (its paid time ends), if it does: for the feed's "Ending soon". */
+  endsAt: Date | null;
   /** How a second-hand item is (PRODUCT_CONDITIONS), if known. */
   condition: string | null;
   /** Server only: a name of 1–3 words, for localizeProduct (null: none yet). */
@@ -77,13 +79,14 @@ const RING_SELECT = {
   startsAt: true,
   placeId: true,
   categories: { select: { id: true } },
-  submission: { select: { rawImages: true } },
+  expiresAt: true,
+  submission: { select: { rawImages: true, expiresAt: true } },
 } satisfies Prisma.ProductSelect;
 
 // From the extended client, which hands prices over as strings.
 type RingRow = Prisma.Result<typeof prisma.product, { select: typeof RING_SELECT }, 'findFirstOrThrow'>;
 
-const toCollectionRing = ({ images, reservedUntil, categories, price, priceMax, submission, ...product }: RingRow): CollectionRing => {
+const toCollectionRing = ({ images, reservedUntil, categories, price, priceMax, submission, expiresAt, ...product }: RingRow): CollectionRing => {
   const { type } = product;
   return {
     ...product,
@@ -97,6 +100,8 @@ const toCollectionRing = ({ images, reservedUntil, categories, price, priceMax, 
     images,
     isReserved: isReservationActive({ reservedUntil }),
     categoryIds: categories.map((category) => category.id),
+    // A seller's listing ends with its submission; an admin's service has its own end.
+    endsAt: submission?.expiresAt ?? expiresAt,
   };
 };
 

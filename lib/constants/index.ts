@@ -111,6 +111,8 @@ export const newProductPathFor = (category: { id: string }) =>
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 // How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
+// Listings that go offline within this many days show in the feed's "Ending soon"; set per shop in .env.
+export const ENDING_SOON_DAYS = envNumber('ENDING_SOON_DAYS', 3);
 // "Contact seller" reveals per visitor IP within the window, so seller numbers can't be collected in bulk.
 export const CONTACT_LIMIT = {
   action: 'contact',
