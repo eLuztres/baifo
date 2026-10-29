@@ -2,7 +2,7 @@
 
 ## What changed
 
-- **Events never show "Nuevo".** On `/explore` an event card drops the "Nuevo" badge and the "hace 2 días" age (the town name stays). Its first badge, top left, is its day and time in the visitor's language, with a short weekday so it fits a 320px tile: "Vie 30/10 · 18:00", or "Hoy · 18:00" on the day. The "new" counts and filters still include events, as before.
+- **Events never show "Nuevo".** On `/explore` an event card drops the "Nuevo" badge and the "hace 2 días" age (the town name stays). Its first badge, top left, is its day and time in the visitor's language, with a short weekday so it fits a 320px tile, on one line: "Vie 30/10 · 18:00", or "Hoy · 18:00" on the day. The "new" counts and filters still include events, as before.
 - **Event detail page:** the item-condition pill ("Nuevo", "Buen estado", …) only shows on goods. The AI may read a condition from an event's notes, and an event isn't new or old. The same applies to services.
 - **AI pictures:** the "Imagen ilustrativa" badge is gone from cards and the detail page. A small round ✨ mark sits bottom right instead: on cards beside the price pill (same pill style), and on the detail photos in the corner, with the shop stamp moved just left of it. Hover shows "Imagen ilustrativa" and screen readers read it, in all 5 languages (`PRODUCT_ILLUSTRATIVE`).
 - New component `components/shared/product/ai-picture-mark.tsx`. `formatEventDate` takes an optional weekday style (`'short'`).

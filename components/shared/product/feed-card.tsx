@@ -66,7 +66,7 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceMax
               {newLabel}
             </span>
           )}
-          {badge && <span className={cn('rounded-full bg-primary font-medium text-primary-foreground shadow-sm', badgeSize)}>{badge}</span>}
+          {badge && <span className={cn('whitespace-nowrap rounded-full bg-primary font-medium text-primary-foreground shadow-sm', badgeSize)}>{badge}</span>}
           {isReserved && <span className={cn('rounded-full bg-background/90 font-medium shadow-sm', badgeSize)}>{reservedLabel}</span>}
         </div>
         {/* Beside a badge, a 320px phone's tile has no room for the age: left out there rather than cut. */}
