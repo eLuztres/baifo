@@ -10,16 +10,15 @@
 
 ## Scroll flow (Joe's decision of 29 Oct)
 
-- **Down from the goat → the newspaper.** On the home page, the wheel, Page Down/Space/Arrow Down and an upward swipe on the opening part open `/explore` instead of turning to the category ring (`OnePageScroller` `belowHomeHref`, set when the home uses the scene slideshow).
-- **The ring only opens with "See the categories".** Scrolling up from it lands on the goat, as before. How it works and Contact stay below the ring and in the menu.
+- **Down from the goat → the category ring** (Joe's correction, later on 29 Oct). The wheel, Page Down/Space/Arrow Down and swipes turn part by part again, as before this card. Scrolling up at the top of the ring lands on the goat. The newspaper (`/explore`) opens from the ring ("Everything" / a category) and the menu. `OnePageScroller` still accepts `belowHomeHref`, but the home no longer passes it.
 - **Up at the top of the newspaper → home.** `PullUpHome` (`components/shared/pull-up-home.tsx`) sits at the top of `/explore`: a small round ↑ arrow (label `PULL_UP_HOME` as its accessible name and tooltip) that fills from the bottom as you pull and is a plain link too. Joe found a pill on its own row too big on phones, so the arrow sits in an existing line: since #297, at the left of the category ring's line (see below). Only a pull that *starts* at the top counts: a wheel gesture that began below the top (reading upward) never triggers it. Touch: pull down 110 px at the top (replaces the bounce and pull-to-refresh). Keys: Page Up or Home at the top. A short pull lets go after 0.5 s.
 - Listing pages keep their normal back.
 
 ## How to check
 
 1. Open `/` at desktop, 375 and 320 px, light and dark. The first picture is the goat reading in front of Lobos. It sits on the sand above the advertise link and doesn't cover the buttons.
-2. Wait 7 s: the next picture fades in. Scroll or swipe down: `/explore` opens. At its top, pull up once more: back on the goat, which looks up once.
-3. Tap "See the categories", then scroll or swipe up: back on the goat. Reading upward to the top of `/explore` must not leave the page.
+2. Wait 7 s: the next picture fades in. Scroll or swipe down (or Page Down): the category ring. Scroll or swipe up (or Page Up): back on the goat, which looks up once.
+3. From the ring, open "Everything" or a category: `/explore`. At its top, pull up once more: back on the goat. Reading upward to the top of `/explore` must not leave the page.
 4. Turn on "reduce motion": the Lobos picture stays and the goat doesn't move.
 5. With `BRAND_SWIPE_TO_NEXT=true` a third button appears and opens the newest listing.
 
@@ -39,3 +38,8 @@
 
 - No bugs found. The arrow sits level with the ring's circles (4 rem on phones, 5 rem from `sm`). Lint is clean and all 616 tests pass.
 - A pull that *starts on the ring* doesn't count, because the ring scrolls sideways (`isInsideSideMover`). Pull from below the ring, or tap the arrow.
+
+## Fifth review (Joe's correction: down → ring)
+
+- The card's latest correction wasn't built: main still opened `/explore` when scrolling down from the goat. Fixed: the home no longer passes `belowHomeHref`, so down from the goat turns to the ring and up from the ring turns back. The existing test "pages without `belowHomeHref` keep part-by-part turning" covers it.
+- Checked with Playwright on desktop (wheel, Page Down/Up), 375 and 320 px: home ↓ ring ↑ home, nothing cut off.
