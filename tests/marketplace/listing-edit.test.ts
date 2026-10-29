@@ -150,7 +150,7 @@ describe('describeAdminListing', () => {
   it('starts the text right away, while the AI still makes the pictures', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612345678' })).success).toBe(true);
 
     expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true });
     expect(processSubmission).toHaveBeenCalledWith(ID);
@@ -162,7 +162,7 @@ describe('describeAdminListing', () => {
     db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/bike.jpg'], images: [], lastError: 'overloaded' });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612345678' })).success).toBe(true);
 
     expect(db.submission.updateMany.mock.calls[0][0].data.lastError).toBeNull();
     expect(processSubmission).toHaveBeenCalledWith(ID);
@@ -184,19 +184,31 @@ describe('describeAdminListing', () => {
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 
-  it('lets a service go through the Corral: no number, the messages reach the shop', async () => {
+  it('needs the person\'s WhatsApp: buyers write to them directly, not through the Corral', async () => {
     db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', rawImages: ['https://utfs.io/f/garden.jpg'] });
+
+    expect((await describeAdminListing(ID, { notes: 'Jardinero en Corralejo' })).success).toBe(false);
+    expect(db.submission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a number without digits, and never falls back to the house seller', async () => {
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: ' - ' })).success).toBe(false);
+    expect(db.seller.upsert).not.toHaveBeenCalled();
+    expect(db.submission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('gives the listing to the person whose WhatsApp was entered', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Jardinero en Corralejo' })).success).toBe(true);
-    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: 'baifo' });
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612 345 678' })).success).toBe(true);
+    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34612345678' });
   });
 
   it('keeps the admin\'s title for "only fix mistakes", but not for the AI\'s text', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'corrected', originalTitle: 'Mi bici' });
-    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'ai', originalTitle: 'Mi bici' });
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'corrected', originalTitle: 'Mi bici', sellerPhone: '612345678' });
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'ai', originalTitle: 'Mi bici', sellerPhone: '612345678' });
 
     expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ textMode: 'corrected', originalTitle: 'Mi bici' });
     expect(db.submission.updateMany.mock.calls[1][0].data).toMatchObject({ textMode: 'ai', originalTitle: null });
@@ -205,7 +217,7 @@ describe('describeAdminListing', () => {
   it('starts the text only once, when the description was already sent', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: 'Bici', sellerPhone: '612345678' })).success).toBe(false);
     expect(processSubmission).not.toHaveBeenCalled();
   });
 });
@@ -369,8 +381,8 @@ describe('text versions', () => {
   });
 
   it('refuses "my text as is" and "only fix mistakes" without a text', async () => {
-    expect((await describeAdminListing(ID, { notes: '  ', textMode: 'original' })).success).toBe(false);
-    expect((await describeAdminListing(ID, { notes: '  ', textMode: 'corrected' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: '  ', textMode: 'original', sellerPhone: '612345678' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: '  ', textMode: 'corrected', sellerPhone: '612345678' })).success).toBe(false);
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
 });

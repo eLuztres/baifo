@@ -24,7 +24,7 @@ import { getSession } from '@/lib/auth-guard';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
-import { getPlaceWithCorral, getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
@@ -94,13 +94,12 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const priceLabel = product.type === 'WANTED' ? t('WANTED_BUDGET') : isService ? t('PRICE_FROM') : undefined;
   const condition = conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
-  // No seller number: buyers write on WhatsApp to the place's Corral, else to the shop, with the listing's name and link ready.
-  const corral = place && !hasSellerContact ? (await getPlaceWithCorral(place.slug, locale))?.corral : undefined;
-  const corralNumber = corral?.whatsapp?.replace(/\D/g, '');
-  const corralChatUrl =
-    !hasSellerContact && (corralNumber || BRAND.contact.whatsappUrl)
-      ? `${corralNumber ? `https://wa.me/${corralNumber}` : BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
-          t('CONTACT_CORRAL_MESSAGE', { to: corral?.name ?? APP_NAME, name, url: `${SERVER_URL}/product/${slug}` })
+  // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.
+  // Writing to the place's Corral instead is parked for now (#131).
+  const shopChatUrl =
+    !hasSellerContact && BRAND.contact.whatsappUrl
+      ? `${BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
+          t('CONTACT_CORRAL_MESSAGE', { to: APP_NAME, name, url: `${SERVER_URL}/product/${slug}` })
         )}`
       : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
@@ -209,9 +208,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 <div className='flex shrink-0 items-center gap-2'>
                   {hasSellerContact ? (
                     <ContactSellerButton productId={product.id} productName={name} className='flex-1 shrink-0' />
-                  ) : corralChatUrl ? (
+                  ) : shopChatUrl ? (
                     <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
-                      <a href={corralChatUrl} target='_blank' rel='noopener noreferrer'>
+                      <a href={shopChatUrl} target='_blank' rel='noopener noreferrer'>
                         <MessageCircle /> {t('CONTACT_SELLER')}
                       </a>
                     </Button>

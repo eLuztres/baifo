@@ -304,17 +304,6 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
         </RadioGroup>
       </fieldset>
 
-      <fieldset className='space-y-3'>
-        <legend className='mb-3 font-display text-xl'>{texts.extrasTitle}</legend>
-        <Label className='flex items-start gap-3 font-normal leading-5 text-muted-foreground'>
-          <Checkbox checked={false} disabled className='mt-0.5' />
-          <span>
-            {texts.extraContact}
-            <ComingSoon texts={texts} />
-          </span>
-        </Label>
-      </fieldset>
-
       <div className='space-y-3 rounded-2xl bg-muted p-4'>
         <p className='font-medium'>{texts.consentTitle}</p>
         <p className='text-sm leading-6 text-muted-foreground'>

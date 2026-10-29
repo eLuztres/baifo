@@ -61,7 +61,7 @@ export async function createAdminListing(input: NewListingInput) {
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
-// The person's WhatsApp as digits; empty: none, buyers write through the Corral.
+// The person's WhatsApp as digits; empty: none (older listings, and clearing it in the editor).
 const sellerPhoneSchema = z
   .string()
   .transform((value) => value.replace(/\D/g, ''))
@@ -87,12 +87,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
   const { notes, sellerPhone, textMode, originalTitle } = parsed.data;
+  // Buyers write to the person directly: "through the Corral" is parked for now (#131).
+  if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
   if (textMode !== 'ai' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true } });
   // A video without a still counts as no photo: the AI makes the picture from the description.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
-  // Without the person's number, buyers write through the Corral, services included. Their OK comes later, from them.
+  // Their OK to show the number comes later, from them.
   const waId = toWaId(sellerPhone);
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Also while the AI still makes the pictures: the text is written at the same time.

@@ -24,7 +24,7 @@ Perfecto. Mándame:
 
 Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 
-¿Publicamos tu número para que te escriban directamente, o prefieres que el contacto vaya por El Corral (extra)?
+Tu número de WhatsApp saldrá junto al anuncio para que te escriban directamente.
 
 ## 2. Busco (`/busco`)
 
@@ -37,7 +37,7 @@ Perfecto. Cuéntame:
 
 Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 
-¿Publicamos tu número para que te escriban directamente, o prefieres que el contacto vaya por El Corral (extra)?
+Tu número de WhatsApp saldrá junto al anuncio para que te escriban directamente.
 
 ## 3. Servicio o clase (`/servicio`)
 
@@ -50,7 +50,7 @@ Perfecto. Cuéntame:
 
 Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 
-¿Publicamos tu número para que te escriban directamente, o prefieres que el contacto vaya por El Corral (extra)?
+Tu número de WhatsApp saldrá junto al anuncio para que te escriban directamente.
 
 ## 4. Evento o taller (`/evento`)
 
@@ -64,7 +64,7 @@ Perfecto. Mándame:
 
 Con eso te preparo el anuncio y te lo enseño antes de publicarlo.
 
-¿Publicamos tu número para que te escriban directamente, o prefieres que el contacto vaya por El Corral (extra)?
+Tu número de WhatsApp saldrá junto al anuncio para que te escriban directamente.
 
 ## 5. Permiso por WhatsApp (`/permiso`)
 

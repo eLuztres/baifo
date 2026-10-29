@@ -89,7 +89,7 @@ interface EditorFields {
   /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
   startsAt: string;
   address: string;
-  /** The person's WhatsApp; empty: buyers write through the Corral. */
+  /** The person's WhatsApp; empty: buyers write to the shop's WhatsApp. */
   sellerPhone: string;
 }
 

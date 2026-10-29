@@ -3,18 +3,16 @@
 import { useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Languages, Loader2, MessageCircle, RotateCw, Sparkles, Store } from 'lucide-react';
+import { Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
-import { cn } from '@/lib/utils';
 import { pictureOf } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
 import TextModeSwitch from './text-mode-switch';
@@ -32,12 +30,7 @@ interface DescriptionStepProps {
 export default function DescriptionStep({ listing, languages, texts, onSent }: DescriptionStepProps) {
   const isService = listing.type === 'SERVICE';
   const isWanted = listing.type === 'WANTED';
-  const { toast } = useToast();
   const [notes, setNotes] = useState(listing.rawText);
-  // Most listings are the person's own, so their WhatsApp comes first; the Corral is the paid extra.
-  const [isForSeller, setIsForSeller] = useState(true);
-  // Only a click on "the person's WhatsApp" jumps to the number, not the page opening with it chosen.
-  const [hasPickedPerson, setHasPickedPerson] = useState(false);
   const [sellerPhone, setSellerPhone] = useState('');
   // Chosen before the AI runs: improve the text, or keep the admin's words (maybe with their mistakes fixed) and translate them.
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
@@ -71,11 +64,11 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
     startTransition(async () => {
       setError('');
       // The person's own OK to show their number comes later, on their page or by WhatsApp.
-      if (isForSeller && !sellerPhone.trim()) return setError(texts.contactNeedsNumber);
-      const phone = isForSeller ? sellerPhone.trim() : '';
+      // Buyers always write to the person's own WhatsApp ("through the Corral" is parked, #131).
+      if (!sellerPhone.trim()) return setError(texts.contactNeedsNumber);
       const result = await describeAdminListing(listing.id, {
         notes,
-        sellerPhone: phone || undefined,
+        sellerPhone: sellerPhone.trim(),
         textMode,
         originalTitle,
       });
@@ -154,48 +147,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
             </p>
           )}
         </div>
-        {/* How buyers reach it: the person's own WhatsApp, or the Corral's (the admin's) with no number on the page. */}
         {!isWriting && (
-          <div role='radiogroup' aria-label={texts.contactQuestion} className='space-y-2 pt-2'>
-            <p className='text-sm font-medium'>{texts.contactQuestion}</p>
-            {/* Side by side on phones too, like the text choice above, so it takes little room. */}
-            <div className='grid grid-cols-2 gap-2'>
-              {[
-                { isPerson: true, icon: MessageCircle, label: texts.contactPerson, hint: texts.contactPersonHint },
-                { isPerson: false, icon: Store, label: texts.contactCorral, hint: texts.contactCorralHint },
-              ].map(({ isPerson, icon: Icon, label, hint }) => (
-                <button
-                  key={label}
-                  type='button'
-                  role='radio'
-                  aria-checked={isForSeller === isPerson}
-                  onClick={() => {
-                    // The Corral handling the contact is paid for: remind the admin to check that first.
-                    if (!isPerson && isForSeller) toast({ description: texts.corralExtraCheck });
-                    setHasPickedPerson(isPerson);
-                    setIsForSeller(isPerson);
-                  }}
-                  className={cn(
-                    'flex flex-col items-start gap-1 rounded-2xl border-2 p-3 text-left transition',
-                    isForSeller === isPerson ? 'border-primary bg-primary/5' : 'border-border bg-background hover:border-primary/40'
-                  )}
-                >
-                  <span className='inline-flex items-center gap-1.5 text-sm font-medium'>
-                    <Icon className={cn('size-4 shrink-0', isForSeller === isPerson && 'text-primary')} aria-hidden /> {label}
-                  </span>
-                  <span className='text-xs text-muted-foreground'>{hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {isForSeller && !isWriting && (
           <div className='space-y-2 pt-1'>
             <Label htmlFor='seller'>{texts.servicePhoneLabel}</Label>
             <Input
               id='seller'
               type='tel'
-              autoFocus={hasPickedPerson}
               value={sellerPhone}
               onChange={(event) => setSellerPhone(event.target.value)}
               placeholder={texts.sellerPlaceholder}
