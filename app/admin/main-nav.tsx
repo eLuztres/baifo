@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { CREATING_PARAM } from '@/lib/constants';
 import React, { useEffect, useRef } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import type { TranslationKey } from '@/lib/i18n-core';
@@ -68,6 +69,9 @@ const linkClass = (variant: 'inline' | 'tabs', isActive: boolean) =>
 
 const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // A listing just made on the creation page is still being created on its own page.
+  const isCreating = pathname.includes(newProductHref) || searchParams.has(CREATING_PARAM);
   const { t } = useI18n();
   const navRef = useRef<HTMLElement>(null);
   // A row of tabs wider than the phone: the current page's tab slides into view.
@@ -82,7 +86,7 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
     >
       {links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly) && !(!isOffersEnabled && item.isOffersOnly)).map((item) => {
         const href = item.href === '/admin/studio' ? newProductHref : item.href;
-        const isActive = pathname.includes(href);
+        const isActive = href === newProductHref ? isCreating : pathname.includes(href);
         return (
           <Link
             key={item.href}
@@ -95,8 +99,8 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
         );
       })}
       {extraLinks.map((link) => {
-        // The shop's own creation page may sit under one of its links (e.g. /admin/listings/new).
-        const isActive = pathname.startsWith(link.href) && !pathname.startsWith(newProductHref);
+        // The shop's own creation flow may sit under one of its links (e.g. /admin/listings/new).
+        const isActive = pathname.startsWith(link.href) && !isCreating;
         return (
           <Link
             key={link.href}

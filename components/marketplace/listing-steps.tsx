@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { Check } from 'lucide-react';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
@@ -18,22 +17,21 @@ export default function ListingSteps({ current, texts, onSelect }: ListingStepsP
     <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-2 text-sm'>
       {steps.map((label, index) => (
         <li key={label} className='flex items-center gap-2'>
-          {index > 0 && <span className={cn('h-px w-6 sm:w-10', index <= current ? 'bg-primary' : 'bg-border')} aria-hidden />}
+          {index > 0 && <span className='h-px w-6 bg-border sm:w-10' aria-hidden />}
           <StepLink
             onClick={onSelect && index !== current ? () => onSelect(index) : undefined}
             aria-current={index === current ? 'step' : undefined}
-            className={cn('flex items-center gap-2', index > current && 'text-muted-foreground')}
+            className={cn('flex items-center gap-2', index !== current && 'text-muted-foreground')}
           >
             <span
               className={cn(
                 'flex size-7 shrink-0 items-center justify-center rounded-full border text-xs',
-                index < current && 'border-primary bg-primary text-primary-foreground',
-                index === current && 'border-primary font-medium text-primary'
+                index === current ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border'
               )}
             >
-              {index < current ? <Check className='size-3.5' /> : index + 1}
+              {index + 1}
             </span>
-            <span className={cn(index === current && 'font-medium')}>{label}</span>
+            <span className={cn(index === current && 'font-semibold')}>{label}</span>
           </StepLink>
         </li>
       ))}

@@ -103,6 +103,8 @@ export const NEW_PRODUCT_PATH =
 /** Where a new listing of a type starts in the admin. */
 export const newListingPath = (type: ListingType) =>
   type === 'PRODUCT' ? '/admin/listings/new' : `/admin/listings/new?tipo=${LISTING_TYPE_PARAMS[type]}`;
+/** On a listing's page while the admin is still creating it: the menu keeps "New listing" lit. */
+export const CREATING_PARAM = 'nuevo';
 /** Where "Add a product" in a category leads: the studio files it there; a listing shop starts a new listing. */
 export const newProductPathFor = (category: { id: string }) =>
   NEW_PRODUCT_PATH === '/admin/studio' ? `/admin/studio?category=${category.id}` : NEW_PRODUCT_PATH;
