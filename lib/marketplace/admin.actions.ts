@@ -475,11 +475,11 @@ export async function shareAdminListing(id: string) {
   return { success: true, message: '', url: `https://api.whatsapp.com/send?phone=${waId}&text=${encodeURIComponent(message)}` };
 }
 
-/** "Activar de nuevo": an expired listing comes back with its pictures and texts. */
+/** "Activar de nuevo": an offline listing comes back with its pictures and texts. */
 export async function enableAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const outcome = await enableListing(id);
-  if (!outcome) return { success: false, message: 'Este anuncio ya no está caducado' };
+  if (!outcome) return { success: false, message: 'Este anuncio ya está online' };
   return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el pago de nuevo' };
 }
 
@@ -498,10 +498,23 @@ export async function extendAdminListing(id: string) {
   return { success: true, message: `Online hasta el ${expiresAt.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' })}` };
 }
 
+/** An event the admin marks as sold ends as cancelled, as when the person calls it off on their page. */
 export async function markAdminListingSold(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  await takeDown(id, 'SOLD');
-  return { success: true, message: 'Marcado como vendido' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true, status: true } });
+  if (submission?.status !== 'LIVE') return { success: false, message: 'Este anuncio ya no está online' };
+  const isEvent = submission.type === 'EVENT';
+  await takeDown(id, isEvent ? 'CANCELLED' : 'SOLD');
+  return { success: true, message: isEvent ? 'Evento cancelado' : 'Marcado como vendido' };
+}
+
+/** "Ocultar": out of the shop for a while, with everything kept for "Mostrar de nuevo". */
+export async function hideAdminListing(id: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true } });
+  if (submission?.status !== 'LIVE') return { success: false, message: 'Este anuncio ya no está online' };
+  await takeDown(id, 'HIDDEN');
+  return { success: true, message: 'Anuncio oculto' };
 }
 
 /** Removes a listing for good: its product leaves the shop and the listing leaves Anuncios. */

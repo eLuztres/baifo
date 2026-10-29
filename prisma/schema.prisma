@@ -295,6 +295,8 @@ enum SubmissionStatus {
   // An event the person called off on their private page.
   CANCELLED
   REJECTED
+  // Taken out of the shop by the admin for a while; "Mostrar de nuevo" brings it back.
+  HIDDEN
 }
 
 // A private seller, known only by their WhatsApp number.

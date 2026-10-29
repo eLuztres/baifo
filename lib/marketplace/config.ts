@@ -1,3 +1,4 @@
+import type { SubmissionStatus } from '@prisma/client';
 import { SERVER_URL } from '@/lib/constants';
 import { formatNumber } from '@/lib/utils';
 
@@ -5,6 +6,9 @@ import { formatNumber } from '@/lib/utils';
 const env = (key: string) => process.env[key]?.trim() || undefined;
 
 export type ListingPlan = 'normal' | 'big';
+
+/** Offline listings the admin can put back: ended, sold, cancelled, rejected or hidden for a while. */
+export const RELISTABLE: SubmissionStatus[] = ['EXPIRED', 'SOLD', 'CANCELLED', 'REJECTED', 'HIDDEN'];
 
 /** Your own number (without +): it gets every listing to review and the "new product online" messages. */
 export const ADMIN_WHATSAPP_NUMBER = env('ADMIN_WHATSAPP_NUMBER')?.replace(/\D/g, '');

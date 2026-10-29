@@ -2,6 +2,7 @@ import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enableListing, publishByAdmin, publishPaidByAdmin, publishSubmission, renewPaidByAdmin } from '@/lib/marketplace/publish';
 import { expireListings } from '@/lib/marketplace/expiry';
+import { RELISTABLE } from '@/lib/marketplace/config';
 
 jest.mock('@/db/prisma', () => {
   const submission = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() };
@@ -198,7 +199,7 @@ describe('enableListing', () => {
     expect(await enableListing(SUBMISSION.id)).toBe('live');
 
     expect(db.submission.updateMany).toHaveBeenCalledWith({
-      where: { id: SUBMISSION.id, status: { in: ['EXPIRED'] } },
+      where: { id: SUBMISSION.id, status: { in: RELISTABLE } },
       data: expect.objectContaining({ status: 'LIVE', remindedAt: null, expiresAt: expect.any(Date) }),
     });
     expect(db.product.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: 'bici-de-paseo-abcdef', images: SUBMISSION.images }) });
@@ -209,11 +210,24 @@ describe('enableListing', () => {
 
     expect(await enableListing(SUBMISSION.id)).toBe('waiting');
 
-    expect(db.submission.updateMany).toHaveBeenCalledWith({ where: { id: SUBMISSION.id, status: 'EXPIRED' }, data: { status: 'AWAITING_PAYMENT', sentAt: null } });
+    expect(db.submission.updateMany).toHaveBeenCalledWith({ where: { id: SUBMISSION.id, status: { in: RELISTABLE } }, data: { status: 'AWAITING_PAYMENT', sentAt: null } });
     expect(db.product.create).not.toHaveBeenCalled();
   });
 
-  it('does nothing for a listing that is not expired', async () => {
+  it.each(['SOLD', 'CANCELLED', 'HIDDEN'])('puts a paid %s listing online again', async (status) => {
+    db.submission.findFirst.mockResolvedValue({ ...SUBMISSION, status, paidAt: new Date('2026-07-01T10:00:00Z') });
+
+    expect(await enableListing(SUBMISSION.id)).toBe('live');
+    expect(db.product.create).toHaveBeenCalled();
+  });
+
+  it('sends a rejected listing that was never paid to waiting for its payment', async () => {
+    db.submission.findFirst.mockResolvedValue({ ...SUBMISSION, status: 'REJECTED', paidAt: null });
+
+    expect(await enableListing(SUBMISSION.id)).toBe('waiting');
+  });
+
+  it('does nothing for a listing that is not offline', async () => {
     db.submission.findFirst.mockResolvedValue(null);
 
     expect(await enableListing(SUBMISSION.id)).toBeNull();

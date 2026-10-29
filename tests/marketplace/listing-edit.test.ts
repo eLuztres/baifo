@@ -8,6 +8,8 @@ import {
   describeAdminListing,
   fillAdminListingFields,
   extendAdminListing,
+  hideAdminListing,
+  markAdminListingSold,
   publishAdminListing,
   retryAdminListing,
   setAdminListingCategory,
@@ -17,7 +19,7 @@ import {
 import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from '@/lib/marketplace/ai';
 import { isAdmin } from '@/lib/auth-guard';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
-import { publishByAdmin } from '@/lib/marketplace/publish';
+import { publishByAdmin, takeDown } from '@/lib/marketplace/publish';
 import { takeVideoStill } from '@/lib/marketplace/video-cleanup';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
@@ -653,5 +655,39 @@ describe('text versions', () => {
     expect((await describeAdminListing(ID, { notes: '  ', textMode: 'original', sellerPhone: '612345678' })).success).toBe(false);
     expect((await describeAdminListing(ID, { notes: '  ', textMode: 'corrected', sellerPhone: '612345678' })).success).toBe(false);
     expect(db.submission.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('ending a live listing', () => {
+  it('cancels an event instead of marking it sold', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'EVENT', status: 'LIVE' });
+
+    expect(await markAdminListingSold(ID)).toEqual({ success: true, message: 'Evento cancelado' });
+    expect(takeDown).toHaveBeenCalledWith(ID, 'CANCELLED');
+  });
+
+  it('marks anything else sold', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', status: 'LIVE' });
+
+    await markAdminListingSold(ID);
+    expect(takeDown).toHaveBeenCalledWith(ID, 'SOLD');
+  });
+
+  it('does not end a listing that is no longer live', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', status: 'SOLD' });
+
+    expect(await markAdminListingSold(ID)).toEqual({ success: false, message: 'Este anuncio ya no está online' });
+    expect(takeDown).not.toHaveBeenCalled();
+  });
+
+  it('hides only a live listing', async () => {
+    db.submission.findUnique.mockResolvedValue({ status: 'LIVE' });
+    expect((await hideAdminListing(ID)).success).toBe(true);
+    expect(takeDown).toHaveBeenCalledWith(ID, 'HIDDEN');
+
+    jest.mocked(takeDown).mockClear();
+    db.submission.findUnique.mockResolvedValue({ status: 'SOLD' });
+    expect((await hideAdminListing(ID)).success).toBe(false);
+    expect(takeDown).not.toHaveBeenCalled();
   });
 });

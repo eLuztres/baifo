@@ -5,7 +5,7 @@ import { getShopLocale } from '@/lib/i18n-server';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
-import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, type ListingPlan } from './config';
+import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, RELISTABLE, type ListingPlan } from './config';
 import { categoryName, categoryRefs, FALLBACK_CATEGORY_SLUG, findCategory, getListingCategories, toProductTranslations } from './catalog';
 import { sendListingsEmail } from './listings-email';
 import { botText, localeOf } from './messages';
@@ -168,18 +168,21 @@ export async function publishByAdmin(submissionId: string, plan: ListingPlan) {
 }
 
 /**
- * An expired listing comes back from what it kept: online for a new period if it was live before, waiting for its
- * payment again if it never was. Null when it isn't expired (any more).
+ * An offline listing comes back from what it kept: online for a new period if it was live before, waiting for its
+ * payment again if it never was. Null when it is no longer offline.
  */
 export async function enableListing(submissionId: string) {
-  const submission = await prisma.submission.findFirst({ where: { id: submissionId, status: 'EXPIRED' }, include: { seller: true } });
+  const submission = await prisma.submission.findFirst({ where: { id: submissionId, status: { in: RELISTABLE } }, include: { seller: true } });
   if (!submission) return null;
   if (!submission.paidAt) {
     // No sentAt: the 48 hours start again when the admin sends the link.
-    const { count } = await prisma.submission.updateMany({ where: { id: submissionId, status: 'EXPIRED' }, data: { status: 'AWAITING_PAYMENT', sentAt: null } });
+    const { count } = await prisma.submission.updateMany({
+      where: { id: submissionId, status: { in: RELISTABLE } },
+      data: { status: 'AWAITING_PAYMENT', sentAt: null },
+    });
     return count > 0 ? ('waiting' as const) : null;
   }
-  return (await goLive(submission, ['EXPIRED'], 'Admin')) ? ('live' as const) : null;
+  return (await goLive(submission, RELISTABLE, 'Admin')) ? ('live' as const) : null;
 }
 
 export type RenewalOutcome = 'renewed' | 'not-renewable';
@@ -225,8 +228,8 @@ export async function renewPaidByAdmin(submissionId: string, fee: FeeRecord & { 
   return 'renewed';
 }
 
-/** A live listing leaves the shop (sold, cancelled or expired); the submission keeps the record. */
-export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED') {
+/** A live listing leaves the shop (sold, cancelled, expired or hidden); the submission keeps the record. */
+export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED' | 'HIDDEN') {
   const submission = await prisma.submission.update({ where: { id: submissionId }, data: { status } });
   // Showcase mode shows every product, sold out or not, so the product itself goes.
   if (submission.productId) await prisma.product.delete({ where: { id: submission.productId } }).catch(() => {});

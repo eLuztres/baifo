@@ -25,6 +25,7 @@ const LOOKS: Partial<Record<AdminListing['status'], StatusLook>> = {
   CANCELLED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   EXPIRED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   REJECTED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
+  HIDDEN: { icon: EyeOff, hint: 'stateHidden', tone: 'border-border bg-muted text-muted-foreground' },
 };
 // Everything else (to review, still collecting) is a draft only the admin sees.
 const DRAFT: StatusLook = { icon: EyeOff, hint: 'stateDraft', tone: 'border-border bg-card text-muted-foreground' };

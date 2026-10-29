@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, EyeOff, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
@@ -34,6 +34,7 @@ import {
   enableAdminListing,
   extendAdminListing,
   fillAdminListingFields,
+  hideAdminListing,
   markAdminListingSold,
   publishAdminListing,
   shareAdminListing,
@@ -46,6 +47,7 @@ import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
 import { movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
+import { RELISTABLE } from '@/lib/marketplace/config';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
@@ -181,6 +183,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
   const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
   const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
+  const relistLabel = listing.status === 'EXPIRED' ? texts.enableAgain : listing.status === 'HIDDEN' ? texts.showAgain : texts.relist;
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
@@ -378,10 +381,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
   return (
     <div className='mx-auto w-full max-w-xl space-y-3 sm:space-y-4'>
       <ListingStatus status={listing.status} type={listing.type} saveState={saveState} texts={texts} />
-      {listing.status === 'EXPIRED' && (
+      {RELISTABLE.includes(listing.status) && (
         <div className='space-y-1'>
           <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
-            {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {texts.enableAgain}
+            {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {relistLabel}
           </Button>
           <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
         </div>
@@ -400,6 +403,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
               <Link href={newListingPath(listing.type)}>
                 <Plus /> {texts.newAnother}
               </Link>
+            </Button>
+            <Button variant='ghost' className='rounded-full' disabled={isPending} onClick={() => run(() => hideAdminListing(listing.id))}>
+              <EyeOff /> {texts.hide}
             </Button>
             {/* Selling takes the listing out of the shop at once, so it asks first. */}
             <AlertDialog>
