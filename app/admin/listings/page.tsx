@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 // The order of the filter tabs: what needs the admin first.
-const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYMENT', 'LIVE', 'COLLECTING', 'SOLD', 'CANCELLED', 'EXPIRED', 'HIDDEN', 'REJECTED'];
+const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYMENT', 'LIVE', 'COLLECTING', 'SOLD', 'CANCELLED', 'FINISHED', 'EXPIRED', 'HIDDEN', 'REJECTED'];
 
 
 interface ListingsPageProps {

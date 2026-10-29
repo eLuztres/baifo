@@ -90,9 +90,9 @@ export async function handleSellerMessage(message: InboundMessage): Promise<Sell
     await sendText(message.from, botText(locale, count > 0 ? 'cancelled' : 'nothingToCancel'));
     return {};
   }
-  if (command === 'sold') {
+  if (command === 'sold' || command === 'found') {
     const isSold = await markSold(seller.id);
-    await sendText(message.from, botText(locale, isSold ? 'sold' : 'noLiveListing'));
+    await sendText(message.from, botText(locale, isSold ? command : 'noLiveListing'));
     return {};
   }
   if (command === 'greeting') {

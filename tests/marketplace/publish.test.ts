@@ -148,12 +148,13 @@ describe('expireListings', () => {
   it('takes ended listings down and reminds those ending within a week once', async () => {
     const now = new Date('2026-10-23T10:00:00Z');
     db.submission.findMany
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ ...SUBMISSION, id: 'old', status: 'LIVE' }])
       .mockResolvedValueOnce([{ ...SUBMISSION, id: 'soon', status: 'LIVE', expiresAt: new Date('2026-10-27T10:00:00Z') }]);
     db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
     db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    expect(await expireListings(now)).toEqual({ expired: 1, unpaid: 0, reminded: 1 });
+    expect(await expireListings(now)).toEqual({ finished: 0, expired: 1, unpaid: 0, reminded: 1 });
 
     expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'old' }, data: { status: 'EXPIRED' } });
     expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'product-old' } });
@@ -170,9 +171,34 @@ describe('expireListings', () => {
     db.product.deleteMany.mockResolvedValueOnce({ count: 2 });
     db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    expect(await expireListings(now)).toEqual({ expired: 2, unpaid: 0, reminded: 0 });
+    expect(await expireListings(now)).toEqual({ finished: 0, expired: 2, unpaid: 0, reminded: 0 });
 
     expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { type: 'SERVICE', submission: null, expiresAt: { lte: now } } });
+  });
+});
+
+describe('past events', () => {
+  it('finish the day after their date, without a message, while today\'s event stays online', async () => {
+    const now = new Date('2026-10-23T10:00:00Z');
+    db.submission.findMany
+      .mockResolvedValueOnce([
+        { id: 'yesterday', startsAt: new Date('2026-10-22T20:00:00Z') },
+        { id: 'this-morning', startsAt: new Date('2026-10-23T08:00:00Z') },
+      ])
+      .mockResolvedValue([]);
+    db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
+    db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    expect(await expireListings(now)).toEqual({ finished: 1, expired: 0, unpaid: 0, reminded: 0 });
+
+    expect(db.submission.findMany).toHaveBeenNthCalledWith(1, {
+      where: { status: 'LIVE', type: 'EVENT', startsAt: { lt: now } },
+      select: { id: true, startsAt: true },
+    });
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'yesterday' }, data: { status: 'FINISHED' } });
+    expect(db.submission.update).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'this-morning' } }));
+    expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'product-yesterday' } });
+    expect(sendText).not.toHaveBeenCalled();
   });
 });
 
@@ -182,7 +208,7 @@ describe('unpaid listings', () => {
     db.submission.findMany.mockResolvedValue([]);
     db.submission.updateMany.mockResolvedValueOnce({ count: 3 });
 
-    expect(await expireListings(now)).toEqual({ expired: 0, unpaid: 3, reminded: 0 });
+    expect(await expireListings(now)).toEqual({ finished: 0, expired: 0, unpaid: 3, reminded: 0 });
 
     expect(db.submission.updateMany).toHaveBeenCalledWith({
       where: { status: 'AWAITING_PAYMENT', sentAt: { lte: new Date('2026-10-21T10:00:00Z') } },

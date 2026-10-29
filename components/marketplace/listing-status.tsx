@@ -23,6 +23,7 @@ const LOOKS: Partial<Record<AdminListing['status'], StatusLook>> = {
   AWAITING_PAYMENT: { icon: Clock, hint: 'stateAwaiting', tone: 'border-border bg-card text-muted-foreground' },
   SOLD: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   CANCELLED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
+  FINISHED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   EXPIRED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   REJECTED: { icon: Archive, hint: 'stateGone', tone: 'border-border bg-muted text-muted-foreground' },
   HIDDEN: { icon: EyeOff, hint: 'stateHidden', tone: 'border-border bg-muted text-muted-foreground' },

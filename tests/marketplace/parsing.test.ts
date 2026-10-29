@@ -30,6 +30,8 @@ describe('commands and language', () => {
     expect(commandOf('Ayuda')).toBe('help');
     expect(commandOf('Löschen')).toBe('cancel');
     expect(commandOf('Vendu !')).toBe('sold');
+    expect(commandOf('¡Encontrado!')).toBe('found');
+    expect(commandOf('Gefunden')).toBe('found');
     expect(commandOf('vendo una mesa')).toBeUndefined();
     expect(commandOf('Hola')).toBe('greeting');
   });

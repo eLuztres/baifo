@@ -228,8 +228,8 @@ export async function renewPaidByAdmin(submissionId: string, fee: FeeRecord & { 
   return 'renewed';
 }
 
-/** A live listing leaves the shop (sold, cancelled, expired or hidden); the submission keeps the record. */
-export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED' | 'HIDDEN') {
+/** A live listing leaves the shop (sold, cancelled, expired, finished or hidden); the submission keeps the record. */
+export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED' | 'FINISHED' | 'HIDDEN') {
   const submission = await prisma.submission.update({ where: { id: submissionId }, data: { status } });
   // Showcase mode shows every product, sold out or not, so the product itself goes.
   if (submission.productId) await prisma.product.delete({ where: { id: submission.productId } }).catch(() => {});

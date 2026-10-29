@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/db/prisma';
+import { isEventOver } from '@/lib/event-date';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { publishUrl } from './config';
 import { botText, localeOf } from './messages';
@@ -15,6 +16,14 @@ const dateOf = (date: Date) => date.toLocaleDateString('es-ES', { timeZone: 'Atl
 /** Daily: listings past their end leave the shop, those ending within a week get a reminder once, and listings never
     paid expire. An expired listing keeps its pictures and texts, so the admin can enable it again (enableListing). */
 export async function expireListings(now = new Date()) {
+  // First, so a past event finishes instead of expiring: nothing to renew, nothing to tell.
+  const pastEvents = await prisma.submission.findMany({
+    where: { status: 'LIVE', type: 'EVENT', startsAt: { lt: now } },
+    select: { id: true, startsAt: true },
+  });
+  const finished = pastEvents.filter((event) => isEventOver(event.startsAt!, now));
+  for (const event of finished) await takeDown(event.id, 'FINISHED');
+
   const expired = await prisma.submission.findMany({
     where: { status: 'LIVE', expiresAt: { lte: now } },
     include: { seller: true },
@@ -51,5 +60,5 @@ export async function expireListings(now = new Date()) {
       parameters: [values.title, values.date, values.url],
     }).catch(() => {});
   }
-  return { expired: expired.length + expiredServices.count, unpaid: unpaid.count, reminded: ending.length };
+  return { finished: finished.length, expired: expired.length + expiredServices.count, unpaid: unpaid.count, reminded: ending.length };
 }

@@ -2,6 +2,7 @@ import { prisma } from '@/db/prisma';
 import { sendButtons, sendList, sendText } from '@/lib/whatsapp-cloud/client';
 import { handleSellerMessage } from '@/lib/marketplace/conversation';
 import { isRateLimited } from '@/lib/rate-limit';
+import { markSold } from '@/lib/marketplace/listing';
 import type { InboundMessage } from '@/lib/whatsapp-cloud/webhook';
 
 jest.mock('@/db/prisma', () => {
@@ -47,6 +48,15 @@ describe('handleSellerMessage', () => {
       data: { mediaIds: { push: 'media-1' }, rawText: '20€' },
     });
     expect(sendButtons).toHaveBeenCalledWith(SELLER, expect.stringContaining('Foto recibida'), [{ id: 'done', title: '✅ Listo' }]);
+  });
+
+  it('takes the newest live listing down when the person found what they looked for', async () => {
+    (markSold as jest.Mock).mockResolvedValue(true);
+
+    await handleSellerMessage(message({ text: '¡Encontrado!' }));
+
+    expect(markSold).toHaveBeenCalledWith('seller-1');
+    expect(sendText).toHaveBeenCalledWith(SELLER, expect.stringContaining('encontraste'));
   });
 
   it('stays quiet for the other photos of an album', async () => {
