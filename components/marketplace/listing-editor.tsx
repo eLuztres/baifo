@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, EyeOff, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, EyeOff, HandHelping, ImageIcon, Languages, Loader2, MessageCircle, Package, Plus, RotateCcw, Save, Search, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
+import { ANY_CONDITION, LISTING_TYPES, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,8 +111,13 @@ interface EditorFields {
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
-const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
-  isService ? { ...fields, images, textMode } : { ...fields, priceMax, condition, images, textMode };
+// "Any condition" only fits a wanted ad: after a switch it stays in the form, but isn't sent for a product.
+const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], type: ListingType, textMode: TextMode) =>
+  type === 'SERVICE'
+    ? { ...fields, type, images, textMode }
+    : { ...fields, type, priceMax, condition: type !== 'WANTED' && condition === ANY_CONDITION ? '' : condition, images, textMode };
+
+const TYPE_ICONS = { PRODUCT: Package, WANTED: Search, SERVICE: HandHelping, EVENT: CalendarDays } as const;
 
 const FIELD_CLASS = 'rounded-xl bg-background sm:rounded-2xl text-base md:text-base';
 const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
@@ -160,6 +165,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
   });
+  // Switchable any time: the fields of the other types stay in the form, so switching back loses nothing.
+  const [type, setType] = useState<ListingType>(listing.type);
+  // The type waiting for the OK, on a live listing that's paid.
+  const [askedType, setAskedType] = useState<ListingType | null>(null);
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
   const plan = (listing.plan as Plan) ?? 'normal';
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -172,13 +181,13 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // Only text the admin (or seller) wrote can be used as it is.
   const hasOriginalText = listing.rawText.trim() !== '';
   // What the server has: edits only save on the Save button (or an action), never by themselves.
-  const savedSnapshot = useRef(JSON.stringify({ ...fields, images }));
+  const savedSnapshot = useRef(JSON.stringify({ ...fields, images, type }));
   // A service has a "from" price and no condition.
-  const isService = listing.type === 'SERVICE';
+  const isService = type === 'SERVICE';
   // An event has its entry price (0: free), a date and an address.
-  const isEvent = listing.type === 'EVENT';
+  const isEvent = type === 'EVENT';
   // A wanted ad's price is a budget range, and it may take any condition.
-  const isWanted = listing.type === 'WANTED';
+  const isWanted = type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
   const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
@@ -194,7 +203,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   };
   // Set, filled from the description, missing, or missing and needed to publish.
   const stateOf = (name: FillableField) => {
-    const state = fieldState(name, fields[name], listing.type);
+    const state = fieldState(name, fields[name], type);
     return state === 'set' && filledFromText.includes(name) ? 'fromText' : state;
   };
   // The shop language is the listing's own title and description; the others are its translations.
@@ -230,13 +239,33 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const photoDrag = useDragOrder(movePhoto);
   const removePicture = (url: string) => setImages((current) => current.filter((image) => image !== url));
 
-  const isDirty = JSON.stringify({ ...fields, images }) !== savedSnapshot.current;
+  const isDirty = JSON.stringify({ ...fields, images, type }) !== savedSnapshot.current;
+
+  // Set when the switch to an event filled in its free entry, so switching away takes that "0" back out.
+  const isEventPriceFilled = useRef(false);
+  // An event starts out free, like a new one; everything else stays as it is.
+  const applyType = (next: ListingType) => {
+    setType(next);
+    if (next === 'EVENT' && !fields.price.trim()) {
+      isEventPriceFilled.current = true;
+      setFields((current) => ({ ...current, price: '0' }));
+    } else if (next !== 'EVENT' && isEventPriceFilled.current) {
+      isEventPriceFilled.current = false;
+      if (fields.price === '0') setFields((current) => ({ ...current, price: '' }));
+    }
+  };
+  // A paid live listing asks first: it changes in the shop with the next save, for the same fee.
+  const chooseType = (next: ListingType) => {
+    if (next === type) return;
+    if (listing.status === 'LIVE' && listing.paidAt) setAskedType(next);
+    else applyType(next);
+  };
 
   // The save bar's button: the only way plain edits reach the shop.
   const saveNow = async () => {
-    const snapshot = JSON.stringify({ ...fields, images });
+    const snapshot = JSON.stringify({ ...fields, images, type });
     setSaveState('saving');
-    const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+    const saved = await updateAdminListing(listing.id, toEdit(fields, images, type, textMode));
     if (saved.success) savedSnapshot.current = snapshot;
     setSaveState(saved.success ? 'saved' : 'failed');
     setError(saved.success ? '' : saved.message);
@@ -285,9 +314,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
       setError('');
       // A thrown action error would replace the whole page (and the edits) with Next's error screen.
       try {
-        const saved = await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+        const saved = await updateAdminListing(listing.id, toEdit(fields, images, type, textMode));
         if (!saved.success) return setError(saved.message);
-        savedSnapshot.current = JSON.stringify({ ...fields, images });
+        savedSnapshot.current = JSON.stringify({ ...fields, images, type });
         const result = await action();
         if (!result.success) return setError(result.message);
         if (onSuccess) onSuccess();
@@ -329,7 +358,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const switchText = async (mode: TextMode) => {
     setError('');
     setTextWork(mode);
-    await updateAdminListing(listing.id, toEdit(fields, images, isService, textMode));
+    await updateAdminListing(listing.id, toEdit(fields, images, type, textMode));
     const result = await chooseListingText(listing.id, mode);
     setTextWork(null);
     if (!('texts' in result && result.texts)) return setError(result.message);
@@ -364,10 +393,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const fillFromDescription = async () => {
     setError('');
     setIsFillingFields(true);
-    const result = await fillAdminListingFields(listing.id, { title: fields.title, description: fields.description });
+    const result = await fillAdminListingFields(listing.id, { title: fields.title, description: fields.description }, type);
     setIsFillingFields(false);
     if (!('fields' in result && result.fields)) return setError(result.message);
-    const { fields: filledFields, filled } = fillEmptyFields(fields, result.fields, listing.type);
+    const { fields: filledFields, filled } = fillEmptyFields(fields, result.fields, type);
     setFields(filledFields);
     setFilledFromText((current) => [...current, ...filled]);
     toast({ description: filled.length > 0 ? fillText(texts.fieldsFilled, { fields: filled.map((name) => fieldLabels[name]).join(', ') }) : texts.fieldsNothingNew });
@@ -380,7 +409,41 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   return (
     <div className='mx-auto w-full max-w-xl space-y-3 sm:space-y-4'>
-      <ListingStatus status={listing.status} type={listing.type} saveState={saveState} texts={texts} />
+      <ListingStatus status={listing.status} type={type} saveState={saveState} texts={texts} />
+      {/* One row down to 320px, like the new listing's tabs: icons only from sm up. */}
+      <div role='radiogroup' aria-label={texts.typeLabel} className='flex w-full rounded-full bg-muted p-1'>
+        {LISTING_TYPES.map((option) => {
+          const Icon = TYPE_ICONS[option];
+          const isChosen = option === type;
+          return (
+            <button
+              key={option}
+              type='button'
+              role='radio'
+              aria-checked={isChosen}
+              onClick={() => chooseType(option)}
+              className={cn(
+                'flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-1.5 py-2 text-xs font-medium transition-colors min-[400px]:px-3 min-[400px]:text-sm',
+                isChosen ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className='hidden size-4 shrink-0 sm:block' aria-hidden /> <span className='truncate'>{texts[`type_${option}`]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <AlertDialog open={askedType !== null} onOpenChange={(isOpen) => !isOpen && setAskedType(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{askedType && fillText(texts.changeType, { type: texts[`type_${askedType}`] })}</AlertDialogTitle>
+            <AlertDialogDescription>{texts.changeTypeConfirm}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{texts.changeTypeCancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => askedType && applyType(askedType)}>{askedType && texts[`type_${askedType}`]}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {RELISTABLE.includes(listing.status) && (
         <div className='space-y-1'>
           <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
@@ -400,7 +463,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
               </Button>
             )}
             <Button asChild variant='outline' className='rounded-full'>
-              <Link href={newListingPath(listing.type)}>
+              <Link href={newListingPath(type)}>
                 <Plus /> {texts.newAnother}
               </Link>
             </Button>
@@ -411,18 +474,18 @@ export default function ListingEditor({ listing, categories, places, languages, 
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant='ghost' className='rounded-full' disabled={isPending}>
-                  {markSoldText(texts, listing.type)}
+                  {markSoldText(texts, type)}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{markSoldText(texts, listing.type)}</AlertDialogTitle>
+                  <AlertDialogTitle>{markSoldText(texts, type)}</AlertDialogTitle>
                   <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
                   <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
-                    {markSoldText(texts, listing.type)}
+                    {markSoldText(texts, type)}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -704,7 +767,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
             </div>
           </>
         )}
-        {(listing.type === 'PRODUCT' || isWanted) && (
+        {(type === 'PRODUCT' || isWanted) && (
           <>
             {isWanted ? (
               // A wanted ad's budget is a range, so it gets a row of its own.

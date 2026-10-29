@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
+import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType } from '@/lib/constants';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
@@ -168,6 +168,8 @@ export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing
 const textSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().max(3000), short: z.string().trim().max(40).optional() });
 
 const editSchema = z.object({
+  // The type can change any time; none: it stays as it is.
+  type: z.enum(LISTING_TYPES).optional(),
   title: z.string().trim().min(2).max(120),
   // Empty: the ring row shows the title.
   shortTitle: z.string().trim().max(40).transform((value) => value || null).optional(),
@@ -218,12 +220,15 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     where: { id },
     select: { translations: true, type: true, textMode: true, textVersions: true },
   });
-  const isService = current?.type === 'SERVICE';
-  const isWanted = current?.type === 'WANTED';
+  // Everything is checked for the type it is saved as.
+  const type = (parsed.success && parsed.data.type) || current?.type;
+  const isService = type === 'SERVICE';
+  const isWanted = type === 'WANTED';
+  const isEvent = type === 'EVENT';
   // A wanted ad may have only an upper end ("hasta 60 €").
   const hasPrice = parsed.success && (parsed.data.price || (isWanted && parsed.data.priceMax));
   if (!parsed.success || (!isService && !hasPrice)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
-  if (current?.type === 'EVENT' && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
+  if (isEvent && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const category = findCategory(await getListingCategories(), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
   if (parsed.data.condition === ANY_CONDITION && !isWanted) return { success: false, message: 'Elige el estado del artículo' };
@@ -237,7 +242,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
   // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
-  const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
+  const typed = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
+  // What the editor kept from another type goes: only goods have a condition, only an event a date and address.
+  const edit = { ...typed, condition: isService || isEvent ? null : typed.condition, startsAt: isEvent ? typed.startsAt : null, address: isEvent ? typed.address : null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end (none counts as 0).
   const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price ?? 0) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
@@ -262,6 +269,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         description,
         translations: toProductTranslations(translations),
         price: price ?? 0,
+        // Badges, "sold" words and filters follow the new type.
+        type: submission.type,
         serviceType,
         startsAt,
         address,
@@ -376,13 +385,15 @@ const fieldsTextSchema = z.object({ title: z.string().trim().max(120), descripti
 
 /** The editor's fields read again from its title and description, as the editor holds them; only the ones the text
     names. The editor puts them only into its empty fields, so nothing the admin set is overwritten. */
-export async function fillAdminListingFields(id: string, text: { title: string; description: string }) {
+export async function fillAdminListingFields(id: string, text: { title: string; description: string }, editedType?: ListingType) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (editedType !== undefined && !z.enum(LISTING_TYPES).safeParse(editedType).success) return NOT_ALLOWED;
   const parsed = fieldsTextSchema.safeParse(text);
   if (!parsed.success) return { success: false, message: 'Escribe primero la descripción' };
   const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
-  const { type } = submission;
+  // The type the editor shows, even before it is saved.
+  const type = editedType ?? submission.type;
   try {
     const shopLocale = getShopLocale();
     const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);

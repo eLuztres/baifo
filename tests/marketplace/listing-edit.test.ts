@@ -141,6 +141,54 @@ describe('updateAdminListing', () => {
     });
   });
 
+  describe('switching the type', () => {
+    const FULL = { ...EDIT, priceMax: '120', condition: 'good', serviceType: 'class', startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' } as const;
+
+    it('turns a live product into an event: the product follows, what only fits goods goes', async () => {
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
+      db.submission.update.mockResolvedValue({ productId: 'product-1', type: 'EVENT' });
+
+      expect((await updateAdminListing(ID, { ...FULL, type: 'EVENT' })).success).toBe(true);
+      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'EVENT', condition: null, serviceType: null, priceMax: null, address: 'Plaza de Lajares' });
+      expect(db.product.update.mock.calls[0][0].data).toMatchObject({ type: 'EVENT', startsAt: new Date('2026-11-26T19:00:00Z'), condition: null, name: 'Bici de paseo' });
+    });
+
+    it('turns an event into a wanted ad: its date and address go, the budget range stays', async () => {
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'EVENT' });
+      db.submission.update.mockResolvedValue({ productId: 'product-1', type: 'WANTED' });
+
+      expect((await updateAdminListing(ID, { ...FULL, price: '', condition: 'any', type: 'WANTED' })).success).toBe(true);
+      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, address: null, price: null, priceMax: '120.00', condition: 'any' });
+      expect(db.product.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, priceMax: '120.00' });
+    });
+
+    it('turns a wanted ad into a service without a price, keeping its kind of offer', async () => {
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
+
+      expect((await updateAdminListing(ID, { ...FULL, price: '', type: 'SERVICE' })).success).toBe(true);
+      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'SERVICE', serviceType: 'class', priceMax: null, condition: null, startsAt: null });
+    });
+
+    it('turns a service back into a product', async () => {
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'SERVICE' });
+
+      expect((await updateAdminListing(ID, { ...FULL, type: 'PRODUCT' })).success).toBe(true);
+      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'PRODUCT', price: '80.00', condition: 'good', serviceType: null, priceMax: null });
+    });
+
+    it('checks the edit for the new type', async () => {
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
+
+      // An event needs its date, a product a price, and "any condition" only fits a wanted ad.
+      expect((await updateAdminListing(ID, { ...EDIT, type: 'EVENT' })).success).toBe(false);
+      db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'SERVICE' });
+      expect((await updateAdminListing(ID, { ...EDIT, price: '', type: 'PRODUCT' })).success).toBe(false);
+      expect((await updateAdminListing(ID, { ...EDIT, condition: 'any', type: 'PRODUCT' })).success).toBe(false);
+      expect((await updateAdminListing(ID, { ...EDIT, type: 'CAR' as 'PRODUCT' })).success).toBe(false);
+      expect(db.submission.update).not.toHaveBeenCalled();
+    });
+  });
+
   it('takes a kind of offer away from anything that is not a service', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
 
@@ -482,6 +530,19 @@ describe('fillAdminListingFields', () => {
     const result = await fillAdminListingFields(ID, { title: 'Busco tabla', description: 'Busco tabla, hasta 150€, en cualquier estado' });
 
     expect(result).toMatchObject({ fields: { price: '', priceMax: '150.00', condition: 'any' } });
+  });
+
+  it('reads the fields for the type the editor shows, before it is saved', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT' });
+    (readListingFields as jest.Mock).mockResolvedValue({
+      category: null, price: 10, priceMax: null, condition: null, serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: null,
+    });
+
+    const result = await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado a las 19h en Bar La Ola' }, 'EVENT');
+
+    expect((readListingFields as jest.Mock).mock.calls[0][1]).toBe('EVENT');
+    expect(result).toMatchObject({ fields: { startsAt: '2026-11-29T19:00', address: 'Bar La Ola' } });
+    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado' }, 'CAR' as 'EVENT')).success).toBe(false);
   });
 
   it('reads nothing for someone who is not an admin', async () => {
