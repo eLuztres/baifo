@@ -30,7 +30,7 @@ import {
 import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { pictureCounterpart } from '@/lib/marketplace/pictures';
+import { isAiPicture as isAiPictureAt, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
@@ -333,7 +333,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
       <ul className='flex items-start gap-3 overflow-x-auto p-1'>
         {images.map((url, index) => {
           const counterpart = pictureCounterpart(listing, url);
-          const isAiPicture = listing.aiImages.length > 0 ? Boolean(counterpart?.isAi) : index === 0 && listing.images.length > 0;
+          const isAiPicture = isAiPictureAt(listing, url, index);
           return (
             <li key={`${index}-${url}`} className={cn('flex shrink-0 flex-col items-center gap-1.5', index > 0 && 'pt-8')}>
               <div className='relative'>

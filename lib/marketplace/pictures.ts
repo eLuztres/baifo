@@ -11,3 +11,9 @@ export function pictureCounterpart({ rawImages, aiImages }: PicturePairs, url: s
   const ai = aiImages[rawImages.indexOf(url)];
   return ai ? { isAi: false, other: ai } : undefined;
 }
+
+/** Whether the picture at `index` gets the AI badge. Older AI listings have no pairs, so only their cover is marked. */
+export function isAiPicture(listing: PicturePairs & { images: string[]; usesAi: boolean }, url: string, index: number): boolean {
+  if (listing.aiImages.length > 0) return Boolean(pictureCounterpart(listing, url)?.isAi);
+  return listing.usesAi && index === 0 && listing.images.length > 0;
+}
