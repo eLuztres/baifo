@@ -64,18 +64,23 @@ export async function createAdminListing(input: NewListingInput) {
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
-const photosSchema = newListingSchema.pick({ photos: true, useAi: true });
+const photosSchema = newListingSchema.pick({ photos: true, useAi: true }).extend({ type: z.enum(LISTING_TYPES).optional() });
 
 /** Back on step 1 before the description is sent: other photos, or the other choice of AI pictures or none.
-    Photos that stay keep their AI picture, so only new ones go to the AI. */
+    Photos that stay keep their AI picture, so only new ones go to the AI. The type tabs switch the type here too. */
 export async function updateAdminListingPhotos(id: string, input: z.input<typeof photosSchema>) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = photosSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
-  const { photos, useAi } = parsed.data;
+  const { photos, useAi, type } = parsed.data;
   if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
-  const current = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true } });
+  const current = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true, usesAi: true } });
   if (!current) return NOT_ALLOWED;
+  // Only the type: the pictures may still be on their way, so no second run starts.
+  if (useAi === current.usesAi && photos.join() === current.rawImages.join()) {
+    const { count } = await prisma.submission.updateMany({ where: { id, status: 'COLLECTING', createdByAdmin: true }, data: { type } });
+    return count > 0 ? { success: true, message: 'Tipo guardado' } : { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  }
   const aiImages = photos.map((url) => current.aiImages[current.rawImages.indexOf(url)] ?? '');
   const photoFiles = photos.filter((url) => !isVideoUrl(url));
   const madeBefore = photoFiles.map((url) => aiImages[photos.indexOf(url)]);
@@ -86,7 +91,7 @@ export async function updateAdminListingPhotos(id: string, input: z.input<typeof
   const images = !useAi ? photos : needsAi || !hasPictureSource ? [] : [...madeBefore, ...photos.filter(isVideoUrl)];
   const { count } = await prisma.submission.updateMany({
     where: { id, status: 'COLLECTING', createdByAdmin: true },
-    data: { rawImages: photos, aiImages, images, usesAi: useAi, lastError: null, attempts: 0 },
+    data: { rawImages: photos, aiImages, images, usesAi: useAi, type, lastError: null, attempts: 0 },
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   if (needsAi) after(() => makeListingPictures(id));

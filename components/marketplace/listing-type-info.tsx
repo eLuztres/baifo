@@ -13,12 +13,16 @@ interface ListingTypeInfoProps {
   infoLabel: string;
   /** The type's icon, shown before the name like on the other tabs. */
   icon: ReactNode;
+  /** As a radio among buttons that switch the type in place. */
+  role?: string;
+  'aria-checked'?: boolean;
 }
 
 /** The chosen listing type's tab: its name with an info button that explains the type in a popup. */
-const ListingTypeInfo = ({ label, text, infoLabel, icon }: ListingTypeInfoProps) => (
+const ListingTypeInfo = ({ label, text, infoLabel, icon, ...triggerProps }: ListingTypeInfoProps) => (
   <Dialog>
     <DialogTrigger
+      {...triggerProps}
       aria-label={`${label}: ${infoLabel}`}
       className='flex items-center justify-center gap-1 whitespace-nowrap sm:gap-2 rounded-full bg-background px-2 py-2 text-xs font-medium text-foreground shadow-sm min-[400px]:px-3 min-[400px]:text-sm sm:px-4'
     >

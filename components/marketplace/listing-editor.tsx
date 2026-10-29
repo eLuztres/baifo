@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, HandHelping, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, Package, RotateCcw, Save, Search, Sparkles, Star, Trash2, Upload, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, RotateCcw, Save, Sparkles, Star, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
+import { ANY_CONDITION, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +59,7 @@ import { isVideoUrl, pictureOf, videoPoster } from '@/lib/video';
 import { uploadVideos } from '@/lib/video-upload';
 import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
+import ListingTypeTabs from './listing-type-tabs';
 import PaymentPanel, { type AdminPayMethod } from './payment-panel';
 import TextModeSwitch from './text-mode-switch';
 
@@ -92,6 +93,8 @@ interface ListingEditorProps {
   texts: AdminTexts;
   /** Called once "Publish now" worked, so the workspace can show the done moment. */
   onPublished: () => void;
+  /** A new listing's steps, shown under the type tabs. */
+  steps?: ReactNode;
 }
 
 type Plan = 'normal' | 'big';
@@ -120,8 +123,6 @@ const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string
     ? { ...fields, type, images, textMode }
     : { ...fields, type, priceMax, condition: type !== 'WANTED' && condition === ANY_CONDITION ? '' : condition, images, textMode };
 
-const TYPE_ICONS = { PRODUCT: Package, WANTED: Search, SERVICE: HandHelping, EVENT: CalendarDays } as const;
-
 const FIELD_CLASS = 'rounded-xl bg-background sm:rounded-2xl text-base md:text-base';
 const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
 // Native selects: on a phone they open the system's own picker.
@@ -132,7 +133,7 @@ const MAX_PICTURES = 12;
 const MAX_UPLOAD = 8;
 
 /** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
-export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, onPublished }: ListingEditorProps) {
+export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, onPublished, steps }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { locale } = useI18n();
@@ -449,29 +450,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   return (
     <div className='mx-auto w-full max-w-xl space-y-3 sm:space-y-4'>
+      {/* Above the steps of a new listing, in the same place as on its first step. */}
+      <ListingTypeTabs type={type} texts={texts} onSelect={chooseType} hasInfo={Boolean(steps)} />
+      {steps}
       <ListingStatus status={listing.status} type={type} saveState={saveState} texts={texts} />
-      {/* One row down to 320px, like the new listing's tabs: icons only from sm up. */}
-      <div role='radiogroup' aria-label={texts.typeLabel} className='flex w-full rounded-full bg-muted p-1'>
-        {LISTING_TYPES.map((option) => {
-          const Icon = TYPE_ICONS[option];
-          const isChosen = option === type;
-          return (
-            <button
-              key={option}
-              type='button'
-              role='radio'
-              aria-checked={isChosen}
-              onClick={() => chooseType(option)}
-              className={cn(
-                'flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-1.5 py-2 text-xs font-medium transition-colors min-[400px]:px-3 min-[400px]:text-sm',
-                isChosen ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Icon className='hidden size-4 shrink-0 sm:block' aria-hidden /> <span className='truncate'>{texts[`type_${option}`]}</span>
-            </button>
-          );
-        })}
-      </div>
       <AlertDialog open={askedType !== null} onOpenChange={(isOpen) => !isOpen && setAskedType(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

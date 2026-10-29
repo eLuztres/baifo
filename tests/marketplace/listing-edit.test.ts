@@ -417,6 +417,46 @@ describe('updateAdminListingPhotos', () => {
     expect((await updateAdminListingPhotos(ID, { photos: ['https://evil.example/x.jpg'], useAi: true })).success).toBe(false);
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
+
+  describe('type tabs', () => {
+    beforeEach(() => {
+      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: [''], usesAi: true });
+    });
+
+    it('saves only the type when the photos stay, so no second picture run starts', async () => {
+      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'SERVICE' })).success).toBe(true);
+
+      expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: 'COLLECTING', createdByAdmin: true }, data: { type: 'SERVICE' } });
+      expect(makeListingPictures).not.toHaveBeenCalled();
+    });
+
+    it('uses the photos as they are for an event', async () => {
+      await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: false, type: 'EVENT' });
+
+      expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: [KEPT], usesAi: false, type: 'EVENT' });
+      expect(makeListingPictures).not.toHaveBeenCalled();
+    });
+
+    it('brings the AI pictures made before back when leaving the event', async () => {
+      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: false });
+
+      await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'PRODUCT' });
+
+      expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: true, type: 'PRODUCT' });
+      expect(makeListingPictures).not.toHaveBeenCalled();
+    });
+
+    it('refuses a type that does not exist', async () => {
+      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'JOB' as 'EVENT' })).success).toBe(false);
+      expect(db.submission.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses while the AI writes the listing', async () => {
+      db.submission.updateMany.mockResolvedValue({ count: 0 });
+
+      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'EVENT' })).success).toBe(false);
+    });
+  });
 });
 
 describe('createAdminListing', () => {
