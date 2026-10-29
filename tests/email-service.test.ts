@@ -172,3 +172,12 @@ test('uses the default reply-to unless a message sets its own', async () => {
     expect.objectContaining({ replyTo: ['orders@example.com'] })
   );
 });
+
+test('passes inline attachments through, so cid: images show', async () => {
+  const { service, client } = createService();
+  const attachment = { filename: 'qr.png', content: Buffer.from('png'), contentType: 'image/png', inlineContentId: 'qr' };
+
+  await service.send({ to: 'ana@example.com', subject: 'Hi', html: '<img src="cid:qr">', attachments: [attachment] });
+
+  expect(client.emails.send).toHaveBeenCalledWith(expect.objectContaining({ attachments: [attachment] }));
+});

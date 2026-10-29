@@ -62,7 +62,7 @@ Listing types (`Product.type`, `ListingType`): **Producto** (fixed price), **Bus
 
 Contact: "Contactar" on a listing with a seller number opens a pop-up (the `BRAND_CONTACT_IMAGE` mascot waving, else the loader picture or a 👋) with an optional nickname, remembered on that phone. Two icon buttons: the phone calls the seller (`tel:`), WhatsApp opens `wa.me` with the message written in the listing's language (the seller's, from their number's country code; else the shop's), worded for the listing type (`CONTACT_MESSAGE_*`), with the title and link. An empty nickname writes it without a name. The number is only fetched when the pop-up opens.
 
-Every new listing emails the printable list of live products (photo, price, WhatsApp, link) to `LISTINGS_EMAIL`.
+Every new listing emails the printable list of live products (photo, price, WhatsApp, link and a QR code that opens the listing) to `LISTINGS_EMAIL`.
 
 Webhook URL in the Meta app: `https://baifo.es/api/whatsapp` (subscribe to `messages`).
 
