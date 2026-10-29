@@ -49,8 +49,9 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
       return uploadImage(await enhancePhoto(photo, type), `listing-${submissionId}-${index}`);
     })
   );
+  // Only into a listing still without pictures, from the photos it still has: another run (upload, description, retry) may have finished first, and its pictures stay.
   const { count } = await prisma.submission.updateMany({
-    where: { id: submissionId, rawImages: { equals: originals } },
+    where: { id: submissionId, rawImages: { equals: originals }, images: { isEmpty: true } },
     // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
     data: {
       images: [...enhanced, ...photos.slice(MAX_ENHANCED_PHOTOS), ...videosOf(originals)],
@@ -64,7 +65,7 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
 /** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
 async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, videos: string[]) {
   const picture = await uploadImage(await createPicture(text, type), `listing-${submissionId}-0`);
-  await prisma.submission.update({ where: { id: submissionId }, data: { images: [picture, ...videos], lastError: null } });
+  await prisma.submission.updateMany({ where: { id: submissionId, images: { isEmpty: true } }, data: { images: [picture, ...videos], lastError: null } });
 }
 
 type SubmissionMedia = { rawImages: string[]; images: string[]; aiImages: string[] };

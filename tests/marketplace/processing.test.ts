@@ -75,7 +75,7 @@ describe('processSubmission without a photo', () => {
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
     expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(enhancePhoto).not.toHaveBeenCalled();
-    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
+    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
     expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
   });
 
@@ -198,7 +198,7 @@ describe('processSubmission with a service video', () => {
 
     expect(fetchImage).not.toHaveBeenCalled();
     expect(enhancePhoto).not.toHaveBeenCalled();
-    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], lastError: null } });
+    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], lastError: null } });
   });
 
   it('lets the AI see and retouch only the photos, with the video last and no AI picture of it', async () => {
@@ -212,7 +212,7 @@ describe('processSubmission with a service video', () => {
     expect(fetchImage).toHaveBeenCalledWith(PHOTO);
     expect(enhancePhoto).toHaveBeenCalledTimes(1);
     expect(db.updateMany).toHaveBeenCalledWith({
-      where: { id: 'sub-1', rawImages: { equals: [VIDEO, PHOTO] } },
+      where: { id: 'sub-1', rawImages: { equals: [VIDEO, PHOTO] }, images: { isEmpty: true } },
       data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: ['', 'https://x.ufs.sh/f/made.jpg'], lastError: null },
     });
   });
@@ -310,6 +310,38 @@ describe('an admin listing whose pictures started with the upload', () => {
   });
 });
 
+describe('pictures already there (card 293)', () => {
+  const PHOTO = 'https://x.ufs.sh/f/bike.jpg';
+  const KEPT = ['https://x.ufs.sh/f/second.jpg', 'https://x.ufs.sh/f/first-ai.jpg'];
+  const PICTURED = { ...WANTED, usesAi: true, rawImages: [PHOTO], images: KEPT, aiImages: ['https://x.ufs.sh/f/first-ai.jpg'], updatedAt: new Date() };
+
+  it.each(['PRODUCT', 'WANTED', 'SERVICE', 'EVENT'])('never remakes, reorders or drops them after the type became %s', async (type) => {
+    const listing = { ...PICTURED, type };
+    db.findUnique.mockResolvedValue(listing);
+    db.update.mockResolvedValue({ ...listing, seller: {} });
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+
+    await processSubmission('sub-1');
+    await makeListingPictures('sub-1');
+
+    expect(enhancePhoto).not.toHaveBeenCalled();
+    expect(createPicture).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
+    expect(db.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ images: expect.anything() }) }));
+  });
+
+  it('lets a slower run of the AI only fill a listing that still has no pictures', async () => {
+    const stale = { ...PICTURED, type: 'PRODUCT', status: 'COLLECTING', images: [] };
+    db.findUnique.mockResolvedValue(stale);
+    (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('photo'));
+    (enhancePhoto as jest.Mock).mockResolvedValue(Buffer.from('shop picture'));
+
+    await makeListingPictures('sub-1');
+
+    expect(db.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'sub-1', rawImages: { equals: [PHOTO] }, images: { isEmpty: true } } }));
+  });
+});
+
 describe('makeListingPictures after the admin changed the photos', () => {
   const KEPT = 'https://x.ufs.sh/f/kept.jpg';
   const ADDED = 'https://x.ufs.sh/f/added.jpg';
@@ -338,7 +370,7 @@ describe('makeListingPictures after the admin changed the photos', () => {
 
     await makeListingPictures('sub-1');
 
-    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] } });
+    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] }, images: { isEmpty: true } });
     expect(db.findUnique).toHaveBeenCalledTimes(1);
     expect(db.update).not.toHaveBeenCalled();
   });
@@ -365,6 +397,6 @@ describe('makeListingPictures with only a video', () => {
     await makeListingPictures('sub-1');
 
     expect(enhancePhoto).not.toHaveBeenCalled();
-    expect(db.update).not.toHaveBeenCalled();
+    expect(db.updateMany).not.toHaveBeenCalled();
   });
 });
