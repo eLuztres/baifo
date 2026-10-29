@@ -28,6 +28,7 @@ interface ProductImagesProps {
 
 const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
   const [current, setCurrent] = useState(0);
+  const [phoneIndex, setPhoneIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
@@ -75,20 +76,32 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
 
   return (
     <>
-      {/* Phones: the photos two side by side, each whole; a tap opens it full screen. */}
-      <div className={cn('h-full overflow-y-auto sm:hidden', count > 1 ? 'grid grid-cols-2 gap-2 [align-content:safe_center]' : 'flex justify-center')}>
-        {images.map((image, index) => (
-          <button
-            type='button'
-            key={image}
-            onClick={(event) => openTile(index, event.currentTarget)}
-            aria-label={t('SHOW_IMAGE', { n: index + 1 })}
-            className={cn('relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
-          >
-            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole playsWhenVisible />
-            <BrandStamp src={stamp} />
-          </button>
-        ))}
+      {/* Phones: the photos full width, one at a time, swiped sideways; a tap opens one full screen. */}
+      <div className='relative aspect-[3/4] bg-muted sm:hidden'>
+        <div
+          className='flex size-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none]'
+          onScroll={(event) => setPhoneIndex(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
+        >
+          {images.map((image, index) => (
+            <button
+              type='button'
+              key={image}
+              onClick={(event) => openTile(index, event.currentTarget)}
+              aria-label={t('SHOW_IMAGE', { n: index + 1 })}
+              className='relative size-full shrink-0 snap-center'
+            >
+              <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='100vw' priority={index === 0} isWhole playsWhenVisible />
+              <BrandStamp src={stamp} className='bottom-3 right-3' />
+            </button>
+          ))}
+        </div>
+        {count > 1 && (
+          <div aria-hidden='true' className='pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-background/60 px-2 py-1.5 backdrop-blur-sm'>
+            {images.map((image, index) => (
+              <span key={image} className={cn('size-1.5 rounded-full transition-colors', index === phoneIndex ? 'bg-foreground' : 'bg-foreground/35')} />
+            ))}
+          </div>
+        )}
       </div>
       <div
         className='flex h-full flex-col-reverse gap-3 max-sm:hidden sm:flex-row sm:gap-4'

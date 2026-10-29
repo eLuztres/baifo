@@ -11,14 +11,15 @@ interface NextRingSwipeProps {
   href: string;
 }
 
-/** A long description scrolls inside its card; until its end, an upward swipe there reads it instead of turning on. */
+/** A long description scrolls inside its card (or a phone's page); until its end, an upward swipe there reads it instead of turning on. */
 const isReadingAbove = (target: EventTarget | null) => {
   for (let element = target instanceof Element ? target : null; element; element = element.parentElement) {
     const { overflowY } = getComputedStyle(element);
     const canScroll = (overflowY === 'auto' || overflowY === 'scroll') && element.scrollHeight > element.clientHeight;
     if (canScroll) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
   }
-  return false;
+  // Phones scroll the page itself below the photo.
+  return window.scrollY + window.innerHeight < document.documentElement.scrollHeight - 1;
 };
 
 /** The product page is one screen: swiping up (or the wheel down) turns on to the next ring of the store. */

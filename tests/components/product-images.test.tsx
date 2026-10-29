@@ -69,3 +69,29 @@ describe('ProductImages phone grid', () => {
     expect(screen.getByRole('dialog', { name: 'viewer 1' })).toBeInTheDocument();
   });
 });
+
+// The dots under the phone strip; the desktop gallery has none.
+const phoneDots = (container: HTMLElement) => container.querySelectorAll('[aria-hidden="true"] > span.rounded-full');
+
+describe('ProductImages phone swipe', () => {
+  it('shows one dot per picture and marks the one swiped to', () => {
+    const { container } = renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
+    const strip = container.querySelector('.snap-x') as HTMLElement;
+    Object.defineProperty(strip, 'clientWidth', { value: 375 });
+
+    expect(phoneDots(container)).toHaveLength(2);
+    expect(phoneDots(container)[0]).toHaveClass('bg-foreground');
+
+    strip.scrollLeft = 375;
+    fireEvent.scroll(strip);
+
+    expect(phoneDots(container)[0]).toHaveClass('bg-foreground/35');
+    expect(phoneDots(container)[1]).toHaveClass('bg-foreground');
+  });
+
+  it('shows no dots for a single picture', () => {
+    const { container } = renderWithI18n(<ProductImages images={['/board.jpg']} alt='Paddle surf' />);
+
+    expect(phoneDots(container)).toHaveLength(0);
+  });
+});

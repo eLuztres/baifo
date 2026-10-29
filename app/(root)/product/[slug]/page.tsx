@@ -139,7 +139,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
         href={feedHref}
-        className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground'
+        className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground max-sm:hidden'
       >
         <ChevronLeft className='h-4 w-4' />
         {t('BACK_TO_SHOP')}
@@ -147,9 +147,15 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
       {/* Phones stack photo and details; a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
-        {/* A phone's photo keeps at least 42 % (30 % on short screens) so the whole picture is big enough to see;
-            the description scrolls inside its card, so title, price and the button still fit. */}
-        <div className='relative min-h-[36%] flex-1 [@media(max-height:700px)]:min-h-[28%] sm:min-h-[50%] lg:min-h-0'>
+        {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}
+        <div className='relative max-sm:-mx-4 max-sm:-mt-8 sm:min-h-[50%] sm:flex-1 lg:min-h-0'>
+          <Link
+            href={feedHref}
+            aria-label={t('BACK_TO_SHOP')}
+            className='absolute left-3 top-3 z-10 flex size-9 items-center justify-center rounded-full bg-background/70 text-foreground shadow-sm backdrop-blur-sm sm:hidden'
+          >
+            <ChevronLeft className='size-5' aria-hidden />
+          </Link>
           <ProductImages images={product.images} alt={name} stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined} />
           {isIllustrative && (
             <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
@@ -200,7 +206,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             )}
             {description && (
-              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
+              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 max-sm:max-h-36 text-foreground/85 sm:text-base sm:leading-7'>
                 {description}
               </ScrollText>
             )}
