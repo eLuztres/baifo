@@ -77,4 +77,39 @@ describe('middleware', () => {
 
     expect(middleware(req).headers.get('x-middleware-request-x-url-locale')).toBeNull();
   });
+
+  describe('with PREVIEW_PASSWORD', () => {
+    const withAuth = (value: string) => {
+      const req = request('/');
+      req.headers.set('authorization', value);
+      return req;
+    };
+
+    beforeEach(() => {
+      process.env.PREVIEW_PASSWORD = 'baifo:preview';
+    });
+    afterEach(() => {
+      delete process.env.PREVIEW_PASSWORD;
+    });
+
+    it('asks for the password', () => {
+      const res = middleware(request('/'));
+
+      expect(res.status).toBe(401);
+      expect(res.headers.get('www-authenticate')).toContain('Basic');
+    });
+
+    it('turns a wrong password away', () => {
+      expect(middleware(withAuth(`Basic ${btoa('joe:wrong')}`)).status).toBe(401);
+    });
+
+    it('turns a broken or non-Basic header away instead of crashing', () => {
+      expect(middleware(withAuth('Basic %%%not-base64')).status).toBe(401);
+      expect(middleware(withAuth(`Bearer ${btoa('joe:baifo:preview')}`)).status).toBe(401);
+    });
+
+    it('lets the right password in, with any user name', () => {
+      expect(middleware(withAuth(`Basic ${btoa('joe:baifo:preview')}`)).status).toBe(200);
+    });
+  });
 });

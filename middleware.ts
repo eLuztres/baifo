@@ -13,8 +13,28 @@ const PROTECTED_PATHS = [
 const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 const SHOP_ONLY_PATHS = /^\/(cart|search|shipping-address|payment-method|place-order|order|user\/orders)(\/|$)/;
 
+// A private preview (PREVIEW_PASSWORD set) asks for the shared password; any user name goes.
+function hasPreviewPassword(request: NextRequest, password: string) {
+  const [scheme, encoded] = request.headers.get('authorization')?.split(' ') ?? [];
+  if (scheme !== 'Basic' || !encoded) return false;
+  try {
+    const credentials = atob(encoded);
+    return credentials.slice(credentials.indexOf(':') + 1) === password;
+  } catch {
+    return false; // not base64: a 401, not a crash
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  const previewPassword = process.env.PREVIEW_PASSWORD;
+  if (previewPassword && !hasPreviewPassword(request, previewPassword)) {
+    return new NextResponse('Password required', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="preview", charset="UTF-8"' },
+    });
+  }
 
   if (SHOWCASE_MODE && SHOP_ONLY_PATHS.test(pathname)) {
     return NextResponse.redirect(new URL('/', request.nextUrl.origin));
