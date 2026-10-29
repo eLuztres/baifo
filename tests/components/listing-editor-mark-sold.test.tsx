@@ -22,8 +22,6 @@ jest.mock('@/lib/marketplace/admin.actions', () => ({
   translateListingText: jest.fn(),
   updateAdminListing: jest.fn(),
 }));
-// The upload button pulls in UploadThing, which needs browser APIs jsdom lacks.
-jest.mock('@/components/marketplace/photo-upload', () => () => null);
 jest.mock('@/lib/marketplace/payment.actions', () => ({ markListingPaid: jest.fn(), markRenewalPaid: jest.fn(), recordWhatsAppConsent: jest.fn() }));
 
 const texts = adminTexts('es');

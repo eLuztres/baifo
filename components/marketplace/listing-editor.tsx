@@ -22,7 +22,6 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -34,7 +33,6 @@ import {
   fillAdminListingFields,
   markAdminListingSold,
   publishAdminListing,
-  rejectAdminListing,
   shareAdminListing,
   translateListingText,
   updateAdminListing,
@@ -46,7 +44,7 @@ import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
 import { isAiPicture as isAiPictureAt, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
-import { LOCALES, type Locale } from '@/lib/i18n-core';
+import type { Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
@@ -54,7 +52,6 @@ import { isVideoUrl, pictureOf, videoPoster } from '@/lib/video';
 import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
 import PaymentPanel, { type AdminPayMethod } from './payment-panel';
-import PhotoUpload from './photo-upload';
 import TextModeSwitch from './text-mode-switch';
 
 /** A shop language, with its short label for the tabs (ES, EN, IT). */
@@ -106,12 +103,6 @@ interface EditorFields {
   /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
   startsAt: string;
   address: string;
-  /** The person's WhatsApp; empty: buyers write to the shop's WhatsApp. */
-  sellerPhone: string;
-  /** "Ofrecido por …"; empty: their WhatsApp name. */
-  sellerName: string;
-  /** The language buyers write to them in; empty: their number's. */
-  sellerLocale: Locale | '';
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
@@ -163,12 +154,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
     serviceType: (SERVICE_TYPES.includes(listing.serviceType as ServiceType) ? listing.serviceType : '') as ServiceType | '',
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
-    sellerPhone: /^\d+$/.test(listing.seller.waId) ? listing.seller.waId : '',
-    sellerName: listing.sellerName ?? '',
-    sellerLocale: (LOCALES.some(({ id }) => id === listing.sellerLocale) ? listing.sellerLocale : '') as Locale | '',
   });
   const [language, setLanguage] = useState<Locale>(shopLanguage.id);
-  const [plan, setPlan] = useState<Plan>((listing.plan as Plan) ?? 'normal');
+  const plan = (listing.plan as Plan) ?? 'normal';
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [error, setError] = useState('');
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
@@ -194,7 +182,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
   // A field changed by hand no longer counts as filled from the description.
-  const set = (name: FillableField | 'sellerPhone' | 'sellerName' | 'sellerLocale') => (event: { target: { value: string } }) => {
+  const set = (name: FillableField) => (event: { target: { value: string } }) => {
     setFilledFromText((current) => current.filter((field) => field !== name));
     setFields((current) => ({ ...current, [name]: event.target.value }));
   };
@@ -712,64 +700,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
             </select>
           </div>
         )}
-      </div>
-
-      <div className='space-y-6 rounded-3xl border border-border bg-card p-4'>
-        {isOpen && listing.rawText && (
-          <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
-            <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
-          </p>
-        )}
-        <div className='space-y-2'>
-          <p className='text-sm font-medium'>{texts.photosLabel}</p>
-          <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} allowVideos />
-        </div>
-        {/* Also once live: the admin just fixes a wrong number. */}
-        <div className='space-y-1'>
-          <Label htmlFor='seller-phone' className='text-sm font-medium'>
-            {texts.servicePhoneLabel}
-          </Label>
-          <Input
-            id='seller-phone'
-            type='tel'
-            value={fields.sellerPhone}
-            onChange={set('sellerPhone')}
-            placeholder={texts.sellerPlaceholder}
-            className='h-12 rounded-2xl bg-background'
-          />
-          {isOpen && <p className='px-1 text-xs text-muted-foreground'>{texts.sellerPhoneEditHint}</p>}
-        </div>
-        {/* Also once live: the seller may change their name any time. */}
-        <div className='space-y-1'>
-          <Label htmlFor='seller-name' className='text-sm font-medium'>
-            {texts.sellerNameLabel}
-          </Label>
-          <Input
-            id='seller-name'
-            maxLength={30}
-            value={fields.sellerName}
-            onChange={set('sellerName')}
-            placeholder={listing.sellerDefault.name ?? ''}
-            className='h-12 rounded-2xl bg-background'
-          />
-          <p className='px-1 text-xs text-muted-foreground'>{texts.sellerNameHint}</p>
-        </div>
-        {isOpen && (
-          <RadioGroup value={plan} onValueChange={(value) => setPlan(value as Plan)} className='flex flex-wrap gap-4'>
-            {(['normal', 'big'] as const).map((option) => (
-              <Label key={option} className='flex items-center gap-2 font-normal'>
-                <RadioGroupItem value={option} /> {option === 'big' ? texts.planBig : texts.planNormal}
-              </Label>
-            ))}
-          </RadioGroup>
-        )}
-        <div className='flex flex-wrap gap-3'>
-          {listing.status === 'IN_REVIEW' && (
-            <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending} onClick={() => run(() => rejectAdminListing(listing.id))}>
-              <X /> {texts.reject}
-            </Button>
-          )}
-        </div>
       </div>
 
       {listing.status === 'LIVE' && listing.expiresAt && (

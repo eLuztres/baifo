@@ -11,7 +11,6 @@ import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
-import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
@@ -22,9 +21,7 @@ import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from 
 import { makeListingPictures, processSubmission } from './processing';
 import { lacksConsent, markSent } from './listing-payment';
 import type { FieldValues } from './listing-fields';
-import { sellerIdentity } from './seller';
 import { enableListing, publishByAdmin, takeDown } from './publish';
-import { rejectSubmission } from './review';
 import { pictureCounterpart } from './pictures';
 import { takeVideoStill } from './video-cleanup';
 
@@ -163,9 +160,7 @@ export async function getAdminListing(id: string) {
   if (!submission) return null;
   const { price, priceMax, ...rest } = submission;
   // The plan prices come along: the editor's "Pagado" starts from the chosen plan's price.
-  // The name and language buyers get while the admin sets none.
-  const sellerDefault = sellerIdentity({ sellerName: null, sellerLocale: null, seller: submission.seller });
-  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES, sellerDefault };
+  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -212,37 +207,19 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
-  // Missing: the number stays as it is.
-  sellerPhone: sellerPhoneSchema,
-  sellerName: sellerNameSchema.optional(),
-  sellerLocale: sellerLocaleSchema.optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
 
-/** The person's number changed: a new seller. Before it goes live the new number has to agree again; once live the admin just fixes it. */
-async function sellerChange(current: { status: string; seller: { waId: string } } | null, sellerPhone?: string) {
-  if (!current || sellerPhone === undefined) return {};
-  const waId = toWaId(sellerPhone);
-  if (waId === current.seller.waId) return {};
-  const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
-  if (current.status !== 'IN_REVIEW' && current.status !== 'AWAITING_PAYMENT') return { sellerId: seller.id };
-  return { sellerId: seller.id, hasContactConsent: false, consentAt: null, consentSource: null, consentTextVersion: null };
-}
-
 export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  if (!sellerPhoneSchema.safeParse(input.sellerPhone).success) return { success: false, message: 'Revisa el teléfono' };
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, type: true, textMode: true, textVersions: true, status: true, seller: { select: { waId: true } } },
+    select: { translations: true, type: true, textMode: true, textVersions: true },
   });
   const isService = current?.type === 'SERVICE';
   const isWanted = current?.type === 'WANTED';
-  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) {
-    return { success: false, message: 'El nombre del vendedor: sin enlaces ni teléfonos, máximo 30 letras' };
-  }
   // A wanted ad may have only an upper end ("hasta 60 €").
   const hasPrice = parsed.success && (parsed.data.price || (isWanted && parsed.data.priceMax));
   if (!parsed.success || (!isService && !hasPrice)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
@@ -258,8 +235,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
-  const sellerData = await sellerChange(current, sellerPhone);
+  const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
   // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
   const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end (none counts as 0).
@@ -268,12 +244,12 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
   if (textMode !== current?.textMode) {
-    await prisma.submission.update({ where: { id }, data: { ...sellerData, textVersions: { ...versions, [textMode]: editedVersion } } });
+    await prisma.submission.update({ where: { id }, data: { textVersions: { ...versions, [textMode]: editedVersion } } });
     return { success: true, message: 'Guardado' };
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, ...sellerData, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
@@ -497,12 +473,6 @@ export async function shareAdminListing(id: string) {
   const message = botText(localeOf(waId), 'approved', { url: publishUrl(listing.payToken), hours: UNPAID_LISTING_HOURS });
   // Straight to api.whatsapp.com: the wa.me redirect turns emoji like 👋 into "�".
   return { success: true, message: '', url: `https://api.whatsapp.com/send?phone=${waId}&text=${encodeURIComponent(message)}` };
-}
-
-export async function rejectAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const rejected = await rejectSubmission(id);
-  return rejected ? { success: true, message: 'Anuncio rechazado' } : { success: false, message: 'Ya no está pendiente de revisión' };
 }
 
 /** "Activar de nuevo": an expired listing comes back with its pictures and texts. */

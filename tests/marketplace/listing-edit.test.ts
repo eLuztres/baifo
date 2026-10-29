@@ -93,33 +93,16 @@ describe('updateAdminListing', () => {
     });
   });
 
-  it('changes the person\'s number before it goes live and forgets the old number\'s consent', async () => {
-    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'AWAITING_PAYMENT', seller: { waId: '34600111222' } });
-
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611 222 333' })).success).toBe(true);
-    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34611222333' });
-    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ sellerId: 'seller-1', hasContactConsent: false, consentAt: null, consentSource: null });
-  });
-
-  it('keeps the seller and the consent when the number stays the same', async () => {
+  it('keeps the seller\'s number, name, language and photos as they are', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'IN_REVIEW', seller: { waId: '34600111222' } });
+    // An older editor still sending them changes nothing either.
+    const oldEdit = { ...EDIT, sellerPhone: '611222333', sellerName: 'Lula', sellerLocale: 'de' } as typeof EDIT;
 
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '600111222' })).success).toBe(true);
+    expect((await updateAdminListing(ID, oldEdit)).success).toBe(true);
     expect(db.seller.upsert).not.toHaveBeenCalled();
-    expect(db.submission.update.mock.calls[0][0].data).not.toHaveProperty('consentAt');
-  });
-
-  it("changes a live listing's number and keeps its consent, but takes no broken number", async () => {
-    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'LIVE', seller: { waId: '34600111222' } });
-
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '12' })).message).toBe('Revisa el teléfono');
-    expect(db.submission.update).not.toHaveBeenCalled();
-
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611222333' })).success).toBe(true);
-    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34611222333' });
-    const data = db.submission.update.mock.calls[0][0].data;
-    expect(data.sellerId).toBe('seller-1');
-    expect(data).not.toHaveProperty('hasContactConsent');
+    const { data } = db.submission.update.mock.calls[0][0];
+    for (const kept of ['sellerId', 'sellerName', 'sellerLocale', 'hasContactConsent', 'consentAt', 'rawImages']) expect(data).not.toHaveProperty(kept);
+    expect(data.images).toEqual(EDIT.images);
   });
 
   it('keeps a live listing online a month longer, counted from its end', async () => {
@@ -190,21 +173,6 @@ describe('updateAdminListing', () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT' });
 
     expect((await updateAdminListing(ID, { ...EDIT, price: '', priceMax: '60' })).success).toBe(false);
-  });
-
-  it('saves the seller\'s name and language, and empty as none', async () => {
-    expect((await updateAdminListing(ID, { ...EDIT, sellerName: ' Lula ', sellerLocale: 'de' })).success).toBe(true);
-    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ sellerName: 'Lula', sellerLocale: 'de' });
-
-    expect((await updateAdminListing(ID, { ...EDIT, sellerName: '', sellerLocale: '' })).success).toBe(true);
-    expect(db.submission.update.mock.calls[1][0].data).toMatchObject({ sellerName: null, sellerLocale: null });
-  });
-
-  it('refuses a seller name with a phone number, with its own message', async () => {
-    const result = await updateAdminListing(ID, { ...EDIT, sellerName: 'Lula 612 345 678' });
-
-    expect(result).toEqual({ success: false, message: 'El nombre del vendedor: sin enlaces ni teléfonos, máximo 30 letras' });
-    expect(db.submission.update).not.toHaveBeenCalled();
   });
 
   it('refuses a category the store does not have', async () => {
