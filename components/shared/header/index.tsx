@@ -14,6 +14,7 @@ import Menu from './menu';
 import { getNavLinks } from './nav-items';
 import NavLinks from './nav-links';
 import PlacePicker from './place-picker';
+import HidingHeader from './hiding-header';
 import TabSwipe from './tab-swipe';
 
 // The template (upstream) still imports it from here, so merges from it keep working.
@@ -29,7 +30,7 @@ const Header = async () => {
 
   // Blur only from lg up: on phones it re-blurs the moving page under it every frame, behind a nearly opaque background.
   return (
-    <header className='sticky top-0 z-40 w-full border-b border-border bg-background lg:bg-background/95 lg:backdrop-blur'>
+    <HidingHeader className='sticky top-0 z-40 w-full border-b border-border bg-background lg:bg-background/95 lg:backdrop-blur'>
       <div className='flex h-16 w-full items-center justify-between gap-2 px-4 sm:gap-6 sm:h-20 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10'>
         <Link
           href='/'
@@ -52,7 +53,7 @@ const Header = async () => {
       </div>
       {BRAND.hasNavRow && <NavLinks links={navLinks} variant='row' />}
       <TabSwipe links={navLinks} />
-    </header>
+    </HidingHeader>
   );
 };
 
