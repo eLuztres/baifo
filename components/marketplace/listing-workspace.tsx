@@ -75,7 +75,7 @@ export default function ListingWorkspace({ initial, categories, places, language
   if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING') {
     const showsPhotos = isOnPhotos && canSwitchSteps;
     return (
-      <div className='space-y-4'>
+      <div className='space-y-3 sm:space-y-4'>
         {showsPhotos ? <NewListingForm texts={texts} type={listing.type} listing={listing} onDone={backFromPhotos} /> : steps}
         {/* Only hidden on the photos, so everything written stays. */}
         <div hidden={showsPhotos}>
@@ -91,7 +91,7 @@ export default function ListingWorkspace({ initial, categories, places, language
   };
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-3 sm:space-y-4'>
       {steps}
       <ListingEditor
         key={listing.status}

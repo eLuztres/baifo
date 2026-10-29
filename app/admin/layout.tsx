@@ -22,14 +22,14 @@ export default async function AdminLayout({
       <div className='flex flex-col'>
         {/* Stays in reach while scrolling; on a phone the admin pages get their own row of tabs under it. */}
         <header className='sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md'>
-          <div className='container mx-auto flex h-14 items-center gap-3 px-4 sm:h-16'>
+          <div className='container mx-auto flex h-12 items-center gap-3 px-4 sm:h-16'>
             <Link href='/' className='shrink-0'>
-              <BrandLogo className='h-9 sm:h-10' />
+              <BrandLogo className='h-8 sm:h-10' />
             </Link>
             <MainNav className='mx-6 hidden lg:flex' {...navProps} extraLinks={extraLinks} />
             <div className='ml-auto flex items-center gap-2'>
               {/* The way back to the shop is always in sight, also on a phone. */}
-              <Button asChild variant='outline' size='sm' className='h-9 rounded-full'>
+              <Button asChild variant='outline' size='sm' className='h-8 rounded-full text-xs sm:h-9 sm:text-sm'>
                 <Link href='/'>
                   {/* The smallest phones get the icon only, so longer languages (German) fit next to the logo. */}
                   <Store /> <span className='max-[359px]:sr-only'>{t('ADMIN_BACK_TO_SHOP', { shop: APP_NAME })}</span>
@@ -40,13 +40,13 @@ export default async function AdminLayout({
           </div>
           <MainNav
             variant='tabs'
-            className='overflow-x-auto px-4 pb-3 [scrollbar-width:none] lg:hidden'
+            className='overflow-x-auto px-4 pb-2 [scrollbar-width:none] lg:hidden'
             {...navProps}
             extraLinks={extraLinks}
           />
         </header>
 
-        <div className='container mx-auto flex-1 space-y-4 px-4 py-5 sm:p-8 sm:pt-6'>
+        <div className='container mx-auto flex-1 space-y-4 px-4 py-3 sm:p-8 sm:pt-6'>
           {children}
         </div>
       </div>

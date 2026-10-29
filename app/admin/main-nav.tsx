@@ -62,7 +62,7 @@ interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
 const linkClass = (variant: 'inline' | 'tabs', isActive: boolean) =>
   variant === 'tabs'
     ? cn(
-        'shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
+        'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
         isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground'
       )
     : cn('text-sm font-medium transition-colors hover:text-primary', !isActive && 'text-muted-foreground');
@@ -81,7 +81,7 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
   return (
     <nav
       ref={navRef}
-      className={cn('flex items-center', variant === 'tabs' ? 'gap-2' : 'space-x-4 lg:space-x-6', className)}
+      className={cn('flex items-center', variant === 'tabs' ? 'gap-1.5' : 'space-x-4 lg:space-x-6', className)}
       {...props}
     >
       {links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly) && !(!isOffersEnabled && item.isOffersOnly)).map((item) => {
