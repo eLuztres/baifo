@@ -135,7 +135,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     // The listing's own category, so its page leads back to a feed that opens with similar things.
     const categorySlug = listing.categoryIds.map((id) => slugOf.get(id)).find(Boolean);
     // A listing's product is created when it goes live, so createdAt is its publish time.
-    const isNew = now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
+    // An event isn't "new" nor old: its card leads with its day and time instead (the "new" counts still include it).
+    const isEvent = listing.type === 'EVENT';
+    const isNew = !isEvent && now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
     return (
       <FeedCard
         href={categorySlug ? `/product/${listing.slug}?c=${categorySlug}` : `/product/${listing.slug}`}
@@ -144,11 +146,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         price={listing.price}
         priceMax={listing.priceMax}
         {...feedCardLabels(listing, t, locale, now)}
-        note={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
+        aiLabel={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
         isReserved={listing.isReserved}
         reservedLabel={t('RESERVE_BADGE')}
         newLabel={isNew ? t('EXPLORE_NEW_BADGE') : undefined}
-        listedAgo={[timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
+        listedAgo={[!isEvent && timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
         isLarge={isLarge}
       />
     );

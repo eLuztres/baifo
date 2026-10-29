@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import ProductMedia from '@/components/ProductMedia';
+import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { cn, formatPriceOrRange, formatPriceTag } from '@/lib/utils';
 
 interface FeedCardProps {
@@ -16,13 +17,13 @@ interface FeedCardProps {
   priceText?: string;
   /** Shown instead of a price, e.g. "Service". */
   badge?: string;
-  /** A quiet note on the picture, e.g. that the AI made it. */
-  note?: string;
+  /** Set on a picture the AI made: what its small mark beside the price says. */
+  aiLabel?: string;
   isReserved: boolean;
   reservedLabel: string;
   /** Set on fresh listings: the "New" label to show. */
   newLabel?: string;
-  /** "2 days ago", already in the visitor's language; left out on a new listing, whose badge says it. */
+  /** "2 days ago", already in the visitor's language; left out on a new listing, whose badge says it, and when empty. */
   listedAgo: string;
   /** A big tile in the mosaic: larger text and photo sizes. */
   isLarge?: boolean;
@@ -30,7 +31,7 @@ interface FeedCardProps {
 
 /** A tile of the marketplace feed: the whole photo, upright or wide (the next one on hover), badges and age at the top,
     name and price at the bottom. */
-export default function FeedCard({ href, name, images, price: rawPrice, priceMax, priceLabel, priceText, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
+export default function FeedCard({ href, name, images, price: rawPrice, priceMax, priceLabel, priceText, badge, aiLabel, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
   // A wanted ad without a budget (or a service without a "from" price) is stored as 0: "Budget 0 €" says nothing.
   const price = priceLabel && !priceMax && Number(rawPrice) === 0 ? undefined : rawPrice;
   const sizes = isLarge ? '(min-width: 1024px) 40vw, 100vw' : '(min-width: 1024px) 20vw, 50vw';
@@ -65,17 +66,16 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceMax
               {newLabel}
             </span>
           )}
-          {badge && <span className={cn('rounded-full bg-primary font-medium text-primary-foreground shadow-sm', badgeSize)}>{badge}</span>}
-          {note && <span className={cn('rounded-full bg-background/90 shadow-sm', badgeSize)}>{note}</span>}
+          {badge && <span className={cn('whitespace-nowrap rounded-full bg-primary font-medium text-primary-foreground shadow-sm', badgeSize)}>{badge}</span>}
           {isReserved && <span className={cn('rounded-full bg-background/90 font-medium shadow-sm', badgeSize)}>{reservedLabel}</span>}
         </div>
         {/* Beside a badge, a 320px phone's tile has no room for the age: left out there rather than cut. */}
-        {!newLabel && (
+        {!newLabel && listedAgo && (
           <span
             className={cn(
               'min-w-0 truncate rounded-full bg-background/60 text-foreground/80 shadow-sm backdrop-blur-sm',
               badgeSize,
-              (badge || note || isReserved) && 'hidden @min-[7.5rem]:block'
+              (badge || isReserved) && 'hidden @min-[7.5rem]:block'
             )}
           >
             {listedAgo}
@@ -100,23 +100,28 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceMax
           <h2 className={cn('min-w-0 flex-1', isLarge ? 'line-clamp-2 text-balance font-display text-xl leading-snug sm:text-2xl' : 'truncate font-sans text-sm font-medium')}>
             {name}
           </h2>
-          {(price || priceText) && (
-            // A solid tag in the same spot on every tile, so the eye finds it at once; whole euros ("140 €") read quicker.
-            <p
-              className={cn(
-                'flex max-w-full shrink-0 items-baseline gap-1 rounded-full bg-background/90 font-semibold leading-tight text-foreground tabular-nums shadow-sm',
-                isLarge ? 'px-3.5 py-1.5 text-xl' : 'self-end px-2.5 py-1 text-sm @min-[10rem]:self-auto'
+          {(price || priceText || aiLabel) && (
+            <div className={cn('flex min-w-0 max-w-full shrink-0 items-center gap-1.5', !isLarge && 'self-end @min-[10rem]:self-auto')}>
+              {(price || priceText) && (
+                // A solid tag in the same spot on every tile, so the eye finds it at once; whole euros ("140 €") read quicker.
+                <p
+                  className={cn(
+                    'flex min-w-0 max-w-full items-baseline gap-1 rounded-full bg-background/90 font-semibold leading-tight text-foreground tabular-nums shadow-sm',
+                    isLarge ? 'px-3.5 py-1.5 text-xl' : 'px-2.5 py-1 text-sm'
+                  )}
+                >
+                  {/* The label gives way, never the price or a range like "80-150 €", and never the name beside it: left out
+                      on a 320px phone's tile and where the price shares a mid-width line with the name (the badge says enough). */}
+                  {priceLabel && (
+                    <span className='hidden min-w-0 truncate text-[0.7em] font-normal text-muted-foreground @min-[7.5rem]:inline @min-[10rem]:hidden @min-[14rem]:inline'>
+                      {priceLabel}
+                    </span>
+                  )}
+                  <span className='shrink-0 whitespace-nowrap'>{!price ? priceText : priceMax ? formatPriceOrRange(price, priceMax) : formatPriceTag(Number(price))}</span>
+                </p>
               )}
-            >
-              {/* The label gives way, never the price or a range like "80-150 €", and never the name beside it: left out
-                  on a 320px phone's tile and where the price shares a mid-width line with the name (the badge says enough). */}
-              {priceLabel && (
-                <span className='hidden min-w-0 truncate text-[0.7em] font-normal text-muted-foreground @min-[7.5rem]:inline @min-[10rem]:hidden @min-[14rem]:inline'>
-                  {priceLabel}
-                </span>
-              )}
-              <span className='shrink-0 whitespace-nowrap'>{!price ? priceText : priceMax ? formatPriceOrRange(price, priceMax) : formatPriceTag(Number(price))}</span>
-            </p>
+              {aiLabel && <AiPictureMark label={aiLabel} className={cn(isLarge && 'size-9 [&_svg]:size-4.5')} />}
+            </div>
           )}
         </div>
       </div>

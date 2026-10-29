@@ -95,7 +95,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
   const isIllustrative = Boolean(ownRing?.isIllustrative);
   const priceLabel = product.type === 'WANTED' ? t(wantedBudgetKey(product.price?.toString(), product.priceMax?.toString())) : isService ? t('PRICE_FROM') : undefined;
-  const condition = conditionKey(product.condition);
+  // Only goods have a condition: the AI may still read one ("new") for an event, which isn't new nor old.
+  const condition = isService || isEvent ? undefined : conditionKey(product.condition);
   const { name, description } = localizeProduct(product, locale);
   // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.
   // Writing to the place's Corral instead is parked for now (#131).
@@ -156,12 +157,12 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           >
             <ChevronLeft className='size-5' aria-hidden />
           </Link>
-          <ProductImages images={product.images} alt={name} stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined} />
-          {isIllustrative && (
-            <span className='pointer-events-none absolute right-3 top-3 z-10 rounded-full bg-background/90 px-2.5 py-1 text-xs shadow-sm'>
-              {t('PRODUCT_ILLUSTRATIVE')}
-            </span>
-          )}
+          <ProductImages
+            images={product.images}
+            alt={name}
+            stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined}
+            aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
+          />
         </div>
 
         <div className='flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5'>

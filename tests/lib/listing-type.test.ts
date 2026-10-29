@@ -75,4 +75,10 @@ describe('feedCardLabels', () => {
     expect(labels.badge).toContain(t('EVENT_TODAY'));
     expect(labels.priceText).toBe(t('EVENT_FREE'));
   });
+
+  it('gives a later event a short weekday, so its badge fits a small tile', () => {
+    const startsAt = new Date('2026-11-27T19:00:00Z');
+    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, t, 'es', now).badge).toBe('Vie 27/11 · 19:00');
+    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, getTranslator('en'), 'en', now).badge).toBe('Fri 27/11 · 19:00');
+  });
 });
