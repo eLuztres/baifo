@@ -13,10 +13,13 @@ jest.mock('next/image', () => ({
 }));
 
 const LOGO_ENV = {
+  APP_NAME: 'Baifo',
   BRAND_LOGO: '/brand/logo.png',
   BRAND_LOGO_DARK: '/brand/logo-dark.png',
   BRAND_LOGO_ANIMATED: '/brand/logo-alive.svg',
   BRAND_LOGO_ANIMATED_DARK: '/brand/logo-alive-dark.svg',
+  BRAND_LOGO_WORDMARK: '/brand/wordmark.png',
+  BRAND_LOGO_WORDMARK_DARK: '/brand/wordmark-dark.png',
 };
 
 // BRAND reads the env when the module loads, so each test loads the logo fresh.
@@ -35,9 +38,10 @@ const sourcesOf = (container: HTMLElement) =>
     srcSet: source.getAttribute('srcset'),
     media: source.getAttribute('media'),
   }));
+const imageSources = (container: HTMLElement) => Array.from(container.querySelectorAll('img')).map((img) => img.getAttribute('src'));
 
 describe('BrandLogo', () => {
-  it('offers the animated logos only to visitors who allow motion', async () => {
+  it('shows the animated mark, to visitors who allow motion, beside the wordmark', async () => {
     const BrandLogo = await loadBrandLogo(LOGO_ENV);
     const { container } = render(<BrandLogo isAnimated />);
 
@@ -45,8 +49,13 @@ describe('BrandLogo', () => {
       { srcSet: '/brand/logo-alive.svg', media: '(prefers-reduced-motion: no-preference)' },
       { srcSet: '/brand/logo-alive-dark.svg', media: '(prefers-reduced-motion: no-preference)' },
     ]);
-    // The still logos stay as the fallback for "reduce motion".
-    expect(container.querySelectorAll('picture img')).toHaveLength(2);
+    // "#still" is the unanimated goat for "reduce motion"; the full logo is gone.
+    expect(imageSources(container)).toEqual([
+      '/brand/logo-alive.svg#still',
+      '/brand/logo-alive-dark.svg#still',
+      '/brand/wordmark.png',
+      '/brand/wordmark-dark.png',
+    ]);
   });
 
   it('keeps the still logos where the animation is not asked for', async () => {
@@ -54,22 +63,30 @@ describe('BrandLogo', () => {
     const { container } = render(<BrandLogo />);
 
     expect(container.querySelector('picture')).toBeNull();
-    expect(container.querySelectorAll('img')).toHaveLength(2);
+    expect(imageSources(container)).toEqual(['/brand/logo.png', '/brand/logo-dark.png']);
   });
 
-  it('stays still when no animated logo is configured', async () => {
+  it('stays still when no animated mark is configured', async () => {
     const BrandLogo = await loadBrandLogo({ BRAND_LOGO: LOGO_ENV.BRAND_LOGO, BRAND_LOGO_DARK: LOGO_ENV.BRAND_LOGO_DARK });
     const { container } = render(<BrandLogo isAnimated />);
 
     expect(container.querySelector('picture')).toBeNull();
-    expect(container.querySelectorAll('img')).toHaveLength(2);
+    expect(imageSources(container)).toEqual(['/brand/logo.png', '/brand/logo-dark.png']);
   });
 
-  it('animates only the light logo when there is no dark animated one', async () => {
-    const BrandLogo = await loadBrandLogo({ ...LOGO_ENV, BRAND_LOGO_ANIMATED_DARK: undefined });
+  it('uses the light mark and wordmark in both themes when there are no dark ones', async () => {
+    const BrandLogo = await loadBrandLogo({ ...LOGO_ENV, BRAND_LOGO_ANIMATED_DARK: undefined, BRAND_LOGO_WORDMARK_DARK: undefined });
     const { container } = render(<BrandLogo isAnimated />);
 
     expect(sourcesOf(container).map((source) => source.srcSet)).toEqual(['/brand/logo-alive.svg']);
-    expect(container.querySelectorAll('img')).toHaveLength(2);
+    expect(imageSources(container)).toEqual(['/brand/logo-alive.svg#still', '/brand/wordmark.png']);
+  });
+
+  it('writes the shop name beside the mark when there is no wordmark', async () => {
+    const BrandLogo = await loadBrandLogo({ ...LOGO_ENV, BRAND_LOGO_WORDMARK: undefined, BRAND_LOGO_WORDMARK_DARK: undefined });
+    const { container, getByText } = render(<BrandLogo isAnimated />);
+
+    expect(getByText('Baifo')).toBeTruthy();
+    expect(imageSources(container)).toEqual(['/brand/logo-alive.svg#still', '/brand/logo-alive-dark.svg#still']);
   });
 });

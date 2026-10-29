@@ -2,30 +2,28 @@
 
 ## What changed
 
-- The header logo can now be an animated version of the logo. It is set with two new settings, `BRAND_LOGO_ANIMATED` and `BRAND_LOGO_ANIMATED_DARK` (dark mode). Both are off when not set, so shops without them keep the still logo.
-- Baifo gets `public/brand/logo-alive.svg` and `logo-alive-dark.svg`: the logo as a small SVG (50–70 KB) with CSS animation. About every 9 seconds the goat blinks, flicks its ear and lifts its head a little, then rests. The sun floats gently and the wave sways. The "baifo" word stays still.
-- The browser picks the animated file only when the visitor allows motion. With "reduce motion" it loads the normal still logo, and the SVG also stops its own animation then.
-- Only the header uses it. Footer, sign-in pages and emails keep the still logo. The animated SVGs have the same size (902×320) as the still logos, so nothing moves on the page.
-
-## Why
-
-The chef wanted the little goat in the header to feel alive, calm and small, without a heavy video.
+- The header can show an animated mark with the wordmark beside it, as two separate pieces: `BRAND_LOGO_ANIMATED` (+ `_DARK`) for the mark, `BRAND_LOGO_WORDMARK` (+ `_DARK`) for the wordmark. Without a wordmark the shop name shows as text. All are off when unset, so other shops keep their still logo.
+- Baifo: `public/brand/logo-alive.svg` and `logo-alive-dark.svg` are now only the goat (with its sun and waves), about 40–50 KB each. It floats gently on its waves, looks up to the sun, looks ahead, hops twice, flicks its ear and blinks, then rests (8-second loop). `wordmark.png` and `wordmark-dark.png` are the still "baifo" word.
+- Both pieces sit in fixed-size boxes, so the header keeps its slim height on phones (goat 48px, word ~26px) and on desktop (goat 64px).
+- "Reduce motion": the browser loads `logo-alive.svg#still`, which the SVG shows without animation.
 
 ## How to set it up
 
-Add to `.env` and to Vercel:
+Add to `.env` and to Vercel (the first two are already there):
 
 ```env
 BRAND_LOGO_ANIMATED=/brand/logo-alive.svg
 BRAND_LOGO_ANIMATED_DARK=/brand/logo-alive-dark.svg
+BRAND_LOGO_WORDMARK=/brand/wordmark.png
+BRAND_LOGO_WORDMARK_DARK=/brand/wordmark-dark.png
 ```
 
 ## How to test by hand
 
-1. With the two settings, open any page and watch the header logo for 10 seconds: the goat blinks, flicks its ear and lifts its head, then rests. The word "baifo" does not move.
-2. Switch between light and dark: each mode shows its own animated logo, with no jump.
-3. Turn on "reduce motion" (OS setting or Chrome DevTools > Rendering > prefers-reduced-motion: reduce) and reload: the still logo shows.
-4. Check at desktop, 375px and 320px: the logo keeps its size and spot, nothing overlaps.
-5. Remove the settings: the header shows the still logo as before.
+1. Open the home page at 375px and 320px: the header is slim, the goat top left, then a gap, then "baifo", the menu button free on the right; the hero heading is not covered.
+2. Watch the goat for 8 seconds: it looks up, looks ahead, hops twice, flicks its ear and blinks. The word does not move.
+3. Switch light and dark: each shows its own goat and word.
+4. Turn on "reduce motion" and reload: the goat stands still.
+5. Without the settings the header shows the still logo as before.
 
 Tests: `tests/components/brand-logo.test.tsx`.
