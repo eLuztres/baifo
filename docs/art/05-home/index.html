@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baifo art 5/5: home first screen, 3 picture versions</title>
+<style>
+  :root { --bg: #FAF7F0; --fg: #1E2A2F; --muted: #5b6a70; --card: #fff; --border: #e5ddcc; --primary: #0A716D; --primary-fg: #fff; --accent: #E2725B; }
+  .dark { --bg: #12191c; --fg: #F2E6CC; --muted: #a9b4b8; --card: #1b2428; --border: #2c393e; --primary: #4EC3BF; --primary-fg: #12191c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { margin: 48px 0 12px; }
+  p.lead { color: var(--muted); margin: 0 0 16px; }
+  .toggle { position: fixed; top: 12px; right: 12px; z-index: 9; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+
+  /* A mock of the first screen: the picture fills it, the text sits in the free sky. */
+  .screen { position: relative; overflow: hidden; border-radius: 18px; border: 1px solid var(--border); background: #BFE3EC; container-type: inline-size; }
+  .screen.phone { width: 375px; max-width: 100%; aspect-ratio: 375 / 667; }
+  .screen.desktop { width: 100%; aspect-ratio: 16 / 9; display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); }
+  .screen img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
+  .phone .text { position: absolute; inset: 0 0 auto; padding: 22px 18px 0; text-align: center; color: #1E2A2F; }
+  .desktop .text { display: flex; flex-direction: column; justify-content: center; padding: 0 8%; }
+  .desktop .art { position: relative; }
+  .desktop .art img { object-position: center 70%; }
+  .text h3 { font-size: clamp(1.4rem, 7cqi, 2.1rem); line-height: 1.1; margin: 0 0 6px; font-family: Georgia, serif; }
+  .desktop .text h3 { font-size: clamp(1.4rem, 4.5cqi, 3rem); }
+  .text p { margin: 0 0 14px; font-size: .95rem; }
+  .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .desktop .buttons { justify-content: flex-start; }
+  .btn { padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: .95rem; white-space: nowrap; }
+  .btn.primary { background: var(--primary); color: var(--primary-fg); }
+  .btn.secondary { background: var(--card); color: var(--fg); border: 1.5px solid var(--fg); }
+  .phone .btn.secondary { background: #FAF7F0; color: #1E2A2F; border-color: #1E2A2F; }
+  .advertise { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); font-size: .8rem; padding: 4px 12px; border-radius: 999px; background: rgb(250 247 240 / .9); color: #1E2A2F; white-space: nowrap; }
+  .desktop .advertise { position: static; transform: none; margin-top: 18px; align-self: flex-start; background: none; padding: 0; color: var(--muted); text-decoration: underline; }
+  .row .screen.desktop { flex: 1 1 100%; }
+  /* On a phone the desktop mock would only be squashed. */
+  @media (max-width: 760px) { .screen.desktop { display: none; } }
+  .note { color: var(--muted); font-size: .9rem; max-width: 60ch; }
+
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; overflow-wrap: break-word; hyphens: auto; }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<button class="toggle" onclick="document.documentElement.classList.toggle('dark')">Light / dark</button>
+<main>
+  <h1>Baifo art 5/5: the home first screen</h1>
+  <p class="lead">Three versions of the picture, made with the baifo-art skill (card 265). Each one is shown as a phone first
+    screen (375×667, the text in the free sky) and a desktop first screen (text left, picture right). Pick one, then the
+    page gets built with it and the palette from card 267.</p>
+
+  <section id="v1">
+    <h2>1. On the dunes</h2>
+    <p class="note">The goat reads on a Corralejo dune. Behind it: turquoise shallows, Lobos, two ochre cones, a windmill. The most sky, so the most room for text.</p>
+    <div class="row">
+      <div class="screen phone"><img src="v1-dune.webp" alt="">
+        <div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+          <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div>
+      <div class="screen desktop"><div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+        <p>Cosas, servicios y planes de vecinos de Fuerteventura. Hablas directo por WhatsApp.</p>
+        <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div><div class="art"><img src="v1-dune.webp" alt=""></div></div>
+    </div>
+  </section>
+
+  <section id="v2">
+    <h2>2. On the village terrace</h2>
+    <p class="note">The goat reads on the wall of a whitewashed house (teal door, flowers) and looks out over the island: cones, Calderón Hondo, a windmill, a path to the sea and Lobos. Most "island", least sky.</p>
+    <div class="row">
+      <div class="screen phone"><img src="v2-terrace.webp" alt="">
+        <div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+          <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div>
+      <div class="screen desktop"><div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+        <p>Cosas, servicios y planes de vecinos de Fuerteventura. Hablas directo por WhatsApp.</p>
+        <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div><div class="art"><img src="v2-terrace.webp" alt=""></div></div>
+    </div>
+  </section>
+
+  <section id="v3">
+    <h2>3. On the beach</h2>
+    <p class="note">The goat reads on a striped towel under a palm with a coffee. Across the water: a lighthouse, a white village, ochre cones. The most relaxed, "Sunday paper" mood.</p>
+    <div class="row">
+      <div class="screen phone"><img src="v3-beach.webp" alt="">
+        <div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+          <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div>
+      <div class="screen desktop"><div class="text"><h3>Los anuncios de la isla, como en el periódico</h3>
+        <p>Cosas, servicios y planes de vecinos de Fuerteventura. Hablas directo por WhatsApp.</p>
+        <div class="buttons"><span class="btn primary">Leer el periódico</span><span class="btn secondary">Ver categorías</span></div>
+        <span class="advertise">Anúnciate desde 5 € por WhatsApp</span></div><div class="art"><img src="v3-beach.webp" alt=""></div></div>
+    </div>
+  </section>
+
+  <h2>Wording (copywriting skill)</h2>
+  <p class="note">Recommended set. The headline sets up the newspaper idea, so "Read the paper" is clear without explaining it,
+    and it is something no other classifieds site can say. "Advertise" keeps today's text (<code>HOME_HERO_ORDER</code>, here with "por WhatsApp" added) as a small link.</p>
+  <div class="table-wrap"><table>
+    <tr><th></th><th>Headline</th><th>Button: all listings (/explore)</th><th>Button: category ring</th></tr>
+    <tr><td>es</td><td>Los anuncios de la isla, como en el periódico</td><td>Leer el periódico</td><td>Ver categorías</td></tr>
+    <tr><td>en</td><td>The island's classifieds, just like the local paper</td><td>Read the paper</td><td>Browse categories</td></tr>
+    <tr><td>de</td><td>Die Kleinanzeigen der Insel, wie in der Zeitung</td><td>Zeitung lesen</td><td>Kategorien ansehen</td></tr>
+    <tr><td>fr</td><td>Les petites annonces de l'île, comme dans le journal</td><td>Lire le journal</td><td>Voir les catégories</td></tr>
+    <tr><td>it</td><td>Gli annunci dell'isola, come sul giornale</td><td>Leggi il giornale</td><td>Vedi le categorie</td></tr>
+  </table></div>
+  <p class="note">Other headlines (es): <b>«Pasa y lee, vecino»</b>, the goat invites you in, the most playful, but says nothing about what Baifo is.
+    <b>«Bienvenido a la isla»</b>, the warmest, but any island site could say it. If "Leer el periódico" turns out unclear in testing,
+    the safe fallback is <b>«Ver todos los anuncios»</b>.</p>
+</main>
+</body>
+</html>

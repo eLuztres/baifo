@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
     '/admin/listings/**': FFMPEG_BINARY,
     '/api/cron/marketplace': FFMPEG_BINARY,
     '/api/whatsapp': FFMPEG_BINARY,
+    // The home slideshow lists its pictures from the folder at request time.
+    '/': ['./public/brand/hero/**'],
   },
   images: {
     remotePatterns: [

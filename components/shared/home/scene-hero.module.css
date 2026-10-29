@@ -1,0 +1,132 @@
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  /* The page snaps this part right under the sticky header, so it is exactly the rest of the screen. */
+  height: calc(100svh - var(--header-h));
+  padding: 0.75rem var(--gutter) 1rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+@media (min-width: 640px) {
+  .hero {
+    padding-block: 1.5rem;
+  }
+}
+
+.scenes {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--muted);
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.8s ease-in-out;
+}
+
+.scene[data-shown='true'] {
+  opacity: 1;
+}
+
+.scene img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The goat sits in the lower part; the sky above may be cut, the goat not. */
+  object-position: center 85%;
+}
+
+/* A very slow zoom and pan. It runs on every scene all the time, so a scene fading out never jumps back. */
+@media (prefers-reduced-motion: no-preference) {
+  .scene img {
+    animation: drift 26s ease-in-out infinite alternate;
+    transform-origin: 30% 80%;
+  }
+
+  .scene:nth-child(even) img {
+    animation-direction: alternate-reverse;
+    transform-origin: 70% 75%;
+  }
+}
+
+@keyframes drift {
+  to {
+    transform: scale(1.08) translateX(-1.5%);
+  }
+}
+
+/* The sunny picture would glare on a dark page. */
+:global(.dark) .scene img {
+  filter: brightness(0.82) saturate(0.95);
+}
+
+/* Small and calm at the top left, on a soft backdrop so palm leaves never run through the words. */
+.panel {
+  align-self: flex-start;
+  max-width: 30rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: 1.25rem;
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--foreground);
+}
+
+.title {
+  margin-bottom: 0.75rem;
+  font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Two equal buttons on a phone, so neither looks like the lesser choice. */
+@media (max-width: 639px) {
+  .panel {
+    align-self: stretch;
+  }
+
+  .buttons > * {
+    flex: 1 1 8.5rem;
+    padding-inline: 1rem;
+  }
+}
+
+.advertise {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: center;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background) 85%, transparent);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.advertise:hover {
+  color: var(--primary);
+}
+
+.advertise:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.advertise svg {
+  width: 1rem;
+  height: 1rem;
+  color: #25d366;
+}

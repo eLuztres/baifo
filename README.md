@@ -205,6 +205,10 @@ OFFERS_ENABLED=false                # turns off offers (Admin → Offers: big an
 
 The home page is short and scrolls normally: a compact opening (what the shop is and the two ways in), the "What can you do?" cards, the **showroom** (a ring of store categories you turn by swiping, with their products in front) and the contact details. Store categories are managed right on the showroom by admins.
 
+The hero picture (`BRAND_HERO_IMAGE`) is decorative by default. If it shows something worth describing, put its alt text in `HOME_HERO_IMAGE_ALT` in `brand/messages/<lang>.json`.
+
+**Home slideshow:** pictures in `public/brand/hero/` replace the hero with a full-screen slideshow that crossfades every 7 s (still with "reduce motion"). They play in file name order: `01-beach.webp` (3:4 or square, phones) and `01-beach-wide.webp` (3:2, wider screens). A picture with only one of the two shows only on screens of that shape. Its alt text is `HOME_HERO_ALT_BEACH` (the name without the number) in `brand/messages/<lang>.json`; without one it is decorative.
+
 | File | What it does |
 | :--- | :--- |
 | `brand/home-actions.json` | The home page's "What can you do?" cards: per card an `icon` (camera, search, offer, services), `title` and `text` per language, and either an `href` or a `whatsapp` first message per language. Empty: the section doesn't show. |

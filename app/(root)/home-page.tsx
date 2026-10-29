@@ -1,5 +1,7 @@
 import DarkRoomHero from '@/components/shared/home/dark-room-hero';
+import { getHeroPictures } from '@/components/shared/home/hero-pictures';
 import RingSpace from '@/components/shared/home/ring-space';
+import SceneHero from '@/components/shared/home/scene-hero';
 import ShowroomSection from '@/components/shared/home/showroom-section';
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import ContactSection from '@/components/shared/home/contact-section';
@@ -35,11 +37,15 @@ export default async function HomePage() {
       image: `/brand/products/cutout/${ring.slug}.webp`,
     }));
 
+  const heroPictures = getHeroPictures();
+
   return (
     <div className={onePage.onePage}>
       <OnePageScroller />
       <section id={SECTION_IDS.home} className={cn(room.room, onePage.home)}>
-        {spaceRings.length >= MIN_SPACE_RINGS ? (
+        {heroPictures.length > 0 ? (
+          <SceneHero pictures={heroPictures} />
+        ) : spaceRings.length >= MIN_SPACE_RINGS ? (
           <RingSpace rings={spaceRings} />
         ) : (
           <DarkRoomHero image={BRAND.heroImage} />

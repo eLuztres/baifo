@@ -75,7 +75,7 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
       {/* One real ring, floating in the dark like a jewel in a display window. */}
       {image && (
         <div className={styles.jewel}>
-          <Image src={image} alt='' fill priority unoptimized sizes='34rem' />
+          <Image src={image} alt={t('HOME_HERO_IMAGE_ALT')} fill priority unoptimized sizes='34rem' />
         </div>
       )}
     </section>
