@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, ImageIcon, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/components/i18n-provider';
+import { useDragOrder } from '@/hooks/use-drag-order';
 import { useToast } from '@/hooks/use-toast';
 import {
   addAdminVideoStill,
@@ -44,7 +45,7 @@ import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/paymen
 import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
-import { isAiPicture as isAiPictureAt, pictureCounterpart } from '@/lib/marketplace/pictures';
+import { isAiPicture as isAiPictureAt, movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
@@ -209,7 +210,15 @@ export default function ListingEditor({ listing, categories, places, languages, 
       languages.map(({ id }) => [id, made[id] ? { title: made[id].title, description: made[id].description, short: made[id].short ?? '' } : current.translations[id]])
     ),
   });
-  const makeMain = (url: string) => setImages((current) => [url, ...current.filter((image) => image !== url)]);
+  const [orderNote, setOrderNote] = useState('');
+  const movePhoto = (from: number, to: number) => {
+    const moved = movePicture(images, from, to);
+    if (moved === images) return false;
+    setImages(moved);
+    setOrderNote(fillText(texts.photoMoved, { place: to + 1, count: images.length }));
+    return true;
+  };
+  const photoDrag = useDragOrder(movePhoto);
   const removePicture = (url: string) => setImages((current) => current.filter((image) => image !== url));
 
   const isDirty = JSON.stringify({ ...fields, images }) !== savedSnapshot.current;
@@ -420,20 +429,30 @@ export default function ListingEditor({ listing, categories, places, languages, 
         />
       </div>
 
-      {/* The main picture a bit bigger; a tap opens a picture full screen, the star makes it the main one. Under each, original or AI. */}
-      <ul className='flex items-start gap-3 overflow-x-auto p-1'>
+      {/* The first picture is the main one, a bit bigger; a tap opens a picture full screen, dragging changes the order. Under each, original or AI. */}
+      <ul ref={photoDrag.listRef} className='flex items-start gap-3 overflow-x-auto p-1'>
         {images.map((url, index) => {
           const counterpart = pictureCounterpart(listing, url);
           const isAiPicture = isAiPictureAt(listing, url, index);
           return (
-            <li key={`${index}-${url}`} className={cn('flex shrink-0 flex-col items-center gap-1.5', index > 0 && 'pt-8')}>
+            <li
+              key={`${index}-${url}`}
+              {...photoDrag.itemProps(index)}
+              className={cn(
+                'relative flex shrink-0 flex-col items-center gap-1.5 transition-transform duration-200',
+                index > 0 && 'pt-8',
+                photoDrag.draggedIndex === index && 'cursor-grabbing drop-shadow-xl'
+              )}
+            >
               <div className='relative'>
                 <button
                   type='button'
+                  {...photoDrag.handleProps(index)}
                   onClick={() => setViewedIndex(index)}
                   aria-label={`${texts.photosLabel} ${index + 1}`}
+                  aria-describedby='photo-order-hint'
                   className={cn(
-                    'relative block cursor-zoom-in overflow-hidden rounded-2xl border-2 bg-muted transition-transform hover:scale-[1.03]',
+                    'relative block cursor-zoom-in select-none overflow-hidden rounded-2xl border-2 bg-muted transition-transform [-webkit-touch-callout:none] hover:scale-[1.03]',
                     index === 0 ? 'size-32 border-primary' : 'size-24 border-transparent'
                   )}
                 >
@@ -442,21 +461,10 @@ export default function ListingEditor({ listing, categories, places, languages, 
                     <Sparkles className='absolute left-1.5 top-1.5 size-5 rounded-full bg-background/90 p-1 text-primary' aria-label={texts.aiPicture} />
                   )}
                 </button>
-                {/* A video is the cover only with a still frame for cards and messages. */}
-                {(!isVideoUrl(url) || videoPoster(url)) && (
-                  <button
-                    type='button'
-                    onClick={() => index > 0 && makeMain(url)}
-                    aria-label={index === 0 ? texts.mainPhoto : texts.makeMain}
-                    aria-pressed={index === 0}
-                    title={index === 0 ? texts.mainPhoto : texts.makeMain}
-                    className={cn(
-                      'absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-full bg-background/90 shadow transition-colors',
-                      index === 0 ? 'text-primary' : 'text-muted-foreground hover:text-primary'
-                    )}
-                  >
-                    <Star className={cn('size-4', index === 0 && 'fill-current')} />
-                  </button>
+                {index === 0 && (
+                  <span className='pointer-events-none absolute right-1.5 top-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium shadow-sm'>
+                    {texts.mainPhoto}
+                  </span>
                 )}
                 {/* The last picture stays: a listing needs at least one. */}
                 {images.length > 1 && (
@@ -528,6 +536,12 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </li>
         )}
       </ul>
+      <p id='photo-order-hint' className='sr-only'>
+        {texts.photoOrderHint}
+      </p>
+      <p aria-live='polite' className='sr-only'>
+        {orderNote}
+      </p>
       {isAskingPicture && (
         <div className='flex flex-wrap gap-2'>
           <Input
