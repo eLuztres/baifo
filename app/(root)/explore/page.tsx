@@ -17,6 +17,7 @@ import ExploreRow from '@/components/shared/explore-row';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
+import { MIN_FULL_LISTINGS, moreListingsFor, splitThinRows } from '@/lib/explore-rows';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
@@ -124,6 +125,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       listings: inCategory(category.id),
     })),
   ].filter((row) => row.listings.length > 0);
+  // Thin rows would each stand alone with a "see all" that adds nothing; their listings show together instead.
+  const { fullRows, mixedListings } = splitThinRows(rows);
+  const moreListings = activeKey === 'all' ? [] : moreListingsFor(chosenListings, listings, ROW_SIZE);
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   // The town on each card only tells something once there's more than one.
@@ -154,11 +158,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     );
   };
 
-  // Every ninth tile is big, on alternating sides.
+  // Every ninth tile is big, on alternating sides; a few tiles stay even, a big one would leave a hole beside them.
   const renderTiles = (tiles: Listing[]) => (
     <ul className={styles.grid}>
       {tiles.map((listing, index) => {
-        const isLarge = index % BLOCK_SIZE === 0;
+        const isLarge = index % BLOCK_SIZE === 0 && tiles.length >= MIN_FULL_LISTINGS;
         const isRight = Math.floor(index / BLOCK_SIZE) % 2 === 1;
         return (
           <li key={listing.id} className={cn(styles.tile, isLarge && styles.large, isLarge && isRight && styles.right)}>
@@ -167,6 +171,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         );
       })}
     </ul>
+  );
+
+  const renderSection = (sectionTitle: string, tiles: Listing[]) => (
+    <section className='space-y-2'>
+      <h2 className='font-display text-xl sm:text-2xl'>{sectionTitle}</h2>
+      {renderTiles(tiles)}
+    </section>
   );
 
   // The way back home sits in the ring's line: on a phone a row of its own costs too much of the screen.
@@ -206,7 +217,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : activeKey === 'all' ? (
         <div className='space-y-8 sm:space-y-10'>
-          {rows.map((row) => (
+          {fullRows.map((row) => (
             <ExploreRow
               key={row.key}
               title={row.title}
@@ -222,10 +233,14 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               ))}
             </ExploreRow>
           ))}
+          {mixedListings.length > 0 && renderSection(t(fullRows.length > 0 ? 'EXPLORE_MORE' : 'EXPLORE_TITLE'), mixedListings)}
         </div>
       ) : (
         renderTiles(chosenListings)
       )}
+
+      {/* A thin choice goes on with other listings, so its page is never a card or two and empty space. */}
+      {moreListings.length > 0 && renderSection(t('EXPLORE_MORE'), moreListings)}
 
       {/* A clear end instead of a void: on to the ring's next choice, and an invitation to sell or offer something. */}
       {chosenListings.length > 0 && (
