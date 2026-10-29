@@ -158,6 +158,7 @@ Where the main texts appear:
 | `PRODUCT_PERK_*` | the three lines under the product description |
 | `STORE_TITLE`, `STORE_DESCRIPTION`, `STORE_EMPTY` | shop page |
 | `CONTACT_HEADING`, `CONTACT_INTRO` | contact page |
+| `BRAND_SLOGAN` | short slogan with `{shop}`, above the home page heading and in the footer; empty hides it |
 | `FOOTER_TAGLINE` | footer |
 | `PRIVACY_TEXT`, `IMPRINT_TEXT` | `/privacy` and `/impressum`, linked in the footer. The legal notice has placeholders in `[brackets]`: every shop must set its own. Blank lines separate paragraphs, `## ` starts a heading |
 | `WELCOME_*` | welcome email |

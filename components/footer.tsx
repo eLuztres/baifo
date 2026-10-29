@@ -16,6 +16,9 @@ const Footer = async () => {
       <div className='wrapper grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]'>
         <div className='space-y-4'>
           <BrandLogo withName />
+          {t('BRAND_SLOGAN') && (
+            <p className='text-sm font-medium text-foreground'>{t('BRAND_SLOGAN', { shop: BRAND.name })}</p>
+          )}
           <p className='max-w-xs text-sm leading-6 text-muted-foreground'>
             {t('FOOTER_TAGLINE')}
           </p>

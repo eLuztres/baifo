@@ -129,6 +129,14 @@
   pointer-events: none;
 }
 
+.slogan {
+  margin-bottom: 0.35rem;
+  font-size: clamp(0.85rem, 0.75rem + 0.4vw, 1.05rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
 .title {
   margin-bottom: 1rem;
   font-family: var(--font-display);

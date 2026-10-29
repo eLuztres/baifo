@@ -32,17 +32,19 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
+  const description = getDictionary(locale).BRAND_DESCRIPTION || BRAND.description;
   return {
     title: {
       template: `%s | ${BRAND.name}`,
       default: BRAND.name,
     },
-    description: getDictionary(locale).BRAND_DESCRIPTION || BRAND.description,
+    description,
     metadataBase: new URL(SERVER_URL),
     icons: BRAND.icon,
     ...(process.env.PREVIEW_PASSWORD && { robots: { index: false, follow: false } }),
     openGraph: {
       siteName: BRAND.name,
+      description,
       locale,
       images: [absoluteUrl(BRAND.ogImage ?? BRAND.logo, SERVER_URL)],
     },

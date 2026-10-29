@@ -26,6 +26,7 @@ export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) 
   const { t } = await getT();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
+  const slogan = t('BRAND_SLOGAN', { shop: APP_NAME });
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = pictures.map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
@@ -38,6 +39,7 @@ export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) 
       <SceneCrossfade scenes={scenes} />
 
       <div className={styles.panel}>
+        {slogan && <p className={styles.slogan}>{slogan}</p>}
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
         <div className={styles.buttons}>
           <Button asChild size='lg' className={cn('rounded-full', styles.solid)}>
