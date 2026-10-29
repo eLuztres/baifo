@@ -10,6 +10,8 @@ interface RingGlassCardProps {
   // Only the photos: the product page passes its database row without the price.
   product: Pick<Product, 'name' | 'images'>;
   imageIndex: number;
+  /** Videos load and play only while on screen (the product page, where this card is hidden on phones). */
+  playsWhenVisible?: boolean;
 }
 
 // 60 is the fewest at which the panels no longer show as stripes.
@@ -18,11 +20,11 @@ const FACE_WIDTH = (2 * Math.PI) / BAND_SEGMENTS;
 const LIGHT_ANGLE_DEG = -35;
 
 /** The product page's photo; all photos of the ring stay mounted so they can cross-fade. */
-export const RingGlassCard = ({ product, imageIndex }: RingGlassCardProps) => (
+export const RingGlassCard = ({ product, imageIndex, playsWhenVisible }: RingGlassCardProps) => (
   <div className={cn(styles.glassCard, styles.featured)}>
     {product.images.map((src, index) => (
       <div key={src} data-active={index === imageIndex || undefined} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
-        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} isWhole />
+        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} isWhole playsWhenVisible={playsWhenVisible} />
       </div>
     ))}
   </div>

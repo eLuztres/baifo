@@ -48,6 +48,13 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
     setFullScreenIndex(current);
   };
 
+  // On phones a video tile goes full screen itself too; photos open the viewer.
+  const openTile = (index: number, tile: HTMLElement) => {
+    const video = isVideoUrl(images[index]) ? tile.querySelector('video') : null;
+    if (video && playFullScreen(video)) return;
+    setFullScreenIndex(index);
+  };
+
   // Closing the viewer keeps the photo that was looked at last.
   const handleFullScreenChange = (index: number | null) => {
     if (index !== null) setCurrent(index);
@@ -74,11 +81,11 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
           <button
             type='button'
             key={image}
-            onClick={() => setFullScreenIndex(index)}
+            onClick={(event) => openTile(index, event.currentTarget)}
             aria-label={t('SHOW_IMAGE', { n: index + 1 })}
             className={cn('relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted', count === 1 && 'h-full max-w-full')}
           >
-            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole />
+            <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='50vw' priority={index === 0} isWhole playsWhenVisible />
             <BrandStamp src={stamp} />
           </button>
         ))}
@@ -132,7 +139,7 @@ const ProductImages = ({ images, alt, stamp }: ProductImagesProps) => {
             {...(count > 1 ? swipe.handlers : {})}
           >
             <div ref={cardRef} className='contents'>
-              <RingGlassCard product={{ name: alt, images }} imageIndex={current} />
+              <RingGlassCard product={{ name: alt, images }} imageIndex={current} playsWhenVisible />
             </div>
             <BrandStamp src={stamp} className='bottom-4 right-4' />
           </button>
