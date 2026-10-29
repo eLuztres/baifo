@@ -97,6 +97,10 @@ export const BRAND = {
   logo: env('BRAND_LOGO') ?? '/brand/logo.svg',
   /** The logo on dark backgrounds (dark mode); without it the normal logo shows there too. */
   logoDark: env('BRAND_LOGO_DARK'),
+  /** An animated version of the logo for the site header (e.g. an SVG with CSS animation); off when unset. */
+  logoAnimated: env('BRAND_LOGO_ANIMATED'),
+  /** The animated logo in dark mode; without it the dark header shows the still dark logo. */
+  logoAnimatedDark: env('BRAND_LOGO_ANIMATED_DARK'),
   /** The logo's height in the site header, in px, from tablets up (phones get three quarters); at most 72 so the header keeps its height. */
   logoHeight: Math.min(Number(env('BRAND_LOGO_HEIGHT')) || 64, 72),
   icon: env('BRAND_ICON') ?? '/brand/icon.svg',

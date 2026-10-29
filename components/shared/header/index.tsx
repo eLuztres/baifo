@@ -37,7 +37,7 @@ const Header = async () => {
           aria-label={BRAND.name}
           style={{ '--logo-height': `${BRAND.logoHeight}px` } as CSSProperties}
         >
-          <BrandLogo withName priority className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
+          <BrandLogo withName priority isAnimated className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
         </Link>
 
         <NavLinks links={navLinks} pageLinks={pageLinks} />
