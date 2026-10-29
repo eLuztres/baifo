@@ -182,6 +182,49 @@ export async function enableListing(submissionId: string) {
   return (await goLive(submission, ['EXPIRED'], 'Admin')) ? ('live' as const) : null;
 }
 
+export type RenewalOutcome = 'renewed' | 'not-renewable';
+
+/**
+ * "Renovación pagada": the fee for another period came by Bizum or in cash. A live listing stays online LISTING_DAYS
+ * longer than it would have; a paid one that has ended comes back for a new period, with what it kept.
+ */
+export async function renewPaidByAdmin(submissionId: string, fee: FeeRecord & { method: 'bizum' | 'cash' }): Promise<RenewalOutcome> {
+  const submission = await prisma.submission.findFirst({
+    where: { id: submissionId, paidAt: { not: null }, status: { in: ['LIVE', 'EXPIRED'] } },
+    include: { seller: true },
+  });
+  if (!submission) return 'not-renewable';
+  const paymentLabel = fee.method === 'bizum' ? 'Bizum' : 'Efectivo';
+  if (submission.status === 'EXPIRED') return (await goLive(submission, ['EXPIRED'], paymentLabel, fee)) ? 'renewed' : 'not-renewable';
+
+  const now = new Date();
+  const currentEnd = submission.expiresAt;
+  const expiresAt = new Date(Math.max(currentEnd?.getTime() ?? 0, now.getTime()) + LISTING_DAYS * DAY_MS);
+  const title = submission.title ?? 'Anuncio';
+  const isRenewed = await prisma.$transaction(async (tx) => {
+    // The old end in the filter: a second tap on the same payment finds nothing to renew.
+    const { count } = await tx.submission.updateMany({
+      where: { id: submission.id, status: 'LIVE', expiresAt: currentEnd },
+      data: { expiresAt, remindedAt: null, paidAt: now, paymentProvider: paymentLabel },
+    });
+    if (count === 0) return false;
+    if (submission.productId) await tx.product.updateMany({ where: { id: submission.productId }, data: { expiresAt } });
+    await tx.listingFee.create({
+      data: { submissionId: submission.id, title, method: fee.method, amount: fee.amount, payCode: submission.payCode, recordedBy: fee.recordedBy },
+    });
+    return true;
+  });
+  if (!isRenewed) return 'not-renewable';
+
+  revalidatePath('/');
+  const { waId } = submission.seller;
+  if (isPhoneNumber(waId)) {
+    const date = expiresAt.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' });
+    await sendText(waId, botText(localeOf(waId), 'renewed', { title, date })).catch(() => {});
+  }
+  return 'renewed';
+}
+
 /** A live listing leaves the shop (sold, cancelled or expired); the submission keeps the record. */
 export async function takeDown(submissionId: string, status: 'SOLD' | 'CANCELLED' | 'EXPIRED') {
   const submission = await prisma.submission.update({ where: { id: submissionId }, data: { status } });

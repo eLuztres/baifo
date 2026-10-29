@@ -56,11 +56,13 @@ interface PublishFormProps {
   paypalClientId: string;
   /** The way back into the shop, shown once the person has chosen how to pay. */
   shopTeaser: ReactNode;
+  /** Paying again for a listing that was online: no steps to show, it was confirmed long ago. */
+  isRenewal?: boolean;
 }
 
 const OPTION_CLASS = 'flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-card p-4 has-[:checked]:border-primary';
 
-export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser }: PublishFormProps) {
+export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser, isRenewal = false }: PublishFormProps) {
   const router = useRouter();
   // Premium is shown but not offered yet, so the plan is always the normal one.
   const plan: ListingPlan = 'normal';
@@ -158,7 +160,7 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
     return (
       <div className='space-y-6'>
         <div className='space-y-4 rounded-3xl border border-border bg-card p-5 sm:p-6'>
-          <PayProgress texts={texts} />
+          {!isRenewal && <PayProgress texts={texts} />}
           <div className='space-y-1'>
             <h2 className='font-display text-xl'>{texts.laterTitle}</h2>
             <p className='text-sm text-muted-foreground'>{fill(texts.laterText, { date: payment.validUntil })}</p>
@@ -176,7 +178,7 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
   if (isConfirmed) {
     return (
       <div className='space-y-5 rounded-3xl border border-primary/30 bg-card p-4 sm:p-6'>
-        <PayProgress texts={texts} />
+        {!isRenewal && <PayProgress texts={texts} />}
         <div className='space-y-1'>
           <h2 className='font-display text-xl'>{texts.payTitle}</h2>
           <p className='text-sm text-muted-foreground'>{texts.payIntro}</p>

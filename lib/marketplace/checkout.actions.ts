@@ -60,14 +60,23 @@ export async function confirmListing(input: ListingChoice): Promise<ActionResult
 
 const claimSchema = z.object({ token: z.string().uuid(), method: z.enum(['bizum', 'cash']) });
 
-/** "Ya he hecho el Bizum" / "Pasaré por El Corral": noted for the admin, who still checks the money and taps Pagado. */
+/** "Ya he hecho el Bizum" / "Pasaré por El Corral" (to publish or renew): noted for the admin, who still checks the money and taps Pagado. */
 export async function claimListingPayment(token: string, method: 'bizum' | 'cash'): Promise<ActionResult> {
   try {
     const parsed = claimSchema.safeParse({ token, method });
     if (!parsed.success || !LISTING_PAYMENT_METHODS.includes(parsed.data.method)) return { success: false };
     if (await isOverLimit(LISTING_PAGE_LIMIT, LISTING_LINK_LIMIT, parsed.data.token)) return { success: false };
-    const submission = await prisma.submission.findFirst({ where: { payToken: parsed.data.token, status: 'AWAITING_PAYMENT', consentAt: { not: null } } });
-    if (!submission || isLinkExpired(submission.sentAt)) return { success: false };
+    // The first payment, or a renewal of a listing paid before (online, or ended).
+    const submission = await prisma.submission.findFirst({
+      where: {
+        payToken: parsed.data.token,
+        OR: [
+          { status: 'AWAITING_PAYMENT', consentAt: { not: null } },
+          { status: { in: ['LIVE', 'EXPIRED'] }, paidAt: { not: null } },
+        ],
+      },
+    });
+    if (!submission || (submission.status === 'AWAITING_PAYMENT' && isLinkExpired(submission.sentAt))) return { success: false };
     await prisma.submission.update({ where: { id: submission.id }, data: { payClaimedAt: new Date(), payClaimedMethod: parsed.data.method } });
     return { success: true };
   } catch (error) {

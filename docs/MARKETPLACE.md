@@ -19,6 +19,7 @@ This code is Baifo's own and lives only in `lib/marketplace/`, `lib/whatsapp-clo
 Seller commands: `ayuda`, `borrar` (start over), `vendido` (takes the newest live listing down).
 
 The daily cron also takes listings down after `LISTING_DAYS` (the seller gets a WhatsApp a week before) and sends nothing twice. Listings never paid expire `UNPAID_LISTING_HOURS` after their link was sent (`sentAt`). An expired listing keeps its pictures and texts: **Enable again** in its editor brings it back (online for a new `LISTING_DAYS` if it was live, waiting for payment if it never was).
+**Renewal:** the reminder and the "ended" message link to the seller's `/publicar/<token>` page. While the listing is live, and after it ended if it was paid once, the page offers another `LISTING_DAYS` for the plan's price (Bizum or cash only; the card webhooks only know first payments). The admin taps **Pagado** under "Renovación" in the editor: the fee is booked in `ListingFee`, a live listing stays online `LISTING_DAYS` past its current end (from today if that has passed), and an ended one comes back for a new period with the same photos and texts.
 A step that fails is retried by the daily cron (`vercel.json`, `/api/cron/marketplace`); after 3 failures you get a WhatsApp message.
 
 ## Settings (`.env` and Vercel)
@@ -77,7 +78,7 @@ that isn't approved falls back to `es`. A template that fails too is only logged
 | `payment_link` (the private link) | all, at least `es` | {{1}} link, {{2}} hours it works | – |
 | `listing_live` | all, at least `es` | {{1}} days online, {{2}} product link | – |
 | `admin_new_listing` (to the admin) | `es` | {{1}} title, {{2}} plan (Normal/Grande), {{3}} link, {{4}} also post on (Facebook, Wallapop or —) | – |
-| `listing_expiring` | all, at least `es` | {{1}} title, {{2}} end date | – |
+| `listing_expiring` | all, at least `es` | {{1}} title, {{2}} end date, {{3}} renewal link | – |
 
 ## Admin pages
 

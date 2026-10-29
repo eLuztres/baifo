@@ -85,7 +85,7 @@ describe('getListingPreview', () => {
     expect((await getListingPreview(TOKEN, NOW))?.hasSellerPhone).toBe(false);
   });
 
-  it('shows nothing for an expired, closed or unknown link', async () => {
+  it('shows nothing for an expired, closed or unknown link, nor an unpaid listing that ended', async () => {
     db.findUnique.mockResolvedValueOnce({ ...LISTING, sentAt: new Date('2026-10-25T08:00:00Z') });
     expect(await getListingPreview(TOKEN, NOW)).toBeNull();
 
@@ -94,6 +94,11 @@ describe('getListingPreview', () => {
 
     db.findUnique.mockResolvedValueOnce(null);
     expect(await getListingPreview(TOKEN, NOW)).toBeNull();
+  });
+
+  it('stays open after the end of a paid listing, so it can be renewed', async () => {
+    db.findUnique.mockResolvedValue({ ...LISTING, status: 'EXPIRED', paidAt: new Date('2026-07-01T10:00:00Z'), seller: { waId: '34612345678' } });
+    expect((await getListingPreview(TOKEN, NOW))?.status).toBe('EXPIRED');
 
     expect(await getListingPreview('not-a-token', NOW)).toBeNull();
   });

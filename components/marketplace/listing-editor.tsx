@@ -25,7 +25,7 @@ import {
   updateAdminListing,
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
-import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
+import { markListingPaid, markRenewalPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
@@ -161,6 +161,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
   const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
   const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
+  // Paid once by its person: a new payment renews it.
+  const isRenewable = hasPersonWhatsApp && (listing.status === 'LIVE' || listing.status === 'EXPIRED') && Boolean(listing.paidAt);
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
@@ -261,6 +263,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   };
 
   const markPaid = (method: AdminPayMethod, amount: string) => run(() => markListingPaid(listing.id, { plan, method, amount }), onPublished);
+  const markRenewed = (method: AdminPayMethod, amount: string) => run(() => markRenewalPaid(listing.id, { method, amount }));
 
   // The edits so far stay with the current text; the other one comes back as it was, or is made once.
   const switchText = async (mode: TextMode) => {
@@ -675,7 +678,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </div>
       )}
 
-      {isOpen && (hasPersonWhatsApp || isAwaitingPayment) && (
+      {((isOpen && (hasPersonWhatsApp || isAwaitingPayment)) || isRenewable) && (
         <PaymentPanel
           listing={listing}
           plan={plan}
@@ -683,7 +686,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
           texts={texts}
           isPending={isPending}
           onConsent={() => run(() => recordWhatsAppConsent(listing.id))}
-          onPaid={markPaid}
+          onPaid={isRenewable ? markRenewed : markPaid}
         />
       )}
 

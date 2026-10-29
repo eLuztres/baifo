@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
+import { publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { unpaidCutoff } from './listing-payment';
 import { takeDown } from './publish';
@@ -20,7 +21,8 @@ export async function expireListings(now = new Date()) {
   });
   for (const submission of expired) {
     await takeDown(submission.id, 'EXPIRED');
-    await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'expired', { title: submission.title ?? '' })).catch(() => {});
+    const values = { title: submission.title ?? '', url: publishUrl(submission.payToken) };
+    await sendText(submission.seller.waId, botText(localeOf(submission.seller.waId), 'expired', values)).catch(() => {});
   }
 
   // Never paid: the link stops working; nothing to tell, the person never answered.
@@ -41,11 +43,12 @@ export async function expireListings(now = new Date()) {
   for (const submission of ending) {
     await prisma.submission.update({ where: { id: submission.id }, data: { remindedAt: now } });
     const { waId } = submission.seller;
-    const values = { title: submission.title ?? '', date: dateOf(submission.expiresAt!) };
+    // The private page renews it: another payment, the same photos and texts.
+    const values = { title: submission.title ?? '', date: dateOf(submission.expiresAt!), url: publishUrl(submission.payToken) };
     await sendWithTemplateFallback(waId, () => sendText(waId, botText(localeOf(waId), 'expiring', values)), {
       key: 'listingExpiring',
       locale: localeOf(waId),
-      parameters: [values.title, values.date],
+      parameters: [values.title, values.date, values.url],
     }).catch(() => {});
   }
   return { expired: expired.length + expiredServices.count, unpaid: unpaid.count, reminded: ending.length };

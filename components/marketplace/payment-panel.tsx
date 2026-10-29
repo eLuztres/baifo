@@ -28,14 +28,18 @@ interface PaymentPanelProps {
 const dateOf = (date: Date | string) =>
   new Date(date).toLocaleString('es-ES', { timeZone: 'Atlantic/Canary', dateStyle: 'short', timeStyle: 'short' });
 
-/** For a listing sent to its person: their consent, what they should pay and the "Pagado" button. */
+/** For a listing sent to its person: their consent, what they should pay and the "Pagado" button (to publish or renew). */
 export default function PaymentPanel({ listing, plan, hasPersonNumber, texts, isPending, onConsent, onPaid }: PaymentPanelProps) {
   const [method, setMethod] = useState<AdminPayMethod>('bizum');
   // Null until typed: the chosen plan's price, which follows a change of plan.
   const [amount, setAmount] = useState<string | null>(null);
   const planPrice = listing.planPrices[plan];
-  const isLocked = hasPersonNumber && !listing.consentAt;
   const isWaiting = listing.status === 'AWAITING_PAYMENT';
+  // Paid once: another payment keeps it online (or brings it back) with the same photos.
+  const isRenewal = (listing.status === 'LIVE' || listing.status === 'EXPIRED') && Boolean(listing.paidAt);
+  const isLocked = isWaiting && hasPersonNumber && !listing.consentAt;
+  // A claim from before the last payment belongs to that payment.
+  const claimedAt = listing.payClaimedAt && (!isRenewal || (listing.paidAt && listing.payClaimedAt > listing.paidAt)) ? listing.payClaimedAt : null;
 
   return (
     <div className='space-y-3 rounded-3xl border border-border bg-card p-4'>
@@ -58,17 +62,17 @@ export default function PaymentPanel({ listing, plan, hasPersonNumber, texts, is
           </div>
         ))}
 
-      {isWaiting && (
+      {(isWaiting || isRenewal) && (
         <div className='space-y-3 border-t border-border pt-3 first:border-t-0 first:pt-0'>
           <p className='text-sm font-medium'>
-            {texts.payTitle} ·{' '}
+            {isRenewal ? texts.renewTitle : texts.payTitle} ·{' '}
             {fillText(texts.payExpected, { amount: formatCurrency(planPrice), code: listing.payCode ?? '–' })}
           </p>
           {/* Only what the person says: the admin still checks the money before tapping Pagado. */}
-          {listing.payClaimedAt && (
+          {claimedAt && (
             <p className='flex items-start gap-2 rounded-2xl bg-muted p-3 text-sm'>
               <BellRing className='mt-0.5 size-4 shrink-0 text-primary' aria-hidden />
-              {fillText(listing.payClaimedMethod === 'cash' ? texts.payClaimedCash : texts.payClaimedBizum, { date: dateOf(listing.payClaimedAt) })}
+              {fillText(listing.payClaimedMethod === 'cash' ? texts.payClaimedCash : texts.payClaimedBizum, { date: dateOf(claimedAt) })}
             </p>
           )}
           <div className='flex flex-wrap items-end gap-4'>
@@ -98,7 +102,7 @@ export default function PaymentPanel({ listing, plan, hasPersonNumber, texts, is
           <Button className='h-12 w-full rounded-full' disabled={isPending || isLocked} onClick={() => onPaid(method, amount ?? planPrice)}>
             {isPending ? <Loader2 className='animate-spin' /> : isLocked ? <Lock /> : <Banknote />} {texts.markPaid}
           </Button>
-          <p className='text-center text-xs text-muted-foreground'>{isLocked ? texts.markPaidLocked : texts.markPaidHint}</p>
+          <p className='text-center text-xs text-muted-foreground'>{isLocked ? texts.markPaidLocked : isRenewal ? texts.markRenewedHint : texts.markPaidHint}</p>
         </div>
       )}
     </div>

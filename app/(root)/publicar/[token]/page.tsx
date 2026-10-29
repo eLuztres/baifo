@@ -9,10 +9,11 @@ import { BRAND } from '@/lib/brand';
 import { localize } from '@/lib/category';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS } from '@/lib/marketplace/config';
-import { publishPageTexts } from '@/lib/marketplace/page-texts';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS, type ListingPlan } from '@/lib/marketplace/config';
+import { fill, publishPageTexts } from '@/lib/marketplace/page-texts';
 import { getListingPreview } from '@/lib/marketplace/preview';
 import { conditionKey } from '@/lib/constants';
+import { formatCurrency } from '@/lib/utils';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
 import { serviceTypeKey } from '@/lib/listing-labels';
@@ -42,6 +43,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   }
 
   const isLive = listing.status === 'LIVE';
+  const isEnded = listing.status === 'EXPIRED';
   // The person sees the listing in their language; the shop language's text is the fallback.
   const translation = (listing.translations as ListingTranslations)[locale];
   const title = translation?.title || listing.title || '';
@@ -65,6 +67,47 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
         minute: '2-digit',
       })
     : '';
+  const endDate = listing.expiresAt?.toLocaleDateString(locale, { timeZone: SHOP_TIME_ZONE, day: 'numeric', month: 'long' }) ?? '';
+  const payment = {
+    methods: LISTING_PAYMENT_METHODS,
+    bizumPhone: BIZUM_PHONE,
+    code: listing.payCode ?? '',
+    corral: corral && {
+      name: corral.name,
+      address: corral.address,
+      hours: localize(corral.hours, locale),
+      mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([corral.venue, corral.address].filter(Boolean).join(', '))}`,
+    },
+    validUntil,
+    helpUrl: BRAND.contact.whatsappUrl,
+  };
+  // Renewals are paid by Bizum or cash only: the card webhooks know first payments only.
+  const renewMethods = LISTING_PAYMENT_METHODS.filter((method) => method === 'bizum' || method === 'cash');
+  const canRenew = (isLive || isEnded) && Boolean(listing.paidAt) && listing.hasSellerPhone && renewMethods.length > 0;
+  const plan = (listing.plan ?? 'normal') as ListingPlan;
+  const renewTexts = {
+    ...texts,
+    payTitle: texts.renewTitle,
+    payIntro: fill(texts.renewIntro, { price: formatCurrency(LISTING_PRICES[plan]), days: LISTING_DAYS }),
+    doneText: texts.renewDoneText,
+    doneNextCash: texts.renewDoneNextCash,
+    laterText: texts.renewLaterText,
+  };
+  // A claim from before the last payment belongs to that payment.
+  const renewClaim = listing.payClaimedAt && listing.paidAt && listing.payClaimedAt > listing.paidAt ? listing.payClaimedMethod : null;
+  const renewForm = canRenew && (
+    <PublishForm
+      token={token}
+      texts={renewTexts}
+      prices={LISTING_PRICES}
+      days={LISTING_DAYS}
+      initial={{ isConfirmed: true, claimedMethod: renewClaim === 'cash' ? 'cash' : renewClaim === 'bizum' ? 'bizum' : null }}
+      payment={{ ...payment, methods: renewMethods }}
+      paypalClientId=''
+      shopTeaser={null}
+      isRenewal
+    />
+  );
 
   return (
     <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
@@ -115,16 +158,23 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
           )}
         </div>
 
-        {isLive || pagado ? (
+        {isEnded ? (
+          <>
+            <p className='rounded-3xl border border-border bg-muted p-6'>{fill(texts.endedOn, { date: endDate })}</p>
+            {renewForm}
+            <ShopTeaser texts={texts} />
+          </>
+        ) : isLive || pagado ? (
           <>
             <div className='space-y-4 rounded-3xl border border-primary/30 bg-primary/10 p-6'>
-              <p>{isLive ? texts.live : texts.paid}</p>
+              <p>{isLive ? (endDate ? fill(texts.liveUntil, { date: endDate }) : texts.live) : texts.paid}</p>
               {listing.product && (
                 <Button asChild className='rounded-full'>
                   <Link href={`/product/${listing.product.slug}`}>{texts.viewListing}</Link>
                 </Button>
               )}
             </div>
+            {isLive && renewForm}
             {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
             <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
           </>
@@ -137,19 +187,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               prices={LISTING_PRICES}
               days={LISTING_DAYS}
               initial={{ isConfirmed: Boolean(listing.consentAt), claimedMethod: listing.payClaimedMethod === 'cash' ? 'cash' : listing.payClaimedMethod === 'bizum' ? 'bizum' : null }}
-              payment={{
-                methods: LISTING_PAYMENT_METHODS,
-                bizumPhone: BIZUM_PHONE,
-                code: listing.payCode ?? '',
-                corral: corral && {
-                  name: corral.name,
-                  address: corral.address,
-                  hours: localize(corral.hours, locale),
-                  mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([corral.venue, corral.address].filter(Boolean).join(', '))}`,
-                },
-                validUntil,
-                helpUrl: BRAND.contact.whatsappUrl,
-              }}
+              payment={payment}
               paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
               shopTeaser={<ShopTeaser texts={texts} />}
             />

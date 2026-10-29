@@ -51,8 +51,15 @@ describe('confirmListing', () => {
 describe('claimListingPayment', () => {
   it('notes that the person says they paid, only on a confirmed listing', async () => {
     expect(await claimListingPayment(TOKEN, 'bizum')).toEqual({ success: true });
-    expect(db.submission.findFirst.mock.calls[0][0].where).toMatchObject({ payToken: TOKEN, status: 'AWAITING_PAYMENT', consentAt: { not: null } });
+    expect(db.submission.findFirst.mock.calls[0][0].where).toMatchObject({ payToken: TOKEN, OR: expect.arrayContaining([{ status: 'AWAITING_PAYMENT', consentAt: { not: null } }]) });
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ payClaimedMethod: 'bizum' });
+  });
+
+  it('also notes a renewal of a listing that was paid before', async () => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', status: 'LIVE', sentAt: new Date() });
+    expect(await claimListingPayment(TOKEN, 'cash')).toEqual({ success: true });
+    expect(db.submission.findFirst.mock.calls[0][0].where.OR).toContainEqual({ status: { in: ['LIVE', 'EXPIRED'] }, paidAt: { not: null } });
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ payClaimedMethod: 'cash' });
   });
 
   it('refuses a method the page does not offer', async () => {
