@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, EyeOff, HandHelping, ImageIcon, Languages, Loader2, MessageCircle, Package, Plus, RotateCcw, Save, Search, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, HandHelping, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, Package, RotateCcw, Save, Search, Sparkles, Star, Trash2, Upload, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { ANY_CONDITION, LISTING_TYPES, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
+import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +20,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,7 +35,6 @@ import {
   enableAdminListing,
   extendAdminListing,
   fillAdminListingFields,
-  hideAdminListing,
   markAdminListingSold,
   publishAdminListing,
   shareAdminListing,
@@ -53,8 +52,11 @@ import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import type { Locale } from '@/lib/i18n-core';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import { toShopDateTime } from '@/lib/event-date';
+import { preparePhotos } from '@/lib/prepare-photos';
+import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, pictureOf, videoPoster } from '@/lib/video';
+import { uploadVideos } from '@/lib/video-upload';
 import AddressInput from './address-input';
 import ListingStatus, { type SaveState } from './listing-status';
 import PaymentPanel, { type AdminPayMethod } from './payment-panel';
@@ -126,6 +128,8 @@ const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
 const SELECT_CLASS = 'h-10 w-full rounded-xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-12 sm:rounded-2xl';
 // What editSchema takes (images max 12).
 const MAX_PICTURES = 12;
+// What the photosUploader route takes at once.
+const MAX_UPLOAD = 8;
 
 /** Everything the AI made, compact enough for a phone screen, editable, with the ways to put it online. */
 export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, onPublished }: ListingEditorProps) {
@@ -140,6 +144,19 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const [isAskingPicture, setIsAskingPicture] = useState(false);
   const [picturePrompt, setPicturePrompt] = useState('');
   const [isMakingPicture, setIsMakingPicture] = useState(false);
+  // "Upload photo": the admin's own photos and videos, on their way to UploadThing.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  // A failed upload says so in plain words: the raw upload error never reaches the admin.
+  const uploadEvents = {
+    onUploadProgress: setUploadProgress,
+    onUploadError: () => {
+      toast({ variant: 'destructive', description: texts.uploadFailed });
+    },
+  };
+  const { startUpload } = useUploadThing('photosUploader', uploadEvents);
+  const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
   // "Fill what's missing": busy while the AI reads the description; the fields it filled show where they came from.
   const [isFillingFields, setIsFillingFields] = useState(false);
   const [filledFromText, setFilledFromText] = useState<FillableField[]>([]);
@@ -300,6 +317,28 @@ export default function ListingEditor({ listing, categories, places, languages, 
     setIsAskingPicture(false);
   };
 
+  // Uploaded photos are originals: they join the others as they are and are stored with the next save.
+  const uploadPhotos = async (files: File[]) => {
+    const chosen = files.slice(0, Math.min(MAX_UPLOAD, MAX_PICTURES - images.length));
+    if (chosen.length === 0) return;
+    setUploadProgress(0);
+    setIsUploading(true);
+    try {
+      const videos = chosen.filter((file) => file.type.startsWith('video/'));
+      const photoFiles = chosen.filter((file) => !file.type.startsWith('video/'));
+      const [uploadedPhotos, uploadedVideos] = await Promise.all([
+        photoFiles.length > 0 ? startUpload(await preparePhotos(photoFiles)) : [],
+        videos.length > 0 ? uploadVideos(videos, startVideoUpload, startUpload) : [],
+      ]);
+      const uploaded = [...(uploadedPhotos ?? []).map((file) => file.ufsUrl), ...uploadedVideos];
+      if (uploaded.length > 0) setImages((current) => [...current, ...uploaded].slice(0, MAX_PICTURES));
+    } catch {
+      toast({ variant: 'destructive', description: texts.uploadFailed });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   // The video with its still joins the others with the next save; the stored pairs already have it.
   const addStill = async (url: string) => {
     setStillVideo(url);
@@ -445,65 +484,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {RELISTABLE.includes(listing.status) && (
-        <div className='space-y-1'>
-          <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
-            {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {relistLabel}
-          </Button>
-          <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
-        </div>
-      )}
-      <div className='flex flex-wrap gap-3'>
-        {listing.status === 'LIVE' && (
-          <>
-            {listing.product && (
-              <Button asChild className='rounded-full'>
-                <Link href={`/product/${listing.product.slug}`} target='_blank'>
-                  <ExternalLink /> {texts.viewListing}
-                </Link>
-              </Button>
-            )}
-            <Button asChild variant='outline' className='rounded-full'>
-              <Link href={newListingPath(type)}>
-                <Plus /> {texts.newAnother}
-              </Link>
-            </Button>
-            <Button variant='ghost' className='rounded-full' disabled={isPending} onClick={() => run(() => hideAdminListing(listing.id))}>
-              <EyeOff /> {texts.hide}
-            </Button>
-            {/* Selling takes the listing out of the shop at once, so it asks first. */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant='ghost' className='rounded-full' disabled={isPending}>
-                  {markSoldText(texts, type)}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{markSoldText(texts, type)}</AlertDialogTitle>
-                  <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
-                  <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
-                    {markSoldText(texts, type)}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        )}
-        <DeleteDialog
-          id={listing.id}
-          action={deleteAndLeave}
-          description={texts.deleteHint}
-          trigger={
-            <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending}>
-              <Trash2 /> {texts.deleteForGood}
-            </Button>
-          }
-        />
-      </div>
 
       {/* The first picture is the main one, a bit bigger and framed; a tap opens a picture full screen (where it can become the main one), dragging changes the order. Under each, original or AI. */}
       <ul ref={photoDrag.listRef} className='flex items-start gap-2 overflow-x-auto p-1 sm:gap-3'>
@@ -598,16 +578,38 @@ export default function ListingEditor({ listing, categories, places, languages, 
         })}
         {images.length < MAX_PICTURES && (
           <li className='shrink-0 pt-4 sm:pt-8'>
-            <button
-              type='button'
-              onClick={() => setIsAskingPicture((current) => !current)}
-              aria-expanded={isAskingPicture}
-              aria-label={texts.newPicture}
-              className='flex size-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border p-1.5 text-center text-xs leading-tight text-muted-foreground transition hover:border-primary hover:text-primary sm:size-24 sm:rounded-2xl'
-            >
-              {isMakingPicture ? <Loader2 className='size-4 animate-spin text-primary' /> : <Sparkles className='size-4' />}
-              {isMakingPicture ? texts.newPictureWorking : texts.newPictureShort}
-            </button>
+            {/* One tile for every new picture: the admin's own photo or one the AI makes. */}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type='button'
+                  disabled={isUploading || isMakingPicture}
+                  className='flex size-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border p-1.5 text-center text-xs leading-tight text-muted-foreground transition hover:border-primary hover:text-primary disabled:hover:border-border sm:size-24 sm:rounded-2xl'
+                >
+                  {isUploading || isMakingPicture ? <Loader2 className='size-4 animate-spin text-primary' /> : <ImagePlus className='size-4' />}
+                  {isUploading ? fillText(texts.uploading, { progress: uploadProgress }) : isMakingPicture ? texts.newPictureWorking : texts.newPhoto}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align='start' className='min-w-44 rounded-2xl p-1.5'>
+                <DropdownMenuItem className='rounded-xl py-2.5' onSelect={() => fileInput.current?.click()}>
+                  <Upload /> {texts.uploadPhoto}
+                </DropdownMenuItem>
+                <DropdownMenuItem className='rounded-xl py-2.5' onSelect={() => setIsAskingPicture(true)}>
+                  <Sparkles /> {texts.aiPhoto}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <input
+              ref={fileInput}
+              type='file'
+              accept='image/*,video/*'
+              multiple
+              className='hidden'
+              onChange={(event) => {
+                uploadPhotos([...(event.target.files ?? [])]);
+                event.target.value = '';
+              }}
+            />
           </li>
         )}
       </ul>
@@ -631,6 +633,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
           />
           <Button className='h-11 shrink-0 rounded-full' disabled={isMakingPicture || !hasPictureSource} onClick={makePicture}>
             {isMakingPicture ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.newPicture}
+          </Button>
+          <Button variant='ghost' size='icon' className='size-11 shrink-0 rounded-full' disabled={isMakingPicture} onClick={() => setIsAskingPicture(false)} aria-label={texts.markSoldCancel} title={texts.markSoldCancel}>
+            <X />
           </Button>
         </div>
       )}
@@ -858,6 +863,52 @@ export default function ListingEditor({ listing, categories, places, languages, 
           onPaid={markPaid}
         />
       )}
+
+      {/* The fields come first; what changes the listing's state ends the page, deleting last. */}
+      <div className='space-y-3 border-t border-border pt-4'>
+        {RELISTABLE.includes(listing.status) && (
+          <div className='space-y-1'>
+            <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
+              {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {relistLabel}
+            </Button>
+            <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
+          </div>
+        )}
+        <div className='flex flex-wrap gap-3'>
+          {listing.status === 'LIVE' && (
+            // Selling takes the listing out of the shop at once, so it asks first.
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant='outline' className='rounded-full' disabled={isPending}>
+                  {markSoldText(texts, type)}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{markSoldText(texts, type)}</AlertDialogTitle>
+                  <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
+                  <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
+                    {markSoldText(texts, type)}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <DeleteDialog
+            id={listing.id}
+            action={deleteAndLeave}
+            description={texts.deleteHint}
+            trigger={
+              <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending}>
+                <Trash2 /> {texts.deleteForGood}
+              </Button>
+            }
+          />
+        </div>
+      </div>
 
       {isOpen && (
         // One thumb-sized button: everything above is already filled in by the AI.

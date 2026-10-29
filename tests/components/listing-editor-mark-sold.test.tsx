@@ -22,6 +22,9 @@ jest.mock('@/lib/marketplace/admin.actions', () => ({
   translateListingText: jest.fn(),
   updateAdminListing: jest.fn(),
 }));
+jest.mock('@/lib/uploadthing', () => ({ useUploadThing: () => ({ startUpload: jest.fn() }) }));
+jest.mock('@/lib/video-upload', () => ({ uploadVideos: jest.fn() }));
+jest.mock('@/lib/prepare-photos', () => ({ preparePhotos: jest.fn() }));
 jest.mock('@/lib/marketplace/payment.actions', () => ({ markListingPaid: jest.fn(), markRenewalPaid: jest.fn(), recordWhatsAppConsent: jest.fn() }));
 
 const texts = adminTexts('es');
