@@ -23,12 +23,12 @@ import {
 import { getSession } from '@/lib/auth-guard';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
-import { getTranslator } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
+import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { serviceTypeKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
@@ -106,10 +106,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       : undefined;
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
-  const sellerMessage =
-    hasSellerContact && seller?.locale
-      ? getTranslator(seller.locale)('CONTACT_SELLER_MESSAGE', { name: localizeProduct(product, seller.locale).name, url: `${SERVER_URL}/product/${slug}` })
-      : undefined;
+  const sellerMessageTexts = hasSellerContact ? await getContactMessageTexts(product, seller?.locale) : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
@@ -215,8 +212,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 )}
                 {seller?.name && <p className='shrink-0 truncate text-sm text-muted-foreground'>{t('SELLER_OFFERED_BY', { name: seller.name })}</p>}
                 <div className='flex shrink-0 items-center gap-2'>
-                  {hasSellerContact ? (
-                    <ContactSellerButton productId={product.id} productName={name} message={sellerMessage} className='flex-1 shrink-0' />
+                  {sellerMessageTexts ? (
+                    <ContactSellerButton
+                      productId={product.id}
+                      messageTexts={sellerMessageTexts}
+                      image={BRAND.contactImage}
+                      className='flex-1 shrink-0'
+                    />
                   ) : shopChatUrl ? (
                     <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
                       <a href={shopChatUrl} target='_blank' rel='noopener noreferrer'>

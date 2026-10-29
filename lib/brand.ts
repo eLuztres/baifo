@@ -109,6 +109,8 @@ export const BRAND = {
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),
+  /** The picture waving hello in the contact pop-up, drawn in the text color; default: the loader picture. */
+  contactImage: env('BRAND_CONTACT_IMAGE') ?? env('BRAND_LOADER_IMAGE'),
   /** A small mark in the corner of item pictures, e.g. the shop's mascot. */
   stamp: env('BRAND_STAMP'),
   /** On a product page, swiping up (or the wheel down) opens the next product. */
