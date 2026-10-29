@@ -30,6 +30,7 @@ import Image from 'next/image';
 import { Checkbox } from '../ui/checkbox';
 import ProductMedia from "@/components/ProductMedia";
 import { useI18n } from '@/components/i18n-provider';
+import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import DescriptionFromInfo from './description-from-info';
 import { coverPicture } from '@/lib/video';
 
@@ -410,8 +411,8 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
             )}
           />
         </div>
-        {/* Always in sight at the bottom of a long form, with a word when there are changes still to save. */}
-        <div className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl backdrop-blur'>
+        {/* At the bottom of a long form, back on a small scroll up, with a word when there are changes still to save. */}
+        <HidingBottomBar className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl backdrop-blur'>
           <p role='status' className='min-w-0 flex-1 truncate text-sm text-muted-foreground'>
             {hasUnsaved && t('FORM_UNSAVED')}
           </p>
@@ -425,7 +426,7 @@ const ProductForm = ({ type, product, priceClasses, storeCategories, previousIma
               ? t('FORM_SAVING')
               : t(type === 'Create' ? 'ADMIN_CREATE_PRODUCT' : 'ADMIN_UPDATE_PRODUCT')}
           </Button>
-        </div>
+        </HidingBottomBar>
       </form>
     </Form>
   );

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { CalendarDays, CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ExternalLink, EyeOff, HandHelping, ImageIcon, Languages, Loader2, MessageCircle, Package, Plus, RotateCcw, Save, Search, Sparkles, Star, Trash2, WandSparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
+import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, LISTING_TYPES, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
@@ -860,17 +861,17 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
       {isOpen && (
         // One thumb-sized button: everything above is already filled in by the AI.
-        <div className='sticky bottom-4 z-10 space-y-1'>
+        <HidingBottomBar className='sticky bottom-4 z-10 space-y-1'>
           <Button className='h-12 w-full rounded-full text-base shadow-xl shadow-primary/20 sm:h-14' disabled={isPending} onClick={publish}>
             {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
           </Button>
           <p className='text-center text-xs text-muted-foreground'>{texts.publishNowHint}</p>
-        </div>
+        </HidingBottomBar>
       )}
 
-      {/* Edits only save here; the bar stays in sight while editing and says when something isn't saved yet. */}
+      {/* Edits only save here; the bar comes back on a small scroll up and says when something isn't saved yet. */}
       {!isOpen && (
-        <div className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
+        <HidingBottomBar className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
           <p
             role='status'
             className={cn(
@@ -888,7 +889,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
           <Button className='shrink-0 rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
             <Save /> {texts.saveNow}
           </Button>
-        </div>
+        </HidingBottomBar>
       )}
     </div>
   );

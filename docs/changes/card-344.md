@@ -29,3 +29,20 @@ Joe wants more room for the page, like Instagram or Safari: the bar gets out of 
 
 - No bugs found. Checked with Playwright at 1280, 375 and 320 px: hides on scroll down, returns on a 60 px scroll up, shown at the top, and shown again after opening a listing from a scrolled newspaper.
 - The existing `tests/components/hiding-header.test.tsx` covers hide/show, jitter, the top of the page, an open menu and focus. Lint is clean and all 692 tests pass.
+
+## Round 2: second bars hide too
+
+Joe: "I don't want double toolbars anywhere in the app." Every second bar now follows the same rule as the top bar.
+
+- **Shared hook `useHideOnScroll`** (`hooks/use-hide-on-scroll.ts`): the scroll logic moved out of `HidingHeader` so other bars can use it. Same 8 px rule, same "shown at the top, while a menu is open or it has keyboard focus".
+- **Admin header** (`app/admin/layout.tsx`) uses `HidingHeader`. The logo row and the phone row of admin tabs slide away together. No bar was removed for good: on a phone the tabs are the only way between admin pages.
+- **New `HidingBottomBar`** (`components/shared/hiding-bottom-bar.tsx`) for the floating Save / Publish bars in the listing editor, the new-listing page and the product form. It slides down out of view while scrolling down and comes back on a small scroll up. Once the end of its form is on screen it always shows, so Save is never missing there. It must be the last thing in its form.
+- The shop's phone tab row already fades on its own and the category editor's save row scrolls inside its dialog, so both are unchanged.
+
+### How to check
+
+1. Sign in as admin and open a long admin page (Listings, Offers) at desktop, 375 and 320 px. Scroll down: the admin header and its tabs slide away. Swipe up a little: they come back.
+2. Open the product form or a listing in the editor. Scroll down: the Save bar slides down out of view. Swipe up a little: it comes back. Scroll to the end of the form: it stays.
+3. Tab to the Save button while the bar is hidden: it comes back.
+
+`tests/components/hiding-bottom-bar.test.tsx` covers hide/show, jitter, keyboard focus and the end of the form.

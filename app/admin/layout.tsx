@@ -2,6 +2,7 @@ import BrandLogo from '@/components/shared/brand-logo';
 import Link from 'next/link';
 import { Store } from 'lucide-react';
 import Menu from '@/components/shared/header/menu';
+import HidingHeader from '@/components/shared/header/hiding-header';
 import { Button } from '@/components/ui/button';
 import MainNav from './main-nav';
 import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, OFFERS_ENABLED, SHOWCASE_MODE } from '@/lib/constants';
@@ -20,8 +21,8 @@ export default async function AdminLayout({
   return (
     <>
       <div className='flex flex-col'>
-        {/* Stays in reach while scrolling; on a phone the admin pages get their own row of tabs under it. */}
-        <header className='sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md'>
+        {/* Out of view while scrolling down, back on a small scroll up; on a phone the admin pages get their own row of tabs under it. */}
+        <HidingHeader className='sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-md'>
           <div className='container mx-auto flex h-12 items-center gap-3 px-4 sm:h-16'>
             <Link href='/' className='shrink-0'>
               <BrandLogo className='h-8 sm:h-10' />
@@ -44,7 +45,7 @@ export default async function AdminLayout({
             {...navProps}
             extraLinks={extraLinks}
           />
-        </header>
+        </HidingHeader>
 
         <div className='container mx-auto flex-1 space-y-4 px-4 py-3 sm:p-8 sm:pt-6'>
           {children}

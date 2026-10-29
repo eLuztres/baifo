@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
+import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { createAdminListing, getAdminListing, updateAdminListingPhotos, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
@@ -300,7 +301,7 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
           </DrawerContent>
         </Drawer>
 
-        <div className='sticky bottom-4 z-10'>
+        <HidingBottomBar className='sticky bottom-4 z-10'>
           {photos.length === 0 && !isUploading ? (
             <div className='space-y-2 text-center'>
               <Button
@@ -330,7 +331,7 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
               )}
             </div>
           )}
-        </div>
+        </HidingBottomBar>
       </div>
     </>
   );
