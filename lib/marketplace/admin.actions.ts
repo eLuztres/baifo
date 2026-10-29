@@ -208,7 +208,7 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
-  // Only before it goes live; missing: the number stays as it is.
+  // Missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema,
   sellerName: sellerNameSchema.optional(),
   sellerLocale: sellerLocaleSchema.optional(),
@@ -216,13 +216,13 @@ const editSchema = z.object({
 
 export type ListingEdit = z.input<typeof editSchema>;
 
-/** The person's number changed: a new seller, and the old number's consent no longer counts. */
+/** The person's number changed: a new seller. Before it goes live the new number has to agree again; once live the admin just fixes it. */
 async function sellerChange(current: { status: string; seller: { waId: string } } | null, sellerPhone?: string) {
   if (!current || sellerPhone === undefined) return {};
   const waId = toWaId(sellerPhone);
   if (waId === current.seller.waId) return {};
-  if (current.status !== 'IN_REVIEW' && current.status !== 'AWAITING_PAYMENT') return null;
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
+  if (current.status !== 'IN_REVIEW' && current.status !== 'AWAITING_PAYMENT') return { sellerId: seller.id };
   return { sellerId: seller.id, hasContactConsent: false, consentAt: null, consentSource: null, consentTextVersion: null };
 }
 
@@ -251,7 +251,6 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
   const sellerData = await sellerChange(current, sellerPhone);
-  if (!sellerData) return { success: false, message: 'El WhatsApp solo se puede cambiar antes de publicar' };
   // A service's empty price takes its "from" price away; only a service has a kind of offer.
   const edit = isService ? { ...fields, price: fields.price ?? null } : { ...fields, serviceType: null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end.
@@ -438,6 +437,21 @@ export async function enableAdminListing(id: string) {
   const outcome = await enableListing(id);
   if (!outcome) return { success: false, message: 'Este anuncio ya no está caducado' };
   return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el pago de nuevo' };
+}
+
+/** "1 mes más": a live listing stays online a month longer, for free; a payment for it is the admin's own business. */
+export async function extendAdminListing(id: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const submission = await prisma.submission.findFirst({ where: { id, status: 'LIVE' }, select: { expiresAt: true, productId: true } });
+  if (!submission) return { success: false, message: 'Solo un anuncio online se puede alargar' };
+  const expiresAt = new Date(Math.max(submission.expiresAt?.getTime() ?? 0, Date.now()));
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+  await prisma.$transaction([
+    prisma.submission.update({ where: { id }, data: { expiresAt, remindedAt: null } }),
+    ...(submission.productId ? [prisma.product.update({ where: { id: submission.productId }, data: { expiresAt } })] : []),
+  ]);
+  revalidatePath('/');
+  return { success: true, message: `Online hasta el ${expiresAt.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' })}` };
 }
 
 export async function markAdminListingSold(id: string) {

@@ -18,7 +18,7 @@ import ListingSteps from './listing-steps';
 
 interface NewListingFormProps {
   texts: AdminTexts;
-  /** A service gets retouched photos of the person instead of clean item photos; a wanted ad usually has no photo at all. */
+  /** A service gets retouched photos of the person instead of clean item photos. */
   type: ListingType;
   /** Back on the photos of a listing made already: its photos are changed instead of a new listing made. */
   listing?: AdminListing;
@@ -301,8 +301,8 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
           {photos.length === 0 && !isUploading ? (
             <div className='space-y-2 text-center'>
               <Button
-                variant={type === 'WANTED' ? 'default' : 'outline'}
-                className={cn('h-14 w-full rounded-full text-base shadow-xl', type === 'WANTED' ? 'shadow-primary/20' : 'bg-background shadow-primary/10')}
+                variant='outline'
+                className='h-14 w-full rounded-full bg-background text-base shadow-xl shadow-primary/10'
                 disabled={isPending}
                 onClick={startWithoutPhoto}
               >

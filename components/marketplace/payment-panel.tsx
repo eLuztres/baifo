@@ -47,10 +47,7 @@ export default function PaymentPanel({ listing, plan, hasPersonNumber, texts, is
         (listing.consentAt ? (
           <p className='flex items-start gap-2 text-sm'>
             <BadgeCheck className='mt-0.5 size-4 shrink-0 text-primary' aria-hidden />
-            {fillText(texts.consentGiven, {
-              date: dateOf(listing.consentAt),
-              source: listing.consentSource === 'whatsapp-reply' ? texts.consentFromWhatsApp : texts.consentFromPage,
-            })}
+            {texts.consentGiven}
           </p>
         ) : (
           <div className='space-y-2'>

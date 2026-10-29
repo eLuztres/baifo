@@ -106,7 +106,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       : undefined;
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
-  const sellerMessageTexts = hasSellerContact ? await getContactMessageTexts(product, seller?.locale) : undefined;
+  const sellerMessageTexts = hasSellerContact ? getContactMessageTexts(product) : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??

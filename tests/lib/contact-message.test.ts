@@ -1,7 +1,7 @@
 import { cleanNickname, contactMessage, NICKNAME_MAX_LENGTH } from '@/lib/contact-message';
 import { getTranslator, LOCALES } from '@/lib/i18n';
 
-const TEXTS = { hello: 'Hi!', helloNamed: "Hi! I'm {nick}", body: '{hello} 👋 About “Clock”: https://shop.test/product/clock' };
+const TEXTS = { hello: 'Hi!', helloNamed: "Hi! I'm {nick}.", body: '{hello} About “Clock”: https://shop.test/product/clock' };
 
 describe('contact message', () => {
   it('keeps a nickname short, on one line and without links', () => {
@@ -16,9 +16,9 @@ describe('contact message', () => {
   });
 
   it('greets with the nickname, or just hello without one', () => {
-    expect(contactMessage(TEXTS, 'Lula')).toBe("Hi! I'm Lula 👋 About “Clock”: https://shop.test/product/clock");
-    expect(contactMessage(TEXTS, '  ')).toBe('Hi! 👋 About “Clock”: https://shop.test/product/clock');
-    expect(contactMessage(TEXTS, 'http://x.com')).toBe('Hi! 👋 About “Clock”: https://shop.test/product/clock');
+    expect(contactMessage(TEXTS, 'Lula')).toBe("Hi! I'm Lula. About “Clock”: https://shop.test/product/clock");
+    expect(contactMessage(TEXTS, '  ')).toBe('Hi! About “Clock”: https://shop.test/product/clock');
+    expect(contactMessage(TEXTS, 'http://x.com')).toBe('Hi! About “Clock”: https://shop.test/product/clock');
   });
 
   it('has a hello and a message for every listing type in every language', () => {
@@ -27,6 +27,8 @@ describe('contact message', () => {
       expect(t('CONTACT_MESSAGE_HELLO_NAMED')).toContain('{nick}');
       for (const key of ['CONTACT_MESSAGE_PRODUCT', 'CONTACT_MESSAGE_WANTED', 'CONTACT_MESSAGE_SERVICE', 'CONTACT_MESSAGE_EVENT'] as const) {
         expect(t(key)).toMatch(/^\{hello\} .*\{name\}.*\{shop\}.*\{url\}$/);
+        // An emoji can arrive as � when a wa.me link opens WhatsApp on a computer.
+        expect(t(key)).not.toMatch(/\p{Extended_Pictographic}/u);
       }
     }
   });

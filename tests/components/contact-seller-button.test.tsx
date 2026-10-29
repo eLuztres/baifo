@@ -12,8 +12,8 @@ const mockContact = getProductContact as jest.Mock;
 const PRODUCT_ID = '6f1c2a4e-8b3d-4c5e-9f7a-1b2c3d4e5f60';
 const MESSAGE_TEXTS = {
   hello: '¡Hola!',
-  helloNamed: '¡Hola! Soy {nick}',
-  body: '{hello} 👋 Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici',
+  helloNamed: '¡Hola! Soy {nick}.',
+  body: '{hello} Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici',
 };
 
 const renderButton = () => renderWithI18n(<ContactSellerButton productId={PRODUCT_ID} messageTexts={MESSAGE_TEXTS} />);
@@ -34,7 +34,7 @@ describe('ContactSellerButton', () => {
     await userEvent.type(screen.getByLabelText(t('CONTACT_NICKNAME')), 'Lula');
     const whatsapp = screen.getByRole('link', { name: t('CONTACT_SELLER_WHATSAPP') });
     expect(whatsapp.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/34600111222\?text=/);
-    expect(messageOf(whatsapp)).toBe('¡Hola! Soy Lula 👋 Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
+    expect(messageOf(whatsapp)).toBe('¡Hola! Soy Lula. Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
 
     await userEvent.click(whatsapp);
     expect(localStorage.getItem(NICKNAME_STORAGE_KEY)).toBe('Lula');
@@ -51,7 +51,7 @@ describe('ContactSellerButton', () => {
     expect(field).toHaveValue('Lula');
     await userEvent.clear(field);
     const whatsapp = await screen.findByRole('link', { name: t('CONTACT_SELLER_WHATSAPP') });
-    expect(messageOf(whatsapp)).toBe('¡Hola! 👋 Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
+    expect(messageOf(whatsapp)).toBe('¡Hola! Te escribo por tu anuncio «Bici de paseo» en Baifo: https://baifo.es/product/bici');
 
     await userEvent.click(whatsapp);
     expect(localStorage.getItem(NICKNAME_STORAGE_KEY)).toBeNull();

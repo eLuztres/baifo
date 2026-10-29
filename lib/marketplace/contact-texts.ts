@@ -1,10 +1,8 @@
-import { prisma } from '@/db/prisma';
 import { localizeProduct } from '@/lib/category';
 import { APP_NAME, SERVER_URL, type ListingType } from '@/lib/constants';
 import type { ContactMessageTexts } from '@/lib/contact-message';
-import { getTranslator, type Locale, type TranslationKey } from '@/lib/i18n';
-import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
-import { localeOf } from './messages';
+import { getTranslator, type TranslationKey } from '@/lib/i18n';
+import { getShopLocale } from '@/lib/i18n-server';
 
 const MESSAGE_KEYS = {
   PRODUCT: 'CONTACT_MESSAGE_PRODUCT',
@@ -16,21 +14,13 @@ const MESSAGE_KEYS = {
 interface ContactListing {
   slug: string;
   type: ListingType;
-  sellerId: string | null;
   name: string;
   translations: unknown;
 }
 
-/** The language a listing was written in: its seller's (from their number, as the bot talks to them), else the shop's. */
-async function getListingLocale(sellerId: string | null): Promise<Locale> {
-  const seller = sellerId ? await prisma.seller.findUnique({ where: { id: sellerId }, select: { waId: true } }) : null;
-  const locale = seller && localeOf(seller.waId);
-  return locale && getEnabledLocales().includes(locale) ? locale : getShopLocale();
-}
-
-/** The WhatsApp message to a listing's seller in their language (the one they chose, else the listing's); only the texts go to the browser, not the number. */
-export async function getContactMessageTexts(listing: ContactListing, sellerLocale?: Locale | null): Promise<ContactMessageTexts> {
-  const locale = sellerLocale ?? (await getListingLocale(listing.sellerId));
+/** The WhatsApp message to a listing's seller, always in the shop's language so it stays simple; only the texts go to the browser, not the number. */
+export function getContactMessageTexts(listing: ContactListing): ContactMessageTexts {
+  const locale = getShopLocale();
   const t = getTranslator(locale);
   const { name } = localizeProduct(listing, locale);
   return {

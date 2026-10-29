@@ -30,7 +30,9 @@ interface FeedCardProps {
 
 /** A tile of the marketplace feed: the whole photo, upright or wide (the next one on hover), badges and age at the top,
     name and price at the bottom. */
-export default function FeedCard({ href, name, images, price, priceMax, priceLabel, priceText, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
+export default function FeedCard({ href, name, images, price: rawPrice, priceMax, priceLabel, priceText, badge, note, isReserved, reservedLabel, newLabel, listedAgo, isLarge }: FeedCardProps) {
+  // A wanted ad without a budget (or a service without a "from" price) is stored as 0: "Budget 0 €" says nothing.
+  const price = priceLabel && !priceMax && Number(rawPrice) === 0 ? undefined : rawPrice;
   const sizes = isLarge ? '(min-width: 1024px) 40vw, 100vw' : '(min-width: 1024px) 20vw, 50vw';
   // Small tiles are ~125px wide on a 320px phone: smaller badges, so "New" and a type badge fit side by side.
   const badgeSize = isLarge ? 'px-2.5 py-1 text-xs' : 'px-1.5 py-0.5 text-[0.7rem] sm:px-2.5 sm:py-1 sm:text-xs';

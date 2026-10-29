@@ -4,6 +4,7 @@ import {
   createAdminListing,
   createAdminListingPicture,
   describeAdminListing,
+  extendAdminListing,
   publishAdminListing,
   retryAdminListing,
   setAdminListingCategory,
@@ -28,15 +29,16 @@ jest.mock('next/server', () => ({ after: jest.fn((run: () => void) => run()) }))
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/db/prisma', () => ({
   prisma: {
-    submission: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(async () => ({ id: 'new-1' })) },
+    submission: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), create: jest.fn(async () => ({ id: 'new-1' })) },
     seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
     product: { update: jest.fn() },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
+    $transaction: jest.fn(async (writes: unknown[]) => writes),
   },
 }));
 
 const db = prisma as unknown as {
-  submission: Record<'findUnique' | 'update' | 'updateMany' | 'create', jest.Mock>;
+  submission: Record<'findUnique' | 'findFirst' | 'update' | 'updateMany' | 'create', jest.Mock>;
   seller: Record<'upsert', jest.Mock>;
   product: Record<'update', jest.Mock>;
 };
@@ -89,12 +91,28 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).not.toHaveProperty('consentAt');
   });
 
-  it('does not change the number of a live listing, nor take a broken one', async () => {
+  it("changes a live listing's number and keeps its consent, but takes no broken number", async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'LIVE', seller: { waId: '34600111222' } });
 
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611222333' })).success).toBe(false);
     expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '12' })).message).toBe('Revisa el teléfono');
     expect(db.submission.update).not.toHaveBeenCalled();
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611222333' })).success).toBe(true);
+    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34611222333' });
+    const data = db.submission.update.mock.calls[0][0].data;
+    expect(data.sellerId).toBe('seller-1');
+    expect(data).not.toHaveProperty('hasContactConsent');
+  });
+
+  it('keeps a live listing online a month longer, counted from its end', async () => {
+    db.submission.findFirst.mockResolvedValue({ expiresAt: new Date('2026-12-10T12:00:00Z'), productId: 'product-1' });
+
+    expect((await extendAdminListing(ID)).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data.expiresAt).toEqual(new Date('2027-01-10T12:00:00Z'));
+    expect(db.product.update.mock.calls[0][0].data.expiresAt).toEqual(new Date('2027-01-10T12:00:00Z'));
+
+    db.submission.findFirst.mockResolvedValue(null);
+    expect((await extendAdminListing(ID)).success).toBe(false);
   });
 
   it('lets a service go without a "from" price and keeps its kind of offer', async () => {

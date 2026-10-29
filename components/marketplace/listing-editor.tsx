@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, CheckCircle2, ChevronDown, ExternalLink, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, ExternalLink, Languages, Loader2, MessageCircle, Plus, RotateCcw, Save, Sparkles, Star, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, newListingPath, PRODUCT_CONDITIONS, SERVICE_TYPES, type ProductCondition, type ServiceType } from '@/lib/constants';
@@ -12,11 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/hooks/use-toast';
 import {
   chooseListingText,
   createAdminListingPicture,
   enableAdminListing,
+  extendAdminListing,
   markAdminListingSold,
   publishAdminListing,
   rejectAdminListing,
@@ -25,12 +27,13 @@ import {
   updateAdminListing,
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
-import { markListingPaid, markRenewalPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
+import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
+import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import { toShopDateTime } from '@/lib/event-date';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, videoPoster } from '@/lib/video';
@@ -101,8 +104,8 @@ interface EditorFields {
 const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], isService: boolean, textMode: TextMode) =>
   isService ? { ...fields, images, textMode } : { ...fields, priceMax, condition, images, textMode };
 
-// Reads like the finished listing; the border only shows on hover and focus, so it still looks editable.
-const INLINE_CLASS = 'rounded-xl border-transparent bg-transparent px-2 shadow-none hover:border-border focus-visible:border-ring';
+const FIELD_CLASS = 'rounded-2xl bg-background text-base md:text-base';
+const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
 // Native selects: on a phone they open the system's own picker.
 const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 // What editSchema takes (images max 12).
@@ -112,6 +115,7 @@ const MAX_PICTURES = 12;
 export default function ListingEditor({ listing, categories, places, languages, shopLanguage, texts, onPublished }: ListingEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { locale } = useI18n();
   const [isPending, startTransition] = useTransition();
   const [images, setImages] = useState(listing.images.length > 0 ? listing.images : listing.rawImages);
   // The picture open full screen, to judge it before choosing original or AI.
@@ -167,8 +171,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
   const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
   const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
-  // Paid once by its person: a new payment renews it.
-  const isRenewable = hasPersonWhatsApp && (listing.status === 'LIVE' || listing.status === 'EXPIRED') && Boolean(listing.paidAt);
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
@@ -269,7 +271,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
   };
 
   const markPaid = (method: AdminPayMethod, amount: string) => run(() => markListingPaid(listing.id, { plan, method, amount }), onPublished);
-  const markRenewed = (method: AdminPayMethod, amount: string) => run(() => markRenewalPaid(listing.id, { method, amount }));
 
   // The edits so far stay with the current text; the other one comes back as it was, or is made once.
   const switchText = async (mode: TextMode) => {
@@ -462,40 +463,30 @@ export default function ListingEditor({ listing, categories, places, languages, 
             </Button>
           </div>
         )}
-        <div role='tabpanel' lang={language} aria-busy={textWork !== null} className='space-y-1'>
-          <Label htmlFor='title' className='sr-only'>
-            {texts.titleLabel}
-          </Label>
-          <Input
-            id='title'
-            value={text?.title ?? ''}
-            onChange={setText('title')}
-            placeholder={texts.titleLabel}
-            className={`${INLINE_CLASS} h-auto py-1 font-display text-2xl md:text-2xl`}
-          />
-          <div className='flex items-center gap-1 px-2'>
-            <Label htmlFor='short' className='shrink-0 text-xs text-muted-foreground'>
+        <div role='tabpanel' lang={language} aria-busy={textWork !== null} className='space-y-3'>
+          <div className='space-y-1'>
+            <Label htmlFor='title' className={LABEL_CLASS}>
+              {texts.titleLabel}
+            </Label>
+            <Input id='title' value={text?.title ?? ''} onChange={setText('title')} className={`${FIELD_CLASS} h-12 font-medium`} />
+          </div>
+          <div className='space-y-1'>
+            <Label htmlFor='short' className={LABEL_CLASS}>
               {texts.shortLabel}
             </Label>
-            <Input
-              id='short'
-              value={text?.short ?? ''}
-              onChange={setText('short')}
-              placeholder={text?.title}
-              maxLength={40}
-              className={`${INLINE_CLASS} h-8 min-w-0 text-sm md:text-sm`}
+            <Input id='short' value={text?.short ?? ''} onChange={setText('short')} placeholder={text?.title} maxLength={40} className={`${FIELD_CLASS} h-11`} />
+          </div>
+          <div className='space-y-1'>
+            <Label htmlFor='description' className={LABEL_CLASS}>
+              {texts.descriptionLabel}
+            </Label>
+            <Textarea
+              id='description'
+              value={text?.description ?? ''}
+              onChange={setText('description')}
+              className={`${FIELD_CLASS} field-sizing-content max-h-[56svh] min-h-32 resize-none overflow-y-auto leading-relaxed`}
             />
           </div>
-          <Label htmlFor='description' className='sr-only'>
-            {texts.descriptionLabel}
-          </Label>
-          <Textarea
-            id='description'
-            value={text?.description ?? ''}
-            onChange={setText('description')}
-            placeholder={texts.descriptionLabel}
-            className={`${INLINE_CLASS} field-sizing-content max-h-[56svh] min-h-32 resize-none overflow-y-auto text-base leading-relaxed md:text-base`}
-          />
         </div>
         {textWork && (
           <div className='absolute inset-0 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium backdrop-blur-sm'>
@@ -606,101 +597,76 @@ export default function ListingEditor({ listing, categories, places, languages, 
         )}
       </div>
 
-      <details className='group rounded-3xl border border-border bg-card'>
-        <summary className='flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-medium'>
-          {texts.moreOptions}
-          <ChevronDown className='size-4 transition-transform group-open:rotate-180' />
-        </summary>
-        <div className='space-y-6 px-4 pb-4'>
-          {listing.rawText && (
-            <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
-              <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
-            </p>
-          )}
-          <div className='space-y-2'>
-            <p className='text-sm font-medium'>{texts.photosLabel}</p>
-            <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} allowVideos />
-          </div>
-          {listing.rawImages.length > 0 && (
-            <div className='space-y-2'>
-              <p className='text-sm font-medium'>{texts.original}</p>
-              <ul className='flex gap-2 overflow-x-auto'>
-                {listing.rawImages.map((url) => (
-                  <li key={url} className='relative size-16 shrink-0 overflow-hidden rounded-xl border border-border bg-muted'>
-                    <ProductMedia src={url} alt='' fill />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {isOpen && (
-            <div className='space-y-1'>
-              <Label htmlFor='seller-phone' className='text-sm font-medium'>
-                {texts.servicePhoneLabel}
-              </Label>
-              <Input
-                id='seller-phone'
-                type='tel'
-                value={fields.sellerPhone}
-                onChange={set('sellerPhone')}
-                placeholder={texts.sellerPlaceholder}
-                className='h-12 rounded-2xl bg-background'
-              />
-              <p className='px-1 text-xs text-muted-foreground'>{texts.sellerPhoneEditHint}</p>
-            </div>
-          )}
-          {/* Also once live: the seller may change their name any time. */}
-          <div className='grid gap-3 sm:grid-cols-2'>
-            <div className='space-y-1'>
-              <Label htmlFor='seller-name' className='text-sm font-medium'>
-                {texts.sellerNameLabel}
-              </Label>
-              <Input
-                id='seller-name'
-                maxLength={30}
-                value={fields.sellerName}
-                onChange={set('sellerName')}
-                placeholder={listing.sellerDefault.name ?? ''}
-                className='h-12 rounded-2xl bg-background'
-              />
-            </div>
-            <div className='space-y-1'>
-              <Label htmlFor='seller-locale' className='text-sm font-medium'>
-                {texts.sellerLocaleLabel}
-              </Label>
-              <select id='seller-locale' value={fields.sellerLocale} onChange={set('sellerLocale')} className={SELECT_CLASS}>
-                <option value=''>
-                  {listing.sellerDefault.locale
-                    ? fillText(texts.sellerLocaleAuto, { language: LOCALES.find(({ id }) => id === listing.sellerDefault.locale)?.name ?? '' })
-                    : texts.sellerLocaleNone}
-                </option>
-                {LOCALES.map(({ id, name }) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className='px-1 text-xs text-muted-foreground sm:col-span-2'>{texts.sellerNameHint}</p>
-          </div>
-          {isOpen && (
-            <RadioGroup value={plan} onValueChange={(value) => setPlan(value as Plan)} className='flex flex-wrap gap-4'>
-              {(['normal', 'big'] as const).map((option) => (
-                <Label key={option} className='flex items-center gap-2 font-normal'>
-                  <RadioGroupItem value={option} /> {option === 'big' ? texts.planBig : texts.planNormal}
-                </Label>
-              ))}
-            </RadioGroup>
-          )}
-          <div className='flex flex-wrap gap-3'>
-            {listing.status === 'IN_REVIEW' && (
-              <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending} onClick={() => run(() => rejectAdminListing(listing.id))}>
-                <X /> {texts.reject}
-              </Button>
-            )}
-          </div>
+      <div className='space-y-6 rounded-3xl border border-border bg-card p-4'>
+        {isOpen && listing.rawText && (
+          <p className='rounded-2xl bg-muted p-4 text-sm text-muted-foreground'>
+            <span className='font-medium text-foreground'>{texts.sellerSays}:</span> “{listing.rawText}”
+          </p>
+        )}
+        <div className='space-y-2'>
+          <p className='text-sm font-medium'>{texts.photosLabel}</p>
+          <PhotoUpload photos={images} onChange={setImages} texts={texts} max={MAX_PICTURES} allowVideos />
         </div>
-      </details>
+        {/* Also once live: the admin just fixes a wrong number. */}
+        <div className='space-y-1'>
+          <Label htmlFor='seller-phone' className='text-sm font-medium'>
+            {texts.servicePhoneLabel}
+          </Label>
+          <Input
+            id='seller-phone'
+            type='tel'
+            value={fields.sellerPhone}
+            onChange={set('sellerPhone')}
+            placeholder={texts.sellerPlaceholder}
+            className='h-12 rounded-2xl bg-background'
+          />
+          {isOpen && <p className='px-1 text-xs text-muted-foreground'>{texts.sellerPhoneEditHint}</p>}
+        </div>
+        {/* Also once live: the seller may change their name any time. */}
+        <div className='space-y-1'>
+          <Label htmlFor='seller-name' className='text-sm font-medium'>
+            {texts.sellerNameLabel}
+          </Label>
+          <Input
+            id='seller-name'
+            maxLength={30}
+            value={fields.sellerName}
+            onChange={set('sellerName')}
+            placeholder={listing.sellerDefault.name ?? ''}
+            className='h-12 rounded-2xl bg-background'
+          />
+          <p className='px-1 text-xs text-muted-foreground'>{texts.sellerNameHint}</p>
+        </div>
+        {isOpen && (
+          <RadioGroup value={plan} onValueChange={(value) => setPlan(value as Plan)} className='flex flex-wrap gap-4'>
+            {(['normal', 'big'] as const).map((option) => (
+              <Label key={option} className='flex items-center gap-2 font-normal'>
+                <RadioGroupItem value={option} /> {option === 'big' ? texts.planBig : texts.planNormal}
+              </Label>
+            ))}
+          </RadioGroup>
+        )}
+        <div className='flex flex-wrap gap-3'>
+          {listing.status === 'IN_REVIEW' && (
+            <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending} onClick={() => run(() => rejectAdminListing(listing.id))}>
+              <X /> {texts.reject}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {listing.status === 'LIVE' && listing.expiresAt && (
+        <div className='flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border bg-card p-4'>
+          <p className='text-sm font-medium'>
+            {fillText(texts.liveUntil, {
+              date: listing.expiresAt.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: SHOP_TIME_ZONE }),
+            })}
+          </p>
+          <Button variant='outline' className='rounded-full' disabled={isPending} onClick={() => run(() => extendAdminListing(listing.id))}>
+            <CalendarPlus /> {texts.extendMonth}
+          </Button>
+        </div>
+      )}
 
       {error && (
         <p role='alert' className='rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive'>
@@ -718,7 +684,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </div>
       )}
 
-      {((isOpen && (hasPersonWhatsApp || isAwaitingPayment)) || isRenewable) && (
+      {isOpen && (hasPersonWhatsApp || isAwaitingPayment) && (
         <PaymentPanel
           listing={listing}
           plan={plan}
@@ -726,7 +692,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
           texts={texts}
           isPending={isPending}
           onConsent={() => run(() => recordWhatsAppConsent(listing.id))}
-          onPaid={isRenewable ? markRenewed : markPaid}
+          onPaid={markPaid}
         />
       )}
 
