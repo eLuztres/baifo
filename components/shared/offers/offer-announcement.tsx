@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import Image from 'next/image';
+import { ChevronRight, X } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { ONE_PAGE_PATH } from '@/components/shared/home/one-page';
 import { OFFERS_PATH } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import OfferCard, { type OfferItem } from './offer-card';
+import type { OfferItem } from '@/lib/offers-core';
+import OfferIcon from './offer-icon';
 
 const CLOSED_STORAGE_KEY = 'closed-offers';
 const AUTO_ADVANCE_MS = 8000;
@@ -31,12 +33,14 @@ const saveClosedIds = (ids: string[]) => {
 
 interface OfferAnnouncementProps {
   items: OfferItem[];
+  /** The admin's floating "+" sits in the bottom right corner on phones. */
+  hasAdminButton: boolean;
 }
 
-/** The running offers, big over the bottom of the home page; several take turns. Closed, they stay closed for this
+/** The running offers as a slim banner over the bottom of the home page; several take turns. Closed, they stay closed for this
     visitor until a new offer starts (they stay on the offers page). In the layout, not the page: the page's entrance
     animation would make it the frame for `fixed`. */
-const OfferAnnouncement = ({ items }: OfferAnnouncementProps) => {
+const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) => {
   const { t } = useI18n();
   const pathname = usePathname();
   // Nothing until the browser said what was closed, so a closed announcement never flashes.
@@ -65,7 +69,8 @@ const OfferAnnouncement = ({ items }: OfferAnnouncementProps) => {
     saveClosedIds(ids);
     setClosedIds(ids);
   };
-  const turn = (step: number) => setIndex((current) => (current + step + count) % count);
+
+  const { offer } = current;
 
   return (
     <aside
@@ -76,38 +81,32 @@ const OfferAnnouncement = ({ items }: OfferAnnouncementProps) => {
       onFocus={() => setIsPaused(true)}
       onBlur={() => setIsPaused(false)}
       /* Wide screens: over the decorative picture on the right, so it covers neither the hero's buttons nor the WhatsApp QR code. */
-      className='fixed inset-x-3 bottom-3 z-30 mx-auto max-w-2xl rounded-3xl border border-border bg-card/95 p-4 pr-12 text-card-foreground shadow-2xl shadow-primary/20 backdrop-blur-md animate-in fade-in slide-in-from-bottom-8 duration-500 sm:bottom-6 sm:p-7 sm:pr-14 lg:inset-x-auto lg:right-24 lg:max-w-md'
+      className={cn(
+        'fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm items-center gap-1 rounded-2xl border border-border bg-card/90 p-1.5 text-card-foreground shadow-xl shadow-primary/15 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500 sm:bottom-6 lg:inset-x-auto lg:right-24',
+        hasAdminButton && 'right-20 sm:right-24'
+      )}
     >
-      <Button variant='ghost' size='icon' onClick={close} aria-label={t('OFFERS_CLOSE')} className='absolute top-2 right-2 rounded-full sm:top-3 sm:right-3'>
+      <Link key={offer.id} href={OFFERS_PATH} className='group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 animate-in fade-in duration-500'>
+        <span className='relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground'>
+          {offer.image ? <Image src={offer.image} alt='' fill sizes='2.75rem' className='object-cover' /> : <OfferIcon icon={offer.icon} className='size-5' />}
+        </span>
+        <span className='min-w-0 flex-1'>
+          <span className='block truncate font-display text-sm leading-snug sm:text-base'>{offer.title}</span>
+          {count > 1 ? (
+            <span className='mt-1.5 flex gap-1' aria-hidden>
+              {shown.map(({ offer: { id } }, dot) => (
+                <span key={id} className={cn('h-1 rounded-full transition-all', dot === index % count ? 'w-4 bg-primary' : 'w-1 bg-muted-foreground/40')} />
+              ))}
+            </span>
+          ) : (
+            offer.audience && <span className='block truncate text-xs text-muted-foreground'>{offer.audience}</span>
+          )}
+        </span>
+        <ChevronRight className='size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5' aria-hidden />
+      </Link>
+      <Button variant='ghost' size='icon' onClick={close} aria-label={t('OFFERS_CLOSE')} className='size-8 shrink-0 rounded-full text-muted-foreground'>
         <X />
       </Button>
-      <OfferCard key={current.offer.id} {...current} linkLabel={t('OFFERS_MORE')} size='compact' className='animate-in fade-in duration-500' />
-      {/* Phones: room on the right of the controls for the admin's floating + button. */}
-      {count > 1 && (
-        <div className='mt-3 flex items-center justify-between gap-3 pr-12 sm:mt-4 sm:pr-0'>
-          <div className='flex items-center gap-1'>
-            <Button variant='ghost' size='icon' className='size-8 rounded-full' onClick={() => turn(-1)} aria-label={t('OFFERS_PREVIOUS')}>
-              <ChevronLeft />
-            </Button>
-            {shown.map(({ offer }, dot) => (
-              <button
-                key={offer.id}
-                type='button'
-                onClick={() => setIndex(dot)}
-                aria-label={t('OFFERS_SHOW', { number: dot + 1, count })}
-                aria-current={dot === index % count}
-                className={cn('h-2 rounded-full transition-all', dot === index % count ? 'w-6 bg-primary' : 'w-2 bg-muted-foreground/40 hover:bg-muted-foreground')}
-              />
-            ))}
-            <Button variant='ghost' size='icon' className='size-8 rounded-full' onClick={() => turn(1)} aria-label={t('OFFERS_NEXT')}>
-              <ChevronRight />
-            </Button>
-          </div>
-          <Link href={OFFERS_PATH} className='shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline'>
-            {t('OFFERS_SEE_ALL')}
-          </Link>
-        </div>
-      )}
     </aside>
   );
 };

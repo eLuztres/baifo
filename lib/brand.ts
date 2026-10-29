@@ -56,6 +56,7 @@ const COLOR_TOKENS = [
   'chart-5',
   'inlay',
   'inlay-top',
+  'dune',
 ] as const;
 
 type ColorToken = (typeof COLOR_TOKENS)[number];

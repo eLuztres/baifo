@@ -4,7 +4,7 @@ import { CSSProperties, MouseEvent, useEffect, useRef, useState, useSyncExternal
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
 import { RING_PREVIEW_COUNT, type MaterialRing } from '@/components/shared/home/materials';
@@ -53,8 +53,6 @@ interface CategoryRingProps {
   figures?: RingFigure[];
   /** Only for admins: edit rings right here (categories are edited in the admin catalog). */
   admin?: CategoryRingAdmin;
-  /** How many listings there are in all; set, a pill above the ring leads straight to all of them. */
-  allCount?: number;
 }
 
 // Loaded only when an admin looks, so visitors never download the editors.
@@ -159,7 +157,7 @@ const Flyers = ({ srcs }: FlyersProps) => (
 );
 
 /** The store's opening: one card per material, each opening the rings made of it. */
-const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], figures = [], admin, allCount }: CategoryRingProps) => {
+const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], figures = [], admin }: CategoryRingProps) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   // From the live URL, not a server prop: the back button restores the first server render, not the category turned to since.
@@ -211,16 +209,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   return (
     // data-swipe-owner: a sideways swipe here never turns the page to another part; the arrows and side cards turn the rings.
     <section className={cn('relative flex min-h-0 flex-1 flex-col justify-center gap-4', styles.categorySection)} data-swipe-owner=''>
-      {/* Otherwise all listings were only reachable through a category's feed. Floats: the ring already fills the screen. */}
-      {allCount !== undefined && (
-        <Link
-          href='/explore'
-          className='absolute left-1/2 top-0 z-20 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-primary/30 bg-card/85 px-3 py-1 text-xs font-medium text-primary shadow-md backdrop-blur transition-colors hover:border-primary sm:text-sm'
-        >
-          <LayoutGrid className='size-4' aria-hidden /> {t('RING_ALL_LISTINGS')}
-          <span className='tabular-nums text-muted-foreground'>{allCount}</span>
-        </Link>
-      )}
       <div
         ref={stageRef}
         role='region'

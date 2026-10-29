@@ -439,6 +439,8 @@
     /* The cards cast a soft shadow on the gold band just behind them, away from the light on the left (like the band's
        shine). Drawn once with each card, so a turn costs nothing; on the dark page around the band it doesn't show. */
     --band-shadow: calc(var(--card-w) * 0.1) calc(var(--card-w) * 0.02) calc(var(--card-w) * 0.1) rgb(0 0 0 / 0.85);
+    /* Settles softly without overshooting: a bounce made the big category cards jump. */
+    --grow-ease: cubic-bezier(0.22, 1, 0.36, 1);
     flex: none;
     height: calc(var(--card-w) * 1.8);
 }
@@ -470,6 +472,17 @@
 .categoryStage .card[aria-current] .glassCard {
     top: calc(var(--card-w) / -3);
     transition: border-color 600ms ease, box-shadow 600ms ease, top var(--grow-ms) var(--grow-ease) var(--grow-delay);
+}
+
+/* Phones: the front card only grows a little and stays square, so the island in the ring's middle stays in view. */
+@media (max-width: 1023px) {
+    .categoryStage .card[aria-current] {
+        scale: 1.06;
+    }
+
+    .categoryStage .card[aria-current] .glassCard {
+        top: 0;
+    }
 }
 
 /* The names and their arrows keep some air below the cards instead of touching them. */

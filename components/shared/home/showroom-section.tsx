@@ -14,12 +14,10 @@ interface ShowroomSectionProps {
   /** Each category's counts by slug, from all its rings. */
   counts: Map<string, CategoryCount>;
   storeCategories: StoreCategory[];
-  /** Every listing in the visitor's places, for the ring's "all listings" pill. */
-  allCount: number;
 }
 
 /** The exposition: the category ring with the rings of the category in front. */
-export default async function ShowroomSection({ rings, counts, storeCategories, allCount }: ShowroomSectionProps) {
+export default async function ShowroomSection({ rings, counts, storeCategories }: ShowroomSectionProps) {
   const { t, locale } = await getT();
   const groups = groupByCategory(storeCategories, rings, locale);
   const images = new Map(storeCategories.map((category) => [category.slug, category.image]));
@@ -40,7 +38,7 @@ export default async function ShowroomSection({ rings, counts, storeCategories, 
     <section id={SECTION_IDS.showroom} className={cn('relative', styles.section, styles.fitScreen)}>
       <h2 className='sr-only'>{t('NAV_SHOWROOM')}</h2>
       {categories.length > 0 ? (
-        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyers={RING_FLYERS} figures={figures} allCount={allCount} />
+        <CategoryRing categories={categories} label={t('RING_TITLE')} center={BRAND.ringCenter} sea={BRAND.ringCenterSea} flyers={RING_FLYERS} figures={figures} />
       ) : (
         <p className='rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground'>
           {t('STORE_EMPTY')}

@@ -483,6 +483,8 @@ model Offer {
   icon      String
   // Where its button leads; no button without it.
   linkUrl   String?
+  // A picture beside the text; the icon without it.
+  image     String?
   startsAt  DateTime @db.Timestamp(6)
   endsAt    DateTime @db.Timestamp(6)
   sortOrder Int      @default(0)

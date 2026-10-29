@@ -56,6 +56,7 @@ describe('localizeOffer', () => {
     text: { es: 'Publica gratis' },
     audience: {},
     linkUrl: null,
+    image: null,
     endsAt: new Date('2026-11-30T23:59:00Z'),
   };
 

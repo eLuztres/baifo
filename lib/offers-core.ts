@@ -35,6 +35,7 @@ export interface OfferView {
   text: string;
   audience: string;
   linkUrl: string | null;
+  image: string | null;
   endsAt: string;
 }
 
@@ -52,6 +53,7 @@ interface StoredOffer {
   text: unknown;
   audience: unknown;
   linkUrl: string | null;
+  image: string | null;
   endsAt: Date;
 }
 
@@ -64,5 +66,6 @@ export const localizeOffer = (offer: StoredOffer, locale: Locale): OfferView => 
   text: localize(offer.text, locale),
   audience: localize(offer.audience, locale),
   linkUrl: offer.linkUrl,
+  image: offer.image,
   endsAt: offer.endsAt.toISOString(),
 });

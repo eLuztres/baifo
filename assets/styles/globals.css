@@ -121,6 +121,9 @@
     --inlay-top: #B3192F;
     --inlay: #2BB3B1;
 
+    /* The sand dunes along the bottom of the light home hero. */
+    --dune: #F3C455;
+
     color-scheme: light;
   }
 

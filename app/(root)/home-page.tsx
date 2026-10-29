@@ -45,7 +45,7 @@ export default async function HomePage() {
           <DarkRoomHero image={BRAND.heroImage} />
         )}
       </section>
-      <ShowroomSection rings={rings} counts={counts} storeCategories={storeCategories} allCount={placedSummaries.length} />
+      <ShowroomSection rings={rings} counts={counts} storeCategories={storeCategories} />
       <WorkshopSection />
       <ContactSection />
     </div>

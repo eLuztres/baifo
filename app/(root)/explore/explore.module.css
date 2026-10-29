@@ -27,7 +27,7 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 20rem;
   /* A tile reached with the keyboard stops below the sticky header and chips, not under them. */
-  scroll-margin-top: 10rem;
+  scroll-margin-top: 13rem;
 }
 
 .large {

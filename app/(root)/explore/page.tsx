@@ -16,7 +16,7 @@ import { composeFeed } from '@/lib/feed';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
-import ExploreFilterMenu from '@/components/shared/explore-filter-menu';
+import ExploreStories from '@/components/shared/explore-stories';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { findMatchingListingIds } from '@/lib/search';
@@ -181,77 +181,87 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </header>
       )}
 
-      {/* Stays under the header while scrolling, so another category is always one tap away. */}
+      <div className='space-y-2'>
+      <form action='/explore' role='search' className='relative'>
+        <Search className='pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' aria-hidden />
+        <Input
+          type='search'
+          name='q'
+          defaultValue={query}
+          maxLength={MAX_QUERY_LENGTH}
+          placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
+          aria-label={t('EXPLORE_SEARCH_LABEL')}
+          className='h-12 rounded-full border-border bg-card pl-12 pr-28 text-base shadow-sm'
+        />
+        <Button type='submit' className='absolute right-1.5 top-1/2 h-9 -translate-y-1/2 rounded-full px-5'>
+          {t('EXPLORE_SEARCH_SUBMIT')}
+        </Button>
+      </form>
+      {query && (
+        <p className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
+          <span>{t('EXPLORE_SEARCH_RESULTS', { query })}</span>
+          <Link
+            href={exploreHref({ ...filters, sub: subcategory?.slug })}
+            className='inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-foreground transition-colors hover:border-primary/40'
+          >
+            <X className='size-3.5' aria-hidden /> {t('EXPLORE_SEARCH_CLEAR')}
+          </Link>
+        </p>
+      )}
+      </div>
+
+      {/* Stays under the header while scrolling: every category and type is in sight and one tap away. */}
       <div className='sticky top-[calc(4rem+1px)] z-10 -mx-4 space-y-2 bg-background/85 px-4 py-3 backdrop-blur-md sm:top-[calc(5rem+1px)]'>
-        <form action='/explore' role='search' className='relative'>
-          <Search className='pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' aria-hidden />
-          <Input
-            type='search'
-            name='q'
-            defaultValue={query}
-            maxLength={MAX_QUERY_LENGTH}
-            placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
-            aria-label={t('EXPLORE_SEARCH_LABEL')}
-            className='h-12 rounded-full border-border bg-card pl-12 pr-28 text-base shadow-sm'
-          />
-          <Button type='submit' className='absolute right-1.5 top-1/2 h-9 -translate-y-1/2 rounded-full px-5'>
-            {t('EXPLORE_SEARCH_SUBMIT')}
-          </Button>
-        </form>
-        {query && (
-          <p className='flex flex-wrap items-center gap-2 text-sm text-muted-foreground'>
-            <span>{t('EXPLORE_SEARCH_RESULTS', { query })}</span>
+        <ExploreStories
+          label={t('EXPLORE_CATEGORY_BUTTON')}
+          unseenSince={new Date(now.getTime() - NEW_LISTING_HOURS * 60 * 60 * 1000).toISOString()}
+          items={[
+            { key: 'all', label: t('EXPLORE_ALL'), href: exploreHref({ ...filters, c: undefined }, query), isActive: !focus },
+            ...filledCategories.map((category) => {
+              const inCategory = shownListings.filter((listing) => listing.categoryIds.includes(category.id));
+              return {
+                key: category.slug,
+                label: localize(category.name, locale),
+                href: exploreHref({ ...filters, c: category.slug }, query),
+                image: category.image ?? inCategory[0]?.image,
+                isActive: category.id === focus?.id,
+                newestAt: inCategory.reduce<Date | undefined>((newest, { createdAt }) => (!newest || createdAt > newest ? createdAt : newest), undefined)?.toISOString(),
+              };
+            }),
+          ]}
+        />
+        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='-mx-4 flex gap-2 overflow-x-auto px-4'>
+          {[
+            { key: 'all', label: t('EXPLORE_ALL'), href: exploreHref({ c: focus?.slug, sub: subcategory?.slug }, query), isActive: !typeParam && !isTodayOnly },
+            ...(todayListings.length > 0
+              ? [{ key: 'today', label: t('EXPLORE_TODAY'), href: exploreHref({ c: focus?.slug, isToday: true }, query), isActive: isTodayOnly }]
+              : []),
+            ...filledTypes.map((item) => ({
+              key: item,
+              label: t(LISTING_TYPE_KEYS[item]),
+              href: exploreHref({ c: focus?.slug, sub: subcategory?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query),
+              isActive: item === type && !isTodayOnly,
+            })),
+            // The chosen category's subcategories follow the types, in the same row.
+            ...subcategories.map((item) => ({
+              key: item.id,
+              label: localize(item.name, locale),
+              href: exploreHref({ ...filters, sub: item.id === subcategory?.id ? undefined : item.slug }, query),
+              isActive: item.id === subcategory?.id,
+            })),
+          ].map((chip) => (
             <Link
-              href={exploreHref({ ...filters, sub: subcategory?.slug })}
-              className='inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-foreground transition-colors hover:border-primary/40'
+              key={chip.key}
+              href={chip.href}
+              aria-current={chip.isActive ? 'page' : undefined}
+              className={cn(
+                'inline-flex h-8 shrink-0 items-center rounded-full border px-3.5 text-sm transition-colors',
+                chip.isActive ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/40'
+              )}
             >
-              <X className='size-3.5' aria-hidden /> {t('EXPLORE_SEARCH_CLEAR')}
+              {chip.label}
             </Link>
-          </p>
-        )}
-        {/* Two buttons, the category and the listing type, so the filters fit on any phone. */}
-        <nav aria-label={t('EXPLORE_TYPE_FILTER')} className='flex items-center gap-2'>
-          <ExploreFilterMenu
-            label={subcategory ? localize(subcategory.name, locale) : focus ? localize(focus.name, locale) : t('EXPLORE_CATEGORY_BUTTON')}
-            isFiltered={Boolean(focus)}
-            items={[
-              { key: 'all', label: t('CATEGORY_ALL'), href: exploreHref({ ...filters, c: undefined }, query), isActive: !focus },
-              ...filledCategories.flatMap((category) => [
-                {
-                  key: category.id,
-                  label: localize(category.name, locale),
-                  href: exploreHref({ ...filters, c: category.slug }, query),
-                  isActive: category.id === focus?.id && !subcategory,
-                },
-                // The chosen category's subcategories, right under it.
-                ...(category.id === focus?.id
-                  ? subcategories.map((item) => ({
-                      key: item.id,
-                      label: localize(item.name, locale),
-                      href: exploreHref({ ...filters, sub: item.slug }, query),
-                      isActive: item.id === subcategory?.id,
-                      isSub: true,
-                    }))
-                  : []),
-              ]),
-            ]}
-          />
-          <ExploreFilterMenu
-            label={isTodayOnly ? t('EXPLORE_TODAY') : type ? t(LISTING_TYPE_KEYS[type]) : t('EXPLORE_ALL')}
-            isFiltered={Boolean(typeParam) || isTodayOnly}
-            items={[
-              { key: 'all', label: t('EXPLORE_ALL'), href: exploreHref({ c: focus?.slug }, query), isActive: !typeParam && !isTodayOnly },
-              ...filledTypes.map((item) => ({
-                key: item,
-                label: t(LISTING_TYPE_KEYS[item]),
-                href: exploreHref({ c: focus?.slug, tipo: LISTING_TYPE_PARAMS[item] }, query),
-                isActive: item === type && !isTodayOnly,
-              })),
-              ...(todayListings.length > 0
-                ? [{ key: 'today', label: t('EXPLORE_TODAY'), href: exploreHref({ c: focus?.slug, isToday: true }, query), isActive: isTodayOnly }]
-                : []),
-            ]}
-          />
+          ))}
         </nav>
       </div>
 
