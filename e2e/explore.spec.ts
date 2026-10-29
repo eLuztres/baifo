@@ -32,6 +32,19 @@ test.describe('explore: category ring and rows', () => {
     await expect(page).toHaveURL(/\/explore$/);
   });
 
+  test('scrolling down through a category and back up keeps the choice', async ({ page }) => {
+    await ring(page).getByRole('button', { name: t('EXPLORE_NEXT') }).click();
+    await expect(page).not.toHaveURL(/\/explore$/);
+    const url = page.url();
+    const name = await chosenName(page);
+
+    await page.mouse.wheel(0, 3000);
+    await page.mouse.wheel(0, -3000);
+    await expect(page).toHaveURL(url);
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+    expect(await chosenName(page)).toBe(name);
+  });
+
   test('swiping the ring opens the choice that lands in the middle', async ({ page }) => {
     const track = ring(page).locator('a').first().locator('..');
     const step = await ring(page).locator('a').first().evaluate((link) => (link as HTMLElement).offsetWidth);

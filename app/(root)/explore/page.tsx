@@ -174,7 +174,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
-    <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:space-y-6 sm:py-8' data-feed-page=''>
+    <div className='mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:space-y-10 sm:py-8' data-feed-page=''>
       {/* The chosen one is named once, under the ring's middle; the title is only for screen readers. */}
       <h1 className='sr-only'>{title}</h1>
 

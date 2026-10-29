@@ -4,6 +4,7 @@
 
 - **Removed from `/explore`:** the text search field, the category picture next to the title, the row of chips (Everything, Products, Wanted, Services, categories) and the row of round category "stories" (`explore-search.tsx`, `explore-chips.tsx`, `explore-stories.tsx` and their tests are gone, plus the unused texts in all five languages).
 - **No heading on Everything:** the page starts straight with the ring (the title "All listings" stays only for screen readers). With something chosen, one line holds a back arrow to everything (just the arrow on a phone) and the name.
+- **Spacing:** header, ring and listings read as three calm blocks, with more room above the ring and between the ring's name and the first picture (desktop, 375 and 320).
 - **No counts:** the page shows no number of listings anywhere (not by the title, the ring, the rows or "See all").
 - **Small category ring** (`explore-ring.tsx`): the chosen item big in the middle with its name below, a little of the neighbours fading out at the sides. Swipe it or tap the arrows; it turns round at the end. Items: Everything, Today (`?hoy`), Ending soon (`?pronto`), Events (`?tipo=eventos`) and every category with listings. Today, Ending soon and Events only show when they have something.
 - **Rows** (`explore-row.tsx`): without a choice, `/explore` shows rows that swipe sideways: Today, Ending soon, Events, then each category, up to 12 listings each, with "See all" and arrows on desktop hover. With a choice, the full grid as before.
@@ -21,4 +22,4 @@ The search didn't work well and opened the keyboard on phones, and the chips plu
 4. Today shows today's events, Ending soon listings ending within 3 days, Events all events. Old links `/explore?c=eventos` and `/category/<slug>` still work.
 5. Check all of it at 375px and 320px.
 
-The same flow runs as an end-to-end test: `npx playwright test e2e/explore.spec.ts` (ring first and no counts, arrows and swipe, the way back, "See all").
+The same flow runs as an end-to-end test: `npx playwright test e2e/explore.spec.ts` (ring first and no counts, arrows and swipe, scrolling down and back up keeps the choice, the way back, "See all").
