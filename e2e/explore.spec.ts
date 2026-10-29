@@ -18,19 +18,17 @@ test.describe('explore: category ring and rows', () => {
     await expect(page.locator('[data-feed-page]')).not.toContainText(/\d+ (listings|products)/);
   });
 
-  test('the arrows turn the ring and open the next choice, the way back returns to everything', async ({ page }) => {
+  test('the arrows turn the ring and open the next choice, the round back button returns to everything', async ({ page }) => {
     await ring(page).getByRole('button', { name: t('EXPLORE_NEXT') }).click();
     await expect(page).toHaveURL(/\/explore\?(hoy|pronto|tipo=|c=)/);
     const name = await chosenName(page);
-    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-    await expect(page.locator('[data-feed-page] header')).not.toContainText(/\d/);
+    // The name shows once, under the ring; the page title is only for screen readers.
+    await expect(page.getByRole('heading', { level: 1, name })).toHaveClass(/sr-only/);
+    await expect(page.locator('[data-feed-page]').getByText(name, { exact: true }).and(page.locator(':not(.sr-only)'))).toHaveCount(1);
 
-    await ring(page).getByRole('button', { name: t('EXPLORE_PREVIOUS') }).click();
-    await expect(page).toHaveURL(/\/explore$/);
-
-    await ring(page).getByRole('button', { name: t('EXPLORE_NEXT') }).click();
-    await expect(page).not.toHaveURL(/\/explore$/);
-    await page.locator('[data-feed-page] header a[href="/explore"]').click();
+    // On a choice the ring holds only the choices; "everything" is the back button.
+    await expect(ring(page).getByRole('link', { name: t('EXPLORE_ALL') })).toHaveCount(1);
+    await ring(page).getByRole('link', { name: t('EXPLORE_ALL') }).click();
     await expect(page).toHaveURL(/\/explore$/);
   });
 
@@ -48,7 +46,7 @@ test.describe('explore: category ring and rows', () => {
     const title = (await row.getByRole('heading', { level: 2 }).first().textContent())!.trim();
     await row.getByRole('link', { name: t('EXPLORE_SEE_ALL') }).click();
 
-    await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: title })).toHaveCount(1);
     expect(await chosenName(page)).toBe(title);
   });
 });

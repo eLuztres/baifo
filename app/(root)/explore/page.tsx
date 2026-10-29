@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import FeedCard from '@/components/shared/product/feed-card';
 import { Button } from '@/components/ui/button';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
@@ -175,23 +175,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
     <div className='mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:space-y-6 sm:py-8' data-feed-page=''>
-      {/* Everything starts straight with the ring; its title is only for screen readers. */}
-      {activeKey === 'all' ? (
-        <h1 className='sr-only'>{title}</h1>
-      ) : (
-        <header className='flex items-center gap-x-2 sm:gap-x-3'>
-          {/* Just the arrow on a phone, so a long category name keeps its room. */}
-          <Link
-            href='/explore'
-            className='-ml-2 inline-flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-medium text-primary underline-offset-4 hover:underline sm:ml-0 sm:size-auto'
-          >
-            <ChevronLeft className='size-5 sm:size-4' aria-hidden />
-            <span className='sr-only sm:not-sr-only'>{t('EXPLORE_ALL')}</span>
-          </Link>
-          {/* Long one-word names (Musikinstrumente) break instead of running off a phone. */}
-          <h1 className='min-w-0 hyphens-auto text-balance break-words font-display text-xl leading-tight sm:text-4xl'>{title}</h1>
-        </header>
-      )}
+      {/* The chosen one is named once, under the ring's middle; the title is only for screen readers. */}
+      <h1 className='sr-only'>{title}</h1>
 
       {ringItems.length > 1 ? (
         <div className='flex items-start gap-2'>
@@ -204,6 +189,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               label={t('EXPLORE_CATEGORY_BUTTON')}
               previousLabel={t('EXPLORE_PREVIOUS')}
               nextLabel={t('EXPLORE_NEXT')}
+              back={activeKey === 'all' ? undefined : { href: '/explore', label: t('EXPLORE_ALL') }}
             />
           </div>
         </div>
