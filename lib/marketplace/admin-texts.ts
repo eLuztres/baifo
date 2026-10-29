@@ -1,3 +1,4 @@
+import type { ListingType, SubmissionStatus } from '@prisma/client';
 import type { Locale } from '@/lib/i18n-core';
 
 // Texts of Baifo's admin pages (listings, new listing). Baifo-only, so outside the template's i18n.
@@ -29,6 +30,9 @@ const ES = {
   status_AWAITING_PAYMENT: 'Esperando pago',
   status_LIVE: 'Online',
   status_SOLD: 'Vendido',
+  status_SOLD_SERVICE: 'Ya no se ofrece',
+  status_SOLD_EVENT: 'Terminado',
+  status_SOLD_WANTED: 'Encontrado',
   status_CANCELLED: 'Cancelado',
   status_EXPIRED: 'Caducado',
   status_REJECTED: 'Rechazado',
@@ -160,6 +164,9 @@ const ES = {
   sendWhatsAppHint: 'Se abre tu WhatsApp con su enlace privado: ve el anuncio, da su permiso y paga para publicarlo.',
   reject: 'Rechazar',
   markSold: 'Marcar como vendido',
+  markSold_SERVICE: 'Ya no lo ofrezco',
+  markSold_EVENT: 'Terminado / cancelado',
+  markSold_WANTED: 'Ya lo encontré',
   markSoldConfirm: '¿Seguro? El anuncio sale de la tienda.',
   markSoldCancel: 'Cancelar',
   enableAgain: 'Activar de nuevo',
@@ -243,6 +250,9 @@ const EN: typeof ES = {
   status_AWAITING_PAYMENT: 'Awaiting payment',
   status_LIVE: 'Online',
   status_SOLD: 'Sold',
+  status_SOLD_SERVICE: 'No longer offered',
+  status_SOLD_EVENT: 'Over',
+  status_SOLD_WANTED: 'Found',
   status_CANCELLED: 'Cancelled',
   status_EXPIRED: 'Expired',
   status_REJECTED: 'Rejected',
@@ -374,6 +384,9 @@ const EN: typeof ES = {
   sendWhatsAppHint: 'Your WhatsApp opens with their private link: they see the listing, give their OK and pay to publish it.',
   reject: 'Reject',
   markSold: 'Mark as sold',
+  markSold_SERVICE: 'No longer offered',
+  markSold_EVENT: 'Over / cancelled',
+  markSold_WANTED: 'Found it',
   markSoldConfirm: 'Sure? The listing leaves the shop.',
   markSoldCancel: 'Cancel',
   enableAgain: 'Enable again',
@@ -457,6 +470,9 @@ const IT: typeof ES = {
   status_AWAITING_PAYMENT: 'In attesa di pagamento',
   status_LIVE: 'Online',
   status_SOLD: 'Venduto',
+  status_SOLD_SERVICE: 'Non più offerto',
+  status_SOLD_EVENT: 'Finito',
+  status_SOLD_WANTED: 'Trovato',
   status_CANCELLED: 'Annullato',
   status_EXPIRED: 'Scaduto',
   status_REJECTED: 'Rifiutato',
@@ -588,6 +604,9 @@ const IT: typeof ES = {
   sendWhatsAppHint: 'Si apre il tuo WhatsApp con il suo link privato: vede l’annuncio, dà il permesso e paga per pubblicarlo.',
   reject: 'Rifiuta',
   markSold: 'Segna come venduto',
+  markSold_SERVICE: 'Non lo offro più',
+  markSold_EVENT: 'Finito / annullato',
+  markSold_WANTED: 'L’ho trovato',
   markSoldConfirm: 'Sicuro? L’annuncio esce dal negozio.',
   markSoldCancel: 'Annulla',
   enableAgain: 'Riattiva',
@@ -671,6 +690,9 @@ const FR: typeof ES = {
   status_AWAITING_PAYMENT: 'En attente de paiement',
   status_LIVE: 'En ligne',
   status_SOLD: 'Vendue',
+  status_SOLD_SERVICE: 'Plus proposé',
+  status_SOLD_EVENT: 'Terminé',
+  status_SOLD_WANTED: 'Trouvé',
   status_CANCELLED: 'Annulé',
   status_EXPIRED: 'Expirée',
   status_REJECTED: 'Refusée',
@@ -802,6 +824,9 @@ const FR: typeof ES = {
   sendWhatsAppHint: 'Ton WhatsApp s’ouvre avec son lien privé : elle voit l’annonce, donne son accord et paie pour la publier.',
   reject: 'Refuser',
   markSold: 'Marquer comme vendue',
+  markSold_SERVICE: 'Je ne le propose plus',
+  markSold_EVENT: 'Terminé / annulé',
+  markSold_WANTED: 'Trouvé',
   markSoldConfirm: 'Tu es sûr ? L’annonce quitte la boutique.',
   markSoldCancel: 'Annuler',
   enableAgain: 'Réactiver',
@@ -885,6 +910,9 @@ const DE: typeof ES = {
   status_AWAITING_PAYMENT: 'Wartet auf Zahlung',
   status_LIVE: 'Online',
   status_SOLD: 'Verkauft',
+  status_SOLD_SERVICE: 'Nicht mehr angeboten',
+  status_SOLD_EVENT: 'Vorbei',
+  status_SOLD_WANTED: 'Gefunden',
   status_CANCELLED: 'Abgesagt',
   status_EXPIRED: 'Abgelaufen',
   status_REJECTED: 'Abgelehnt',
@@ -1016,6 +1044,9 @@ const DE: typeof ES = {
   sendWhatsAppHint: 'Dein WhatsApp öffnet sich mit ihrem privaten Link: Sie sieht die Anzeige, gibt ihr OK und bezahlt, um sie zu veröffentlichen.',
   reject: 'Ablehnen',
   markSold: 'Als verkauft markieren',
+  markSold_SERVICE: 'Biete ich nicht mehr an',
+  markSold_EVENT: 'Vorbei / abgesagt',
+  markSold_WANTED: 'Gefunden',
   markSoldConfirm: 'Sicher? Die Anzeige verschwindet aus dem Shop.',
   markSoldCancel: 'Abbrechen',
   enableAgain: 'Wieder aktivieren',
@@ -1079,3 +1110,10 @@ export const adminTexts = (locale: Locale): AdminTexts => TEXTS[locale] ?? EN;
 
 export const fillText = (text: string, values: Record<string, string | number>) =>
   text.replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? ''));
+
+/** The "sold" button in the type's own words: a service is no longer offered, a wanted ad is found. */
+export const markSoldText = (texts: AdminTexts, type: ListingType) => (type === 'PRODUCT' ? texts.markSold : texts[`markSold_${type}`]);
+
+/** A status in the admin's words; "sold" fits the type when one is given. */
+export const statusText = (texts: AdminTexts, status: SubmissionStatus, type?: ListingType) =>
+  status === 'SOLD' && type && type !== 'PRODUCT' ? texts[`status_SOLD_${type}`] : texts[`status_${status}`];

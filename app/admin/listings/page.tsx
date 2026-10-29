@@ -14,7 +14,7 @@ import { getLocale } from '@/lib/i18n-server';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { getMarketplaceSettings } from '@/lib/marketplace/settings';
 import ListingsEmailCard from '@/components/marketplace/listings-email-card';
-import { adminTexts, fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import { adminTexts, fillText, statusText } from '@/lib/marketplace/admin-texts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { coverPicture } from '@/lib/video';
 
@@ -24,8 +24,6 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // The order of the filter tabs: what needs the admin first.
 const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYMENT', 'LIVE', 'COLLECTING', 'SOLD', 'CANCELLED', 'EXPIRED', 'REJECTED'];
-
-const statusLabel = (texts: AdminTexts, status: SubmissionStatus) => texts[`status_${status}` as keyof AdminTexts];
 
 
 interface ListingsPageProps {
@@ -146,7 +144,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 value === status ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/50'
               )}
             >
-              {value ? `${statusLabel(texts, value)} · ${count}` : texts.all}
+              {value ? `${statusText(texts, value, type)} · ${count}` : texts.all}
             </Link>
           );
         })}
@@ -167,7 +165,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                   <div className='relative aspect-square bg-muted'>
                     {image && <ProductMedia src={image} alt={listing.title ?? ''} fill />}
                     <span className='absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow'>
-                      {statusLabel(texts, listing.status)}
+                      {statusText(texts, listing.status, listing.type)}
                     </span>
                   </div>
                   <div className='space-y-1 p-4'>

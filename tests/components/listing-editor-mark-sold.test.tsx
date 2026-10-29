@@ -33,7 +33,7 @@ const mockUpdate = updateAdminListing as jest.Mock;
 const listing = {
   id: 'listing-1',
   status: 'LIVE',
-  type: 'ITEM',
+  type: 'PRODUCT',
   title: 'Boss RC-500',
   shortTitle: null,
   description: 'Pedal de loops',

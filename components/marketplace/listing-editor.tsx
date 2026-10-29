@@ -40,7 +40,7 @@ import {
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
 import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
-import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { isAiPicture as isAiPictureAt, pictureCounterpart } from '@/lib/marketplace/pictures';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
@@ -324,7 +324,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   return (
     <div className='mx-auto w-full max-w-xl space-y-4'>
-      <ListingStatus status={listing.status} saveState={saveState} texts={texts} />
+      <ListingStatus status={listing.status} type={listing.type} saveState={saveState} texts={texts} />
       {listing.status === 'EXPIRED' && (
         <div className='space-y-1'>
           <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
@@ -351,18 +351,18 @@ export default function ListingEditor({ listing, categories, places, languages, 
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant='ghost' className='rounded-full' disabled={isPending}>
-                {texts.markSold}
+                {markSoldText(texts, listing.type)}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{texts.markSold}</AlertDialogTitle>
+                <AlertDialogTitle>{markSoldText(texts, listing.type)}</AlertDialogTitle>
                 <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
                 <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
-                  {texts.markSold}
+                  {markSoldText(texts, listing.type)}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
