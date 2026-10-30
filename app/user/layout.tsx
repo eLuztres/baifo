@@ -9,7 +9,7 @@ export default async function UserLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await requireUser();
+  const session = await requireUser();
 
   return (
     <>
@@ -19,7 +19,7 @@ export default async function UserLayout({
             <Link href='/'>
               <BrandLogo />
             </Link>
-            <MainNav className='mx-6' />
+            <MainNav className='mx-6' isAdmin={session.user.role === 'admin'} />
             <div className='ml-auto items-center flex space-x-4'>
               <Menu />
             </div>

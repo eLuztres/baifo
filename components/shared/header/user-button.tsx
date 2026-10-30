@@ -22,7 +22,7 @@ interface AccountLink {
 
 /** The account pages, shared by this dropdown (desktop) and the phone menu (menu-account.tsx). */
 export const getAccountLinks = (t: Translator, isAdmin: boolean): AccountLink[] => [
-  { href: '/user/profile', label: t('USER_PROFILE') },
+  ...(isAdmin ? [] : [{ href: '/user/profile', label: t('USER_PROFILE') }]),
   ...(SHOWCASE_MODE ? [] : [{ href: '/user/orders', label: t('ORDER_HISTORY') }]),
   ...(isAdmin ? [{ href: ADMIN_HOME_PATH, label: t('ADMIN') }] : []),
 ];

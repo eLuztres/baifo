@@ -17,10 +17,15 @@ const links: { title: TranslationKey; href: string }[] = [
   },
 ];
 
+interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
+  isAdmin: boolean;
+}
+
 const MainNav = ({
   className,
+  isAdmin,
   ...props
-}: React.HTMLAttributes<HTMLElement>) => {
+}: MainNavProps) => {
   const pathname = usePathname();
   const { t } = useI18n();
   return (
@@ -28,7 +33,7 @@ const MainNav = ({
       className={cn('flex items-center space-x-4 lg:space-x-6', className)}
       {...props}
     >
-      {links.map((item) => (
+      {links.filter((item) => !(isAdmin && item.href === '/user/profile')).map((item) => (
         <Link
           key={item.href}
           href={item.href}
