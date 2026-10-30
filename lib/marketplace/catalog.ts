@@ -3,7 +3,7 @@ import { localize, type ProductTranslations } from '@/lib/category';
 import type { Locale } from '@/lib/i18n-core';
 
 // The showroom only shows products in a store category, so an unsure or unknown one goes here.
-export const FALLBACK_CATEGORY_SLUG = 'otros';
+export const FALLBACK_CATEGORY_SLUG = 'hogar';
 
 /** A listing's title, description and short title in the shop's other languages: { en: { title, description, short } }. */
 export type ListingTranslations = Partial<Record<Locale, { title: string; description: string; short?: string }>>;

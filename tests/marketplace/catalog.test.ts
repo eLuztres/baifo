@@ -10,7 +10,7 @@ const draft = draftText as jest.Mock;
 
 const CATEGORIES = [
   { id: 'c1', slug: 'motor', name: { es: 'Bicis y motor', en: 'Bikes and vehicles' }, keywords: ['bicicleta', 'patinete'], parentId: null, parent: null },
-  { id: 'c2', slug: 'otros', name: { es: 'Otros', en: 'Other' }, keywords: [], parentId: null, parent: null },
+  { id: 'c2', slug: 'hogar', name: { es: 'Hogar, objetos y jardín', en: 'Home, things and garden' }, keywords: [], parentId: null, parent: null },
 ];
 
 // One list for every type: a service can go in Motor, an item in Clases.
@@ -52,7 +52,7 @@ describe('writeListing', () => {
 
     expect(listing.category).toBe('motor');
     const { prompt, schema } = draft.mock.calls[0][3];
-    expect(schema.properties.category.enum).toEqual(['motor', 'otros']);
+    expect(schema.properties.category.enum).toEqual(['motor', 'hogar']);
     expect(schema.properties.texts.required).toEqual(['es', 'en']);
     expect(prompt).toContain('motor: Bicis y motor / Bikes and vehicles (e.g. bicicleta, patinete)');
   });
@@ -109,10 +109,10 @@ describe('writeListing', () => {
     expect((await writeListing(Buffer.from(''), 'bici', CATEGORIES, ['es', 'en'])).type).toBe('PRODUCT');
   });
 
-  it('puts a listing in "otros" when the category no longer exists', async () => {
+  it('puts a listing in "hogar" when the category no longer exists', async () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'muebles', condition: 'good', price: null });
 
-    expect((await writeListing(Buffer.from(''), '', CATEGORIES, ['es', 'en'])).category).toBe('otros');
+    expect((await writeListing(Buffer.from(''), '', CATEGORIES, ['es', 'en'])).category).toBe('hogar');
   });
 
   it('asks for a service without condition, with its kind of offer and a "from" price only if named', async () => {
@@ -123,7 +123,7 @@ describe('writeListing', () => {
     expect(listing).toMatchObject({ category: 'clases', condition: null, price: 20, serviceType: 'class', type: 'SERVICE' });
     const { prompt, schema } = draft.mock.calls[0][3];
     expect(schema.required).toEqual(['texts', 'category', 'serviceType', 'price']);
-    expect(schema.properties.category.enum).toEqual(['motor', 'otros', 'clases']);
+    expect(schema.properties.category.enum).toEqual(['motor', 'hogar', 'clases']);
     expect(schema.properties.serviceType.enum).toEqual(['class', 'service', 'support']);
     expect(prompt).toContain('Never guess one');
   });
@@ -140,10 +140,10 @@ describe('writeListing', () => {
     expect(prompt).toContain('clases: Clases / Lessons');
   });
 
-  it('puts a service in "otros" too when its category no longer exists', async () => {
+  it('puts a service in "hogar" too when its category no longer exists', async () => {
     draft.mockResolvedValue({ texts: TEXTS, category: 'jardineria' });
 
-    expect((await writeListing(Buffer.from(''), '', ALL_CATEGORIES, ['es', 'en'], 'SERVICE')).category).toBe('otros');
+    expect((await writeListing(Buffer.from(''), '', ALL_CATEGORIES, ['es', 'en'], 'SERVICE')).category).toBe('hogar');
   });
 });
 

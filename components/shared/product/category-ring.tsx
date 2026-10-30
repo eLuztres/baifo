@@ -325,7 +325,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
       {/* The name already shows under the front card; a fixed height keeps the banner from jumping. */}
       <div className='mx-auto flex h-14 max-w-2xl shrink-0 flex-col items-center justify-start gap-1 px-4 text-center' aria-live='polite'>
         <p className='sr-only'>{front.name}</p>
-        <p className='line-clamp-2 text-balance text-sm leading-5 text-muted-foreground'>{front.text}</p>
         {/* Only when the row above doesn't already show them all: "See all in Art (1)" says nothing new. */}
         {hiddenCount > 0 && (
           <Link
