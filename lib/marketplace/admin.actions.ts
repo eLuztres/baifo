@@ -11,6 +11,7 @@ import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
+import { sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
@@ -112,8 +113,8 @@ const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema,
-  // The person's name or nickname; empty: the one they have stays.
-  sellerName: z.string().trim().max(60).optional(),
+  // The person's name or nickname, checked like on their own page; empty: the one they have stays.
+  sellerName: sellerNameSchema.optional(),
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
@@ -125,7 +126,7 @@ export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
-  if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
+  if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
   const { notes, sellerPhone, sellerName, textMode, originalTitle } = parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
@@ -136,7 +137,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
   // Their OK to show the number comes later, from them.
   const waId = toWaId(sellerPhone);
-  const name = sellerName || undefined;
+  const name = sellerName ?? undefined;
   const seller = await prisma.seller.upsert({ where: { waId }, update: { name }, create: { waId, name } });
   // Also while the AI still makes the pictures: the text is written at the same time.
   const { count } = await prisma.submission.updateMany({

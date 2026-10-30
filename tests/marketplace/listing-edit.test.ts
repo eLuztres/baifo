@@ -372,6 +372,13 @@ describe('describeAdminListing', () => {
     expect(db.seller.upsert.mock.calls[1][0].update).toEqual({ name: undefined });
   });
 
+  it('refuses a name with a phone number in it', async () => {
+    const result = await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612345678', sellerName: 'Lula 612345678' });
+
+    expect(result).toEqual({ success: false, message: 'Revisa el nombre' });
+    expect(db.seller.upsert).not.toHaveBeenCalled();
+  });
+
   it('keeps the admin\'s title for "only fix mistakes", but not for the AI\'s text', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 

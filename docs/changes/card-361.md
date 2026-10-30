@@ -5,7 +5,7 @@
 - A new admin listing now has three steps: Fotos → Descripción → Contacto (`listing-steps.tsx`). This applies to every type (product, Busco, service, event).
 - `description-step.tsx` holds both the Descripción and the Contacto step. Descripción ends with "Siguiente". The WhatsApp number (same hints and checks as before) and a new optional name field are on Contacto, and the button that sends the listing to the AI is at the end of Contacto.
 - "Siguiente" stays off while the description is required (no photo, or "use my own words") and still empty. Clicking "3" in the step bar then puts the cursor in the text box.
-- The name (up to 60 characters) is saved on `Seller.name` by `describeAdminListing`. Left empty, the name the person already has stays.
+- The name is checked like on the person's own page (`sellerNameSchema`: up to 30 characters, no links or phone numbers) and saved on `Seller.name` by `describeAdminListing`. Left empty, the name the person already has stays.
 - Moving between the steps keeps everything written. Going to the photos from Contacto returns to Descripción afterwards, since the photos step only knows "go back".
 - Once the AI has written the listing, the step bar above the editor marks step 3.
 - On phones the step circles and gaps are a bit smaller, so three steps fit on one line at 320px in all five languages.
@@ -22,5 +22,8 @@ The phone number was hidden at the bottom of the description. A separate contact
 2. Write a description, press "Siguiente". Contacto shows the WhatsApp number with its hint and the optional name.
 3. Press "2" in the step bar: the description is still there. Press "Siguiente" again: number and name are still there.
 4. Press "Escribir el anuncio con IA" without a number: the message asks for it. Add a number and a name and send. The listing is written by the AI as before, and the seller has the name.
-5. Repeat with a photo and with the Busco, service and event types; check the hints match the type.
-6. At 375px and 320px the step bar fits on one line and nothing runs off the side.
+5. Try a name with a phone number in it (e.g. "Lula 612345678"): sending says "Revisa el nombre". The field stops at 30 characters.
+6. Write "Info: 628 111 222" in the description and go to Contacto: the WhatsApp field is filled with it (#367), and you can still change it.
+7. On every step, switch the type tabs (Producto · Busco · Servicio · Evento): the step stays, what you wrote stays, only the type's hints change.
+8. Repeat with a photo and with the Busco, service and event types; check the hints match the type.
+9. At 375px and 320px the step bar fits on one line and nothing runs off the side.

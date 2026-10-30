@@ -203,7 +203,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
                 id='seller-name'
                 value={sellerName}
                 readOnly={isWriting}
-                maxLength={60}
+                maxLength={30}
                 onChange={(event) => setSellerName(event.target.value)}
                 placeholder={texts.sellerNamePlaceholder}
                 className='h-12 rounded-2xl bg-background'
