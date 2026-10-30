@@ -202,7 +202,7 @@ describe('past events', () => {
 });
 
 describe('unpaid listings', () => {
-  it('expire UNPAID_LISTING_HOURS (48) after the link was sent, keeping everything', async () => {
+  it('expire UNPAID_LISTING_HOURS (48) after the link was sent unless the person said OK, keeping everything', async () => {
     const now = new Date('2026-10-23T10:00:00Z');
     db.submission.findMany.mockResolvedValue([]);
     db.submission.updateMany.mockResolvedValueOnce({ count: 3 });
@@ -210,7 +210,8 @@ describe('unpaid listings', () => {
     expect(await expireListings(now)).toEqual({ finished: 0, expired: 0, unpaid: 3, reminded: 0 });
 
     expect(db.submission.updateMany).toHaveBeenCalledWith({
-      where: { status: 'AWAITING_PAYMENT', sentAt: { lte: new Date('2026-10-21T10:00:00Z') } },
+      // Paid before the listing was made: with the OK it only waits for the admin.
+      where: { status: 'AWAITING_PAYMENT', sentAt: { lte: new Date('2026-10-21T10:00:00Z') }, consentAt: null },
       data: { status: 'EXPIRED' },
     });
     expect(db.product.delete).not.toHaveBeenCalled();

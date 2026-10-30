@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { HandHelping, Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { SubmissionStatus } from '@prisma/client';
-import { LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, newListingPath, type ListingType } from '@/lib/constants';
+import { LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, type ListingType } from '@/lib/constants';
+import FilterDropdown from '@/components/admin/filter-dropdown';
 import { prisma } from '@/db/prisma';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
@@ -13,7 +14,7 @@ import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { adminTexts, fillText, statusText } from '@/lib/marketplace/admin-texts';
-import { cn, formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { coverPicture } from '@/lib/video';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,30 +29,29 @@ interface ListingsPageProps {
   searchParams: Promise<{ estado?: string; tipo?: string }>;
 }
 
-/** The page's link with one filter changed and the other kept. */
-const listingsHref = (status?: SubmissionStatus, type?: ListingType) => {
-  const params = new URLSearchParams({ ...(status && { estado: status }), ...(type && { tipo: LISTING_TYPE_PARAMS[type] }) }).toString();
-  return params ? `/admin/listings?${params}` : '/admin/listings';
-};
+/** The values of a comma-separated filter in the link. */
+const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {
   await requireAdmin();
   const [{ estado, tipo }, locale] = await Promise.all([searchParams, getLocale()]);
   const texts = adminTexts(locale);
-  const status = STATUSES.find((value) => value === estado);
-  const type = listingTypeOf(tipo);
+  const statuses = STATUSES.filter((value) => listParam(estado).includes(value));
+  const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
+  const typeWhere = types.length ? { type: { in: types } } : {};
+  const showsLive = statuses.length === 0 || statuses.includes('LIVE');
 
   const [listings, counts, unlisted] = await Promise.all([
     prisma.submission.findMany({
-      where: { ...(status ? { status } : { status: { not: 'COLLECTING' } }), ...(type && { type }) },
+      where: { status: statuses.length ? { in: statuses } : { not: 'COLLECTING' }, ...typeWhere },
       orderBy: { updatedAt: 'desc' },
       take: 120,
       include: { seller: { select: { waId: true, name: true } } },
     }),
-    prisma.submission.groupBy({ by: ['status'], where: type && { type }, _count: true }),
+    prisma.submission.groupBy({ by: ['status'], where: typeWhere, _count: true }),
     // Products made without a listing (e.g. services from the first services form) are online too and need managing here.
     prisma.product.findMany({
-      where: { submission: null, ...(type && { type }) },
+      where: { submission: null, ...typeWhere },
       orderBy: { createdAt: 'desc' },
       take: 120,
       select: { id: true, name: true, images: true, price: true, type: true, contactPhone: true, expiresAt: true },
@@ -73,7 +73,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       expiresAt: listing.expiresAt,
       deleteAction: deleteAdminListing,
     })),
-    ...(!status || status === 'LIVE'
+    ...(showsLive
       ? unlisted.map((product) => ({
           id: product.id,
           href: `/admin/products/${product.id}`,
@@ -91,59 +91,28 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
 
   return (
     <div className='space-y-8'>
-      <header className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
-        <div className='space-y-1'>
-          <h1 className='h2-bold'>{texts.listingsTitle}</h1>
-          <p className='text-muted-foreground'>{texts.listingsIntro}</p>
-        </div>
-        <div className='flex flex-wrap gap-2'>
-          <Button asChild className='rounded-full'>
-            <Link href='/admin/listings/new'>
-              <Plus /> {texts.newListing}
-            </Link>
-          </Button>
-          <Button asChild variant='outline' className='rounded-full'>
-            <Link href={newListingPath('SERVICE')}>
-              <HandHelping /> {texts.newService}
-            </Link>
-          </Button>
-        </div>
-      </header>
+      <h1 className='h2-bold'>{texts.listingsTitle}</h1>
 
-      <nav aria-label={texts.typeFilter} className='flex flex-wrap gap-2'>
-        {[undefined, ...LISTING_TYPES].map((value) => (
-          <Link
-            key={value ?? 'all'}
-            href={listingsHref(status, value)}
-            aria-current={value === type ? 'page' : undefined}
-            className={cn(
-              'rounded-full px-4 py-1.5 text-sm font-medium transition',
-              value === type ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {value ? texts[`type_${value}`] : texts.all}
-          </Link>
-        ))}
-      </nav>
-
-      <nav className='flex flex-wrap gap-2'>
-        {[undefined, ...STATUSES].map((value) => {
-          const count = value ? countOf(value) : undefined;
-          if (value && count === 0) return null;
-          return (
-            <Link
-              key={value ?? 'all'}
-              href={listingsHref(value, type)}
-              className={cn(
-                'rounded-full border px-4 py-1.5 text-sm transition',
-                value === status ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/50'
-              )}
-            >
-              {value ? `${statusText(texts, value, type)} · ${count}` : texts.all}
-            </Link>
-          );
-        })}
-      </nav>
+      <div className='flex flex-wrap gap-2'>
+        <FilterDropdown
+          label={texts.typeFilter}
+          allLabel={texts.all}
+          param='tipo'
+          options={LISTING_TYPES.map((value) => ({ value: LISTING_TYPE_PARAMS[value], label: texts[`type_${value}`] }))}
+          selected={types.map((value) => LISTING_TYPE_PARAMS[value])}
+        />
+        <FilterDropdown
+          label={texts.statusFilter}
+          allLabel={texts.all}
+          param='estado'
+          options={STATUSES.filter((value) => countOf(value) > 0 || statuses.includes(value)).map((value) => ({
+            value,
+            label: statusText(texts, value, types.length === 1 ? types[0] : undefined),
+            count: countOf(value),
+          }))}
+          selected={statuses}
+        />
+      </div>
 
       {cards.length === 0 ? (
         <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>{texts.empty}</p>
@@ -159,7 +128,8 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                 >
                   <div className='relative aspect-square bg-muted'>
                     {image && <ProductMedia src={image} alt={listing.title ?? ''} fill />}
-                    <span className='absolute left-3 top-3 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow'>
+                    {/* Bottom left, away from the delete button, so a long status never runs under it on phones. */}
+                    <span className='absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-xl bg-background/90 px-3 py-1 text-xs font-medium shadow'>
                       {statusText(texts, listing.status, listing.type)}
                     </span>
                   </div>

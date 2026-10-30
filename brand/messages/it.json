@@ -10,7 +10,9 @@
   "HOME_HERO_FACT_2": "a Fuerteventura",
   "HOME_HERO_TEXT": "Cose e servizi dei residenti dell'isola, senza intermediari.",
   "HOME_HERO_CTA": "Vedi gli annunci",
-  "HOME_HERO_ORDER": "Contattaci",
+  "HOME_HERO_ORDER": "Fai il tuo annuncio come una volta, da {price} €",
+  "HOME_HERO_ORDER_TEXT": "Come sul giornale del paese: lo vede tutta l'isola.",
+  "HOME_HERO_ORDER_BUTTON": "Metti il mio annuncio",
   "SELL_WHATSAPP_MESSAGE": "Ciao {shop}! Vorrei mettermi in contatto con voi:",
   "HOME_HERO_IMAGE_ALT": "Un baifo, un capretto majorero, bruca una tabaiba su un vulcano di Fuerteventura",
   "HOME_HERO_ALT_LOBOS": "La Culeta, la baifa dal sederino nero, legge il giornale sulla spiaggia di Corralejo, con l'Isola di Lobos alle spalle",
@@ -66,5 +68,6 @@
   "STORE_RINGS_NEXT": "Altri annunci",
   "PRODUCT_FALLBACK_TITLE": "Annuncio",
   "CONTACT_INTRO_SHOWCASE": "Domande su un annuncio? Di solito rispondiamo entro un giorno.",
-  "TURN_UPRIGHT": "Gira il telefono in verticale per vedere gli annunci"
+  "TURN_UPRIGHT": "Gira il telefono in verticale per vedere gli annunci",
+  "PLACES_ADMIN_TITLE": "Corrales"
 }

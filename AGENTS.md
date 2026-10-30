@@ -2,6 +2,37 @@
 
 The workspace guidelines in `../AGENTS.md` apply. This file adds the rules that keep customer shops updatable.
 
+## El Baifo values (CRITICAL)
+
+Every feature, text, flow and AI prompt in this shop must follow these values. If a change would go against them, say so and ask me first. The Spanish original is in `README.md`.
+
+**Core idea.** El Baifo is an organic social network: a network of people, encounters and connections, with a digital tool that makes publishing easier. Technology serves people and their relationships; it doesn't replace meeting in person. We want to get back something simple: look at each other, introduce ourselves, shake hands and ask "what do you need? how can I help?". We're also connected by the wish to live Fuerteventura as the paradise we once chose.
+
+**Values**
+
+1. **People first.** We create spaces to meet, share ideas and connect with creative people.
+2. **Simplicity.** If there are several ways to do something, we choose the easiest to understand and use.
+3. **Direct, clear dealings.** Each person publishes their listing and decides how they want to be contacted. Baifo makes the encounter easier; people handle their own exchange.
+4. **Privacy and autonomy.** Each person decides what information they share. The phone number is optional, published only with permission, and can be removed. We don't ask for email, tax, bank or personal data the listing doesn't need.
+5. **Human, independent corrales.** Corrales are concrete places where you can find a person. They all start from a common base and each decides which extra services it offers. The person chooses whether to use them and agrees the terms directly with that corral.
+6. **Clear terms.** A listing has a set price and period. Working with a corral is paid per publication or agreed service, never as a percentage of a sale.
+7. **Individual responsibility.** Baifo makes publishing and connecting easier. Each person decides how to continue the conversation and is responsible for their agreements, calls and sales.
+8. **Creativity and enjoyment.** We want people to create, share and take part because they enjoy it, without turning every encounter into a duty to sell, produce or earn money.
+9. **Technology serving people.** AI can help create or improve materials when the person decides so. The decision and control stay with whoever publishes.
+10. **Community and leisure.** Apañadas and meetups are for collecting listings, getting to know each other and spending some relaxed time together.
+
+**Words that represent El Baifo** (in Spanish texts): personas · encuentro · conexión · corral · apañada · colaboración · creatividad · sencillez · autonomía · claridad · privacidad · disfrute · intercambio directo
+
+**Never write or build** (in any language):
+- "Win customers" / "generate leads" ("captar clientes", "generar leads").
+- "Monetize people" or "earn a percentage of every sale".
+- "We guarantee you'll sell" or "we close the deal for you".
+- "You have to renew" or pushy messages to publish again.
+- "Complete your profile" or requests for data the listing doesn't need.
+- AI presented as a replacement for judgment, creativity or human contact.
+
+**Guiding sentence:** El Baifo connects people. Each one decides what they share, how they relate and what agreements they want to reach.
+
 ## Template vs. customer repos
 
 - **This repo is the template.** Customer shops are clones of it, with this repo as their `upstream` remote.

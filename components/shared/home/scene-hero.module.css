@@ -5,16 +5,25 @@
   justify-content: space-between;
   /* The page snaps this part right under the sticky header, so it is exactly the rest of the screen. */
   height: calc(100svh - var(--header-h));
-  padding: 0.75rem var(--gutter) 1rem;
+  padding: 0.75rem var(--gutter) calc(1rem + var(--ad-lift));
   overflow: hidden;
   isolation: isolate;
+  --ad-lift: 0rem;
 }
 
 @media (min-width: 640px) {
   .hero {
     padding-top: clamp(2rem, 6svh, 4.5rem);
     padding-inline: clamp(var(--gutter), 5vw, 5rem);
-    padding-bottom: 1.5rem;
+    padding-bottom: calc(1.5rem + var(--ad-lift));
+  }
+}
+
+/* Up to 1280px the offer popup floats over the ad box (below lg it sits in the middle, above it on the right), so the
+   ad and a smaller goat move up while it shows. */
+@media (max-width: 1279px) {
+  :global(body:has([data-offer-popup])) .hero {
+    --ad-lift: 4.75rem;
   }
 }
 
@@ -73,15 +82,32 @@
   filter: brightness(0.82) saturate(0.95);
 }
 
-/* The cut-out sits on the sand in the middle, above the advertise link, and never grows into the buttons. */
+/* The cut-out sits on the sand in the middle, above the advertise box, and never grows into the buttons. */
 .figure {
   position: absolute;
-  bottom: 3.25rem;
+  bottom: calc(9rem + var(--ad-lift));
   left: 50%;
-  width: min(30svh, 58vw);
+  width: min(calc(30svh - var(--ad-lift)), 58vw);
   aspect-ratio: 3 / 4;
   translate: -50% 0;
   transform-origin: 50% 100%;
+}
+
+/* The narrowest phones stack the two buttons, so the goat gets smaller to stay below them, and has no room while the offer popup shows. */
+@media (max-width: 359px) {
+  .figure {
+    width: min(20svh, 58vw);
+  }
+
+  :global(body:has([data-offer-popup])) .figure {
+    display: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .figure {
+    bottom: calc(5rem + var(--ad-lift));
+  }
 }
 
 /* A soft shadow on the sand, so the goat sits instead of floating. */
@@ -185,8 +211,7 @@
   box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.45);
 }
 
-.glass:hover,
-.advertise:hover {
+.glass:hover {
   border-color: white;
   background: rgb(0 0 0 / 0.36);
   color: white;
@@ -205,20 +230,75 @@
 }
 
 .advertise {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
   align-self: center;
-  padding: 0.4rem 1rem;
+  width: min(100%, 34rem);
+  padding: 0.6rem 0.75rem;
+  border-radius: 1rem;
+}
+
+.advertiseWords {
+  min-width: 0;
+  text-align: center;
+}
+
+.advertiseTitle {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.advertiseText {
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  opacity: 0.9;
+  text-wrap: balance;
+}
+
+/* The one solid button of the ad: white like newsprint, so it reads as the thing to tap. */
+.advertiseButton {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
   border-radius: 999px;
+  background: white;
+  color: black;
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.advertise:focus-visible {
+.advertiseButton:hover {
+  background: rgb(255 255 255 / 0.88);
+}
+
+.advertiseButton:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
+}
+
+@media (min-width: 640px) {
+  .advertise {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0.6rem 0.6rem 1.1rem;
+    border-radius: 999px;
+  }
+
+  .advertiseWords {
+    flex: 1;
+    text-align: left;
+  }
 }
 
 .advertise svg {

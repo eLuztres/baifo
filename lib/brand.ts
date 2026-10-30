@@ -173,8 +173,16 @@ export const WORKSHOP: { steps: string[]; gallery: string[] } = workshop;
 
 export const hasWorkshop = WORKSHOP.steps.length > 0 || WORKSHOP.gallery.length > 0;
 
+/** An admin page of the shop: placed after the menu link `after` (else at the end), with an optional icon name. */
+export interface AdminLink<Label = string> {
+  href: string;
+  label: Label;
+  after?: string;
+  icon?: string;
+}
+
 /** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */
-export const ADMIN_LINKS: { href: string; label: Record<string, string> }[] = adminLinks;
+export const ADMIN_LINKS: AdminLink<Record<string, string>>[] = adminLinks;
 
 
 /** More pictures standing on the ring's center piece (brand/ring-figures.json), next to BRAND_RING_FIGURE. */

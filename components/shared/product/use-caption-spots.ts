@@ -10,8 +10,8 @@ export interface CaptionSpot {
 }
 
 const OFFSETS = [-1, 1] as const;
-// From an arrow's middle to the caption: half the arrow (2.5rem, .turnHint) and a little air.
-const NAME_GAP_PX = 28;
+// From an arrow's middle to the front card's edge: half the arrow (3rem, .turnHint) and a little air.
+const CARD_GAP_PX = 30;
 // How close an arrow's middle may come to the stage's edge, so a long name never pushes it off screen.
 const EDGE_PX = 24;
 
@@ -32,18 +32,19 @@ export function useCaptionSpots(stageRef: RefObject<HTMLDivElement | null>, fron
     const measure = () => {
       const stageBox = stage.getBoundingClientRect();
       const parentBox = (stage.parentElement ?? stage).getBoundingClientRect();
-      const caption = stage.querySelectorAll('li')[frontIndex]?.querySelector('p');
-      const name = caption?.querySelector('span');
-      if (!caption || !name) return;
+      const card = stage.querySelectorAll('li')[frontIndex]?.querySelector('button');
+      const name = card?.querySelector('p span');
+      if (!card || !name) return;
       const box = name.getBoundingClientRect();
-      // Beside the caption, as wide as the card whatever the name: beside the name they moved with every name's length.
-      const captionBox = caption.getBoundingClientRect();
+      // Just outside the front card's edges, at its name's height, whatever the name: beside the name they moved
+      // with every name's length.
+      const cardBox = card.getBoundingClientRect();
       const stageSize = `${Math.round(stageBox.width)}x${Math.round(stageBox.height)}`;
       if (height.current?.stageSize !== stageSize) height.current = { y: box.top + box.height / 2 - parentBox.top, stageSize };
       const { y } = height.current;
       setSpots(
         OFFSETS.map((offset) => {
-          const side = offset === -1 ? captionBox.left - NAME_GAP_PX : captionBox.right + NAME_GAP_PX;
+          const side = offset === -1 ? cardBox.left - CARD_GAP_PX : cardBox.right + CARD_GAP_PX;
           const x = Math.min(Math.max(side, stageBox.left + EDGE_PX), stageBox.right - EDGE_PX);
           return { offset, x: x - parentBox.left, y };
         })

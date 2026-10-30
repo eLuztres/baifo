@@ -95,8 +95,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
   const isIllustrative = Boolean(ownRing?.isIllustrative);
   const priceLabel = product.type === 'WANTED' ? t(wantedBudgetKey(product.price?.toString(), product.priceMax?.toString())) : isService ? t('PRICE_FROM') : undefined;
-  // Only goods have a condition: the AI may still read one ("new") for an event, which isn't new nor old.
-  const condition = isService || isEvent ? undefined : conditionKey(product.condition);
+  // Only an item for sale has a condition: the AI may still read one for a wanted ad or an event.
+  const condition = product.type === 'PRODUCT' ? conditionKey(product.condition) : undefined;
   const { name, description } = localizeProduct(product, locale);
   // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.
   // Writing to the place's Corral instead is parked for now (#131).

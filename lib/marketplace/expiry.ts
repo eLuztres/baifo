@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/db/prisma';
 import { isEventOver } from '@/lib/event-date';
 import { sendText } from '@/lib/whatsapp-cloud/client';
-import { publishUrl } from './config';
+import { LISTING_PAYMENT_ON_PAGE, publishUrl } from './config';
 import { botText, localeOf } from './messages';
 import { unpaidCutoff } from './listing-payment';
 import { takeDown } from './publish';
@@ -37,7 +37,8 @@ export async function expireListings(now = new Date()) {
   // Never paid: the link stops working; nothing to tell, the person never answered.
   const unpaid = await prisma.submission.updateMany({
     // Counted from when the link was sent: saving the plan or the consent changes updatedAt.
-    where: { status: 'AWAITING_PAYMENT', sentAt: { lte: unpaidCutoff(now) } },
+    // Without payment on the page, a listing the person said OK to waits for the admin, however long.
+    where: { status: 'AWAITING_PAYMENT', sentAt: { lte: unpaidCutoff(now) }, ...(!LISTING_PAYMENT_ON_PAGE && { consentAt: null }) },
     data: { status: 'EXPIRED' },
   });
 

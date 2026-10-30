@@ -40,6 +40,9 @@ export const LISTING_PAYMENT_METHODS = (env('LISTING_PAYMENT_METHODS') ?? 'bizum
   .filter((method): method is PaymentMethod => ['stripe', 'paypal', 'bizum', 'cash'].includes(method))
   .filter((method) => method !== 'bizum' || Boolean(BIZUM_PHONE));
 
+/** Off (default): the fee is asked for in the first WhatsApp message, so the private page shows no price and only asks for the OK. */
+export const LISTING_PAYMENT_ON_PAGE = env('LISTING_PAYMENT_ON_PAGE') === 'true';
+
 /** A failed AI step is retried this often (by the cron) before the admin is told. */
 export const MAX_PROCESSING_ATTEMPTS = 3;
 

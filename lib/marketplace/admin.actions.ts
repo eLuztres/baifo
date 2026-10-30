@@ -5,15 +5,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType } from '@/lib/constants';
-import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
+import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
+import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
-import { getShopPlaces } from '@/lib/places';
 import { sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
-import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from './ai';
+import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
@@ -22,7 +21,6 @@ import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
 import { lacksConsent, markSent } from './listing-payment';
-import type { FieldValues } from './listing-fields';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { pictureCounterpart } from './pictures';
 import { takeVideoStill } from './video-cleanup';
@@ -243,8 +241,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
   // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
   const typed = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
-  // What the editor kept from another type goes: only goods have a condition, only an event a date and address.
-  const edit = { ...typed, condition: isService || isEvent ? null : typed.condition, startsAt: isEvent ? typed.startsAt : null, address: isEvent ? typed.address : null };
+  // What the editor kept from another type goes: only an item for sale has a condition, only an event a date and address.
+  const edit = { ...typed, condition: type === 'PRODUCT' ? typed.condition : null, startsAt: isEvent ? typed.startsAt : null, address: isEvent ? typed.address : null };
   // Only a wanted ad has a range, and only one whose upper end is above its lower end (none counts as 0).
   const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price ?? 0) ? edit.priceMax : null;
   const versions = (current?.textVersions ?? {}) as TextVersions;
@@ -378,44 +376,6 @@ export async function createAdminListingPicture(id: string, prompt?: string, edi
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);
     return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo crear la foto. Inténtalo otra vez.' };
-  }
-}
-
-const fieldsTextSchema = z.object({ title: z.string().trim().max(120), description: z.string().trim().min(1).max(3000) });
-
-/** The editor's fields read again from its title and description, as the editor holds them; only the ones the text
-    names. The editor puts them only into its empty fields, so nothing the admin set is overwritten. */
-export async function fillAdminListingFields(id: string, text: { title: string; description: string }, editedType?: ListingType) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  if (editedType !== undefined && !z.enum(LISTING_TYPES).safeParse(editedType).success) return NOT_ALLOWED;
-  const parsed = fieldsTextSchema.safeParse(text);
-  if (!parsed.success) return { success: false, message: 'Escribe primero la descripción' };
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
-  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
-  // The type the editor shows, even before it is saved.
-  const type = editedType ?? submission.type;
-  try {
-    const shopLocale = getShopLocale();
-    const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
-    const livePlaces = places.filter((place) => place.isLive);
-    const read = await readListingFields(`${parsed.data.title}\n${parsed.data.description}`, type, categories, livePlaces);
-    const amount = (value: number | null) => (value === null ? '' : value.toFixed(2));
-    const startsAt = type === 'EVENT' && read.startsAt ? fromShopDateTime(read.startsAt) : null;
-    const isGoods = type === 'PRODUCT' || type === 'WANTED';
-    const fields: Partial<FieldValues> = {
-      category: read.category ?? '',
-      price: amount(read.price),
-      priceMax: type === 'WANTED' ? amount(read.priceMax) : '',
-      condition: isGoods && read.condition && (type === 'WANTED' || read.condition !== ANY_CONDITION) ? read.condition : '',
-      serviceType: type === 'SERVICE' ? (read.serviceType ?? '') : '',
-      startsAt: startsAt ? toShopDateTime(startsAt) : '',
-      address: type === 'EVENT' ? (read.address ?? '') : '',
-      placeId: livePlaces.find((place) => place.slug === read.place)?.id ?? '',
-    };
-    return { success: true, message: '', fields };
-  } catch (error) {
-    console.error(`Fields of listing ${id} not read`, error);
-    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo leer la descripción. Inténtalo otra vez.' };
   }
 }
 

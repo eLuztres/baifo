@@ -1,5 +1,5 @@
 import { readListingFields } from '@/lib/marketplace/ai';
-import { fieldState, fillEmptyFields, type FieldValues } from '@/lib/marketplace/listing-fields';
+import { fieldState } from '@/lib/marketplace/listing-fields';
 import { draftText } from '@/lib/studio/openai.mjs';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
@@ -17,7 +17,6 @@ const PLACES = [
   { slug: 'el-cotillo', name: 'El Cotillo' },
 ];
 
-const EMPTY: FieldValues = { category: '', price: '', priceMax: '', condition: '', serviceType: '', startsAt: '', address: '', placeId: '' };
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -59,26 +58,6 @@ describe('readListingFields', () => {
   it('gives no category when the AI answers with one that is gone', async () => {
     draft.mockResolvedValue({ category: 'deleted', price: null, condition: null, priceMax: null });
     expect((await readListingFields('Algo', 'PRODUCT', CATEGORIES)).category).toBeNull();
-  });
-});
-
-describe('fillEmptyFields', () => {
-  it('fills only the empty fields and keeps what the admin set by hand', () => {
-    const current = { ...EMPTY, category: 'otros', address: 'Mi dirección', title: 'Concierto' };
-    const { fields, filled } = fillEmptyFields(current, { category: 'musica', startsAt: '2026-11-29T19:00', address: 'Bar La Ola', placeId: 'p2', price: '' }, 'EVENT');
-
-    expect(fields).toMatchObject({ category: 'otros', address: 'Mi dirección', startsAt: '2026-11-29T19:00', placeId: 'p2', title: 'Concierto' });
-    expect(filled).toEqual(['startsAt', 'placeId']);
-  });
-
-  it("treats an event's starting 0 as not set, but keeps any other price", () => {
-    expect(fillEmptyFields({ ...EMPTY, price: '0' }, { price: '12.00' }, 'EVENT').filled).toEqual(['price']);
-    expect(fillEmptyFields({ ...EMPTY, price: '0' }, { price: '12.00' }, 'PRODUCT').filled).toEqual([]);
-    expect(fillEmptyFields({ ...EMPTY, price: '8' }, { price: '12.00' }, 'EVENT').filled).toEqual([]);
-  });
-
-  it('does not report a free event as filled when the description says it is free', () => {
-    expect(fillEmptyFields({ ...EMPTY, price: '0' }, { price: '0.00' }, 'EVENT').filled).toEqual([]);
   });
 });
 

@@ -20,6 +20,8 @@ const TEXTS = {
   es: {
     welcome: '¡Hola! 👋 Gracias por escribir a Baifo. ¿Qué quieres publicar?',
     choiceHint: 'Contesta con el número y te digo qué necesito.',
+    fee: '💶 Tu anuncio cuesta {price} € y sale {days} días. Se paga al empezar: en efectivo o con tarjeta en El Corral{bizum}. Mientras, ya puedes mandarme tu anuncio.',
+    feeBizum: ', o por Bizum al {phone} con tu número de WhatsApp como concepto',
     chooseButton: 'Elegir',
     typePRODUCT: 'Algo que vendes',
     typeWANTED: 'Algo que buscas',
@@ -55,6 +57,8 @@ const TEXTS = {
   en: {
     welcome: 'Hi! 👋 Thanks for writing to Baifo. What would you like to post?',
     choiceHint: "Reply with the number and I'll tell you what I need.",
+    fee: '💶 Your listing costs €{price} and runs for {days} days. You pay at the start: cash or card at El Corral{bizum}. Meanwhile, you can already send me your listing.',
+    feeBizum: ', or by Bizum to {phone} with your WhatsApp number as the reference',
     chooseButton: 'Choose',
     typePRODUCT: 'Something you sell',
     typeWANTED: 'Something you look for',
@@ -90,6 +94,8 @@ const TEXTS = {
   it: {
     welcome: 'Ciao! 👋 Grazie per aver scritto a Baifo. Cosa vuoi pubblicare?',
     choiceHint: 'Rispondi con il numero e ti dico cosa mi serve.',
+    fee: '💶 Il tuo annuncio costa {price} € e resta online {days} giorni. Si paga all’inizio: in contanti o con carta a El Corral{bizum}. Intanto puoi già mandarmi il tuo annuncio.',
+    feeBizum: ', oppure con Bizum al {phone} con il tuo numero di WhatsApp come causale',
     chooseButton: 'Scegli',
     typePRODUCT: 'Qualcosa che vendi',
     typeWANTED: 'Qualcosa che cerchi',
@@ -125,6 +131,8 @@ const TEXTS = {
   fr: {
     welcome: 'Salut ! 👋 Merci d\'écrire à Baifo. Qu\'est-ce que tu veux publier ?',
     choiceHint: 'Réponds avec le numéro et je te dis ce qu\'il me faut.',
+    fee: '💶 Ton annonce coûte {price} € et reste {days} jours. Ça se paie au début : en espèces ou par carte à El Corral{bizum}. En attendant, tu peux déjà m’envoyer ton annonce.',
+    feeBizum: ', ou par Bizum au {phone} avec ton numéro WhatsApp comme référence',
     chooseButton: 'Choisir',
     typePRODUCT: 'Ce que tu vends',
     typeWANTED: 'Ce que tu cherches',
@@ -160,6 +168,8 @@ const TEXTS = {
   de: {
     welcome: 'Hallo! 👋 Danke, dass du Baifo schreibst. Was möchtest du veröffentlichen?',
     choiceHint: 'Antworte mit der Nummer, dann sage ich dir, was ich brauche.',
+    fee: '💶 Deine Anzeige kostet {price} € und läuft {days} Tage. Bezahlt wird am Anfang: bar oder mit Karte im El Corral{bizum}. In der Zwischenzeit kannst du mir schon deine Anzeige schicken.',
+    feeBizum: ', oder per Bizum an {phone} mit deiner WhatsApp-Nummer als Verwendungszweck',
     chooseButton: 'Auswählen',
     typePRODUCT: 'Etwas, das du verkaufst',
     typeWANTED: 'Etwas, das du suchst',

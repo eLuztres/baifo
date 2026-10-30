@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import FeedCard from '@/components/shared/product/feed-card';
@@ -17,10 +18,9 @@ import ExploreRow from '@/components/shared/explore-row';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
-import { MIN_FULL_LISTINGS, moreListingsFor, splitThinRows } from '@/lib/explore-rows';
+import { followingCategories, MIN_FULL_LISTINGS, moreListingsFor, splitThinRows } from '@/lib/explore-rows';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
-import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 
 /** Every ninth tile is big, alternating sides, like an Instagram explore grid. */
 const BLOCK_SIZE = 9;
@@ -115,7 +115,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     })),
   ];
   const activeIndex = ringItems.findIndex((item) => item.key === activeKey);
-  const nextItem = activeKey !== 'all' && ringItems.length > 1 ? ringItems[(activeIndex + 1) % ringItems.length] : undefined;
+  // A whole category scrolls on into the next ones, so only the other choices end with a way on.
+  const nextCategories = focus && !subcategory ? followingCategories(filledCategories, focus.id, (category) => inCategory(category.id), chosenListings) : [];
+  const nextItem = activeKey !== 'all' && !nextCategories.length && ringItems.length > 1 ? ringItems[(activeIndex + 1) % ringItems.length] : undefined;
   const rows = [
     ...fixedChoices.map(({ label, href, listings: rowListings }) => ({ key: href, title: label, href, listings: rowListings })),
     ...filledCategories.map((category) => ({
@@ -127,7 +129,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   ].filter((row) => row.listings.length > 0);
   // Thin rows would each stand alone with a "see all" that adds nothing; their listings show together instead.
   const { fullRows, mixedListings } = splitThinRows(rows);
-  const moreListings = activeKey === 'all' ? [] : moreListingsFor(chosenListings, listings, ROW_SIZE);
+  const moreListings = activeKey === 'all' || nextCategories.length ? [] : moreListingsFor(chosenListings, listings, ROW_SIZE);
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   // The town on each card only tells something once there's more than one.
@@ -233,6 +235,10 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         renderTiles(chosenListings)
       )}
 
+      {nextCategories.map(({ category, listings: categoryListings }) => (
+        <Fragment key={category.id}>{renderSection(localize(category.name, locale), categoryListings)}</Fragment>
+      ))}
+
       {/* A thin choice goes on with other listings, so its page is never a card or two and empty space. */}
       {moreListings.length > 0 && renderSection(t('EXPLORE_MORE'), moreListings)}
 
@@ -253,7 +259,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           {whatsappUrl && (
             <Button asChild size='lg' className='rounded-full'>
               <a href={whatsappUrl} target='_blank' rel='noopener noreferrer'>
-                {t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE })}
+                {t('HOME_HERO_ORDER_BUTTON')}
               </a>
             </Button>
           )}

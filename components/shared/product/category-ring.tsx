@@ -4,7 +4,7 @@ import { CSSProperties, MouseEvent, useEffect, useRef, useState, useSyncExternal
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
 import { RING_PREVIEW_COUNT, type MaterialRing } from '@/components/shared/home/materials';
@@ -179,7 +179,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   const feedHref = `/explore?c=${front.id}`;
   const rowProducts = front.products.slice(0, RING_PREVIEW_COUNT);
   const frontCount = front.count ?? front.products.length;
-  const hiddenCount = frontCount - rowProducts.length;
 
   // The feed of the front category is the likely next page: fetched ahead, so the morph into it doesn't wait.
   useEffect(() => router.prefetch(feedHref), [router, feedHref]);
@@ -293,6 +292,11 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
         </button>
       ))}
 
+      {/* The name already shows under the front card; this tells screen readers about a turn. */}
+      <p className='sr-only' aria-live='polite'>
+        {front.name}
+      </p>
+
       {/* The rings of the front category on a second ring below, curved the other way; keyed, so a new category starts at its first ring. */}
       <ConcaveRingRow
         key={front.id}
@@ -302,37 +306,19 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
           admin && ((product) => <RingTileActions productId={product.id} name={product.name} ringIds={front.products.map((ring) => ring.id)} />)
         }
         addTile={admin && frontAdminCategory && <AddRingTile href={admin.addProductHrefs[frontAdminCategory.id]} name={front.name} />}
+        // Always there, even when all of them show: it leads into the feed, which runs on into the next categories.
         moreTile={
-          hiddenCount > 0 && (
-            <Link
-              href={feedHref}
-              onClick={handleFeedLinkClick}
-              draggable={false}
-              className='flex size-full flex-col items-center justify-center gap-1 rounded-2xl border border-primary/40 bg-card text-primary transition hover:border-primary'
-            >
-              <span className='font-display text-4xl'>+{hiddenCount}</span>
-              <span className='inline-flex items-center gap-0.5 text-sm font-medium'>
-                {t('CATEGORY_SEE_ALL')} <ChevronRight className='size-4' aria-hidden />
-              </span>
-            </Link>
-          )
-        }
-      />
-
-      {/* The name already shows under the front card; a fixed height keeps the banner from jumping. */}
-      <div className='mx-auto flex h-14 max-w-2xl shrink-0 flex-col items-center justify-start gap-1 px-4 text-center' aria-live='polite'>
-        <p className='sr-only'>{front.name}</p>
-        {/* Only when the row above doesn't already show them all: "See all in Art (1)" says nothing new. */}
-        {hiddenCount > 0 && (
           <Link
             href={feedHref}
             onClick={handleFeedLinkClick}
-            className='inline-flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-medium text-primary underline-offset-4 hover:underline'
+            draggable={false}
+            aria-label={t('CATEGORY_SEE_ALL_IN', { category: front.name, count: frontCount })}
+            className='flex size-full items-center justify-center rounded-2xl border border-primary/40 bg-card text-primary transition hover:border-primary'
           >
-            {t('CATEGORY_SEE_ALL_IN', { category: front.name, count: frontCount })} <ChevronRight className='size-3.5' aria-hidden />
+            <Plus className='size-12' aria-hidden />
           </Link>
-        )}
-      </div>
+        }
+      />
     </section>
   );
 };

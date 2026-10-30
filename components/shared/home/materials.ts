@@ -4,8 +4,8 @@ import type { Locale } from '@/lib/i18n-core';
 import type { StoreCategory } from '@/lib/actions/category.actions';
 import type { CollectionRing, RingSummary } from './in-stock-rings';
 
-// Only the first few of a category show under the ring, a taste; a "+12" tile leads into the feed with all of them.
-export const RING_PREVIEW_COUNT = 8;
+// Only the first few of a category show under the ring, a taste; a "+" tile leads into the feed with all of them.
+export const RING_PREVIEW_COUNT = 2;
 
 const newSince = () => Date.now() - NEW_LISTING_HOURS * 60 * 60 * 1000;
 

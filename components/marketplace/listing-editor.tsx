@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, RotateCcw, Save, Sparkles, Star, Trash2, Upload, WandSparkles, X } from 'lucide-react';
+import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, RotateCcw, Save, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
@@ -34,7 +34,6 @@ import {
   deleteAdminListing,
   enableAdminListing,
   extendAdminListing,
-  fillAdminListingFields,
   markAdminListingSold,
   publishAdminListing,
   shareAdminListing,
@@ -45,7 +44,7 @@ import {
 import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { fillText, markSoldText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { fieldState, fillEmptyFields, type FillableField } from '@/lib/marketplace/listing-fields';
+import { fieldState, type FillableField } from '@/lib/marketplace/listing-fields';
 import { movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
 import { RELISTABLE } from '@/lib/marketplace/config';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
@@ -117,11 +116,11 @@ interface EditorFields {
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
-// "Any condition" only fits a wanted ad: after a switch it stays in the form, but isn't sent for a product.
+// Only an item for sale has a condition; a wanted ad sends none.
 const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], type: ListingType, textMode: TextMode) =>
   type === 'SERVICE'
     ? { ...fields, type, images, textMode }
-    : { ...fields, type, priceMax, condition: type !== 'WANTED' && condition === ANY_CONDITION ? '' : condition, images, textMode };
+    : { ...fields, type, priceMax, condition: type === 'PRODUCT' && condition !== ANY_CONDITION ? condition : '', images, textMode };
 
 const FIELD_CLASS = 'rounded-xl bg-background sm:rounded-2xl text-base md:text-base';
 const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
@@ -158,9 +157,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
   };
   const { startUpload } = useUploadThing('photosUploader', uploadEvents);
   const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
-  // "Fill what's missing": busy while the AI reads the description; the fields it filled show where they came from.
-  const [isFillingFields, setIsFillingFields] = useState(false);
-  const [filledFromText, setFilledFromText] = useState<FillableField[]>([]);
   // The video whose still frame the server is taking right now.
   const [stillVideo, setStillVideo] = useState<string | null>(null);
   const [fields, setFields] = useState({
@@ -215,16 +211,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  // A field changed by hand no longer counts as filled from the description.
-  const set = (name: FillableField) => (event: { target: { value: string } }) => {
-    setFilledFromText((current) => current.filter((field) => field !== name));
-    setFields((current) => ({ ...current, [name]: event.target.value }));
-  };
-  // Set, filled from the description, missing, or missing and needed to publish.
-  const stateOf = (name: FillableField) => {
-    const state = fieldState(name, fields[name], type);
-    return state === 'set' && filledFromText.includes(name) ? 'fromText' : state;
-  };
+  const set = (name: FillableField) => (event: { target: { value: string } }) => setFields((current) => ({ ...current, [name]: event.target.value }));
+  // Set, missing, or missing and needed to publish.
+  const stateOf = (name: FillableField) => fieldState(name, fields[name], type);
   // The shop language is the listing's own title and description; the others are its translations.
   const setText = (name: 'title' | 'description' | 'short') => (event: { target: { value: string } }) => {
     if (isShopLanguage && languages.length > 0) setIsTranslationStale(true);
@@ -417,30 +406,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
     if (!('translations' in result && result.translations)) return setError(result.message);
     setFields((current) => withTranslations(current, result.translations));
     setIsTranslationStale(false);
-  };
-
-  const fieldLabels: Record<FillableField, string> = {
-    category: texts.categoryLabel,
-    price: isService ? texts.priceFrom : isEvent ? texts.eventPrice : isWanted ? texts.budgetFrom : texts.priceShort,
-    priceMax: texts.budgetTo,
-    condition: texts.conditionLabel,
-    serviceType: texts.serviceTypeLabel,
-    startsAt: texts.eventStartsLabel,
-    address: texts.addressLabel,
-    placeId: texts.placeLabel,
-  };
-
-  // Only empty fields take what the description says; the admin's own values stay.
-  const fillFromDescription = async () => {
-    setError('');
-    setIsFillingFields(true);
-    const result = await fillAdminListingFields(listing.id, { title: fields.title, description: fields.description }, type);
-    setIsFillingFields(false);
-    if (!('fields' in result && result.fields)) return setError(result.message);
-    const { fields: filledFields, filled } = fillEmptyFields(fields, result.fields, type);
-    setFields(filledFields);
-    setFilledFromText((current) => [...current, ...filled]);
-    toast({ description: filled.length > 0 ? fillText(texts.fieldsFilled, { fields: filled.map((name) => fieldLabels[name]).join(', ') }) : texts.fieldsNothingNew });
   };
 
   // The AI never invents a picture: it needs words (typed here or the description) or an uploaded photo.
@@ -686,21 +651,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
               className={`${FIELD_CLASS} field-sizing-content max-h-[56svh] min-h-24 resize-none sm:min-h-32 overflow-y-auto leading-relaxed`}
             />
           </div>
-          {/* The description leads: after changing it, the fields still empty can be filled from it. */}
-          {isShopLanguage && (
-            <div className='flex flex-wrap items-center gap-x-3 gap-y-1 px-1'>
-              <Button
-                size='sm'
-                variant='outline'
-                className='h-auto min-h-8 whitespace-normal rounded-full py-1.5 text-left'
-                disabled={isFillingFields || !fields.description.trim()}
-                onClick={fillFromDescription}
-              >
-                {isFillingFields ? <Loader2 className='animate-spin' /> : <WandSparkles />} {isFillingFields ? texts.fillFieldsWorking : texts.fillFields}
-              </Button>
-              <span className='text-xs text-muted-foreground'>{texts.fillFieldsHint}</span>
-            </div>
-          )}
         </div>
         {textWork && (
           <div className='absolute inset-0 flex items-center justify-center gap-2 rounded-3xl bg-card/85 text-sm font-medium backdrop-blur-sm'>
@@ -766,17 +716,19 @@ export default function ListingEditor({ listing, categories, places, languages, 
             ) : (
               <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
             )}
-            <div className={cn('space-y-1', isWanted && 'col-span-2')}>
-              <FieldLabel htmlFor='condition' label={texts.conditionLabel} state={stateOf('condition')} texts={texts} />
-              <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
-                <option value=''>–</option>
-                {PRODUCT_CONDITIONS.filter((condition) => isWanted || condition !== ANY_CONDITION).map((condition) => (
-                  <option key={condition} value={condition}>
-                    {texts[`condition_${condition}`]}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!isWanted && (
+              <div className='space-y-1'>
+                <FieldLabel htmlFor='condition' label={texts.conditionLabel} state={stateOf('condition')} texts={texts} />
+                <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
+                  <option value=''>–</option>
+                  {PRODUCT_CONDITIONS.filter((condition) => condition !== ANY_CONDITION).map((condition) => (
+                    <option key={condition} value={condition}>
+                      {texts[`condition_${condition}`]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </>
         )}
         <div className='col-span-2 space-y-1'>
@@ -824,16 +776,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
         </p>
       )}
 
-      {/* Instead of publishing for free: the person sees their listing first and pays to publish it. */}
-      {isOpen && hasPersonWhatsApp && (
-        <div className='space-y-1'>
-          <Button variant='outline' className='h-10 w-full rounded-full sm:h-12' disabled={isPending} onClick={sendByWhatsApp}>
-            <MessageCircle /> {isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}
-          </Button>
-          <p className='text-center text-xs text-muted-foreground'>{isAwaitingPayment ? texts.resendLinkHint : texts.sendWhatsAppHint}</p>
-        </div>
-      )}
-
       {isOpen && (hasPersonWhatsApp || isAwaitingPayment) && (
         <PaymentPanel
           listing={listing}
@@ -856,79 +798,94 @@ export default function ListingEditor({ listing, categories, places, languages, 
             <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
           </div>
         )}
-        <div className='flex flex-wrap gap-3'>
-          {listing.status === 'LIVE' && (
-            // Selling takes the listing out of the shop at once, so it asks first.
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant='outline' className='rounded-full' disabled={isPending}>
-                  {markSoldText(texts, type)}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{markSoldText(texts, type)}</AlertDialogTitle>
-                  <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
-                  <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
-                    {markSoldText(texts, type)}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+        {/* Deleting on the left, what moves the listing on to the right; on a phone the actions come first. */}
+        <div className='flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between'>
           <DeleteDialog
             id={listing.id}
             action={deleteAndLeave}
             description={texts.deleteHint}
             trigger={
-              <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending}>
+              <Button variant='ghost' className='self-start rounded-full text-destructive' disabled={isPending}>
                 <Trash2 /> {texts.deleteForGood}
               </Button>
             }
           />
+          <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end'>
+            {listing.status === 'LIVE' && (
+              // Selling takes the listing out of the shop at once, so it asks first.
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant='outline' className='rounded-full' disabled={isPending}>
+                    {markSoldText(texts, type)}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{markSoldText(texts, type)}</AlertDialogTitle>
+                    <AlertDialogDescription>{texts.markSoldConfirm}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{texts.markSoldCancel}</AlertDialogCancel>
+                    <AlertDialogAction className={buttonVariants({ variant: 'destructive' })} onClick={() => run(() => markAdminListingSold(listing.id))}>
+                      {markSoldText(texts, type)}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {isOpen && (
+              <Button variant={hasPersonWhatsApp ? 'outline' : 'default'} className='rounded-full' disabled={isPending} onClick={publish}>
+                {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
+              </Button>
+            )}
+            {/* Instead of publishing for free: the person sees their listing first and pays to publish it. */}
+            {isOpen && hasPersonWhatsApp && (
+              <Button className='rounded-full' disabled={isPending} onClick={sendByWhatsApp}>
+                <MessageCircle /> {isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}
+              </Button>
+            )}
+          </div>
         </div>
+        {isOpen && (
+          <div className='space-y-0.5 text-xs text-muted-foreground sm:text-right'>
+            <p>
+              <span className='font-medium text-foreground'>{texts.publishNow}</span> · {texts.publishNowHint}
+            </p>
+            {hasPersonWhatsApp && (
+              <p>
+                <span className='font-medium text-foreground'>{isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}</span> ·{' '}
+                {isAwaitingPayment ? texts.resendLinkHint : texts.sendWhatsAppHint}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {isOpen && (
-        // One thumb-sized button: everything above is already filled in by the AI.
-        <HidingBottomBar className='sticky bottom-4 z-10 space-y-1'>
-          <Button className='h-12 w-full rounded-full text-base shadow-xl shadow-primary/20 sm:h-14' disabled={isPending} onClick={publish}>
-            {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
-          </Button>
-          <p className='text-center text-xs text-muted-foreground'>{texts.publishNowHint}</p>
-        </HidingBottomBar>
-      )}
-
       {/* Edits only save here; the bar comes back on a small scroll up and says when something isn't saved yet. */}
-      {!isOpen && (
-        <HidingBottomBar className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
-          <p
-            role='status'
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-2 text-sm',
-              saveState === 'failed' ? 'font-medium text-destructive' : hasUnsaved ? 'text-muted-foreground' : 'text-primary'
-            )}
-          >
-            {saveState === 'saving' ? (
-              <Loader2 className='size-4 shrink-0 animate-spin' aria-hidden />
-            ) : (
-              !hasUnsaved && <CheckCircle2 className='size-4 shrink-0' aria-hidden />
-            )}
-            <span className='truncate'>{saveLabel}</span>
-          </p>
-          <Button className='shrink-0 rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
-            <Save /> {texts.saveNow}
-          </Button>
-        </HidingBottomBar>
-      )}
+      <HidingBottomBar className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
+        <p
+          role='status'
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-2 text-sm',
+            saveState === 'failed' ? 'font-medium text-destructive' : hasUnsaved ? 'text-muted-foreground' : 'text-primary'
+          )}
+        >
+          {saveState === 'saving' ? (
+            <Loader2 className='size-4 shrink-0 animate-spin' aria-hidden />
+          ) : (
+            !hasUnsaved && <CheckCircle2 className='size-4 shrink-0' aria-hidden />
+          )}
+          <span className='truncate'>{saveLabel}</span>
+        </p>
+        <Button className='shrink-0 rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
+          <Save /> {texts.saveNow}
+        </Button>
+      </HidingBottomBar>
     </div>
   );
 }
 
-type FieldState = 'set' | 'fromText' | 'missing' | 'needed';
+type FieldState = 'set' | 'missing' | 'needed';
 
 // A field publishing needs, still empty, stands out a little: no error look.
 const neededClass = (state: FieldState) => state === 'needed' && 'border-dashed border-primary/60';
@@ -944,7 +901,6 @@ interface FieldLabelProps {
 function FieldLabel({ htmlFor, label, state, texts }: FieldLabelProps) {
   const { icon: Icon, text } = {
     set: { icon: CheckCircle2, text: texts.fieldSet },
-    fromText: { icon: Sparkles, text: texts.fieldFromText },
     missing: { icon: Circle, text: texts.fieldMissing },
     needed: { icon: CircleDot, text: texts.fieldNeeded },
   }[state];

@@ -10,7 +10,9 @@
   "HOME_HERO_FACT_2": "auf Fuerteventura",
   "HOME_HERO_TEXT": "Sachen und Dienste von Inselbewohnern, ohne Zwischenhändler.",
   "HOME_HERO_CTA": "Anzeigen ansehen",
-  "HOME_HERO_ORDER": "Schreib uns",
+  "HOME_HERO_ORDER": "Inserieren wie früher, ab {price} €",
+  "HOME_HERO_ORDER_TEXT": "Wie in der Lokalzeitung: die ganze Insel liest mit.",
+  "HOME_HERO_ORDER_BUTTON": "Anzeige aufgeben",
   "SELL_WHATSAPP_MESSAGE": "Hallo {shop}! Ich möchte mit euch in Kontakt treten:",
   "HOME_HERO_IMAGE_ALT": "Ein Baifo, ein Majorera-Zicklein, knabbert an einer Tabaiba auf einem Vulkan auf Fuerteventura",
   "HOME_HERO_ALT_LOBOS": "La Culeta, die Baifo-Ziege mit dem schwarzen Po, liest am Strand von Corralejo die Zeitung, dahinter die Isla de Lobos",
@@ -66,5 +68,6 @@
   "STORE_RINGS_NEXT": "Weitere Anzeigen",
   "PRODUCT_FALLBACK_TITLE": "Anzeige",
   "CONTACT_INTRO_SHOWCASE": "Fragen zu einer Anzeige? Wir antworten meist innerhalb eines Tages.",
-  "TURN_UPRIGHT": "Dreh dein Handy hochkant, um die Anzeigen zu sehen"
+  "TURN_UPRIGHT": "Dreh dein Handy hochkant, um die Anzeigen zu sehen",
+  "PLACES_ADMIN_TITLE": "Corrales"
 }

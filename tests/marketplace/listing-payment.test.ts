@@ -96,6 +96,11 @@ describe('getListingPreview', () => {
     expect(await getListingPreview(TOKEN, NOW)).toBeNull();
   });
 
+  it('stays open past 48 hours once the person said OK, as the fee was paid before the listing was made', async () => {
+    db.findUnique.mockResolvedValueOnce({ ...LISTING, sentAt: new Date('2026-10-25T08:00:00Z'), consentAt: new Date('2026-10-25T09:00:00Z'), seller: { waId: '34612345678' } });
+    expect((await getListingPreview(TOKEN, NOW))?.status).toBe('AWAITING_PAYMENT');
+  });
+
   it('stays open after the end of a paid listing, so it can be renewed', async () => {
     db.findUnique.mockResolvedValue({ ...LISTING, status: 'EXPIRED', paidAt: new Date('2026-07-01T10:00:00Z'), seller: { waId: '34612345678' } });
     expect((await getListingPreview(TOKEN, NOW))?.status).toBe('EXPIRED');

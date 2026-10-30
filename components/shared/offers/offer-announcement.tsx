@@ -7,7 +7,8 @@ import Image from 'next/image';
 import { ChevronRight, X } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
-import { ONE_PAGE_PATH } from '@/components/shared/home/one-page';
+import { ONE_PAGE_PATH, SECTION_IDS } from '@/components/shared/home/one-page';
+import { useActiveSection } from '@/components/shared/header/use-active-section';
 import { OFFERS_PATH } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import type { OfferItem } from '@/lib/offers-core';
@@ -37,8 +38,8 @@ interface OfferAnnouncementProps {
   hasAdminButton: boolean;
 }
 
-/** The running offers as a slim banner over the bottom of the home page; several take turns. Closed, they stay closed for this
-    visitor until a new offer starts (they stay on the offers page). In the layout, not the page: the page's entrance
+/** The running offers as a slim banner over the bottom of the home page's start screen; several take turns. Closed, they
+    stay closed for this visitor until a new offer starts (they stay on the offers page). In the layout, not the page: the page's entrance
     animation would make it the frame for `fixed`. */
 const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) => {
   const { t } = useI18n();
@@ -47,6 +48,7 @@ const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) =>
   const [closedIds, setClosedIds] = useState<string[] | null>(null);
   const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const isOnStartScreen = useActiveSection() === SECTION_IDS.home;
 
   useEffect(() => setClosedIds(readClosedIds()), []);
 
@@ -75,6 +77,7 @@ const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) =>
   return (
     <aside
       aria-label={t('OFFERS_ANNOUNCEMENT_LABEL')}
+      data-offer-popup
       {...(count > 1 && { 'aria-roledescription': 'carousel' })}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -82,8 +85,10 @@ const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) =>
       onBlur={() => setIsPaused(false)}
       /* Wide screens: over the decorative picture on the right, so it covers neither the hero's buttons nor the WhatsApp QR code. */
       className={cn(
-        'fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm items-center gap-1 rounded-2xl border border-border bg-card/90 p-1.5 text-card-foreground shadow-xl shadow-primary/15 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-500 sm:bottom-6 lg:inset-x-auto lg:right-24',
-        hasAdminButton && 'right-20 sm:right-24'
+        'fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-sm items-center gap-1 rounded-2xl border border-border bg-card/90 p-1.5 text-card-foreground shadow-xl shadow-primary/15 backdrop-blur-md transition-[opacity,visibility] animate-in fade-in slide-in-from-bottom-4 duration-500 sm:bottom-6 lg:inset-x-auto lg:right-24',
+        hasAdminButton && 'right-20 sm:right-24',
+        // Hidden, not removed, past the start screen: the hero lifts its ad for the popup and mustn't jump while scrolling.
+        !isOnStartScreen && 'pointer-events-none invisible opacity-0'
       )}
     >
       <Link key={offer.id} href={OFFERS_PATH} className='group flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 animate-in fade-in duration-500'>

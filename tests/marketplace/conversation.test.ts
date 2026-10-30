@@ -144,6 +144,19 @@ describe('the welcome and the choice', () => {
     );
   });
 
+  it('names the fee and how to pay in the welcome, before anything is made', async () => {
+    db.submission.findFirst.mockResolvedValue(null);
+
+    await handleSellerMessage(message({ text: 'Buenos días' }));
+
+    const [, text] = sendList.mock.calls[0];
+    expect(text).toContain(
+      '💶 Tu anuncio cuesta 5 € y sale 90 días. Se paga al empezar: en efectivo o con tarjeta en El Corral, o por Bizum al 600 000 000 con tu número de WhatsApp como concepto.'
+    );
+    // WhatsApp refuses a list message with a longer text.
+    expect(text.length).toBeLessThanOrEqual(1024);
+  });
+
   it('greets again on "hola", even with something open', async () => {
     await handleSellerMessage(message({ text: '¡Hola!' }));
 

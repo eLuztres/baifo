@@ -4,6 +4,7 @@ import { sendButtons as sendButtonsNow, sendList as sendListNow, sendText as sen
 import type { InboundMessage } from '@/lib/whatsapp-cloud/webhook';
 import { botText, CHOICE_TYPES, choiceOf, commandOf, localeOf, type BotLocale } from './messages';
 import { markSold } from './listing';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_FROM_PRICE, LISTING_PAYMENT_ON_PAGE } from './config';
 import { SERVICE_AREA, WHATSAPP_LISTING_LIMIT, type ListingType } from '@/lib/constants';
 import { isRateLimited } from '@/lib/rate-limit';
 
@@ -19,6 +20,14 @@ const sendList = (...args: Parameters<typeof sendListNow>) => sendListNow(...arg
 
 const choiceTitle = (locale: BotLocale, type: ListingType) => botText(locale, `type${type}` as const);
 
+// The fee comes first, before anything is made, so nothing about money is left for the private page.
+export const feeText = (locale: BotLocale) =>
+  botText(locale, 'fee', {
+    price: LISTING_FROM_PRICE,
+    days: LISTING_DAYS,
+    bizum: BIZUM_PHONE ? botText(locale, 'feeBizum', { phone: BIZUM_PHONE }) : '',
+  });
+
 // The numbers stay in the text, so people can also answer by typing one; the list is the quicker way.
 // While the shop only serves some places, new sellers hear it right away.
 const welcomeText = (locale: BotLocale) =>
@@ -26,6 +35,7 @@ const welcomeText = (locale: BotLocale) =>
     [botText(locale, 'welcome'), ...CHOICE_TYPES.map((type, index) => `${index + 1}. ${choiceTitle(locale, type)}`)].join('\n'),
     botText(locale, 'choiceHint'),
     SERVICE_AREA && botText(locale, 'serviceArea', { area: SERVICE_AREA }),
+    !LISTING_PAYMENT_ON_PAGE && feeText(locale),
   ]
     .filter(Boolean)
     .join('\n\n');

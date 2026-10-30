@@ -1,5 +1,47 @@
 # Custom Shop Template
 
+## Valores de El Baifo
+
+Todo lo que se construye en esta tienda sigue estos valores.
+
+### Idea central
+
+El Baifo es una red social orgánica: una red de personas, encuentros y conexiones que cuenta con una herramienta digital para facilitar las publicaciones. La tecnología está al servicio de las personas y de sus relaciones; no sustituye el encuentro humano.
+
+Queremos recuperar algo sencillo: mirarnos, presentarnos, darnos la mano y decir «¿qué necesitas?, ¿en qué puedo ayudarte?». Nos conecta también el deseo de vivir Fuerteventura como el paraíso que un día elegimos.
+
+### Valores que orientan el proyecto
+
+1. **Las personas primero.** Creamos espacios para conocernos, compartir ideas y conectar con gente creativa.
+2. **Sencillez.** Si hay varias formas de hacer algo, elegimos la más fácil de entender y utilizar.
+3. **Trato directo y claro.** Cada persona publica su anuncio y decide cómo quiere que contacten con ella. Baifo facilita el encuentro; las personas gestionan su intercambio.
+4. **Privacidad y autonomía.** Cada persona decide qué información comparte. El teléfono es opcional, se publica con autorización y puede retirarse. No pedimos correo, datos fiscales, bancarios ni información personal que el anuncio no necesita.
+5. **Corrales humanos y autónomos.** Los corrales ofrecen puntos concretos donde encontrar a una persona. Todos parten de una base común y cada uno decide qué servicios adicionales ofrece. La persona elige si los utiliza y acuerda sus condiciones directamente con ese corral.
+6. **Condiciones claras.** El anuncio tiene un precio y un periodo definidos. La colaboración con un corral se remunera por la publicación o el servicio acordado, nunca como porcentaje de una venta.
+7. **Responsabilidad individual.** Baifo facilita publicar y conectar. Cada persona decide cómo continuar la conversación y responde de sus acuerdos, llamadas y ventas.
+8. **Creatividad y disfrute.** Queremos que las personas creen, compartan y participen porque disfrutan haciéndolo, sin convertir cada encuentro en una obligación de vender, producir o generar ingresos.
+9. **Tecnología al servicio de las personas.** La IA puede ayudar a crear o mejorar materiales cuando la persona lo decide. La decisión y el control siguen en manos de quien publica.
+10. **Comunidad y ocio.** Las apañadas y los encuentros sirven para recoger anuncios, conocernos y compartir un rato en un ambiente relajado.
+
+### Vocabulario que representa a El Baifo
+
+Personas · encuentro · conexión · corral · apañada · colaboración · creatividad · sencillez · autonomía · claridad · privacidad · disfrute · intercambio directo
+
+### Expresiones que conviene evitar
+
+- «Captar clientes» o «generar leads».
+- «Monetizar a las personas» o «ganar un porcentaje de cada venta».
+- «Garantizamos que venderás» o «nos encargamos de cerrar la operación».
+- «Tienes que renovar» o mensajes insistentes para volver a publicar.
+- «Completa tu perfil» o solicitudes de datos que el anuncio no necesita.
+- Presentar la IA como sustituta del criterio, la creatividad o el contacto humano.
+
+### Frase guía
+
+**El Baifo conecta personas. Cada una decide qué comparte, cómo se relaciona y qué acuerdos quiere alcanzar.**
+
+---
+
 A white-label online shop: products, cart, checkout (Stripe, PayPal, cash on delivery), orders, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and Better Auth.
 
 **Every customer shop runs the same code.** Name, logo, colors, texts, contact details, languages, currency and shop rules are configuration. So you can create a new shop in minutes and update all of them from one place.
@@ -222,7 +264,7 @@ The hero picture (`BRAND_HERO_IMAGE`) is decorative by default. If it shows some
 | `brand/cutouts.json` | product slugs with a cut-out picture at `public/brand/products/cutout/<slug>.webp`. With at least 4, those products float in the opening scene instead of the hero picture |
 | `brand/rings3d.json` | optional 3D recipes per product slug for the opening scene (three.js, loaded only then) |
 | `brand/studio.mjs` | your own AI studio prompts: export any prompt of `lib/studio/prompts.mjs` under its name to replace the neutral one |
-| `brand/admin-links.json` | the shop's own admin pages in the admin menu: `[{ "href": "/admin/x", "label": { "es": "…", "en": "…" } }]` |
+| `brand/admin-links.json` | the shop's own admin pages in the admin menu: `[{ "href": "/admin/x", "label": { "es": "…", "en": "…" } }]`, optionally `"after": "/admin/offers"` (its place in the menu) and `"icon"` (`grid`, `list`, `map-pin`) |
 
 ```env
 BRAND_DECORATION=goldleaf           # dark background with a gold lamp breathing out smoke

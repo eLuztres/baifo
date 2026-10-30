@@ -26,6 +26,7 @@ export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) 
   const { t } = await getT();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
+  const orderText = t('HOME_HERO_ORDER_TEXT');
   const slogan = t('BRAND_SLOGAN', { shop: APP_NAME });
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = pictures.map(({ name, tall, wide, figure }) => {
@@ -59,14 +60,21 @@ export default async function SceneHero({ pictures, feedHref }: SceneHeroProps) 
         </div>
       </div>
 
-      <Link
-        href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
-        {...(whatsappUrl && { target: '_blank', rel: 'noopener noreferrer' })}
-        className={styles.advertise}
-      >
-        {whatsappUrl && <WhatsAppLogo />}
-        {order}
-      </Link>
+      {/* A small ad like in the local paper: the only place the site talks about the fee. */}
+      <div className={styles.advertise}>
+        <div className={styles.advertiseWords}>
+          <p className={styles.advertiseTitle}>{order}</p>
+          {orderText && <p className={styles.advertiseText}>{orderText}</p>}
+        </div>
+        <Link
+          href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
+          {...(whatsappUrl && { target: '_blank', rel: 'noopener noreferrer' })}
+          className={styles.advertiseButton}
+        >
+          {whatsappUrl && <WhatsAppLogo />}
+          {t('HOME_HERO_ORDER_BUTTON')}
+        </Link>
+      </div>
     </section>
   );
 }

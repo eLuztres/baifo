@@ -32,7 +32,9 @@ const SERVICE_PHOTO_PROMPT =
 const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Spanish', en: 'English', it: 'Italian', de: 'German', fr: 'French' };
 
 // Only a listing's texts have a short title.
-const textSchema = z.object({ title: z.string(), description: z.string(), short: z.string().optional() });
+// The web search adds its sources as Markdown links even when told not to: they never belong in a listing.
+const withoutLinks = (text: string) => text.replace(/\s*\(\[[^\]]*\]\([^)]*\)\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
+const textSchema = z.object({ title: z.string(), description: z.string().transform(withoutLinks), short: z.string().optional() });
 
 // From a seller's words and photos the AI only tells an item for sale from a wanted ad; services and events are chosen (admin or WhatsApp welcome).
 const GOODS_TYPES = ['PRODUCT', 'WANTED'] as const satisfies readonly ListingType[];
@@ -183,6 +185,13 @@ const WRITING_RULE =
   'scratches, defects); only what the writer said about it themselves, and that stays in. When a brand or model is clear, you may add one or two short, true and well-known details ' +
   'about that model (what it is good for, a known feature), never sizes, specs or prices that are not stated.\n';
 
+// Only for items with a photo: the AI names what it is and looks the model up, but describes it as sold new.
+const PRODUCT_RESEARCH_RULE =
+  '  From the photo, name the item\'s colour and kind (e.g. "a red city bike", "a black base"). If a brand or model is ' +
+  'recognisable (logo, label, typical shape), search the web for it and add one or two facts about that product as it ' +
+  'is sold new (what it is, what it is for, a known feature); only facts you found for exactly that model, never prices ' +
+  'and never links or sources in the texts. Still never judge its state: not broken, worn, good or bad.\n';
+
 // The fields are read from what was written (and seen), never guessed: one that isn't stated stays null.
 const ITEM_PRICE_RULE = '- price: the price in euros the seller asked for, or null if they named none. Never guess one.\n';
 const SERVICE_FIELD_RULES =
@@ -202,6 +211,7 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   'sentences. The same facts in every language. If the seller wrote nothing, only say neutrally and briefly what the ' +
   'item is.\n' +
   WRITING_RULE +
+  PRODUCT_RESEARCH_RULE +
   SHORT_RULE +
   categoryRule('this item (decide by what the main item is, not by the background or the props around it)', categories) +
   WANTED_RULE +
@@ -346,6 +356,7 @@ export async function writeListing(
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
+      isWebSearch: Boolean(photo) && !isService && !isEvent,
       schema: withPlace(
         isService ? serviceJsonSchema(locales, slugs) : isEvent ? eventJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs),
         places

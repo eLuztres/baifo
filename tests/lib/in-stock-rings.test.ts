@@ -117,9 +117,10 @@ describe('pickShowroomRings', () => {
   it("loads each category's first few and the extra slugs, and counts all of them", () => {
     const lava = Array.from({ length: RING_PREVIEW_COUNT + 2 }, (_, index) => summary(`l${index}`, ['c1']));
     const fresh = summary('w', ['c2'], new Date());
-    const { ids, counts } = pickShowroomRings(CATEGORIES, [...lava, fresh], new Set(['l9']));
+    const lastLava = `l${RING_PREVIEW_COUNT + 1}`;
+    const { ids, counts } = pickShowroomRings(CATEGORIES, [...lava, fresh], new Set([lastLava]));
 
-    expect(ids).toEqual(['id-l9', ...lava.slice(0, RING_PREVIEW_COUNT).map((ring) => ring.id), 'id-w']);
+    expect(ids).toEqual([`id-${lastLava}`, ...lava.slice(0, RING_PREVIEW_COUNT).map((ring) => ring.id), 'id-w']);
     expect(counts.get('lava')).toEqual({ count: RING_PREVIEW_COUNT + 2, newCount: 0 });
     expect(counts.get('wood')).toEqual({ count: 1, newCount: 1 });
     expect(counts.get('carbon')).toEqual({ count: 0, newCount: 0 });

@@ -58,11 +58,13 @@ interface PublishFormProps {
   shopTeaser: ReactNode;
   /** Paying again for a listing that was online: no steps to show, it was confirmed long ago. */
   isRenewal?: boolean;
+  /** false: the fee was paid before the listing was made, so the OK is the last step and no money shows. */
+  hasPayment?: boolean;
 }
 
 const OPTION_CLASS = 'flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-card p-4 has-[:checked]:border-primary';
 
-export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser, isRenewal = false }: PublishFormProps) {
+export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser, isRenewal = false, hasPayment = true }: PublishFormProps) {
   const router = useRouter();
   // Premium is shown but not offered yet, so the plan is always the normal one.
   const plan: ListingPlan = 'normal';
@@ -134,16 +136,16 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
   // As typed into Bizum: "5" or "7,50".
   const amount = String(Number(prices[plan])).replace('.', ',');
 
-  if (claimedMethod) {
+  if (claimedMethod || (isConfirmed && !hasPayment)) {
     return (
       <div className='space-y-6'>
         <div className='space-y-2 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
           <h2 className='flex items-center gap-2 font-display text-2xl'>
             <CheckCircle2 className='size-6 shrink-0 text-primary' aria-hidden /> {texts.doneTitle}
           </h2>
-          <p>{texts.doneText}</p>
+          <p>{hasPayment ? texts.doneText : texts.readyText}</p>
           <p className='text-sm text-muted-foreground'>
-            {claimedMethod === 'cash' ? fill(texts.doneNextCash, { date: payment.validUntil }) : texts.doneNextBizum} {texts.doneComeBack}
+            {hasPayment && (claimedMethod === 'cash' ? fill(texts.doneNextCash, { date: payment.validUntil }) : texts.doneNextBizum)} {texts.doneComeBack}
           </p>
           {payment.helpUrl && (
             <a href={payment.helpUrl} target='_blank' rel='noopener noreferrer' className='inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline'>
@@ -286,25 +288,27 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
 
   return (
     <div className='space-y-6'>
-      <fieldset className='space-y-3'>
-        <legend className='mb-3 font-display text-xl'>{texts.planTitle}</legend>
-        <RadioGroup value={plan} className='grid gap-3 sm:grid-cols-2'>
-          {(['normal', 'big'] as const).map((option) => (
-            <Label key={option} className={cn(OPTION_CLASS, option === 'big' && 'cursor-not-allowed bg-muted text-muted-foreground')}>
-              <RadioGroupItem value={option} disabled={option === 'big'} className='mt-1' />
-              <span className='space-y-1'>
-                <span className='block text-base font-semibold'>
-                  {option === 'big' ? texts.planBig : texts.planNormal} · {formatCurrency(prices[option])}
-                  {option === 'big' && <ComingSoon texts={texts} />}
+      {hasPayment && (
+        <fieldset className='space-y-3'>
+          <legend className='mb-3 font-display text-xl'>{texts.planTitle}</legend>
+          <RadioGroup value={plan} className='grid gap-3 sm:grid-cols-2'>
+            {(['normal', 'big'] as const).map((option) => (
+              <Label key={option} className={cn(OPTION_CLASS, option === 'big' && 'cursor-not-allowed bg-muted text-muted-foreground')}>
+                <RadioGroupItem value={option} disabled={option === 'big'} className='mt-1' />
+                <span className='space-y-1'>
+                  <span className='block text-base font-semibold'>
+                    {option === 'big' ? texts.planBig : texts.planNormal} · {formatCurrency(prices[option])}
+                    {option === 'big' && <ComingSoon texts={texts} />}
+                  </span>
+                  <span className='block text-sm font-normal text-muted-foreground'>
+                    {fill(option === 'big' ? texts.planBigText : texts.planNormalText, { days })}
+                  </span>
                 </span>
-                <span className='block text-sm font-normal text-muted-foreground'>
-                  {fill(option === 'big' ? texts.planBigText : texts.planNormalText, { days })}
-                </span>
-              </span>
-            </Label>
-          ))}
-        </RadioGroup>
-      </fieldset>
+              </Label>
+            ))}
+          </RadioGroup>
+        </fieldset>
+      )}
 
       <div className='space-y-3 rounded-2xl bg-muted p-4'>
         <p className='font-medium'>{texts.consentTitle}</p>

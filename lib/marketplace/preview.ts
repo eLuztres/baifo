@@ -1,5 +1,5 @@
 import { prisma } from '@/db/prisma';
-import { HOUSE_SELLER } from './config';
+import { HOUSE_SELLER, LISTING_PAYMENT_ON_PAGE } from './config';
 import { isLinkExpired } from './listing-payment';
 import { sellerIdentity } from './seller';
 
@@ -36,9 +36,11 @@ const PREVIEW_FIELDS = {
 } as const;
 
 /** Waiting for its first payment, online, or ended after it was paid once (and so renewable). */
-const isOpenListing = (listing: { status: string; sentAt: Date | null; paidAt: Date | null }, now: Date) =>
+const isOpenListing = (listing: { status: string; sentAt: Date | null; paidAt: Date | null; consentAt: Date | null }, now: Date) =>
   listing.status === 'LIVE' ||
   (listing.status === 'AWAITING_PAYMENT' && !isLinkExpired(listing.sentAt, now)) ||
+  // Paid before the listing was made: once the person said OK, it only waits for the admin.
+  (listing.status === 'AWAITING_PAYMENT' && !LISTING_PAYMENT_ON_PAGE && Boolean(listing.consentAt)) ||
   (listing.status === 'EXPIRED' && Boolean(listing.paidAt));
 
 /** The listing behind a private link, or null for an unknown, expired or no longer open link. */

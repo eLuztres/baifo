@@ -17,7 +17,7 @@ export default async function AdminLayout({
 }>) {
   const [locale, { t }] = await Promise.all([getLocale(), getT()]);
   const navProps = { isShowcase: SHOWCASE_MODE, isAiEnabled: IS_STUDIO_ENABLED, isOffersEnabled: OFFERS_ENABLED, newProductHref: NEW_PRODUCT_PATH };
-  const extraLinks = ADMIN_LINKS.map(({ href, label }) => ({ href, label: localize(label, locale) }));
+  const extraLinks = ADMIN_LINKS.map((link) => ({ ...link, label: localize(link.label, locale) }));
   return (
     <>
       <div className='flex flex-col'>
@@ -41,7 +41,7 @@ export default async function AdminLayout({
           </div>
           <MainNav
             variant='tabs'
-            className='overflow-x-auto px-4 pb-2 [scrollbar-width:none] lg:hidden'
+            className='mx-4 mb-2 overflow-x-auto [scrollbar-width:none] lg:hidden'
             {...navProps}
             extraLinks={extraLinks}
           />

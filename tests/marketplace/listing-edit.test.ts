@@ -6,7 +6,6 @@ import {
   createAdminListingPicture,
   deleteAdminListing,
   describeAdminListing,
-  fillAdminListingFields,
   extendAdminListing,
   hideAdminListing,
   markAdminListingSold,
@@ -16,8 +15,7 @@ import {
   updateAdminListing,
   updateAdminListingPhotos,
 } from '@/lib/marketplace/admin.actions';
-import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from '@/lib/marketplace/ai';
-import { isAdmin } from '@/lib/auth-guard';
+import { correctText, createPicture, enhancePhoto, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
 import { publishByAdmin, takeDown } from '@/lib/marketplace/publish';
 import { takeVideoStill } from '@/lib/marketplace/video-cleanup';
@@ -28,7 +26,6 @@ jest.mock('@/lib/marketplace/ai', () => ({
   correctText: jest.fn(),
   translateText: jest.fn(),
   writeListing: jest.fn(),
-  readListingFields: jest.fn(),
   createPicture: jest.fn(async () => Buffer.from('')),
   enhancePhoto: jest.fn(async () => Buffer.from('')),
 }));
@@ -153,13 +150,13 @@ describe('updateAdminListing', () => {
       expect(db.product.update.mock.calls[0][0].data).toMatchObject({ type: 'EVENT', startsAt: new Date('2026-11-26T19:00:00Z'), condition: null, name: 'Bici de paseo' });
     });
 
-    it('turns an event into a wanted ad: its date and address go, the budget range stays', async () => {
+    it('turns an event into a wanted ad: its date and address go, it has no condition, the budget range stays', async () => {
       db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'EVENT' });
       db.submission.update.mockResolvedValue({ productId: 'product-1', type: 'WANTED' });
 
       expect((await updateAdminListing(ID, { ...FULL, price: '', condition: 'any', type: 'WANTED' })).success).toBe(true);
-      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, address: null, price: null, priceMax: '120.00', condition: 'any' });
-      expect(db.product.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, priceMax: '120.00' });
+      expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, address: null, price: null, priceMax: '120.00', condition: null });
+      expect(db.product.update.mock.calls[0][0].data).toMatchObject({ type: 'WANTED', startsAt: null, priceMax: '120.00', condition: null });
     });
 
     it('turns a wanted ad into a service without a price, keeping its kind of offer', async () => {
@@ -196,11 +193,11 @@ describe('updateAdminListing', () => {
     expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ serviceType: null, priceMax: null });
   });
 
-  it('keeps a budget range only on a wanted ad', async () => {
+  it('keeps a budget range only on a wanted ad, and no condition', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'WANTED' });
 
     expect((await updateAdminListing(ID, { ...EDIT, price: '50', priceMax: '90', condition: 'any' })).success).toBe(true);
-    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: 'any' });
+    expect(db.submission.update.mock.calls[0][0].data).toMatchObject({ price: '50.00', priceMax: '90.00', condition: null });
   });
 
   it('saves the same pictures in the same order when the category changes back and forth (card 293)', async () => {
@@ -556,71 +553,6 @@ describe('createAdminListingPicture', () => {
     expect(await createAdminListingPicture(ID)).toEqual({ success: false, message: 'Escribe primero una descripción o sube una foto' });
     expect(createPicture).not.toHaveBeenCalled();
     expect(enhancePhoto).not.toHaveBeenCalled();
-  });
-});
-
-describe('fillAdminListingFields', () => {
-  it("gives back an event's fields as the editor holds them, with the town as its place", async () => {
-    db.submission.findUnique.mockResolvedValue({ type: 'EVENT' });
-    (readListingFields as jest.Mock).mockResolvedValue({
-      category: 'motor', price: 10, priceMax: null, condition: null, serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: 'el-cotillo',
-    });
-
-    const result = await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado 29 a las 19h en Bar La Ola, El Cotillo. 10€.' });
-
-    expect(result).toEqual({
-      success: true,
-      message: '',
-      fields: { category: 'motor', price: '10.00', priceMax: '', condition: '', serviceType: '', startsAt: '2026-11-29T19:00', address: 'Bar La Ola', placeId: 'place-2' },
-    });
-    expect((readListingFields as jest.Mock).mock.calls[0][0]).toContain('Bar La Ola');
-  });
-
-  it("keeps only the fields the listing's type has: no 'any' condition for an item for sale", async () => {
-    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT' });
-    (readListingFields as jest.Mock).mockResolvedValue({
-      category: null, price: null, priceMax: 50, condition: 'any', serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: null,
-    });
-
-    const result = await fillAdminListingFields(ID, { title: 'Mesa', description: 'Una mesa de madera' });
-
-    expect(result).toMatchObject({ fields: { category: '', price: '', priceMax: '', condition: '', startsAt: '', address: '', placeId: '' } });
-  });
-
-  it('keeps the budget and any condition of a wanted ad', async () => {
-    db.submission.findUnique.mockResolvedValue({ type: 'WANTED' });
-    (readListingFields as jest.Mock).mockResolvedValue({
-      category: 'motor', price: null, priceMax: 150, condition: 'any', serviceType: null, startsAt: null, address: null, place: null,
-    });
-
-    const result = await fillAdminListingFields(ID, { title: 'Busco tabla', description: 'Busco tabla, hasta 150€, en cualquier estado' });
-
-    expect(result).toMatchObject({ fields: { price: '', priceMax: '150.00', condition: 'any' } });
-  });
-
-  it('reads the fields for the type the editor shows, before it is saved', async () => {
-    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT' });
-    (readListingFields as jest.Mock).mockResolvedValue({
-      category: null, price: 10, priceMax: null, condition: null, serviceType: null, startsAt: '2026-11-29T19:00', address: 'Bar La Ola', place: null,
-    });
-
-    const result = await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado a las 19h en Bar La Ola' }, 'EVENT');
-
-    expect((readListingFields as jest.Mock).mock.calls[0][1]).toBe('EVENT');
-    expect(result).toMatchObject({ fields: { startsAt: '2026-11-29T19:00', address: 'Bar La Ola' } });
-    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado' }, 'CAR' as 'EVENT')).success).toBe(false);
-  });
-
-  it('reads nothing for someone who is not an admin', async () => {
-    (isAdmin as jest.Mock).mockResolvedValueOnce(false);
-
-    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: 'El sábado' })).success).toBe(false);
-    expect(readListingFields).not.toHaveBeenCalled();
-  });
-
-  it('needs a description to read from', async () => {
-    expect((await fillAdminListingFields(ID, { title: 'Concierto', description: '' })).success).toBe(false);
-    expect(readListingFields).not.toHaveBeenCalled();
   });
 });
 

@@ -9,7 +9,7 @@ import { BRAND } from '@/lib/brand';
 import { localize } from '@/lib/category';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS, type ListingPlan } from '@/lib/marketplace/config';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PAYMENT_ON_PAGE, LISTING_PRICES, UNPAID_LISTING_HOURS, type ListingPlan } from '@/lib/marketplace/config';
 import { fill, publishPageTexts } from '@/lib/marketplace/page-texts';
 import { getListingPreview } from '@/lib/marketplace/preview';
 import { conditionKey } from '@/lib/constants';
@@ -51,7 +51,8 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   const translation = (listing.translations as ListingTranslations)[locale];
   const title = translation?.title || listing.title || '';
   const description = translation?.description || listing.description;
-  const condition = conditionKey(listing.condition);
+  // Only an item for sale has a condition: the AI may still read one for a wanted ad or an event.
+  const condition = listing.type === 'PRODUCT' ? conditionKey(listing.condition) : undefined;
   const serviceKey = listing.type === 'SERVICE' ? serviceTypeKey(listing.serviceType) : undefined;
   const isEvent = listing.type === 'EVENT';
   const place = listing.place ? (await getShopPlaces(locale)).find((item) => item.id === listing.place?.id) : undefined;
@@ -86,7 +87,8 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   };
   // Renewals are paid by Bizum or cash only: the card webhooks know first payments only.
   const renewMethods = LISTING_PAYMENT_METHODS.filter((method) => method === 'bizum' || method === 'cash');
-  const canRenew = (isLive || isEnded) && Boolean(listing.paidAt) && listing.hasSellerPhone && renewMethods.length > 0;
+  // Without payment on the page the person asks the admin on WhatsApp instead.
+  const canRenew = LISTING_PAYMENT_ON_PAGE && (isLive || isEnded) && Boolean(listing.paidAt) && listing.hasSellerPhone && renewMethods.length > 0;
   const plan = (listing.plan ?? 'normal') as ListingPlan;
   const renewTexts = {
     ...texts,
@@ -175,7 +177,14 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
 
         {isEnded ? (
           <>
-            <p className='rounded-3xl border border-border bg-muted p-6'>{fill(texts.endedOn, { date: endDate })}</p>
+            <p className='rounded-3xl border border-border bg-muted p-6'>
+              {fill(LISTING_PAYMENT_ON_PAGE ? texts.endedOn : texts.endedOnAsk, { date: endDate })}
+              {!LISTING_PAYMENT_ON_PAGE && BRAND.contact.whatsappUrl && (
+                <a href={BRAND.contact.whatsappUrl} target='_blank' rel='noopener noreferrer' className='mt-3 flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline'>
+                  {texts.askUs}
+                </a>
+              )}
+            </p>
             {renewForm}
             <ShopTeaser texts={texts} />
           </>
@@ -209,6 +218,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               payment={payment}
               paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
               shopTeaser={<ShopTeaser texts={texts} />}
+              hasPayment={LISTING_PAYMENT_ON_PAGE}
             />
           </>
         )}

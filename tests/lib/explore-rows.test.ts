@@ -1,4 +1,4 @@
-import { MIN_FULL_LISTINGS, moreListingsFor, splitThinRows } from '@/lib/explore-rows';
+import { followingCategories, MIN_FULL_LISTINGS, moreListingsFor, splitThinRows } from '@/lib/explore-rows';
 
 const listings = (...ids: string[]) => ids.map((id) => ({ id }));
 const row = (key: string, ...ids: string[]) => ({ key, title: key, href: `/explore?c=${key}`, listings: listings(...ids) });
@@ -34,5 +34,28 @@ describe('moreListingsFor', () => {
 
   it('adds nothing to a full choice', () => {
     expect(moreListingsFor(listings('a', 'b', 'c', 'd'), all, 12)).toEqual([]);
+  });
+});
+
+describe('followingCategories', () => {
+  const categories = [{ id: 'art' }, { id: 'home' }, { id: 'sport' }, { id: 'music' }];
+  const byCategory: Record<string, { id: string }[]> = {
+    art: listings('a1', 'a2'),
+    home: listings('h1', 'a1'),
+    sport: [],
+    music: listings('m1'),
+  };
+  const listingsOf = (category: { id: string }) => byCategory[category.id];
+
+  it('goes on after the chosen one, around to the one before it, each listing once and no empty ones', () => {
+    const rows = followingCategories(categories, 'home', listingsOf, byCategory.home);
+    expect(rows).toEqual([
+      { category: { id: 'music' }, listings: listings('m1') },
+      { category: { id: 'art' }, listings: listings('a2') },
+    ]);
+  });
+
+  it('starts at the first one after the last', () => {
+    expect(followingCategories(categories, 'music', listingsOf, byCategory.music).map(({ category }) => category.id)).toEqual(['art', 'home']);
   });
 });

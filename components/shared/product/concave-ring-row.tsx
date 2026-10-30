@@ -42,7 +42,7 @@ const MAX_STAGGERED_TILES = 6;
 // The tiles' photo size; the preloader asks for the same one, so the tiles find their photos in the browser's cache.
 const TILE_SIZES = '16rem';
 const TURN_BUTTON_CLASS =
-  'size-10 shrink-0 rounded-full border-primary/40 bg-background/50 text-primary shadow-lg backdrop-blur-md hover:border-primary hover:bg-background/70 [&_svg]:size-5';
+  'size-12 shrink-0 rounded-full border-primary/50 bg-background/50 text-primary shadow-lg backdrop-blur-md hover:border-primary hover:bg-background/70 [&_svg]:size-6';
 
 const mod = (value: number, length: number) => ((value % length) + length) % length;
 
@@ -106,13 +106,15 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile, moreTile
   const offsetFromFront = (index: number) =>
     isEndless ? mod(index - frontIndex + Math.floor(count / 2), count) - Math.floor(count / 2) : index - step;
 
-  // A ring beside the front one turns to the front first; only the front ring opens its page.
+  // A ring beside the front one turns to the front first; only the front ring opens its page. The "more" tile turns to
+  // the front and opens the feed in the same click: it has nothing to look at first.
   const handleTileClick = (event: MouseEvent, index: number) => {
     if (index === frontIndex) return;
-    event.preventDefault();
-    event.stopPropagation();
     const offset = offsetFromFront(index);
     setStep((current) => current + offset);
+    if (tiles[index].key === 'more') return;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   // A mouse wheel only scrolls up and down: over the rings it turns them, and turns the page once at the last one.
@@ -172,9 +174,10 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile, moreTile
           ))}
         </div>
       </div>
-      {/* A fixed height keeps the row from jumping; keyed, so each front ring's name fades in as its tile grows. An arrow
-          with no ring left to turn to stays as an invisible spot, so the name keeps to the middle. */}
-      <div className='flex h-10 shrink-0 items-center justify-center gap-2 px-2' aria-live='polite'>
+      {/* A fixed height keeps the row from jumping; keyed, so each front ring's name fades in as its tile grows. The name
+          has a fixed width, so the arrows stay put whatever its length; an arrow with no ring left to turn to stays as an
+          invisible spot. */}
+      <div className='flex h-12 shrink-0 items-center justify-center gap-3 px-2' aria-live='polite'>
         <Button
           variant='outline'
           size='icon'
@@ -184,15 +187,17 @@ const ConcaveRingRow = ({ products, categoryId, renderActions, addTile, moreTile
         >
           <ChevronLeft />
         </Button>
-        {frontProduct && (
+        {frontProduct ? (
           <Link
             key={frontProduct.slug}
             href={`/product/${frontProduct.slug}?c=${categoryId}`}
-            className='min-w-0 duration-500 animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards'
+            className='w-40 min-w-0 text-center duration-500 animate-in fade-in slide-in-from-bottom-1 fill-mode-backwards sm:w-56'
             style={{ animationDelay: `${TURN_MS * 0.6}ms` }}
           >
             <span className='block truncate font-display text-lg text-primary sm:text-xl'>{frontProduct.shortName}</span>
           </Link>
+        ) : (
+          <span className='w-40 sm:w-56' />
         )}
         <Button
           variant='outline'

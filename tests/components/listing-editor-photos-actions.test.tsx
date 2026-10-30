@@ -101,14 +101,14 @@ describe('ListingEditor photos and actions', () => {
     expect(screen.queryByRole('button', { name: `${texts.photosLabel} 2` })).not.toBeInTheDocument();
   });
 
-  it('offers no hide, new listing or view listing, and ends with the actions after the fields', () => {
+  it('offers no hide, new listing or view listing, and ends with Delete on the left and the actions on the right', () => {
     renderEditor();
 
     for (const name of [texts.hide, texts.newAnother, texts.viewListing]) expect(screen.queryByText(name)).not.toBeInTheDocument();
     const category = screen.getByLabelText(texts.categoryLabel);
     const markSold = screen.getByRole('button', { name: texts.markSold });
     const deleteButton = screen.getByRole('button', { name: texts.deleteForGood });
-    expect(category.compareDocumentPosition(markSold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(markSold.compareDocumentPosition(deleteButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(category.compareDocumentPosition(deleteButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(deleteButton.compareDocumentPosition(markSold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
