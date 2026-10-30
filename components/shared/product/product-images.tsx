@@ -80,7 +80,7 @@ const ProductImages = ({ images, alt, stamp, aiLabel }: ProductImagesProps) => {
   return (
     <>
       {/* Phones: the photos full width, one at a time, swiped sideways; a tap opens one full screen. */}
-      <div className='relative aspect-[3/4] bg-muted sm:hidden'>
+      <div className='relative aspect-[3/4] sm:hidden'>
         <div
           className='flex size-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none]'
           onScroll={(event) => setPhoneIndex(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
@@ -93,7 +93,7 @@ const ProductImages = ({ images, alt, stamp, aiLabel }: ProductImagesProps) => {
               aria-label={t('SHOW_IMAGE', { n: index + 1 })}
               className='relative size-full shrink-0 snap-center'
             >
-              <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='100vw' priority={index === 0} isWhole playsWhenVisible />
+              <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='100vw' priority={index === 0} className='object-contain' playsWhenVisible />
               {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-3 right-3' />}
               {/* Beside the AI mark, which takes the corner. */}
               <BrandStamp src={stamp} className={cn('bottom-3 right-3', aiLabel && 'right-11')} />

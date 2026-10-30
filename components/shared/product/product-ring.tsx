@@ -24,7 +24,8 @@ export const RingGlassCard = ({ product, imageIndex, playsWhenVisible }: RingGla
   <div className={cn(styles.glassCard, styles.featured)}>
     {product.images.map((src, index) => (
       <div key={src} data-active={index === imageIndex || undefined} className={cn(styles.galleryImage, index === imageIndex && styles.galleryActive)}>
-        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} isWhole playsWhenVisible={playsWhenVisible} />
+        {/* The whole picture without a blurred copy or frame behind it: the page shows around a smaller one. */}
+        <ProductMedia src={src} alt={product.name} fill sizes='32rem' priority={index === 0} className='object-contain' playsWhenVisible={playsWhenVisible} />
       </div>
     ))}
   </div>

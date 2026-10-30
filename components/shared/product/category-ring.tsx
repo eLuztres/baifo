@@ -265,9 +265,6 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
                     </div>
                     <p className={styles.caption}>
                       <span className={styles.captionName}>{category.name}</span>
-                      {Boolean(category.newCount) && (
-                        <span className={styles.captionNew}>{t('CATEGORY_NEW_COUNT', { count: category.newCount ?? 0 })}</span>
-                      )}
                     </p>
                   </button>
                 </li>
