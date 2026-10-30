@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 import { pictureOf } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
+import ListingSteps from './listing-steps';
 import TextModeSwitch from './text-mode-switch';
 
 interface DescriptionStepProps {
@@ -24,14 +26,21 @@ interface DescriptionStepProps {
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   onSent: (listing: AdminListing) => void;
+  /** Shows the step bar (a new listing of the admin). */
+  showsSteps: boolean;
+  /** Back to the photos; none: they can't change anymore. */
+  onPhotos?: () => void;
 }
 
-/** Step 2: everything the admin knows about the item in one text; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, texts, onSent }: DescriptionStepProps) {
+/** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
+export default function DescriptionStep({ listing, languages, texts, onSent, showsSteps, onPhotos }: DescriptionStepProps) {
   const isService = listing.type === 'SERVICE';
   const isWanted = listing.type === 'WANTED';
   const [notes, setNotes] = useState(listing.rawText);
   const [sellerPhone, setSellerPhone] = useState('');
+  const [sellerName, setSellerName] = useState('');
+  const [isOnContact, setIsOnContact] = useState(false);
+  const notesInput = useRef<HTMLTextAreaElement>(null);
   // Chosen before the AI runs: improve the text, or keep the admin's words (maybe with their mistakes fixed) and translate them.
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
   const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
@@ -59,6 +68,24 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
         : isWanted
           ? texts.tellWantedPlaceholder
           : texts.tellPlaceholder;
+  // The AI needs the admin's own words to keep, and a text to make the picture from when there is no photo.
+  const canContinue = !((isOwnWords || hasNoPhoto) && !notes.trim());
+
+  const goToContact = () => {
+    if (!canContinue) return notesInput.current?.focus();
+    setError('');
+    // A number already written in the description is most likely the contact; the admin can still change it.
+    if (!sellerPhone.trim()) setSellerPhone(findPhoneInText(notes));
+    setIsOnContact(true);
+  };
+
+  // Between the steps like between photos and description: everything written stays.
+  // The photos step can only come back here, so it returns to the description.
+  const selectStep = (index: number) => {
+    if (index === 2) return goToContact();
+    setIsOnContact(false);
+    if (index === 0) onPhotos?.();
+  };
 
   const send = () =>
     startTransition(async () => {
@@ -69,6 +96,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
       const result = await describeAdminListing(listing.id, {
         notes,
         sellerPhone: sellerPhone.trim(),
+        sellerName,
         textMode,
         originalTitle,
       });
@@ -83,109 +111,133 @@ export default function DescriptionStep({ listing, languages, texts, onSent }: D
     });
 
   return (
-    <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
-      {hasNoPhoto && (
-        <p className='flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground'>
-          <Sparkles className='size-4 shrink-0 text-primary' aria-hidden /> {texts.noPhotoHint}
-        </p>
-      )}
-      {/* What the AI is doing, part by part; nothing here blocks the form. */}
-      {(showsPictureWork || isWriting) && (
-        <ul aria-live='polite' className='flex flex-wrap gap-2 text-sm'>
-          {showsPictureWork && <WorkState isDone={hasPictures} label={hasPictures ? texts.picturesReady : texts.picturesWorking} />}
-          {isWriting && <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />}
+    <>
+      {showsSteps && <ListingSteps current={isOnContact ? 2 : 1} texts={texts} onSelect={isPending || isWriting ? undefined : selectStep} />}
+      <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
+        {hasNoPhoto && !isOnContact && (
+          <p className='flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground'>
+            <Sparkles className='size-4 shrink-0 text-primary' aria-hidden /> {texts.noPhotoHint}
+          </p>
+        )}
+        {/* What the AI is doing, part by part; nothing here blocks the form. */}
+        {(showsPictureWork || isWriting) && (
+          <ul aria-live='polite' className='flex flex-wrap gap-2 text-sm'>
+            {showsPictureWork && <WorkState isDone={hasPictures} label={hasPictures ? texts.picturesReady : texts.picturesWorking} />}
+            {isWriting && <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />}
+          </ul>
+        )}
+        <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
+          {/* The originals until the AI pictures arrive, which then take their place. Before the AI picture of a video-only service, its videos. */}
+          {(hasPictures ? listing.images : listing.rawImages).map((url, index) => (
+            <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
+              <ProductMedia src={url} alt='' fill sizes='6rem' />
+              {showsPictureWork && !hasPictures && <span className='absolute inset-0 animate-pulse bg-primary/20 motion-reduce:animate-none' aria-hidden />}
+            </li>
+          ))}
         </ul>
-      )}
-      <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
-        {/* The originals until the AI pictures arrive, which then take their place. Before the AI picture of a video-only service, its videos. */}
-        {(hasPictures ? listing.images : listing.rawImages).map((url, index) => (
-          <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
-            <ProductMedia src={url} alt='' fill sizes='6rem' />
-            {showsPictureWork && !hasPictures && <span className='absolute inset-0 animate-pulse bg-primary/20 motion-reduce:animate-none' aria-hidden />}
-          </li>
-        ))}
-      </ul>
 
-      <div className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
-        <div className='flex items-center justify-between gap-3'>
-          <Label htmlFor='notes' className='font-display text-xl'>
-            {texts.tellLabel}
-          </Label>
-          {/* Spoken words land in the field, where they can still be corrected before sending. */}
-          {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
-        </div>
-        {isOwnWords && (
-          <div className='space-y-1'>
-            <Label htmlFor='original-title' className='px-1 text-xs text-muted-foreground'>
-              {texts.originalTitleLabel}
+        <div hidden={isOnContact} className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+          <div className='flex items-center justify-between gap-3'>
+            <Label htmlFor='notes' className='font-display text-xl'>
+              {texts.tellLabel}
             </Label>
-            <Input
-              id='original-title'
-              value={originalTitle}
-              readOnly={isWriting}
-              onChange={(event) => setOriginalTitle(event.target.value)}
-              placeholder={texts.originalTitlePlaceholder}
-              className='h-12 rounded-2xl bg-background font-display text-lg md:text-lg'
-            />
+            {/* Spoken words land in the field, where they can still be corrected before sending. */}
+            {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
+          </div>
+          {isOwnWords && (
+            <div className='space-y-1'>
+              <Label htmlFor='original-title' className='px-1 text-xs text-muted-foreground'>
+                {texts.originalTitleLabel}
+              </Label>
+              <Input
+                id='original-title'
+                value={originalTitle}
+                readOnly={isWriting}
+                onChange={(event) => setOriginalTitle(event.target.value)}
+                placeholder={texts.originalTitlePlaceholder}
+                className='h-12 rounded-2xl bg-background font-display text-lg md:text-lg'
+              />
+            </div>
+          )}
+          <Textarea
+            ref={notesInput}
+            id='notes'
+            rows={5}
+            value={notes}
+            readOnly={isWriting}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder={placeholder}
+            className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
+          />
+          <div className='space-y-2 pt-2'>
+            <p className='text-sm font-medium'>{texts.textModeQuestion}</p>
+            <TextModeSwitch value={textMode} onChange={setTextMode} texts={texts} disabled={isWriting} />
+            {languageList && (
+              <p className='px-1 text-xs text-muted-foreground'>
+                {fillText(modeResults[textMode], { languages: languageList })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {isOnContact && (
+          <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+            <div className='space-y-2'>
+              <Label htmlFor='seller'>{texts.servicePhoneLabel}</Label>
+              <Input
+                id='seller'
+                type='tel'
+                value={sellerPhone}
+                readOnly={isWriting}
+                onChange={(event) => setSellerPhone(event.target.value)}
+                placeholder={texts.sellerPlaceholder}
+                className='h-12 rounded-2xl bg-background'
+              />
+              {/* Wanted ads and events have no seller: the number is the person behind them. */}
+              <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
+              {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
+            </div>
+            <div className='space-y-2'>
+              <Label htmlFor='seller-name'>{texts.sellerNameLabel}</Label>
+              <Input
+                id='seller-name'
+                value={sellerName}
+                readOnly={isWriting}
+                maxLength={60}
+                onChange={(event) => setSellerName(event.target.value)}
+                placeholder={texts.sellerNamePlaceholder}
+                className='h-12 rounded-2xl bg-background'
+              />
+              <p className='text-xs text-muted-foreground'>{texts.sellerNameHint}</p>
+            </div>
           </div>
         )}
-        <Textarea
-          id='notes'
-          rows={5}
-          value={notes}
-          readOnly={isWriting}
-          onChange={(event) => setNotes(event.target.value)}
-          placeholder={placeholder}
-          className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
-        />
-        <div className='space-y-2 pt-2'>
-          <p className='text-sm font-medium'>{texts.textModeQuestion}</p>
-          <TextModeSwitch value={textMode} onChange={setTextMode} texts={texts} disabled={isWriting} />
-          {languageList && (
-            <p className='px-1 text-xs text-muted-foreground'>
-              {fillText(modeResults[textMode], { languages: languageList })}
-            </p>
-          )}
-        </div>
-        {!isWriting && (
-          <div className='space-y-2 pt-1'>
-            <Label htmlFor='seller'>{texts.servicePhoneLabel}</Label>
-            <Input
-              id='seller'
-              type='tel'
-              value={sellerPhone}
-              onChange={(event) => setSellerPhone(event.target.value)}
-              placeholder={texts.sellerPlaceholder}
-              className='h-12 rounded-2xl bg-background'
-            />
-            {/* Wanted ads and events have no seller: the number is the person behind them. */}
-            <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
-            {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
+
+        {(error || listing.lastError) && (
+          <div role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
+            <span>{error || aiErrorText(t, listing.lastError) || texts.errorGeneric}</span>
+            {listing.lastError && (
+              <Button variant='outline' size='sm' className='shrink-0 rounded-full' disabled={isPending} onClick={retry}>
+                <RotateCw /> {texts.retry}
+              </Button>
+            )}
           </div>
+        )}
+
+        {/* Not sticky: on phones a floating button jumped over the field with the keyboard open. */}
+        {isOnContact || isWriting ? (
+          <Button size='lg' className='w-full rounded-full' disabled={isPending || isWriting || !canContinue} onClick={send}>
+            {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
+            {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
+            {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
+          </Button>
+        ) : (
+          <Button size='lg' className='w-full rounded-full' disabled={!canContinue} onClick={goToContact}>
+            {texts.nextStep} <ArrowRight />
+          </Button>
         )}
       </div>
-
-      {(error || listing.lastError) && (
-        <div role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
-          <span>{error || aiErrorText(t, listing.lastError) || texts.errorGeneric}</span>
-          {listing.lastError && (
-            <Button variant='outline' size='sm' className='shrink-0 rounded-full' disabled={isPending} onClick={retry}>
-              <RotateCw /> {texts.retry}
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Not sticky: on phones a floating button jumped over the field with the keyboard open. */}
-      <Button
-        size='lg'
-        className='w-full rounded-full'
-        disabled={isPending || isWriting || ((isOwnWords || hasNoPhoto) && !notes.trim())} onClick={send}>
-        {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
-        {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-        {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
-      </Button>
-    </div>
+    </>
   );
 }
 

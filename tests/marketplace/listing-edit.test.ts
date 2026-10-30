@@ -353,6 +353,25 @@ describe('describeAdminListing', () => {
     expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34612345678' });
   });
 
+  it('reads a number written with 0034 like one with +34', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '0034 612 345 678' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '+34 612 345 678' });
+
+    expect(db.seller.upsert.mock.calls.map((call) => call[0].where)).toEqual([{ waId: '34612345678' }, { waId: '34612345678' }]);
+  });
+
+  it('saves the person\'s name, and keeps the one they have when none is given', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+
+    await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612345678', sellerName: ' Lula ' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', sellerPhone: '612345678', sellerName: '' });
+
+    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ update: { name: 'Lula' }, create: { waId: '34612345678', name: 'Lula' } });
+    expect(db.seller.upsert.mock.calls[1][0].update).toEqual({ name: undefined });
+  });
+
   it('keeps the admin\'s title for "only fix mistakes", but not for the AI\'s text', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 

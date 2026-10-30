@@ -25,7 +25,7 @@ interface ListingWorkspaceProps {
 
 const POLL_MS = 2500;
 
-/** Step 2 of a new listing (the description, then the listing to check and publish), or any listing to edit. */
+/** Steps 2 and 3 of a new listing (the description and the contact, then the listing to check and publish), or any listing to edit. */
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -89,8 +89,9 @@ export default function ListingWorkspace({ initial, categories, places, language
   };
 
   const canSwitchSteps = listing.createdByAdmin && listing.status === 'COLLECTING';
+  // The listing to check and publish comes after the last step.
   const steps = listing.createdByAdmin && listing.status !== 'LIVE' && (
-    <ListingSteps current={1} texts={texts} onSelect={canSwitchSteps ? () => setIsOnPhotos(true) : undefined} />
+    <ListingSteps current={2} texts={texts} />
   );
 
   const backFromPhotos = (next: AdminListing) => {
@@ -110,10 +111,17 @@ export default function ListingWorkspace({ initial, categories, places, language
             {typeError}
           </p>
         )}
-        {showsPhotos ? <NewListingForm texts={texts} type={listing.type} listing={listing} onDone={backFromPhotos} /> : steps}
+        {showsPhotos && <NewListingForm texts={texts} type={listing.type} listing={listing} onDone={backFromPhotos} />}
         {/* Only hidden on the photos, so everything written stays. */}
-        <div hidden={showsPhotos}>
-          <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} />
+        <div hidden={showsPhotos} className='space-y-3 sm:space-y-4'>
+          <DescriptionStep
+            listing={listing}
+            languages={languages}
+            texts={texts}
+            onSent={setListing}
+            showsSteps={listing.createdByAdmin}
+            onPhotos={canSwitchSteps ? () => setIsOnPhotos(true) : undefined}
+          />
         </div>
       </div>
     );

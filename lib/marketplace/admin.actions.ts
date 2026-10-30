@@ -99,9 +99,10 @@ export async function updateAdminListingPhotos(id: string, input: z.input<typeof
 }
 
 // The person's WhatsApp as digits; empty: none (older listings, and clearing it in the editor).
+// A leading 00 is the international prefix ("0034 612…"), written instead of +.
 const sellerPhoneSchema = z
   .string()
-  .transform((value) => value.replace(/\D/g, ''))
+  .transform((value) => value.replace(/\D/g, '').replace(/^00/, ''))
   .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15))
   .optional();
 
@@ -111,6 +112,8 @@ const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema,
+  // The person's name or nickname; empty: the one they have stays.
+  sellerName: z.string().trim().max(60).optional(),
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
@@ -123,7 +126,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa el teléfono' };
-  const { notes, sellerPhone, textMode, originalTitle } = parsed.data;
+  const { notes, sellerPhone, sellerName, textMode, originalTitle } = parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
   if (textMode !== 'ai' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
@@ -133,7 +136,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!hasPhoto && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
   // Their OK to show the number comes later, from them.
   const waId = toWaId(sellerPhone);
-  const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
+  const name = sellerName || undefined;
+  const seller = await prisma.seller.upsert({ where: { waId }, update: { name }, create: { waId, name } });
   // Also while the AI still makes the pictures: the text is written at the same time.
   const { count } = await prisma.submission.updateMany({
     where: { id, status: 'COLLECTING', createdByAdmin: true },

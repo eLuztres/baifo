@@ -3,29 +3,29 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
 interface ListingStepsProps {
-  /** 0 photos, 1 description (and the listing to publish). */
+  /** 0 photos, 1 description, 2 contact (and the listing to publish). */
   current: number;
   texts: AdminTexts;
-  /** Set while the admin may go back and forth: the other step becomes a button. */
+  /** Set while the admin may go back and forth: the other steps become buttons. */
   onSelect?: (index: number) => void;
 }
 
-/** Where the admin is in creating a listing: photos, then the description. */
+/** Where the admin is in creating a listing: photos, the description, then the contact. */
 export default function ListingSteps({ current, texts, onSelect }: ListingStepsProps) {
-  const steps = [texts.stepPhotos, texts.stepDetails];
+  const steps = [texts.stepPhotos, texts.stepDetails, texts.stepContact];
   return (
-    <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-2 text-xs sm:text-sm'>
+    <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm'>
       {steps.map((label, index) => (
-        <li key={label} className='flex items-center gap-2'>
-          {index > 0 && <span className='h-px w-6 bg-border sm:w-10' aria-hidden />}
+        <li key={label} className='flex items-center gap-1 sm:gap-2'>
+          {index > 0 && <span className='h-px w-3 bg-border sm:w-10' aria-hidden />}
           <StepLink
             onClick={onSelect && index !== current ? () => onSelect(index) : undefined}
             aria-current={index === current ? 'step' : undefined}
-            className={cn('flex items-center gap-2', index !== current && 'text-muted-foreground')}
+            className={cn('flex items-center gap-1.5 sm:gap-2', index !== current && 'text-muted-foreground')}
           >
             <span
               className={cn(
-                'flex size-6 shrink-0 items-center justify-center rounded-full border text-xs sm:size-7',
+                'flex size-5 shrink-0 items-center justify-center rounded-full border text-xs sm:size-7',
                 index === current ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border'
               )}
             >

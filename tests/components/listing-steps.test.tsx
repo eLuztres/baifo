@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import ListingSteps from '@/components/marketplace/listing-steps';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
-const texts = { stepPhotos: 'Photos', stepDetails: 'Description' } as AdminTexts;
+const texts = { stepPhotos: 'Photos', stepDetails: 'Description', stepContact: 'Contact' } as AdminTexts;
 
 describe('ListingSteps', () => {
   it('shows plain steps when the admin can not switch', () => {
@@ -12,14 +12,15 @@ describe('ListingSteps', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('makes only the other step a button, and jumps to it', () => {
+  it('makes only the other steps buttons, and jumps to them', () => {
     const onSelect = jest.fn();
     render(<ListingSteps current={1} texts={texts} onSelect={onSelect} />);
 
-    const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(1);
+    expect(screen.getAllByRole('button')).toHaveLength(2);
     fireEvent.click(screen.getByRole('button', { name: /Photos/ }));
     expect(onSelect).toHaveBeenCalledWith(0);
+    fireEvent.click(screen.getByRole('button', { name: /Contact/ }));
+    expect(onSelect).toHaveBeenCalledWith(2);
   });
 
   it('marks the current step', () => {
@@ -29,11 +30,12 @@ describe('ListingSteps', () => {
     expect(screen.getByRole('button', { name: /Description/ })).not.toHaveAttribute('aria-current');
   });
 
-  it('shows the numbers 1 and 2 on any step, never a check mark', () => {
-    const { container } = render(<ListingSteps current={1} texts={texts} />);
+  it('shows the numbers 1 to 3 on any step, never a check mark', () => {
+    const { container } = render(<ListingSteps current={2} texts={texts} />);
 
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
     expect(container.querySelector('svg')).not.toBeInTheDocument();
   });
 
