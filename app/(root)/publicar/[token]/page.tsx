@@ -22,6 +22,7 @@ import { getShopPlaces } from '@/lib/places';
 import CloseListingForm from './close-listing-form';
 import PublishForm from './publish-form';
 import SellerNameForm from './seller-name-form';
+import SellerPhoneForm from './seller-phone-form';
 import ShopTeaser from './shop-teaser';
 
 // A private link: no search engine should list or follow it.
@@ -121,8 +122,10 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     />
   );
 
+  const sellerPhoneForm = listing.hasSellerPhone && <SellerPhoneForm token={token} texts={texts} phoneEnd={listing.sellerPhoneEnd} />;
+
   return (
-    <section className='mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
+    <section className='mx-auto grid max-w-5xl grid-cols-1 gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
       <div className='relative aspect-square'>
         <ProductImages images={listing.images.length > 0 ? listing.images : listing.rawImages} alt={title} />
         {/* Centered: a portrait photo is narrower than its square, so a corner badge would float beside it. */}
@@ -187,6 +190,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               )}
             </div>
             {isLive && sellerNameForm}
+            {isLive && sellerPhoneForm}
             {isLive && renewForm}
             {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
             <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
@@ -195,6 +199,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
           <>
             <p className='text-muted-foreground'>{texts.intro}</p>
             {sellerNameForm}
+            {sellerPhoneForm}
             <PublishForm
               token={token}
               texts={texts}

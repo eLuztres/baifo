@@ -16,3 +16,6 @@ export function sellerIdentity({ sellerName, sellerLocale, seller }: ListingSell
     locale: isLocale(sellerLocale) ? sellerLocale : isPerson ? localeOf(seller.waId) : null,
   };
 }
+
+/** A Spanish mobile without country code gets +34; no number is the house seller. */
+export const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits}` : digits) : HOUSE_SELLER);

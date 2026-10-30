@@ -73,7 +73,7 @@ describe('getListingPreview', () => {
   it('never hands the seller\'s number to the page, only whether there is one and their public name', async () => {
     db.findUnique.mockResolvedValue({ ...LISTING, seller: { waId: '34612345678', name: 'Lula' } });
 
-    expect(await getListingPreview(TOKEN, NOW)).toEqual({ ...LISTING, hasSellerPhone: true, sellerDefault: { name: 'Lula', locale: 'es' } });
+    expect(await getListingPreview(TOKEN, NOW)).toEqual({ ...LISTING, hasSellerPhone: true, sellerPhoneEnd: '678', sellerDefault: { name: 'Lula', locale: 'es' } });
 
     const { select } = db.findUnique.mock.calls[0][0];
     expect(select.seller).toEqual({ select: { waId: true, name: true } });

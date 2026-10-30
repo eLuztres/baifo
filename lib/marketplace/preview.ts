@@ -47,11 +47,12 @@ export async function getListingPreview(token: string, now = new Date()) {
   const listing = await prisma.submission.findUnique({ where: { payToken: token }, select: PREVIEW_FIELDS });
   if (!listing) return null;
   if (!isOpenListing(listing, now)) return null;
-  // Only whether there is a number to confirm "sold" with; the number itself stays on the server.
+  // Whether there is a number to confirm "sold" with and its last digits; the number itself stays on the server.
   const { seller, ...preview } = listing;
+  const hasSellerPhone = seller.waId !== HOUSE_SELLER;
   // What shows while the person has chosen no name or language of their own.
   const sellerDefault = sellerIdentity({ sellerName: null, sellerLocale: null, seller });
-  return { ...preview, hasSellerPhone: seller.waId !== HOUSE_SELLER, sellerDefault };
+  return { ...preview, hasSellerPhone, sellerPhoneEnd: hasSellerPhone ? seller.waId.slice(-3) : '', sellerDefault };
 }
 
 export type ListingPreview = NonNullable<Awaited<ReturnType<typeof getListingPreview>>>;

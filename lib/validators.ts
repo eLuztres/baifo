@@ -289,6 +289,13 @@ export const sellerNameSchema = z
   .refine((value) => !NAME_LINK.test(value) && !NAME_PHONE.test(value))
   .transform((value) => value || null);
 
+// The person's WhatsApp as digits; empty: none (older listings, and clearing it in the editor).
+// A leading 00 is the international prefix ("0034 612…"), written instead of +.
+export const sellerPhoneSchema = z
+  .string()
+  .transform((value) => value.replace(/\D/g, '').replace(/^00/, ''))
+  .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15));
+
 /** The language buyers write to the seller in; empty is null, so the language of their number counts. */
 export const sellerLocaleSchema = z
   .union([z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]), z.literal('')])

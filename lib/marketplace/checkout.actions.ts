@@ -10,10 +10,11 @@ import { CURRENCY } from '@/lib/constants/currency';
 import { paypal } from '@/lib/paypal';
 import { isRateLimited, type RateLimit } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
-import { sellerLocaleSchema, sellerNameSchema } from '@/lib/validators';
-import { LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
+import { sellerLocaleSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
+import { HOUSE_SELLER, LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission, takeDown } from './publish';
+import { toWaId } from './seller';
 
 // The seller's choices on /publicar; the token is the only thing that identifies them.
 // Premium and the extras are shown as "coming soon" only, so a request with them is refused.
@@ -136,6 +137,52 @@ export async function closeListing(token: string, phone: string): Promise<Action
     return { success: true };
   } catch (error) {
     console.error('[listing] closing failed', error);
+    return { success: false };
+  }
+}
+
+const phoneChangeSchema = z.object({
+  token: z.string().uuid(),
+  currentPhone: z.string().max(30),
+  newPhone: sellerPhoneSchema.refine((digits) => digits !== ''),
+});
+
+/**
+ * "Cambiar número": buyers write to the new number and it closes the listing from now on. The old number is
+ * asked too, so a forwarded link alone can't take the listing over.
+ */
+export async function changeSellerPhone(
+  token: string,
+  currentPhone: string,
+  newPhone: string,
+): Promise<ActionResult & { phoneEnd?: string; isWrongPhone?: boolean; isInvalidPhone?: boolean; isTooMany?: boolean }> {
+  try {
+    const parsed = phoneChangeSchema.safeParse({ token, currentPhone, newPhone });
+    if (!parsed.success) return { success: false, isInvalidPhone: parsed.error.issues.some((issue) => issue.path[0] === 'newPhone') };
+    // The same limits as closing: both let someone guess the number.
+    if (await isOverLimit(CLOSE_LISTING_LIMIT, CLOSE_LISTING_LINK_LIMIT, parsed.data.token)) return { success: false, isTooMany: true };
+    const submission = await prisma.submission.findFirst({
+      where: { payToken: parsed.data.token, status: { in: ['AWAITING_PAYMENT', 'LIVE'] } },
+      select: { id: true, status: true, sentAt: true, hasContactConsent: true, productId: true, product: { select: { slug: true } }, seller: { select: { waId: true, name: true } } },
+    });
+    if (!submission || submission.seller.waId === HOUSE_SELLER || (submission.status !== 'LIVE' && isLinkExpired(submission.sentAt))) return { success: false };
+    if (!isSamePhone(parsed.data.currentPhone, submission.seller.waId)) return { success: false, isWrongPhone: true };
+    const waId = toWaId(parsed.data.newPhone);
+    await prisma.$transaction(async (tx) => {
+      // A number new to Baifo keeps the WhatsApp name the listing showed until now.
+      const seller = await tx.seller.upsert({ where: { waId }, update: {}, create: { waId, name: submission.seller.name } });
+      await tx.submission.update({ where: { id: submission.id }, data: { sellerId: seller.id } });
+      if (submission.productId) {
+        await tx.product.update({
+          where: { id: submission.productId },
+          data: { sellerId: seller.id, contactPhone: submission.hasContactConsent ? `+${waId}` : null },
+        });
+      }
+    });
+    if (submission.product) revalidatePath(`/product/${submission.product.slug}`);
+    return { success: true, phoneEnd: waId.slice(-3) };
+  } catch (error) {
+    console.error('[listing] number change failed', error);
     return { success: false };
   }
 }

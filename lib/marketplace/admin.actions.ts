@@ -10,13 +10,14 @@ import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { getShopPlaces } from '@/lib/places';
+import { sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
-import { sellerNameSchema } from '@/lib/validators';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, readListingFields, translateText, writeListing } from './ai';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
+import { toWaId } from './seller';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
@@ -99,20 +100,9 @@ export async function updateAdminListingPhotos(id: string, input: z.input<typeof
   return { success: true, message: 'Fotos guardadas' };
 }
 
-// The person's WhatsApp as digits; empty: none (older listings, and clearing it in the editor).
-// A leading 00 is the international prefix ("0034 612…"), written instead of +.
-const sellerPhoneSchema = z
-  .string()
-  .transform((value) => value.replace(/\D/g, '').replace(/^00/, ''))
-  .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15))
-  .optional();
-
-// A Spanish mobile without country code gets +34; no number is the house seller.
-const toWaId = (digits?: string) => (digits ? (digits.length === 9 ? `34${digits}` : digits) : HOUSE_SELLER);
-
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
-  sellerPhone: sellerPhoneSchema,
+  sellerPhone: sellerPhoneSchema.optional(),
   // The person's name or nickname, checked like on their own page; empty: the one they have stays.
   sellerName: sellerNameSchema.optional(),
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.

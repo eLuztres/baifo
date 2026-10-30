@@ -4,6 +4,7 @@ import {
   insertReviewSchema,
   sellerLocaleSchema,
   sellerNameSchema,
+  sellerPhoneSchema,
   shippingAddressSchema,
   signInFormSchema,
   signUpFormSchema,
@@ -123,6 +124,21 @@ describe('sellerNameSchema', () => {
   it('refuses links, phone numbers and long names', () => {
     for (const name of ['www.lula.es', 'lula.com', 'https://x.y', 'lula@mail', '612 345 678', '+34612345678', 'L'.repeat(31)]) {
       expect(sellerNameSchema.safeParse(name).success).toBe(false);
+    }
+  });
+});
+
+describe('sellerPhoneSchema', () => {
+  it('keeps only the digits, with 00 read as +, and empty as no number', () => {
+    expect(sellerPhoneSchema.parse('+34 612 34 56 78')).toBe('34612345678');
+    expect(sellerPhoneSchema.parse('0034 612-345-678')).toBe('34612345678');
+    expect(sellerPhoneSchema.parse('612345678')).toBe('612345678');
+    expect(sellerPhoneSchema.parse('')).toBe('');
+  });
+
+  it('refuses numbers that are too short or too long', () => {
+    for (const phone of ['1234', '61234567', '1'.repeat(16)]) {
+      expect(sellerPhoneSchema.safeParse(phone).success).toBe(false);
     }
   });
 });
