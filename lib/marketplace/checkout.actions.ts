@@ -15,6 +15,7 @@ import { HOUSE_SELLER, LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { publishSubmission, takeDown } from './publish';
 import { toWaId } from './seller';
+import { moveListingToNumber } from './seller-number';
 
 // The seller's choices on /publicar; the token is the only thing that identifies them.
 // Premium and the extras are shown as "coming soon" only, so a request with them is refused.
@@ -168,17 +169,7 @@ export async function changeSellerPhone(
     if (!submission || submission.seller.waId === HOUSE_SELLER || (submission.status !== 'LIVE' && isLinkExpired(submission.sentAt))) return { success: false };
     if (!isSamePhone(parsed.data.currentPhone, submission.seller.waId)) return { success: false, isWrongPhone: true };
     const waId = toWaId(parsed.data.newPhone);
-    await prisma.$transaction(async (tx) => {
-      // A number new to Baifo keeps the WhatsApp name the listing showed until now.
-      const seller = await tx.seller.upsert({ where: { waId }, update: {}, create: { waId, name: submission.seller.name } });
-      await tx.submission.update({ where: { id: submission.id }, data: { sellerId: seller.id } });
-      if (submission.productId) {
-        await tx.product.update({
-          where: { id: submission.productId },
-          data: { sellerId: seller.id, contactPhone: submission.hasContactConsent ? `+${waId}` : null },
-        });
-      }
-    });
+    await moveListingToNumber(submission, waId);
     if (submission.product) revalidatePath(`/product/${submission.product.slug}`);
     return { success: true, phoneEnd: waId.slice(-3) };
   } catch (error) {

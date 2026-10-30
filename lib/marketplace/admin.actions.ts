@@ -17,6 +17,7 @@ import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { toWaId } from './seller';
+import { moveListingToNumber } from './seller-number';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
@@ -207,6 +208,8 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
+  // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
+  sellerPhone: sellerPhoneSchema.optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
@@ -216,8 +219,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, type: true, textMode: true, textVersions: true },
+    select: { translations: true, type: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, seller: { select: { waId: true, name: true } } },
   });
+  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerPhone')) return { success: false, message: 'Revisa el teléfono' };
   // Everything is checked for the type it is saved as.
   const type = (parsed.success && parsed.data.type) || current?.type;
   const isService = type === 'SERVICE';
@@ -238,7 +242,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
+  const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
+  // A person's listing keeps a number to write to; the house's own may stay without one.
+  if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
+  if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
   // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
   const typed = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
   // What the editor kept from another type goes: only an item for sale has a condition, only an event a date and address.

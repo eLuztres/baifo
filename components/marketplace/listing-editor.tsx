@@ -113,6 +113,8 @@ interface EditorFields {
   /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
   startsAt: string;
   address: string;
+  /** The person's WhatsApp in full; empty: a house listing, buyers write to the shop. */
+  sellerPhone: string;
 }
 
 // A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
@@ -179,6 +181,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
     serviceType: (SERVICE_TYPES.includes(listing.serviceType as ServiceType) ? listing.serviceType : '') as ServiceType | '',
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
+    sellerPhone: /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '',
   });
   // Switchable any time: the fields of the other types stay in the form, so switching back loses nothing.
   const [type, setType] = useState<ListingType>(listing.type);
@@ -204,14 +207,14 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // A wanted ad's price is a budget range, and it may take any condition.
   const isWanted = type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
-  // Listings made without the person's WhatsApp belong to the house: nobody to send them to.
-  const hasPersonWhatsApp = /^\d+$/.test(listing.seller.waId);
+  // Listings without the person's WhatsApp belong to the house: nobody to send them to. A number typed here counts, as sending saves it first.
+  const hasPersonWhatsApp = fields.sellerPhone.trim() !== '';
   const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
   const relistLabel = listing.status === 'EXPIRED' ? texts.enableAgain : listing.status === 'HIDDEN' ? texts.showAgain : texts.relist;
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  const set = (name: FillableField) => (event: { target: { value: string } }) => setFields((current) => ({ ...current, [name]: event.target.value }));
+  const set = (name: FillableField | 'sellerPhone') => (event: { target: { value: string } }) => setFields((current) => ({ ...current, [name]: event.target.value }));
   // Set, missing, or missing and needed to publish.
   const stateOf = (name: FillableField) => fieldState(name, fields[name], type);
   // The shop language is the listing's own title and description; the others are its translations.
@@ -756,6 +759,23 @@ export default function ListingEditor({ listing, categories, places, languages, 
           </div>
         )}
       </div>
+
+      {/* Also once live: the admin fixes a wrong number, like the person on their own page. */}
+      <section className='space-y-1 rounded-3xl border border-border bg-card p-4'>
+        <Label htmlFor='seller-phone' className='text-sm font-medium'>
+          {texts.servicePhoneLabel}
+        </Label>
+        <Input
+          id='seller-phone'
+          type='tel'
+          autoComplete='off'
+          value={fields.sellerPhone}
+          onChange={set('sellerPhone')}
+          placeholder={texts.sellerPlaceholder}
+          className={cn('h-10 sm:h-12', FIELD_CLASS)}
+        />
+        <p className={LABEL_CLASS}>{texts.servicePhoneHint}</p>
+      </section>
 
       {listing.status === 'LIVE' && listing.expiresAt && (
         <div className='flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border bg-card p-4'>

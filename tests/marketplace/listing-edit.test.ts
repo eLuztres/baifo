@@ -96,14 +96,44 @@ describe('updateAdminListing', () => {
 
   it('keeps the seller\'s number, name, language and photos as they are', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'IN_REVIEW', seller: { waId: '34600111222' } });
-    // An older editor still sending them changes nothing either.
-    const oldEdit = { ...EDIT, sellerPhone: '611222333', sellerName: 'Lula', sellerLocale: 'de' } as typeof EDIT;
+    // An older editor still sending them changes nothing either; the same number changes nothing too.
+    const oldEdit = { ...EDIT, sellerPhone: '600 111 222', sellerName: 'Lula', sellerLocale: 'de' } as typeof EDIT;
 
     expect((await updateAdminListing(ID, oldEdit)).success).toBe(true);
     expect(db.seller.upsert).not.toHaveBeenCalled();
     const { data } = db.submission.update.mock.calls[0][0];
     for (const kept of ['sellerId', 'sellerName', 'sellerLocale', 'hasContactConsent', 'consentAt', 'rawImages']) expect(data).not.toHaveProperty(kept);
     expect(data.images).toEqual(EDIT.images);
+  });
+
+  it('moves the listing and its product to a new number, checked like the seller\'s own change', async () => {
+    db.$transaction.mockImplementationOnce(async (run: (tx: unknown) => unknown) => run(prisma));
+    const live = { translations: {}, type: 'PRODUCT', productId: 'product-1', hasContactConsent: true, seller: { waId: '34600111222', name: 'Ana' } };
+    db.submission.findUnique.mockResolvedValue(live);
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '0049 151 1234 5678' })).success).toBe(true);
+    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ where: { waId: '4915112345678' }, create: { waId: '4915112345678', name: 'Ana' } });
+    expect(db.submission.update.mock.calls[0][0]).toEqual({ where: { id: ID }, data: { sellerId: 'seller-1' } });
+    expect(db.product.update.mock.calls[0][0].data).toEqual({ sellerId: 'seller-1', contactPhone: '+4915112345678' });
+  });
+
+  it('refuses a broken number, and taking a person\'s number away; a house listing may stay without one', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', seller: { waId: '34600111222', name: null } });
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '12' })).message).toBe('Revisa el teléfono');
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '' })).message).toBe('Escribe su WhatsApp');
+    expect(db.submission.update).not.toHaveBeenCalled();
+
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', seller: { waId: 'baifo', name: null } });
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '' })).success).toBe(true);
+    expect(db.seller.upsert).not.toHaveBeenCalled();
+  });
+
+  it('gives a house listing its first number, a Spanish one getting +34', async () => {
+    db.$transaction.mockImplementationOnce(async (run: (tx: unknown) => unknown) => run(prisma));
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', productId: null, hasContactConsent: false, seller: { waId: 'baifo', name: null } });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '611 222 333' })).success).toBe(true);
+    expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34611222333' });
   });
 
   it('keeps a live listing online a month longer, counted from its end', async () => {
