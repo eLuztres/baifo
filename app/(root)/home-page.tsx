@@ -38,8 +38,6 @@ export default async function HomePage() {
     }));
 
   const heroPictures = getHeroPictures();
-  // The listing pages swipe on to the next one, so the first of the store starts the feed.
-  const feedHref = BRAND.hasSwipeToNext && placedSummaries[0] ? `/product/${placedSummaries[0].slug}` : undefined;
 
   return (
     <div className={onePage.onePage}>
@@ -47,7 +45,7 @@ export default async function HomePage() {
       <OnePageScroller />
       <section id={SECTION_IDS.home} className={cn(room.room, onePage.home)}>
         {heroPictures.length > 0 ? (
-          <SceneHero pictures={heroPictures} feedHref={feedHref} />
+          <SceneHero pictures={heroPictures} />
         ) : spaceRings.length >= MIN_SPACE_RINGS ? (
           <RingSpace rings={spaceRings} />
         ) : (
