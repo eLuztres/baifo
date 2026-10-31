@@ -441,14 +441,10 @@
     transition: border-color 600ms ease, box-shadow 600ms ease, top var(--grow-ms) var(--grow-ease) var(--grow-delay);
 }
 
-/* Phones: the front card only grows a little and stays square, so the island in the ring's middle stays in view. */
+/* Phones: the front card only grows a little; it takes the 4:5 shape like on desktop, so the category in front is clear. */
 @media (max-width: 1023px) {
     .categoryStage .card[aria-current] {
         scale: 1.06;
-    }
-
-    .categoryStage .card[aria-current] .glassCard {
-        top: 0;
     }
 }
 
@@ -756,7 +752,7 @@
     /* Smaller cards than the plain ring's, so the island has the room to be big. The stage takes all the height the
        rings' row leaves, so the island floats clear above the cards instead of behind them. */
     .pieceStage {
-        --card-w: min(40vw, 21svh);
+        --card-w: min(44vw, 23svh);
         --piece-lift: -1;
         flex: 1 1 0;
         min-height: min(calc(var(--card-w) * 2.2), calc(100svh - 22rem));
@@ -766,7 +762,7 @@
     /* The rings' row keeps a modest size and sits lower, so a tall phone gives its room to the island. */
     .pieceStage ~ .bannerFrame {
         flex: none;
-        height: clamp(10rem, 27svh, 15rem);
+        height: clamp(9.5rem, 24svh, 13.5rem);
     }
 
     .pieceStage > .tilt {
