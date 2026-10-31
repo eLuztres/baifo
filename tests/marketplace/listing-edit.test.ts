@@ -522,12 +522,17 @@ describe('updateAdminListingPhotos', () => {
 });
 
 describe('createAdminListing', () => {
-  it('starts a wanted ad without photos, and no pictures to make yet', async () => {
-    const result = await createAdminListing({ photos: [], type: 'WANTED' });
+  it("starts a wanted ad without photos from the admin's idea, and its picture right away", async () => {
+    const result = await createAdminListing({ photos: [], type: 'WANTED', picturePrompt: 'a red surfboard on the sand' });
 
     expect(result).toMatchObject({ success: true, id: 'new-1' });
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], type: 'WANTED' });
-    expect(makeListingPictures).not.toHaveBeenCalled();
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], type: 'WANTED', picturePrompt: 'a red surfboard on the sand' });
+    expect(makeListingPictures).toHaveBeenCalledWith('new-1');
+  });
+
+  it('needs an idea without photos: the picture never comes from the description', async () => {
+    expect(await createAdminListing({ photos: [], type: 'WANTED', picturePrompt: '  ' })).toEqual({ success: false, message: 'Escribe tu idea para la foto' });
+    expect(db.submission.create).not.toHaveBeenCalled();
   });
 
   it('makes the pictures right away when there are photos', async () => {
@@ -557,39 +562,25 @@ describe('createAdminListing', () => {
 });
 
 describe('createAdminListingPicture', () => {
-  it('makes a picture from the listing text when the admin typed nothing', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Busco tabla', description: 'Una tabla de 7 pies.', type: 'WANTED', rawImages: [] });
+  it('makes it from what the admin typed', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', rawImages: [] });
 
-    expect(await createAdminListingPicture(ID)).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla', description: 'Una tabla de 7 pies.' }, 'WANTED');
-  });
-
-  it('uses what the admin typed instead', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Clases de surf', description: '', type: 'SERVICE', rawImages: [] });
-
-    await createAdminListingPicture(ID, 'surf lesson at sunrise');
+    expect(await createAdminListingPicture(ID, 'surf lesson at sunrise')).toEqual({ success: true, message: '', url: 'https://x.ufs.sh/f/made.jpg' });
     expect(createPicture).toHaveBeenCalledWith({ title: 'surf lesson at sunrise', description: '' }, 'SERVICE');
   });
 
-  it("uses the editor's description even before it is saved", async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: '', type: 'EVENT', rawImages: [] });
-
-    await createAdminListingPicture(ID, undefined, { title: 'Concierto', description: 'Jazz en la playa.' });
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Concierto', description: 'Jazz en la playa.' }, 'EVENT');
-  });
-
-  it('makes it from the uploaded photo when there is no description', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: '', type: 'EVENT', rawImages: ['https://utfs.io/f/poster.jpg'] });
+  it('improves the uploaded photo when the admin typed nothing', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'EVENT', rawImages: ['https://utfs.io/f/poster.jpg'] });
 
     expect((await createAdminListingPicture(ID)).success).toBe(true);
     expect(createPicture).not.toHaveBeenCalled();
     expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'EVENT');
   });
 
-  it('makes no picture without a description and without a photo: the AI never invents one', async () => {
-    db.submission.findUnique.mockResolvedValue({ title: 'Concierto', description: ' ', type: 'EVENT', rawImages: [] });
+  it('makes no picture without an idea and without a photo, never from the description', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'EVENT', rawImages: [] });
 
-    expect(await createAdminListingPicture(ID)).toEqual({ success: false, message: 'Escribe primero una descripción o sube una foto' });
+    expect(await createAdminListingPicture(ID)).toEqual({ success: false, message: 'Escribe primero tu idea o sube una foto' });
     expect(createPicture).not.toHaveBeenCalled();
     expect(enhancePhoto).not.toHaveBeenCalled();
   });

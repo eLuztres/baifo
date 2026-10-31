@@ -36,19 +36,19 @@ const photoUrlSchema = z.string().refine((value) => {
   return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
 });
 
-// No photos: the AI makes the picture from the description later (usual for a wanted ad).
+// No photos: the AI makes the picture from the admin's idea (usual for a wanted ad), never from the description.
 // useAi false: the photos and videos are used as they are, no AI pictures.
 const newListingSchema = z.object({
   photos: z.array(photoUrlSchema).max(8),
   type: z.enum(LISTING_TYPES).default('PRODUCT'),
   useAi: z.boolean().default(true),
-  // The admin's own words for the AI pictures; empty: the usual pictures.
+  // The admin's idea for the AI pictures: on top of the photos' clean-up, or without photos the whole picture.
   picturePrompt: z.string().trim().max(500).transform((text) => text || null).default(''),
 });
 
 export type NewListingInput = z.input<typeof newListingSchema>;
 
-/** Step 1: the photos alone; the AI starts on the shop pictures while the admin goes on to the description. */
+/** Step 1: the photos or the idea; the AI starts on the shop pictures while the admin goes on to the description. */
 export async function createAdminListing(input: NewListingInput) {
   if (!(await isAdmin())) return NOT_ALLOWED;
   const parsed = newListingSchema.safeParse(input);
@@ -58,12 +58,13 @@ export async function createAdminListing(input: NewListingInput) {
   // COLLECTING until the description arrives: only the pictures are made now.
   const { photos, type, useAi, picturePrompt } = parsed.data;
   if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
+  if (photos.length === 0 && !picturePrompt) return { success: false, message: 'Escribe tu idea para la foto' };
   // Without AI the originals are the pictures at once, in the admin's order: a first video's still is the cover.
   const images = useAi ? [] : photos;
   const submission = await prisma.submission.create({
     data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, rawImages: photos, images, usesAi: useAi, type, picturePrompt },
   });
-  if (useAi && photos.length > 0) after(() => makeListingPictures(submission.id));
+  if (useAi) after(() => makeListingPictures(submission.id));
   return { success: true, message: 'La IA está haciendo las fotos', id: submission.id };
 }
 
@@ -78,6 +79,7 @@ export async function updateAdminListingPhotos(id: string, input: z.input<typeof
   if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
   const { photos, useAi, type, picturePrompt } = parsed.data;
   if (!useAi && photos.length === 0) return { success: false, message: 'Sube una foto o un vídeo' };
+  if (photos.length === 0 && !picturePrompt) return { success: false, message: 'Escribe tu idea para la foto' };
   const current = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true, usesAi: true, picturePrompt: true } });
   if (!current) return NOT_ALLOWED;
   const isWishChanged = picturePrompt !== current.picturePrompt;
@@ -90,8 +92,8 @@ export async function updateAdminListingPhotos(id: string, input: z.input<typeof
   const photoFiles = photos.filter((url) => !isVideoUrl(url));
   const madeBefore = photoFiles.map((url) => aiImages[photos.indexOf(url)]);
   const hasPictureSource = photos.some(pictureOf);
-  // Only videos: their stills go to the AI again, as those pictures aren't kept next to them.
-  const needsAi = useAi && hasPictureSource && (photoFiles.length === 0 || madeBefore.some((url) => !url));
+  // Only videos: their stills go to the AI again, as those pictures aren't kept next to them. No photo: a new picture from the idea.
+  const needsAi = useAi && (hasPictureSource ? photoFiles.length === 0 || madeBefore.some((url) => !url) : Boolean(picturePrompt));
   // Nothing new for the AI: the pictures are there at once, in the order the pictures' run saves them.
   const images = !useAi ? photos : needsAi || !hasPictureSource ? [] : [...madeBefore, ...photos.filter(isVideoUrl)];
   const { count } = await prisma.submission.updateMany({
@@ -368,22 +370,18 @@ export async function setAdminListingCategory(id: string, slug: string) {
 
 const picturePromptSchema = z.string().trim().max(500).optional();
 
-/** One more picture made by the AI, from what the admin typed, else the listing's description, else its uploaded photo.
-    With none of them there is nothing to make it from: the AI never invents one. The editor adds it and saves.
-    `edited`: the editor's text, which may not be saved yet. */
-export async function createAdminListingPicture(id: string, prompt?: string, edited?: { title: string; description: string }) {
+/** One more picture made by the AI: from the admin's idea, else their uploaded photo improved. Never from the description:
+    with neither there is nothing to make it from. The editor adds it and saves. */
+export async function createAdminListingPicture(id: string, prompt?: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = picturePromptSchema.safeParse(prompt);
-  const editedText = textSchema.optional().safeParse(edited);
-  if (!parsed.success || !editedText.success) return { success: false, message: 'Describe la foto en menos palabras' };
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { title: true, description: true, type: true, rawImages: true } });
+  if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true, rawImages: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
-  const own = editedText.data ?? { title: submission.title ?? '', description: submission.description?.trim() ?? '' };
-  const text = parsed.data ? { title: parsed.data, description: '' } : own;
   const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);
-  if (!parsed.data && !text.description && !photoUrl) return { success: false, message: 'Escribe primero una descripción o sube una foto' };
+  if (!parsed.data && !photoUrl) return { success: false, message: 'Escribe primero tu idea o sube una foto' };
   try {
-    const picture = parsed.data || text.description ? await createPicture(text, submission.type) : await enhancePhoto(await fetchImage(photoUrl!), submission.type);
+    const picture = parsed.data ? await createPicture({ title: parsed.data, description: '' }, submission.type) : await enhancePhoto(await fetchImage(photoUrl!), submission.type);
     return { success: true, message: '', url: await uploadImage(picture, `listing-${id}-extra`) };
   } catch (error) {
     console.error(`Picture of listing ${id} not made`, error);

@@ -74,9 +74,9 @@ describe('processSubmission without a photo', () => {
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', null);
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(enhancePhoto).not.toHaveBeenCalled();
-    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
+    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', picturePrompt: null, images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
     expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
   });
 
@@ -87,7 +87,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', null);
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED');
   });
 
   it('gives the listing the town the AI read, asking only among the live places', async () => {
@@ -180,18 +180,20 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', null);
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(sendForReview).toHaveBeenCalled();
   });
 
-  it("draws the picture with the admin's own words for it", async () => {
-    const withWish = { ...WANTED, picturePrompt: 'en una playa al atardecer' };
-    db.findUnique.mockResolvedValueOnce(withWish).mockResolvedValue({ ...withWish, title: 'Busco tabla de surf', images: ['https://x.ufs.sh/f/made.jpg'] });
-    db.update.mockResolvedValue({ ...withWish, seller: {} });
+  it("draws the picture from the admin's idea, never from the words", async () => {
+    // A run started in step 1 is long over, so this one makes the picture.
+    const withIdea = { ...WANTED, picturePrompt: 'a red surfboard on the sand', updatedAt: new Date(0) };
+    db.findUnique.mockResolvedValueOnce(withIdea).mockResolvedValue({ ...withIdea, title: 'Busco tabla de surf', images: ['https://x.ufs.sh/f/made.jpg'] });
+    db.update.mockResolvedValue({ ...withIdea, seller: {} });
 
     await processSubmission('sub-1');
 
-    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', 'en una playa al atardecer');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'a red surfboard on the sand', description: '' }, 'WANTED');
+    expect(db.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'sub-1', picturePrompt: 'a red surfboard on the sand', images: { isEmpty: true } } }));
   });
 });
 
@@ -209,7 +211,7 @@ describe('processSubmission with a service video', () => {
 
     expect(fetchImage).not.toHaveBeenCalled();
     expect(enhancePhoto).not.toHaveBeenCalled();
-    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], lastError: null } });
+    expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', picturePrompt: null, images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], lastError: null } });
   });
 
   it('lets the AI see and retouch only the photos, with the video last and no AI picture of it', async () => {
@@ -384,6 +386,20 @@ describe('makeListingPictures after the admin changed the photos', () => {
     expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] }, picturePrompt: null, images: { isEmpty: true } });
     expect(db.findUnique).toHaveBeenCalledTimes(1);
     expect(db.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('makeListingPictures without a photo', () => {
+  it("makes the picture from the admin's idea right in step 1", async () => {
+    db.findUnique.mockResolvedValue({ ...WANTED, status: 'COLLECTING', picturePrompt: 'a red surfboard on the sand' });
+
+    await makeListingPictures('sub-1');
+
+    expect(createPicture).toHaveBeenCalledWith({ title: 'a red surfboard on the sand', description: '' }, 'WANTED');
+    expect(db.updateMany.mock.calls[0][0]).toEqual({
+      where: { id: 'sub-1', picturePrompt: 'a red surfboard on the sand', images: { isEmpty: true } },
+      data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null },
+    });
   });
 });
 

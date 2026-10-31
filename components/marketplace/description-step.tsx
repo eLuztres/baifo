@@ -53,11 +53,11 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
   const [isPending, startTransition] = useTransition();
   // Sent: the AI writes the text, and the pictures may still be on their way. The editor comes once both are there.
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
-  // No photo (a video without a still doesn't count): the AI makes the picture from this text, so the text can't be empty.
+  // No photo (a video without a still doesn't count): this text is all the AI has to write from, so it can't be empty.
   const hasNoPhoto = !listing.rawImages.some(pictureOf);
   const hasPictures = listing.images.length > 0;
-  // The AI's pictures run on their own since the upload (without a photo: since sending), so the admin writes meanwhile.
-  const showsPictureWork = listing.usesAi && !listing.lastError && (!hasNoPhoto || isWriting);
+  // The AI's pictures run on their own since step 1 (from the photos or the admin's idea), so the admin writes meanwhile.
+  const showsPictureWork = listing.usesAi && !listing.lastError;
   const hasText = Boolean(listing.title);
   const placeholder = isOwnWords
     ? texts.tellOriginalPlaceholder
@@ -68,7 +68,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
         : isWanted
           ? texts.tellWantedPlaceholder
           : texts.tellPlaceholder;
-  // The AI needs the admin's own words to keep, and a text to make the picture from when there is no photo.
+  // The AI needs the admin's own words to keep, and words to write from when there is no photo; the picture never comes from them.
   const canContinue = !((isOwnWords || hasNoPhoto) && !notes.trim());
 
   const goToContact = () => {
@@ -114,11 +114,6 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
     <>
       {showsSteps && <ListingSteps current={isOnContact ? 2 : 1} texts={texts} onSelect={isPending || isWriting ? undefined : selectStep} />}
       <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
-        {hasNoPhoto && !isOnContact && (
-          <p className='flex items-center gap-2 rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground'>
-            <Sparkles className='size-4 shrink-0 text-primary' aria-hidden /> {texts.noPhotoHint}
-          </p>
-        )}
         {/* What the AI is doing, part by part; nothing here blocks the form. */}
         {(showsPictureWork || isWriting) && (
           <ul aria-live='polite' className='flex flex-wrap gap-2 text-sm'>

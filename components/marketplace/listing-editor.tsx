@@ -23,6 +23,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import VoiceInputButton from '@/components/shared/voice-input-button';
 import { useI18n } from '@/components/i18n-provider';
 import { useDragOrder } from '@/hooks/use-drag-order';
 import { useToast } from '@/hooks/use-toast';
@@ -305,7 +306,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // The new picture joins the others and is stored with the next save, like any added photo.
   const makePicture = async () => {
     setIsMakingPicture(true);
-    const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined, { title: fields.title, description: fields.description });
+    const result = await createAdminListingPicture(listing.id, picturePrompt.trim() || undefined);
     setIsMakingPicture(false);
     if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
     setImages((current) => [...current, result.url]);
@@ -424,8 +425,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
     setIsTranslationStale(false);
   };
 
-  // The AI never invents a picture: it needs words (typed here or the description) or an uploaded photo.
-  const hasPictureSource = picturePrompt.trim() !== '' || fields.description.trim() !== '' || listing.rawImages.some(pictureOf);
+  // The AI never invents a picture, nor draws it from the description: it needs the idea typed here or an uploaded photo.
+  const hasPictureSource = picturePrompt.trim() !== '' || listing.rawImages.some(pictureOf);
 
   const swapPicture = (url: string, other: string) => setImages((current) => current.map((image) => (image === url ? other : image)));
 
@@ -583,17 +584,20 @@ export default function ListingEditor({ listing, categories, places, languages, 
         {orderNote}
       </p>
       {isAskingPicture && (
-        <div className='flex flex-wrap gap-2'>
-          <Input
-            value={picturePrompt}
-            onChange={(event) => setPicturePrompt(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && !isMakingPicture && hasPictureSource && makePicture()}
-            placeholder={texts.newPicturePlaceholder}
-            aria-label={texts.newPicture}
-            maxLength={500}
-            disabled={isMakingPicture}
-            className='h-11 min-w-48 flex-1 rounded-full bg-card'
-          />
+        <div className='flex flex-wrap items-start gap-2'>
+          <div className='flex min-w-48 flex-1 items-start gap-1 rounded-3xl border border-input bg-card p-1'>
+            <Textarea
+              value={picturePrompt}
+              onChange={(event) => setPicturePrompt(event.target.value)}
+              placeholder={texts.newPicturePlaceholder}
+              aria-label={texts.newPicture}
+              rows={1}
+              maxLength={500}
+              disabled={isMakingPicture}
+              className='field-sizing-content max-h-40 min-h-10 flex-1 resize-none border-0 bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 md:text-base'
+            />
+            <VoiceInputButton className='h-10' onText={(text) => setPicturePrompt((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />
+          </div>
           <Button className='h-11 shrink-0 rounded-full' disabled={isMakingPicture || !hasPictureSource} onClick={makePicture}>
             {isMakingPicture ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.newPicture}
           </Button>

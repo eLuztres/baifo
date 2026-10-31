@@ -30,10 +30,13 @@ const toPrice = (amount: number | null) => (amount ? amount.toFixed(2) : null);
 const stillsOf = (originals: string[]) => videosOf(originals).flatMap((url) => videoPoster(url) ?? []);
 const hasPictureSource = (originals: string[]) => photosOf(originals).length > 0 || stillsOf(originals).length > 0;
 
-/** An admin's photos get their pictures from makeListingPictures, started with the upload, while the admin writes.
+/** An admin's photos (or idea) get their pictures from makeListingPictures, started in step 1, while the admin writes.
     Nothing touched the listing for STUCK_AFTER_MS: that run is long dead, so another one makes them. */
 const isUploadRunAlive = (submission: FoundSubmission) =>
-  submission.createdByAdmin && submission.usesAi && hasPictureSource(submission.rawImages) && Date.now() - submission.updatedAt.getTime() < STUCK_AFTER_MS;
+  submission.createdByAdmin &&
+  submission.usesAi &&
+  (hasPictureSource(submission.rawImages) || Boolean(submission.picturePrompt)) &&
+  Date.now() - submission.updatedAt.getTime() < STUCK_AFTER_MS;
 
 /** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures.
     known: AI pictures already made, next to their originals like aiImages; those photos aren't sent to the AI again.
@@ -62,10 +65,14 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
   return count > 0;
 }
 
-/** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
-async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, wish: string | null, videos: string[]) {
-  const picture = await uploadImage(await createPicture(text, type, wish), `listing-${submissionId}-0`);
-  await prisma.submission.updateMany({ where: { id: submissionId, images: { isEmpty: true } }, data: { images: [picture, ...videos], lastError: null } });
+/** No photo at all: the AI makes one picture from the admin's idea (a WhatsApp listing has none: from its words), the cover
+    before any video. It has no original, so nothing to switch back to. Only for the idea it still has. */
+async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, idea: string | null, videos: string[]) {
+  const picture = await uploadImage(await createPicture(idea ? { title: idea, description: '' } : text, type), `listing-${submissionId}-0`);
+  await prisma.submission.updateMany({
+    where: { id: submissionId, picturePrompt: idea, images: { isEmpty: true } },
+    data: { images: [picture, ...videos], lastError: null },
+  });
 }
 
 type SubmissionMedia = { rawImages: string[]; images: string[]; aiImages: string[] };
@@ -144,7 +151,7 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   });
 }
 
-/** The shop pictures: from the photos (or video stills), else drawn from the listing's words. */
+/** The shop pictures: from the photos (or video stills), else drawn from the admin's idea or the listing's words. */
 async function makePictures(submission: FoundSubmission, firstPhoto: Buffer | null) {
   if (submission.images.length > 0 || isUploadRunAlive(submission)) return;
   if (hasPictureSource(submission.rawImages)) return makeShopPictures(submission.id, submission.rawImages, submission.type, submission.picturePrompt, firstPhoto ?? undefined);
@@ -173,10 +180,16 @@ export async function makeListingPictures(submissionId: string) {
   const submission = await findSubmission(submissionId);
   if (!submission || !['COLLECTING', 'PROCESSING'].includes(submission.status) || submission.images.length > 0) return;
   try {
-    if (submission.rawImages.length === 0) throw new Error('No photo to work with');
-    // Only videos without a still: the picture is drawn from the description, once it comes.
-    if (!hasPictureSource(submission.rawImages)) return;
-    if (!(await makeShopPictures(submissionId, submission.rawImages, submission.type, submission.picturePrompt, undefined, submission.aiImages))) return;
+    const { rawImages, type, picturePrompt } = submission;
+    if (hasPictureSource(rawImages)) {
+      if (!(await makeShopPictures(submissionId, rawImages, type, picturePrompt, undefined, submission.aiImages))) return;
+    } else if (picturePrompt) {
+      await makeTextPicture(submissionId, { title: '', description: '' }, type, picturePrompt, videosOf(rawImages));
+    } else {
+      if (rawImages.length === 0) throw new Error('No photo to work with');
+      // Only videos without a still and no idea: the picture is drawn from the description, once it comes.
+      return;
+    }
     const pictured = (await findSubmission(submissionId))!;
     if (pictured.status === 'PROCESSING' && pictured.title) await finishSubmission(pictured);
   } catch (error) {

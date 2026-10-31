@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useTransition, type DragEvent } from 'reac
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { createAdminListing, getAdminListing, updateAdminListingPhotos, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
@@ -35,7 +36,8 @@ const isVideo = (file: File) => file.type.startsWith('video/');
 
 type QueuedStep = 'ai' | 'asIs';
 
-/** Step 1: only the photos. One tap starts the AI pictures and goes straight on to the description, where they show up. */
+/** Step 1: the pictures, never from the description. Photos as they are or improved by the AI (with the admin's idea on top),
+    or without a photo a new picture from the idea alone. The AI starts at once and the admin goes on to the description. */
 export default function NewListingForm({ texts, type, listing, onDone }: NewListingFormProps) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -48,8 +50,11 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
   const [queuedStep, setQueuedStep] = useState<QueuedStep | null>(null);
   // After each photo: another one, or straight on to the AI? Asked right away, so nothing needs scrolling.
   const [isAskingMore, setIsAskingMore] = useState(false);
-  // Empty: the usual AI pictures; otherwise these words go to the AI on top of the shop's own picture prompt.
+  const ideaInput = useRef<HTMLTextAreaElement>(null);
+  // With photos: added on top of the AI's clean-up; without a photo: what the new picture shows.
   const [picturePrompt, setPicturePrompt] = useState(listing?.picturePrompt ?? '');
+  // Null until the admin chooses: an event's photo is the organiser's own (a poster), so it stays as it is by default.
+  const [improveChoice, setImproveChoice] = useState<boolean | null>(listing ? listing.usesAi : null);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const uploadEvents = {
@@ -62,14 +67,10 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
   const { startUpload } = useUploadThing('photosUploader', uploadEvents);
   // Videos stay as they are next to the AI pictures; each one carries a still frame for its cover.
   const { startUpload: startVideoUpload } = useUploadThing('videosUploader', uploadEvents);
-  // A service can go on without AI, with its photos and videos as they are.
-  const canSkipAi = type === 'SERVICE';
-  // An event's picture is the organiser's own (a poster, a photo): it is used as it is, no AI pictures.
-  const isEvent = type === 'EVENT';
-
   const isUploading = pendingCount > 0;
-  // An event's own photos never go to the AI, so only an event without one has an AI picture to wish for.
-  const hasAiPicture = !isEvent || photos.length === 0;
+  const hasPhotos = photos.length > 0 || isUploading;
+  const isImproving = improveChoice ?? type !== 'EVENT';
+  const hasIdeaField = !hasPhotos || isImproving;
 
   const addPhotos = async (files: File[]) => {
     const free = MAX_PHOTOS - photos.length - pendingCount;
@@ -113,23 +114,21 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
     startTransition(async () => {
       setError('');
       if (listing) return savePhotos(listing, chosen, useAi);
-      const result = await createAdminListing({ photos: chosen, type, useAi, picturePrompt });
+      const result = await createAdminListing({ photos: chosen, type, useAi, picturePrompt: useAi ? picturePrompt : '' });
       if (!('id' in result && result.id)) return setError(result.message);
       router.push(`/admin/listings/new?anuncio=${result.id}`);
     });
 
   // Nothing changed: straight back, the AI pictures made already stay.
   const savePhotos = async (current: AdminListing, chosen: string[], useAi: boolean) => {
-    const isUnchanged = useAi === current.usesAi && chosen.join() === current.rawImages.join() && picturePrompt.trim() === (current.picturePrompt ?? '');
+    const prompt = useAi ? picturePrompt.trim() : '';
+    const isUnchanged = useAi === current.usesAi && chosen.join() === current.rawImages.join() && prompt === (current.picturePrompt ?? '');
     if (!isUnchanged) {
-      const result = await updateAdminListingPhotos(current.id, { photos: chosen, useAi, picturePrompt });
+      const result = await updateAdminListingPhotos(current.id, { photos: chosen, useAi, picturePrompt: prompt });
       if (!result.success) return setError(result.message);
     }
     onDone?.((isUnchanged ? current : await getAdminListing(current.id)) ?? current);
   };
-
-  // No photo at all: the AI makes the picture from the description.
-  const startWithoutPhoto = () => createListing([], true);
 
   const runStep = (step: QueuedStep) => createListing(photos, step === 'ai');
   // Chosen while photos still upload: wait for them, then go on with all of them.
@@ -146,11 +145,11 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
   // The photos stay through a type switch, but a step chosen for the old type doesn't (an event never gets AI pictures).
   useEffect(() => setQueuedStep(null), [type]);
 
-  // The description step: like the main button, but a listing made already keeps its choice of AI pictures or none.
+  // Without a photo the idea is all the AI has, so it can't be empty.
   const goToDescription = () => {
-    if (photos.length === 0 && !isUploading) return startWithoutPhoto();
-    const keepsPhotosAsIs = listing ? !listing.usesAi : isEvent;
-    chooseStep(keepsPhotosAsIs ? 'asIs' : 'ai');
+    if (hasPhotos) return chooseStep(isImproving ? 'ai' : 'asIs');
+    if (!picturePrompt.trim()) return ideaInput.current?.focus();
+    createListing([], true);
   };
 
   const stageSource = photos[shownIndex] ?? photos[0];
@@ -171,10 +170,10 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
           }}
         />
 
-        {/* Square and at most half the screen, so photo, thumbnails and button fit on a phone without scrolling. */}
+        {/* Without photos only a small box, so the idea field fits on a phone; with them the photo, at most half the screen. */}
         <ListingStage
           src={stageSource}
-          className='mx-auto aspect-square max-h-[52svh] max-w-[52svh] sm:max-h-none sm:max-w-none'
+          className={photos.length > 0 ? 'mx-auto aspect-square max-h-[45svh] max-w-[45svh] sm:max-h-none sm:max-w-none' : 'aspect-auto h-44 sm:h-48'}
           onDragOver={(event) => event.preventDefault()}
           onDrop={dropPhotos}
         >
@@ -182,12 +181,12 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
             <button
               type='button'
               onClick={pickPhotos}
-              className='absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/40'
+              className='absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/40'
             >
-              <span className='flex size-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30'>
-                <Camera className='size-9' aria-hidden />
+              <span className='flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30'>
+                <Camera className='size-6' aria-hidden />
               </span>
-              <span className='font-display text-2xl'>{texts.takePhotoOrVideo}</span>
+              <span className='font-display text-xl'>{texts.takePhotoOrVideo}</span>
               <span className='hidden text-sm text-muted-foreground sm:block'>{texts.dropHere}</span>
               <span className='text-xs text-muted-foreground'>{texts.videoHint}</span>
             </button>
@@ -243,6 +242,52 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
           </ul>
         )}
 
+        {hasPhotos && (
+          <div role='radiogroup' aria-label={texts.photosLabel} className='grid grid-cols-2 gap-1 rounded-full border border-border bg-card p-1'>
+            {[
+              { isAi: false, label: texts.photosAsTheyAre },
+              { isAi: true, label: texts.photosAiImproves },
+            ].map(({ isAi, label }) => (
+              <button
+                key={label}
+                type='button'
+                role='radio'
+                aria-checked={isImproving === isAi}
+                disabled={isPending || Boolean(queuedStep)}
+                onClick={() => setImproveChoice(isAi)}
+                className={cn(
+                  'flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors',
+                  isImproving === isAi ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {isAi && <Sparkles className='size-4 shrink-0' aria-hidden />} {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {hasIdeaField && (
+          <div className='space-y-2 rounded-3xl border border-border bg-card p-4'>
+            <div className='flex items-center justify-between gap-3'>
+              <Label htmlFor='picture-prompt' className='font-display text-lg'>
+                {hasPhotos ? texts.pictureIdeaOptional : texts.pictureIdeaLabel}
+              </Label>
+              <VoiceInputButton onText={(text) => setPicturePrompt((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />
+            </div>
+            <Textarea
+              ref={ideaInput}
+              id='picture-prompt'
+              rows={2}
+              value={picturePrompt}
+              maxLength={500}
+              disabled={isPending || Boolean(queuedStep)}
+              onChange={(event) => setPicturePrompt(event.target.value)}
+              placeholder={hasPhotos ? texts.pictureIdeaOnTop : texts.pictureIdeaNew}
+              className='field-sizing-content max-h-[30svh] min-h-20 resize-none rounded-2xl bg-background text-base md:text-base'
+            />
+          </div>
+        )}
+
         {error && (
           <p role='alert' className='rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
             {error}
@@ -279,77 +324,17 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
               >
                 <Camera /> {texts.anotherPhotoYes}
               </Button>
-              <Button
-                className='h-14 rounded-full text-base shadow-xl shadow-primary/20'
-                onClick={() => {
-                  setIsAskingMore(false);
-                  chooseStep(isEvent ? 'asIs' : 'ai');
-                }}
-              >
-                {isEvent ? <ArrowRight /> : <Sparkles />} {isEvent ? texts.usePhotos : texts.anotherPhotoNo}
+              <Button className='h-14 rounded-full text-base shadow-xl shadow-primary/20' onClick={() => setIsAskingMore(false)}>
+                {texts.anotherPhotoDone}
               </Button>
-              {/* An event's main choice already keeps the photos as they are. */}
-              {!isEvent && (
-                <Button
-                  variant='ghost'
-                  className='col-span-2 h-auto min-h-10 whitespace-normal rounded-full'
-                  disabled={isPending}
-                  onClick={() => {
-                    setIsAskingMore(false);
-                    chooseStep('asIs');
-                  }}
-                >
-                  <ArrowRight /> {canSkipAi ? texts.withoutAi : texts.continueAsIs}
-                </Button>
-              )}
             </div>
           </DrawerContent>
         </Drawer>
 
-        <HidingBottomBar className='sticky bottom-4 z-10'>
-          {/* In the sticky bar with the button: in the page's flow, the bar floated over it on phones. */}
-          {hasAiPicture && (
-            <Input
-              id='picture-prompt'
-              aria-label={texts.pictureWishLabel}
-              value={picturePrompt}
-              maxLength={500}
-              disabled={isPending || Boolean(queuedStep)}
-              onChange={(event) => setPicturePrompt(event.target.value)}
-              placeholder={texts.pictureWishLabel}
-              className='mb-2 h-12 rounded-full bg-background px-5 shadow-xl shadow-primary/10'
-            />
-          )}
-          {photos.length === 0 && !isUploading ? (
-            <div className='space-y-2 text-center'>
-              <Button
-                variant='outline'
-                className='h-14 w-full rounded-full bg-background text-base shadow-xl shadow-primary/10'
-                disabled={isPending}
-                onClick={startWithoutPhoto}
-              >
-                {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.noPhoto}
-              </Button>
-              <p className='text-xs text-muted-foreground'>{texts.noPhotoHint}</p>
-            </div>
-          ) : (
-            <div className='space-y-2'>
-              <Button
-                className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20'
-                disabled={isPending || Boolean(queuedStep)}
-                onClick={() => chooseStep(isEvent ? 'asIs' : 'ai')}
-              >
-                {isPending || queuedStep ? <Loader2 className='animate-spin' /> : isEvent ? <ArrowRight /> : <Sparkles />}{' '}
-                {queuedStep ? texts.uploadingPhotos : isEvent ? texts.usePhotos : texts.makePictures}
-              </Button>
-              {canSkipAi && !queuedStep && (
-                <Button variant='outline' className='h-12 w-full rounded-full bg-background' disabled={isPending} onClick={() => chooseStep('asIs')}>
-                  {texts.withoutAi}
-                </Button>
-              )}
-            </div>
-          )}
-        </HidingBottomBar>
+        {/* Not sticky, like the description's: floating, it covered the choice and the idea field on phones. */}
+        <Button className='h-14 w-full rounded-full text-base shadow-xl shadow-primary/20' disabled={isPending || Boolean(queuedStep)} onClick={goToDescription}>
+          {isPending || queuedStep ? <Loader2 className='animate-spin' /> : <ArrowRight />} {queuedStep ? texts.uploadingPhotos : texts.nextStep}
+        </Button>
       </div>
     </>
   );
