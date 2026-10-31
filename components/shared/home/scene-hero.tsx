@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Newspaper } from 'lucide-react';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
@@ -40,9 +39,6 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
 
       <div className={styles.buttons}>
         <Link href={sectionHref(SECTION_IDS.showroom)} className={styles.cta}>
-          <span className={styles.ctaIcon}>
-            <Newspaper aria-hidden />
-          </span>
           {t('HOME_SCENE_READ')}
         </Link>
       </div>
