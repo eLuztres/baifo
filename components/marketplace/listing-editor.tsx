@@ -34,6 +34,7 @@ import {
   deleteAdminListing,
   enableAdminListing,
   extendAdminListing,
+  hideAdminListing,
   markAdminListingSold,
   publishAdminListing,
   shareAdminListing,
@@ -362,6 +363,16 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   const publish = () => run(() => publishAdminListing(listing.id, plan), onPublished);
 
+  // The status dropdown: online, hidden or sold from a live listing; back online from a draft or an offline one.
+  const statusChoices: AdminListing['status'][] =
+    listing.status === 'LIVE' ? ['HIDDEN', 'SOLD'] : isOpen || RELISTABLE.includes(listing.status) ? ['LIVE'] : [];
+  const chooseStatus = (next: AdminListing['status']) => {
+    if (next === 'HIDDEN') run(() => hideAdminListing(listing.id));
+    else if (next === 'SOLD') run(() => markAdminListingSold(listing.id));
+    else if (isOpen) publish();
+    else run(() => enableAdminListing(listing.id));
+  };
+
   // No save first, unlike run: the listing is gone anyway. The dialog shows the toast.
   const deleteAndLeave = async (id: string) => {
     const result = await deleteAdminListing(id);
@@ -421,7 +432,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
       {/* Above the steps of a new listing, in the same place as on its first step. */}
       <ListingTypeTabs type={type} texts={texts} onSelect={chooseType} hasInfo={Boolean(steps)} />
       {steps}
-      <ListingStatus status={listing.status} type={type} saveState={saveState} texts={texts} />
+      <ListingStatus status={listing.status} type={type} saveState={saveState} texts={texts} choices={statusChoices} onChoose={chooseStatus} isPending={isPending} />
       <AlertDialog open={askedType !== null} onOpenChange={(isOpen) => !isOpen && setAskedType(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
