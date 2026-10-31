@@ -46,6 +46,8 @@ export interface CollectionRing {
   shortName?: string | null;
   /** Server only: its name in other languages (localizeProduct). */
   translations: unknown;
+  /** Server only: its text, for the feed's search. */
+  description: string;
   /** Server only: where it is, for the visitor's place filter. */
   placeId: string | null;
 }
@@ -74,6 +76,7 @@ const RING_SELECT = {
   createdAt: true,
   condition: true,
   translations: true,
+  description: true,
   type: true,
   serviceType: true,
   startsAt: true,

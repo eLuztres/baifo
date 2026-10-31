@@ -212,10 +212,10 @@ export default async function CorralPage({ params }: CorralPageProps) {
           </div>
           <ul className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
             {listings.map((listing) => (
-              <li key={listing.id} className='aspect-[4/5]'>
+              <li key={listing.id}>
                 <FeedCard
                   href={`/product/${listing.slug}`}
-                  name={localizeProduct(listing, locale).name}
+                  name={localizeProduct(listing, locale).shortName}
                   images={listing.images}
                   price={listing.price}
                   priceMax={listing.priceMax}

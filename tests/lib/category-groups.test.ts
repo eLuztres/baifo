@@ -52,6 +52,7 @@ describe('groupByCategory', () => {
     createdAt: new Date(0),
     condition: null,
     translations: {},
+    description: '',
     endsAt: null,
   });
   const categories = [category('c1', 'lava'), category('c2', 'wood'), category('c3', 'carbon')];

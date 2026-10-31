@@ -41,10 +41,10 @@ export default async function ShopTeaser({ texts, ownSlug }: ShopTeaserProps) {
       {listings.length > 0 && (
         <ul className='grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2'>
           {listings.map((listing) => (
-            <li key={listing.id} className='aspect-[3/4]'>
+            <li key={listing.id}>
               <FeedCard
                 href={`/product/${listing.slug}`}
-                name={localizeProduct(listing, locale).name}
+                name={localizeProduct(listing, locale).shortName}
                 images={listing.images}
                 price={listing.price}
                 priceMax={listing.priceMax}

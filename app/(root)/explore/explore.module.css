@@ -1,8 +1,7 @@
-/* An Instagram-like mosaic: blocks of nine tiles where the first one is big (2x2), on alternating sides. */
+/* An even grid of cards (FeedCard): the photo, then its name, price and when and where. */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-flow: dense;
   gap: 0.5rem;
 }
 
@@ -21,24 +20,11 @@
 }
 
 .tile {
-  /* A phone's upright photo (3:4) fills it whole; other shapes show whole over their blurred copy (FeedCard). */
-  aspect-ratio: 3 / 4;
   /* Tiles far below the fold are not laid out until they come near. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 20rem;
-  /* A tile reached with the keyboard stops below the sticky header and chips, not under them. */
+  contain-intrinsic-size: auto 24rem;
+  /* A tile reached with the keyboard stops below the sticky header, not under it. */
   scroll-margin-top: 13rem;
-}
-
-.large {
-  grid-column: span 2;
-  grid-row: span 2;
-}
-
-@media (min-width: 1024px) {
-  .large.right {
-    grid-column: 3 / span 2;
-  }
 }
 
 /* Tiles rise in softly as they scroll into view. */

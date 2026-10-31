@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Camera, ImagePlus, Loader2, Sparkles, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { createAdminListing, getAdminListing, updateAdminListingPhotos, type AdminListing } from '@/lib/marketplace/admin.actions';
@@ -47,6 +48,8 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
   const [queuedStep, setQueuedStep] = useState<QueuedStep | null>(null);
   // After each photo: another one, or straight on to the AI? Asked right away, so nothing needs scrolling.
   const [isAskingMore, setIsAskingMore] = useState(false);
+  // Empty: the usual AI pictures; otherwise these words go to the AI on top of the shop's own picture prompt.
+  const [picturePrompt, setPicturePrompt] = useState(listing?.picturePrompt ?? '');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const uploadEvents = {
@@ -65,6 +68,8 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
   const isEvent = type === 'EVENT';
 
   const isUploading = pendingCount > 0;
+  // An event's own photos never go to the AI, so only an event without one has an AI picture to wish for.
+  const hasAiPicture = !isEvent || photos.length === 0;
 
   const addPhotos = async (files: File[]) => {
     const free = MAX_PHOTOS - photos.length - pendingCount;
@@ -108,16 +113,16 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
     startTransition(async () => {
       setError('');
       if (listing) return savePhotos(listing, chosen, useAi);
-      const result = await createAdminListing({ photos: chosen, type, useAi });
+      const result = await createAdminListing({ photos: chosen, type, useAi, picturePrompt });
       if (!('id' in result && result.id)) return setError(result.message);
       router.push(`/admin/listings/new?anuncio=${result.id}`);
     });
 
   // Nothing changed: straight back, the AI pictures made already stay.
   const savePhotos = async (current: AdminListing, chosen: string[], useAi: boolean) => {
-    const isUnchanged = useAi === current.usesAi && chosen.join() === current.rawImages.join();
+    const isUnchanged = useAi === current.usesAi && chosen.join() === current.rawImages.join() && picturePrompt.trim() === (current.picturePrompt ?? '');
     if (!isUnchanged) {
-      const result = await updateAdminListingPhotos(current.id, { photos: chosen, useAi });
+      const result = await updateAdminListingPhotos(current.id, { photos: chosen, useAi, picturePrompt });
       if (!result.success) return setError(result.message);
     }
     onDone?.((isUnchanged ? current : await getAdminListing(current.id)) ?? current);
@@ -302,6 +307,19 @@ export default function NewListingForm({ texts, type, listing, onDone }: NewList
         </Drawer>
 
         <HidingBottomBar className='sticky bottom-4 z-10'>
+          {/* In the sticky bar with the button: in the page's flow, the bar floated over it on phones. */}
+          {hasAiPicture && (
+            <Input
+              id='picture-prompt'
+              aria-label={texts.pictureWishLabel}
+              value={picturePrompt}
+              maxLength={500}
+              disabled={isPending || Boolean(queuedStep)}
+              onChange={(event) => setPicturePrompt(event.target.value)}
+              placeholder={texts.pictureWishLabel}
+              className='mb-2 h-12 rounded-full bg-background px-5 shadow-xl shadow-primary/10'
+            />
+          )}
           {photos.length === 0 && !isUploading ? (
             <div className='space-y-2 text-center'>
               <Button

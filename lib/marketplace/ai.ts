@@ -301,9 +301,16 @@ const translatePrompt = (from: Locale, locales: Locale[]) =>
 // Upright like a phone photo, so it fills the feed's 3:4 tiles; nobody posts square pictures any more.
 const LISTING_PHOTO_SIZE = '1152x1536';
 
+// The admin's own words come after the shop's prompt: they may change the scene, never what has to stay true.
+const withWish = (prompt: string, wish?: string | null) =>
+  wish?.trim()
+    ? `${prompt}\nWhat the person wants on top of that, follow it: ${wish.trim()}\nWhatever they ask, the item and every ` +
+      'person stay identical, no face becomes recognisable that the rules above keep hidden, and no text, logos or watermark are added.'
+    : prompt;
+
 /** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. */
-export const enhancePhoto = (photo: Buffer, type: ListingType) =>
-  editImage(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(ITEM_SCENE) : SERVICE_PHOTO_PROMPT, [photo], { size: LISTING_PHOTO_SIZE });
+export const enhancePhoto = (photo: Buffer, type: ListingType, wish?: string | null) =>
+  editImage(withWish(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(ITEM_SCENE) : SERVICE_PHOTO_PROMPT, wish), [photo], { size: LISTING_PHOTO_SIZE });
 
 // The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
 const PICTURE_STYLE =
@@ -325,8 +332,8 @@ const picturePrompt = ({ title, description }: { title: string; description: str
   `${PICTURE_STYLE}\nThe listing: ${title}. ${description}`;
 
 /** A picture made from the listing's text alone, for a listing without any photo. */
-export const createPicture = (text: { title: string; description: string }, type: ListingType) =>
-  generateImage(picturePrompt(text, type, ITEM_SCENE), { size: LISTING_PHOTO_SIZE });
+export const createPicture = (text: { title: string; description: string }, type: ListingType, wish?: string | null) =>
+  generateImage(withWish(picturePrompt(text, type, ITEM_SCENE), wish), { size: LISTING_PHOTO_SIZE });
 
 /** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
     an item also gets condition and price. With `kept`, the admin's own text stays as it is (or only corrected) and is translated.

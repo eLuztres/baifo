@@ -373,6 +373,8 @@ model Submission {
   aiImages          String[]         @default([])
   // False when the admin went on without AI: photos and videos stay exactly as uploaded.
   usesAi            Boolean          @default(true)
+  // The admin's own words for the AI pictures, added to the shop's picture prompt; null: the usual pictures.
+  picturePrompt     String?
   // ❌ Rechazar was tapped on WhatsApp: the admin's next text is the reason the seller gets.
   rejectAskedAt     DateTime?        @db.Timestamp(6)
   // Why the admin rejected it, as the seller got it.

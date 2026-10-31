@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ImageIcon, ImagePlus, Languages, Loader2, MessageCircle, RotateCcw, Save, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
-import HidingBottomBar from '@/components/shared/hiding-bottom-bar';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import { ANY_CONDITION, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
 import {
@@ -211,6 +210,9 @@ export default function ListingEditor({ listing, categories, places, languages, 
   // Listings without the person's WhatsApp belong to the house: nobody to send them to. A number typed here counts, as sending saves it first.
   const hasPersonWhatsApp = fields.sellerPhone.trim() !== '';
   const isAwaitingPayment = listing.status === 'AWAITING_PAYMENT';
+  const isRelistable = RELISTABLE.includes(listing.status);
+  // Save is a quiet button when another primary action follows it.
+  const hasNextStep = isOpen || isRelistable;
   const relistLabel = listing.status === 'EXPIRED' ? texts.enableAgain : listing.status === 'HIDDEN' ? texts.showAgain : texts.relist;
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
@@ -819,29 +821,20 @@ export default function ListingEditor({ listing, categories, places, languages, 
         />
       )}
 
-      {/* The fields come first; what changes the listing's state ends the page, deleting last. */}
+      {/* All actions end the page, in one row: the secondary ones on the left, the primary ones on the right (first on a phone). */}
       <div className='space-y-3 border-t border-border pt-4'>
-        {RELISTABLE.includes(listing.status) && (
-          <div className='space-y-1'>
-            <Button className='h-12 w-full rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
-              {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {relistLabel}
-            </Button>
-            <p className='text-center text-xs text-muted-foreground'>{texts.enableAgainHint}</p>
-          </div>
-        )}
-        {/* Deleting on the left, what moves the listing on to the right; on a phone the actions come first. */}
         <div className='flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <DeleteDialog
-            id={listing.id}
-            action={deleteAndLeave}
-            description={texts.deleteHint}
-            trigger={
-              <Button variant='ghost' className='self-start rounded-full text-destructive' disabled={isPending}>
-                <Trash2 /> {texts.deleteForGood}
-              </Button>
-            }
-          />
-          <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <DeleteDialog
+              id={listing.id}
+              action={deleteAndLeave}
+              description={texts.deleteHint}
+              trigger={
+                <Button variant='ghost' className='rounded-full text-destructive' disabled={isPending}>
+                  <Trash2 /> {texts.deleteForGood}
+                </Button>
+              }
+            />
             {listing.status === 'LIVE' && (
               // Selling takes the listing out of the shop at once, so it asks first.
               <AlertDialog>
@@ -864,6 +857,12 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 </AlertDialogContent>
               </AlertDialog>
             )}
+          </div>
+          <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end'>
+            {/* Edits only save here (or with an action); it says when something isn't saved yet. */}
+            <Button variant={hasNextStep ? 'outline' : 'default'} className='rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
+              {saveState === 'saving' ? <Loader2 className='animate-spin' /> : <Save />} {texts.saveNow}
+            </Button>
             {isOpen && (
               <Button variant={hasPersonWhatsApp ? 'outline' : 'default'} className='rounded-full' disabled={isPending} onClick={publish}>
                 {isPending ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.publishNow}
@@ -875,43 +874,35 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 <MessageCircle /> {isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}
               </Button>
             )}
+            {isRelistable && (
+              <Button className='rounded-full' disabled={isPending} onClick={() => run(() => enableAdminListing(listing.id))}>
+                {isPending ? <Loader2 className='animate-spin' /> : <RotateCcw />} {relistLabel}
+              </Button>
+            )}
           </div>
         </div>
-        {isOpen && (
+        {(hasUnsaved || isOpen || isRelistable) && (
           <div className='space-y-0.5 text-xs text-muted-foreground sm:text-right'>
-            <p>
-              <span className='font-medium text-foreground'>{texts.publishNow}</span> · {texts.publishNowHint}
-            </p>
-            {hasPersonWhatsApp && (
+            {hasUnsaved && <p className={cn(saveState === 'failed' && 'font-medium text-destructive')}>{saveLabel}</p>}
+            {isOpen && (
+              <p>
+                <span className='font-medium text-foreground'>{texts.publishNow}</span> · {texts.publishNowHint}
+              </p>
+            )}
+            {isOpen && hasPersonWhatsApp && (
               <p>
                 <span className='font-medium text-foreground'>{isAwaitingPayment ? texts.resendLink : texts.sendWhatsApp}</span> ·{' '}
                 {isAwaitingPayment ? texts.resendLinkHint : texts.sendWhatsAppHint}
               </p>
             )}
+            {isRelistable && (
+              <p>
+                <span className='font-medium text-foreground'>{relistLabel}</span> · {texts.enableAgainHint}
+              </p>
+            )}
           </div>
         )}
       </div>
-
-      {/* Edits only save here; the bar comes back on a small scroll up and says when something isn't saved yet. */}
-      <HidingBottomBar className='sticky bottom-4 z-10 flex items-center gap-3 rounded-full border border-border bg-card/95 p-2 pl-5 shadow-xl shadow-primary/10 backdrop-blur'>
-        <p
-          role='status'
-          className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 text-sm',
-            saveState === 'failed' ? 'font-medium text-destructive' : hasUnsaved ? 'text-muted-foreground' : 'text-primary'
-          )}
-        >
-          {saveState === 'saving' ? (
-            <Loader2 className='size-4 shrink-0 animate-spin' aria-hidden />
-          ) : (
-            !hasUnsaved && <CheckCircle2 className='size-4 shrink-0' aria-hidden />
-          )}
-          <span className='truncate'>{saveLabel}</span>
-        </p>
-        <Button className='shrink-0 rounded-full' disabled={!hasUnsaved || isPending} onClick={saveNow}>
-          <Save /> {texts.saveNow}
-        </Button>
-      </HidingBottomBar>
     </div>
   );
 }

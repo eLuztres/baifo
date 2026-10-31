@@ -10,7 +10,7 @@ export const RING_PREVIEW_COUNT = 2;
 const newSince = () => Date.now() - NEW_LISTING_HOURS * 60 * 60 * 1000;
 
 /** A ring in the store's banner; it goes to the client, so its category links stay behind. */
-export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition' | 'translations' | 'placeId' | 'shortName' | 'endsAt'> & {
+export type MaterialRing = Omit<CollectionRing, 'categoryIds' | 'images' | 'createdAt' | 'condition' | 'translations' | 'placeId' | 'shortName' | 'endsAt' | 'description'> & {
   /** The name in a word or three, for the ring row. */
   shortName: string;
 };

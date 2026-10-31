@@ -431,7 +431,7 @@ describe('updateAdminListingPhotos', () => {
   const VIDEO = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
 
   beforeEach(() => {
-    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT, GONE], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/gone-ai.jpg'] });
+    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT, GONE], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/gone-ai.jpg'], picturePrompt: null });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -449,6 +449,15 @@ describe('updateAdminListingPhotos', () => {
     await updateAdminListingPhotos(ID, { photos: [KEPT, ADDED], useAi: true });
 
     expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: [] });
+    expect(makeListingPictures).toHaveBeenCalledWith(ID);
+  });
+
+  it('makes every picture again with new words for them', async () => {
+    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: true, picturePrompt: null });
+
+    await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, picturePrompt: ' on a wooden table ' });
+
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ aiImages: [''], images: [], picturePrompt: 'on a wooden table' });
     expect(makeListingPictures).toHaveBeenCalledWith(ID);
   });
 
@@ -473,7 +482,7 @@ describe('updateAdminListingPhotos', () => {
 
   describe('type tabs', () => {
     beforeEach(() => {
-      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: [''], usesAi: true });
+      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: [''], usesAi: true, picturePrompt: null });
     });
 
     it('saves only the type when the photos stay, so no second picture run starts', async () => {
@@ -491,7 +500,7 @@ describe('updateAdminListingPhotos', () => {
     });
 
     it('brings the AI pictures made before back when leaving the event', async () => {
-      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: false });
+      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: false, picturePrompt: null });
 
       await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'PRODUCT' });
 

@@ -48,6 +48,7 @@ const WANTED = {
   rawText: 'Busco una tabla de surf de 7 pies, hasta 150€',
   title: null,
   type: 'WANTED',
+  picturePrompt: null,
   textMode: 'ai',
   createdByAdmin: true,
   price: null,
@@ -73,7 +74,7 @@ describe('processSubmission without a photo', () => {
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', null);
     expect(enhancePhoto).not.toHaveBeenCalled();
     expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
     expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
@@ -86,7 +87,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' }, 'WANTED', null);
   });
 
   it('gives the listing the town the AI read, asking only among the live places', async () => {
@@ -179,8 +180,18 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
-    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', null);
     expect(sendForReview).toHaveBeenCalled();
+  });
+
+  it("draws the picture with the admin's own words for it", async () => {
+    const withWish = { ...WANTED, picturePrompt: 'en una playa al atardecer' };
+    db.findUnique.mockResolvedValueOnce(withWish).mockResolvedValue({ ...withWish, title: 'Busco tabla de surf', images: ['https://x.ufs.sh/f/made.jpg'] });
+    db.update.mockResolvedValue({ ...withWish, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED', 'en una playa al atardecer');
   });
 });
 
@@ -212,7 +223,7 @@ describe('processSubmission with a service video', () => {
     expect(fetchImage).toHaveBeenCalledWith(PHOTO);
     expect(enhancePhoto).toHaveBeenCalledTimes(1);
     expect(db.updateMany).toHaveBeenCalledWith({
-      where: { id: 'sub-1', rawImages: { equals: [VIDEO, PHOTO] }, images: { isEmpty: true } },
+      where: { id: 'sub-1', rawImages: { equals: [VIDEO, PHOTO] }, picturePrompt: null, images: { isEmpty: true } },
       data: { images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: ['', 'https://x.ufs.sh/f/made.jpg'], lastError: null },
     });
   });
@@ -338,7 +349,7 @@ describe('pictures already there (card 293)', () => {
 
     await makeListingPictures('sub-1');
 
-    expect(db.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'sub-1', rawImages: { equals: [PHOTO] }, images: { isEmpty: true } } }));
+    expect(db.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'sub-1', rawImages: { equals: [PHOTO] }, picturePrompt: null, images: { isEmpty: true } } }));
   });
 });
 
@@ -370,7 +381,7 @@ describe('makeListingPictures after the admin changed the photos', () => {
 
     await makeListingPictures('sub-1');
 
-    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] }, images: { isEmpty: true } });
+    expect(db.updateMany.mock.calls[0][0].where).toEqual({ id: 'sub-1', rawImages: { equals: [KEPT, ADDED] }, picturePrompt: null, images: { isEmpty: true } });
     expect(db.findUnique).toHaveBeenCalledTimes(1);
     expect(db.update).not.toHaveBeenCalled();
   });

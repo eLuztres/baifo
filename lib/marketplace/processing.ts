@@ -38,7 +38,7 @@ const isUploadRunAlive = (submission: FoundSubmission) =>
 /** Every photo becomes a clean shop picture (in parallel, so several cost no extra waiting); videos stay as they are, after the pictures.
     known: AI pictures already made, next to their originals like aiImages; those photos aren't sent to the AI again.
     False when the admin changed the photos meanwhile: the run for the new ones saves theirs. */
-async function makeShopPictures(submissionId: string, originals: string[], type: ListingType, firstPhoto?: Buffer, known: string[] = []) {
+async function makeShopPictures(submissionId: string, originals: string[], type: ListingType, wish: string | null, firstPhoto?: Buffer, known: string[] = []) {
   const photos = photosOf(originals);
   const sources = photos.length > 0 ? photos : stillsOf(originals);
   const enhanced = await Promise.all(
@@ -46,12 +46,12 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
       const madeBefore = known[originals.indexOf(url)];
       if (madeBefore) return madeBefore;
       const photo = index === 0 && firstPhoto ? firstPhoto : await fetchImage(url);
-      return uploadImage(await enhancePhoto(photo, type), `listing-${submissionId}-${index}`);
+      return uploadImage(await enhancePhoto(photo, type, wish), `listing-${submissionId}-${index}`);
     })
   );
-  // Only into a listing still without pictures, from the photos it still has: another run (upload, description, retry) may have finished first, and its pictures stay.
+  // Only into a listing still without pictures, from the photos and wish it still has: another run (upload, description, retry) may have finished first, and its pictures stay.
   const { count } = await prisma.submission.updateMany({
-    where: { id: submissionId, rawImages: { equals: originals }, images: { isEmpty: true } },
+    where: { id: submissionId, rawImages: { equals: originals }, picturePrompt: wish, images: { isEmpty: true } },
     // The AI pictures go first in use; aiImages keeps each one next to its original, so the admin can switch back.
     data: {
       images: [...enhanced, ...photos.slice(MAX_ENHANCED_PHOTOS), ...videosOf(originals)],
@@ -63,8 +63,8 @@ async function makeShopPictures(submissionId: string, originals: string[], type:
 }
 
 /** No photo at all: the AI makes one picture from the written listing, the cover before any video. It has no original, so nothing to switch back to. */
-async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, videos: string[]) {
-  const picture = await uploadImage(await createPicture(text, type), `listing-${submissionId}-0`);
+async function makeTextPicture(submissionId: string, text: { title: string; description: string }, type: ListingType, wish: string | null, videos: string[]) {
+  const picture = await uploadImage(await createPicture(text, type, wish), `listing-${submissionId}-0`);
   await prisma.submission.updateMany({ where: { id: submissionId, images: { isEmpty: true } }, data: { images: [picture, ...videos], lastError: null } });
 }
 
@@ -147,12 +147,12 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
 /** The shop pictures: from the photos (or video stills), else drawn from the listing's words. */
 async function makePictures(submission: FoundSubmission, firstPhoto: Buffer | null) {
   if (submission.images.length > 0 || isUploadRunAlive(submission)) return;
-  if (hasPictureSource(submission.rawImages)) return makeShopPictures(submission.id, submission.rawImages, submission.type, firstPhoto ?? undefined);
+  if (hasPictureSource(submission.rawImages)) return makeShopPictures(submission.id, submission.rawImages, submission.type, submission.picturePrompt, firstPhoto ?? undefined);
   // The AI's text once it is there (a retry), else the seller's own words, so the picture needn't wait for the text.
   const words = submission.title
     ? { title: submission.title, description: submission.description ?? '' }
     : { title: submission.originalTitle ?? '', description: submission.rawText };
-  return makeTextPicture(submission.id, words, submission.type, videosOf(submission.rawImages));
+  return makeTextPicture(submission.id, words, submission.type, submission.picturePrompt, videosOf(submission.rawImages));
 }
 
 /** Text and pictures are there: the videos cleaned up, then off to review. */
@@ -176,7 +176,7 @@ export async function makeListingPictures(submissionId: string) {
     if (submission.rawImages.length === 0) throw new Error('No photo to work with');
     // Only videos without a still: the picture is drawn from the description, once it comes.
     if (!hasPictureSource(submission.rawImages)) return;
-    if (!(await makeShopPictures(submissionId, submission.rawImages, submission.type, undefined, submission.aiImages))) return;
+    if (!(await makeShopPictures(submissionId, submission.rawImages, submission.type, submission.picturePrompt, undefined, submission.aiImages))) return;
     const pictured = (await findSubmission(submissionId))!;
     if (pictured.status === 'PROCESSING' && pictured.title) await finishSubmission(pictured);
   } catch (error) {

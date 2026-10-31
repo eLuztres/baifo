@@ -117,6 +117,8 @@ describe('ListingEditor type switch', () => {
     await switchTo(texts.type_WANTED);
     expect(screen.getByLabelText(texts.budgetTo)).toBeInTheDocument();
     expect(screen.queryByLabelText(texts.eventStartsLabel)).not.toBeInTheDocument();
+    // A wanted ad has no condition.
+    expect(screen.queryByLabelText(texts.conditionLabel)).not.toBeInTheDocument();
 
     await switchTo(texts.type_SERVICE);
     expect(screen.getByLabelText(texts.serviceTypeLabel)).toBeInTheDocument();
