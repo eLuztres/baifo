@@ -22,7 +22,7 @@ import {
   ReserveButton,
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
-import { BRAND } from '@/lib/brand';
+import { absoluteUrl, BRAND } from '@/lib/brand';
 import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
@@ -52,10 +52,21 @@ export async function generateMetadata(props: ProductPageProps) {
   const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
   if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
   const { name, description } = localizeProduct(product, locale);
+  const cover = coverPicture(product.images);
   return {
     title: t(product.type === 'SERVICE' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
     description: metaDescription(description) || undefined,
     alternates: await pageAlternates(`/product/${slug}`),
+    // A shared link shows the listing's own photo; openGraph replaces the layout's whole block, so it repeats the rest.
+    ...(cover && {
+      openGraph: {
+        siteName: BRAND.name,
+        title: name,
+        description: metaDescription(description) || undefined,
+        locale,
+        images: [absoluteUrl(cover, SERVER_URL)],
+      },
+    }),
   };
 }
 
