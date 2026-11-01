@@ -9,6 +9,9 @@ const NOINDEX_HEADERS = process.env.PREVIEW_PASSWORD ? [{ key: 'X-Robots-Tag', v
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Share tags always in <head>: a phone's share sheet builds the WhatsApp preview with a browser user agent,
+  // and Next.js would stream the metadata into the body for those, so the preview fell back to the icon.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [{ source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] }];
   },
