@@ -9,10 +9,12 @@ interface ScrollTextProps {
   /** Read out for the arrow, e.g. "More". */
   moreLabel: string;
   className?: string;
+  /** The box around the text, e.g. to let it take the room left in its card. */
+  boxClassName?: string;
 }
 
 /** A text that scrolls inside its box; while more is below, a fade and an arrow say so (phones hide scrollbars). */
-export default function ScrollText({ children, moreLabel, className }: ScrollTextProps) {
+export default function ScrollText({ children, moreLabel, className, boxClassName }: ScrollTextProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [hasMore, setHasMore] = useState(false);
 
@@ -33,7 +35,7 @@ export default function ScrollText({ children, moreLabel, className }: ScrollTex
   const scrollOn = () => ref.current?.scrollBy({ top: ref.current.clientHeight * 0.8, behavior: 'smooth' });
 
   return (
-    <div className='relative flex min-h-0 flex-col'>
+    <div className={cn('relative flex min-h-0 flex-col', boxClassName)}>
       <p
         ref={ref}
         className={cn(

@@ -26,3 +26,24 @@
 :global(body):has(.view) [data-admin-add] {
   display: none;
 }
+
+/* Phones turn the listing in two steps, like the home page: the photo, then the details filling the whole screen.
+   The header slides away on the way down, so the details get the full height. */
+@media (max-width: 639px) {
+  :global(html):has(.view) {
+    scroll-snap-type: y mandatory;
+  }
+
+  /* Its margin keeps the header in view at the first stop. */
+  .photo {
+    scroll-snap-align: start;
+    scroll-margin-top: 4rem;
+  }
+
+  .details {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    height: calc(100svh - 1rem);
+    padding-top: 0.5rem;
+  }
+}

@@ -160,7 +160,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       {/* Phones stack photo and details; a long description scrolls inside its card. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}
-        <div className='relative max-sm:-mx-4 max-sm:-mt-8 sm:min-h-[50%] sm:flex-1 lg:min-h-0'>
+        <div className={cn(styles.photo, 'relative max-sm:-mx-4 max-sm:-mt-8 sm:min-h-[50%] sm:flex-1 lg:min-h-0')}>
           <Link
             href={feedHref}
             aria-label={t('BACK_TO_SHOP')}
@@ -176,8 +176,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           />
         </div>
 
-        <div className='flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5'>
-          <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
+        <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5')}>
+          <div className='relative flex min-h-0 flex-col max-sm:flex-1 gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
             {/* A thin gold light along the top edge, like the rim of a jewellery box. */}
             <span
               aria-hidden='true'
@@ -218,7 +218,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             )}
             {description && (
-              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 max-sm:max-h-36 text-foreground/85 sm:text-base sm:leading-7'>
+              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} boxClassName='max-sm:flex-1' className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
                 {description}
               </ScrollText>
             )}
