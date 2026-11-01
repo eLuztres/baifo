@@ -1,18 +1,19 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import Link from 'next/link';
 import { CalendarDays, Eye, MapPin } from 'lucide-react';
 import ProductImages from '@/components/shared/product/product-images';
 import ProductPrice from '@/components/shared/product/product-price';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { Button } from '@/components/ui/button';
-import { BRAND } from '@/lib/brand';
+import { absoluteUrl, BRAND } from '@/lib/brand';
 import { localize } from '@/lib/category';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PAYMENT_ON_PAGE, LISTING_PRICES, UNPAID_LISTING_HOURS, type ListingPlan } from '@/lib/marketplace/config';
 import { fill, publishPageTexts } from '@/lib/marketplace/page-texts';
-import { getListingPreview } from '@/lib/marketplace/preview';
-import { conditionKey } from '@/lib/constants';
+import { getListingPreview as loadListingPreview } from '@/lib/marketplace/preview';
+import { conditionKey, SERVER_URL } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
@@ -24,13 +25,34 @@ import PublishForm from './publish-form';
 import SellerNameForm from './seller-name-form';
 import SellerPhoneForm from './seller-phone-form';
 import ShopTeaser from './shop-teaser';
+import { coverPicture } from '@/lib/video';
+import { metaDescription } from '@/lib/seo';
 
 // A private link: no search engine should list or follow it.
-export const metadata: Metadata = { title: 'Baifo', robots: { index: false, follow: false } };
-
 interface PublishPageProps {
   params: Promise<{ token: string }>;
   searchParams: Promise<{ pagado?: string }>;
+}
+
+// generateMetadata and the page need the same row: one query per request.
+const getListingPreview = cache(loadListingPreview);
+
+/** The link sent to the person shows their listing's title and photo in WhatsApp, not the shop's logo. */
+export async function generateMetadata({ params }: PublishPageProps): Promise<Metadata> {
+  const [{ token }, { locale }] = await Promise.all([params, getT()]);
+  const robots = { index: false, follow: false };
+  const listing = await getListingPreview(token);
+  if (!listing) return { title: BRAND.name, robots };
+  const translation = (listing.translations as ListingTranslations)[locale];
+  const title = translation?.title || listing.title || BRAND.name;
+  const description = metaDescription(translation?.description || listing.description || '') || undefined;
+  const cover = coverPicture(listing.images.length > 0 ? listing.images : listing.rawImages);
+  return {
+    title,
+    description,
+    robots,
+    openGraph: { siteName: BRAND.name, title, description, locale, ...(cover && { images: [absoluteUrl(cover, SERVER_URL)] }) },
+  };
 }
 
 const CHIP_CLASS = 'inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm';
