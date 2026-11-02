@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import { getProductContact } from '@/lib/actions/product.actions';
+import { whatsappAppUrl, whatsappLinkUrl, whatsappWebUrl } from '@/lib/whatsapp-chat';
 import { renderWithI18n, t } from '../utils/render-with-i18n';
 
 jest.mock('@/lib/actions/product.actions', () => ({ getProductContact: jest.fn() }));
@@ -23,18 +24,38 @@ describe('ContactSellerButton', () => {
     jest.spyOn(window, 'open').mockReturnValue(chat as unknown as Window);
   });
 
-  it('goes straight to WhatsApp with the message written, asking for nothing', async () => {
+  it('on a computer goes straight to WhatsApp Web with the message written, asking for nothing', async () => {
     mockContact.mockResolvedValue({ whatsappUrl: 'https://wa.me/34600111222' });
     renderButton();
 
     await tapContact();
 
     expect(mockContact).toHaveBeenCalledWith(PRODUCT_ID);
-    await waitFor(() => expect(chat.location.href).toMatch(/^https:\/\/wa\.me\/34600111222\?text=/));
+    await waitFor(() => expect(chat.location.href).toMatch(/^https:\/\/web\.whatsapp\.com\/send\?phone=34600111222&text=/));
     expect(new URL(chat.location.href).searchParams.get('text')).toBe(MESSAGE);
     expect(chat.opener).toBeNull();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('on a phone opens no tab, so none is left behind', async () => {
+    const userAgent = jest.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {}); // jsdom can't navigate
+    mockContact.mockResolvedValue({ whatsappUrl: 'https://wa.me/34600111222' });
+    renderButton();
+
+    await tapContact();
+
+    await waitFor(() => expect(mockContact).toHaveBeenCalledWith(PRODUCT_ID));
+    expect(window.open).not.toHaveBeenCalled();
+    userAgent.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it('builds a chat link for the app, for WhatsApp Web and for anywhere else', () => {
+    expect(whatsappAppUrl('34600', 'Hola y\nadiós')).toBe('whatsapp://send?phone=34600&text=Hola%20y%0Aadi%C3%B3s');
+    expect(whatsappWebUrl('34600', 'Hola')).toBe('https://web.whatsapp.com/send?phone=34600&text=Hola');
+    expect(whatsappLinkUrl('34600', 'Hola')).toBe('https://wa.me/34600?text=Hola');
   });
 
   it('says so when the seller has no number anymore', async () => {

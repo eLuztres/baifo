@@ -6,6 +6,7 @@ import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { getProductContact } from '@/lib/actions/product.actions';
 import { cn } from '@/lib/utils';
+import { whatsappAppUrl, whatsappLinkUrl, whatsappWebUrl } from '@/lib/whatsapp-chat';
 
 interface ContactSellerButtonProps {
   productId: string;
@@ -16,6 +17,20 @@ interface ContactSellerButtonProps {
 
 type ContactProblem = 'unavailable' | 'tooMany';
 
+const WHATSAPP_TAB = 'baifo-whatsapp';
+// Long enough for the phone to ask "Open in WhatsApp?" and switch to the app.
+const APP_WAIT_MS = 2500;
+
+const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+/** Straight to the app, with no tab left behind; the page still showing after the wait means there is no app. */
+function openInApp(phone: string, message: string) {
+  window.location.href = whatsappAppUrl(phone, message);
+  setTimeout(() => {
+    if (document.visibilityState === 'visible') window.location.href = whatsappLinkUrl(phone, message);
+  }, APP_WAIT_MS);
+}
+
 /** Classifieds: one tap opens WhatsApp with the message written.
     The seller's number is fetched on the tap, so it isn't in the page for scrapers. */
 export default function ContactSellerButton({ productId, message, className }: ContactSellerButtonProps) {
@@ -24,8 +39,9 @@ export default function ContactSellerButton({ productId, message, className }: C
   const [isPending, startTransition] = useTransition();
 
   const openChat = () => {
-    // Opened inside the tap: after waiting for the number, browsers would block it as a pop-up.
-    const chat = window.open('', '_blank');
+    const isOnPhone = isPhone();
+    // Computers: opened inside the tap, because after waiting for the number browsers would block it as a pop-up.
+    const chat = isOnPhone ? null : window.open('', WHATSAPP_TAB);
     startTransition(async () => {
       const contact = await getProductContact(productId);
       if (!contact || 'isRateLimited' in contact) {
@@ -34,13 +50,18 @@ export default function ContactSellerButton({ productId, message, className }: C
         return;
       }
       setProblem(null);
-      const chatUrl = `${contact.whatsappUrl}?text=${encodeURIComponent(message)}`;
-      if (!chat) {
-        window.location.href = chatUrl;
-        return;
+      const phone = contact.whatsappUrl.split('/').pop() ?? '';
+      if (isOnPhone) {
+        openInApp(phone, message);
+      } else if (chat) {
+        // A tab reused from an earlier contact is on WhatsApp's site, which doesn't allow setting this.
+        try {
+          chat.opener = null;
+        } catch {}
+        chat.location.href = whatsappWebUrl(phone, message);
+      } else {
+        window.location.href = whatsappLinkUrl(phone, message);
       }
-      chat.opener = null;
-      chat.location.href = chatUrl;
     });
   };
 

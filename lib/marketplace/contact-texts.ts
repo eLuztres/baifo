@@ -17,10 +17,13 @@ interface ContactListing {
   translations: unknown;
 }
 
+// Empty lines to start typing in. WhatsApp cuts them off a message's end, so an invisible character holds them.
+const ROOM_TO_TYPE = '\n\n\n\u200B';
+
 /** The WhatsApp message to a listing's seller, always in the shop's language so it stays simple; only the text goes to the browser, not the number. */
 export function getContactMessage(listing: ContactListing): string {
   const locale = getShopLocale();
   const t = getTranslator(locale);
   const { name } = localizeProduct(listing, locale);
-  return t(MESSAGE_KEYS[listing.type], { hello: t('CONTACT_MESSAGE_HELLO'), name, shop: APP_NAME, url: `${SERVER_URL}/product/${listing.slug}` });
+  return t(MESSAGE_KEYS[listing.type], { hello: t('CONTACT_MESSAGE_HELLO'), name, shop: APP_NAME, url: `${SERVER_URL}/product/${listing.slug}` }).trimEnd() + ROOM_TO_TYPE;
 }

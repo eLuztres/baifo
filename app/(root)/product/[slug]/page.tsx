@@ -72,7 +72,7 @@ export async function generateMetadata(props: ProductPageProps) {
         title: name,
         description: metaDescription(description) || undefined,
         locale,
-        images: [absoluteUrl(cover, SERVER_URL)],
+        images: [{ url: absoluteUrl(`/product/${slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     }),
   };

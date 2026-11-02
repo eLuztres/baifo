@@ -14,14 +14,14 @@ const CLOCK_URL = `${SERVER_URL}/product/reloj-antiguo`;
 
 describe('getContactMessage', () => {
   it("always writes in the shop's language, with the listing's name and its link", () => {
-    expect(getContactMessage(CLOCK)).toBe(`¡Hola!\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n`);
+    expect(getContactMessage(CLOCK)).toBe(`¡Hola!\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n\n\u200B`);
   });
 
   it('fits the wording to a wanted ad, a service and an event', () => {
     const t = getTranslator('es');
 
     for (const type of ['WANTED', 'SERVICE', 'EVENT'] as const) {
-      expect(getContactMessage({ ...CLOCK, type })).toBe(t(`CONTACT_MESSAGE_${type}`, { hello: '¡Hola!', name: 'Reloj antiguo', shop: APP_NAME, url: CLOCK_URL }));
+      expect(getContactMessage({ ...CLOCK, type })).toBe(t(`CONTACT_MESSAGE_${type}`, { hello: '¡Hola!', name: 'Reloj antiguo', shop: APP_NAME, url: CLOCK_URL }).trimEnd() + '\n\n\n\u200B');
     }
     expect(getContactMessage({ ...CLOCK, type: 'WANTED' })).toContain('Tengo lo que buscas');
   });
