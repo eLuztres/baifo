@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import AdminListingWorkspace from '@/components/marketplace/admin-listing-workspace';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
@@ -24,9 +22,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
 
   return (
     <div className='space-y-3 sm:space-y-4'>
-      <Link href='/admin/listings' className='inline-flex items-center gap-1 text-xs text-muted-foreground sm:text-sm hover:text-foreground'>
-        <ChevronLeft className='size-4' /> {texts.back}
-      </Link>
+      {/* No "back" link, like when creating: the admin menu on top leads to the listings. */}
       <AdminListingWorkspace id={id} locale={locale} texts={texts} />
     </div>
   );

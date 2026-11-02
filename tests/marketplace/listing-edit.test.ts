@@ -292,7 +292,7 @@ describe('describeAdminListing', () => {
   it('starts the text right away, while the AI still makes the pictures', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).success).toBe(true);
 
     expect(db.submission.updateMany.mock.calls[0][0].where).toEqual({ id: ID, status: 'COLLECTING', createdByAdmin: true });
     expect(processSubmission).toHaveBeenCalledWith(ID);
@@ -304,7 +304,7 @@ describe('describeAdminListing', () => {
     db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', title: 'Bici', rawImages: ['https://utfs.io/f/bike.jpg'], images: [], lastError: 'overloaded' });
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).success).toBe(true);
 
     expect(db.submission.updateMany.mock.calls[0][0].data.lastError).toBeNull();
     expect(processSubmission).toHaveBeenCalledWith(ID);
@@ -314,15 +314,15 @@ describe('describeAdminListing', () => {
   it('needs a picture: a video without a still is none, a picture made from words is one', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
     db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', title: 'Bici', rawImages: ['https://x.ufs.sh/f/clip#video'], images: [] });
-    expect(await describeAdminListing(ID, { notes: 'Ana, clases de surf', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).toEqual({ success: false, message: 'Sube o crea al menos una foto' });
+    expect(await describeAdminListing(ID, { notes: 'Ana, clases de surf', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).toEqual({ success: false, message: 'Sube o crea al menos una foto' });
 
     db.submission.findUnique.mockResolvedValue({ type: 'SERVICE', title: 'Bici', rawImages: [], images: ['https://x.ufs.sh/f/made.jpg'] });
-    expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).success).toBe(true);
   });
 
   it('makes it a wanted ad with Busco and an offer with Ofrezco, and never changes an event', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
-    const send = (isWanted: boolean) => describeAdminListing(ID, { notes: 'Tabla', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', isWanted });
+    const send = (isWanted: boolean) => describeAdminListing(ID, { notes: 'Tabla', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', isWanted });
     const typeSent = () => db.submission.updateMany.mock.calls.at(-2)[0].data.type;
 
     await send(true);
@@ -331,34 +331,38 @@ describe('describeAdminListing', () => {
     expect(typeSent()).toBe('PRODUCT');
     db.submission.findUnique.mockResolvedValue({ type: 'EVENT', title: 'Bici', rawImages: ['https://utfs.io/f/poster.jpg'], images: [] });
     expect(await send(true)).toEqual({ success: false, message: 'Elige la fecha y la hora del evento' });
-    await describeAdminListing(ID, { notes: 'Bachata', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', isWanted: true, startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
+    await describeAdminListing(ID, { notes: 'Bachata', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', isWanted: true, startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
     expect(typeSent()).toBeUndefined();
     expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ startsAt: new Date('2026-11-26T19:00:00Z'), address: 'Plaza de Lajares' });
   });
 
-  it('publishes only a description made in every language, with the texts and the price as the admin left them', async () => {
+  it('publishes only with a title and description in every language, as the admin left them, and with a category', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
-    db.submission.findUnique.mockResolvedValueOnce({ type: 'PRODUCT', title: null, rawImages: ['https://utfs.io/f/bike.jpg'], images: [] });
-    expect(await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).toEqual({ success: false, message: 'Crea primero la descripción' });
+    const missingEnglish = { es: DRAFT.es };
+    expect(await describeAdminListing(ID, { notes: '', hasConsent: true, texts: missingEnglish, category: 'motor', sellerPhone: '612345678' })).toEqual({
+      success: false,
+      message: 'Faltan el título y la descripción en algún idioma',
+    });
+    expect(await describeAdminListing(ID, { notes: '', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).toEqual({ success: false, message: 'Elige una de las categorías' });
 
-    await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', priceMode: 'FROM', price: '20' });
+    // Their own texts, without "Cuéntamelo todo".
+    await describeAdminListing(ID, { notes: '', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', priceMode: 'FROM', price: '20' });
     expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({
       title: 'Bici de paseo',
       description: 'Bici cómoda.',
       translations: { en: { title: 'City bike', description: 'Comfy bike.' } },
       priceMode: 'FROM',
       price: '20.00',
+      category: 'motor',
     });
-    await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', category: 'motor' });
-    expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ category: 'motor' });
-    expect(await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', category: 'muebles' })).toEqual({ success: false, message: 'Elige una de las categorías' });
-    await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', priceMode: 'FIXED', price: '' });
+    await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', priceMode: 'FIXED', price: '' });
     expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ priceMode: 'NONE', price: null });
+    expect(await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', category: 'muebles' })).toEqual({ success: false, message: 'Elige una de las categorías' });
   });
 
   it('goes online by itself unless Oculto, and keeps the last day chosen through its end', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
-    const send = (extra: object) => describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', ...extra });
+    const send = (extra: object) => describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', ...extra });
 
     await send({ onlineUntil: '2099-12-24' });
     expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ autoPublish: true, expiresAt: new Date('2099-12-24T23:59:00Z') });
@@ -370,11 +374,10 @@ describe('describeAdminListing', () => {
   it('needs the description and the person\'s OK to show their number, and records that OK', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect(await describeAdminListing(ID, { notes: '', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).toEqual({ success: false, message: 'Escribe la descripción' });
     expect(await describeAdminListing(ID, { notes: 'Bici', sellerPhone: '612345678' })).toEqual({ success: false, message: 'Falta su permiso para mostrar su número' });
     expect(db.submission.updateMany).not.toHaveBeenCalled();
 
-    expect((await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).success).toBe(true);
     expect(db.submission.updateMany.mock.calls[1][0]).toMatchObject({ where: { id: ID, consentAt: null }, data: { hasContactConsent: true, consentSource: 'admin-confirmed' } });
   });
 
@@ -386,7 +389,7 @@ describe('describeAdminListing', () => {
   });
 
   it('refuses a number without digits, and never falls back to the house seller', async () => {
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: ' - ' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: ' - ' })).success).toBe(false);
     expect(db.seller.upsert).not.toHaveBeenCalled();
     expect(db.submission.updateMany).not.toHaveBeenCalled();
   });
@@ -394,15 +397,15 @@ describe('describeAdminListing', () => {
   it('gives the listing to the person whose WhatsApp was entered', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612 345 678' })).success).toBe(true);
+    expect((await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612 345 678' })).success).toBe(true);
     expect(db.seller.upsert.mock.calls[0][0].where).toEqual({ waId: '34612345678' });
   });
 
   it('reads a number written with 0034 like one with +34', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '0034 612 345 678' });
-    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '+34 612 345 678' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '0034 612 345 678' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '+34 612 345 678' });
 
     expect(db.seller.upsert.mock.calls.map((call) => call[0].where)).toEqual([{ waId: '34612345678' }, { waId: '34612345678' }]);
   });
@@ -410,15 +413,15 @@ describe('describeAdminListing', () => {
   it('saves the person\'s name, and keeps the one they have when none is given', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', sellerName: ' Lula ' });
-    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', sellerName: '' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', sellerName: ' Lula ' });
+    await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', sellerName: '' });
 
     expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ update: { name: 'Lula' }, create: { waId: '34612345678', name: 'Lula' } });
     expect(db.seller.upsert.mock.calls[1][0].update).toEqual({ name: undefined });
   });
 
   it('refuses a name with a phone number in it', async () => {
-    const result = await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', sellerName: 'Lula 612345678' });
+    const result = await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678', sellerName: 'Lula 612345678' });
 
     expect(result).toEqual({ success: false, message: 'Revisa el nombre' });
     expect(db.seller.upsert).not.toHaveBeenCalled();
@@ -427,8 +430,8 @@ describe('describeAdminListing', () => {
   it('keeps the admin\'s title for "only fix mistakes", but not for the AI\'s text', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'corrected', originalTitle: 'Mi bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' });
-    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'ai', originalTitle: 'Mi bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' });
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'corrected', originalTitle: 'Mi bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' });
+    await describeAdminListing(ID, { notes: 'bici comoda', textMode: 'ai', originalTitle: 'Mi bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' });
 
     const sent = db.submission.updateMany.mock.calls.map(([call]) => call.data).filter((data) => 'textMode' in data);
     expect(sent[0]).toMatchObject({ textMode: 'corrected', originalTitle: 'Mi bici' });
@@ -438,7 +441,7 @@ describe('describeAdminListing', () => {
   it('starts the text only once, when the description was already sent', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
-    expect((await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(false);
+    expect((await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, category: 'motor', sellerPhone: '612345678' })).success).toBe(false);
     expect(processSubmission).not.toHaveBeenCalled();
   });
 });
@@ -452,7 +455,7 @@ describe('draftAdminListingText', () => {
     const result = await draftAdminListingText(ID, { notes: 'bici 80 euros', textMode: 'corrected', isWanted: false, priceMode: 'FIXED', price: '' });
 
     expect(result).toMatchObject({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.', short: 'Bici' }, en: { title: 'Bike' } }, priceMode: 'FIXED', price: '80' });
-    expect(db.submission.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: ID, status: 'COLLECTING', createdByAdmin: true }, data: { textMode: 'corrected', type: 'PRODUCT', price: null, priceMode: null } });
+    expect(db.submission.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: ID, status: { not: 'PROCESSING' } }, data: { textMode: 'corrected', type: 'PRODUCT', price: null, priceMode: null } });
 
     await draftAdminListingText(ID, { notes: 'busco bici', textMode: 'ai', isWanted: true, priceMode: 'UP_TO', price: '90' });
     expect(db.submission.updateMany.mock.calls[1][0].data).toMatchObject({ type: 'WANTED', price: '90.00', priceMode: 'UP_TO' });
@@ -471,12 +474,15 @@ describe('a new listing as a draft', () => {
     expect((await startAdminListing('CAR')).success).toBe(false);
   });
 
-  it('saves the picture tabs as they are, only uploaded pictures and only while collecting', async () => {
+  it('saves the picture tabs as they are, only uploaded pictures and never while the AI writes, a live product too', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
     const tabs = { images: ['https://x.ufs.sh/f/ai.jpg', 'https://x.ufs.sh/f/made.jpg'], rawImages: ['https://utfs.io/f/raw.jpg'], aiImages: ['https://x.ufs.sh/f/ai.jpg'] };
 
     expect((await saveAdminListingPictures(ID, tabs)).success).toBe(true);
-    expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: 'COLLECTING', createdByAdmin: true }, data: { ...tabs, lastError: null } });
+    expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: { not: 'PROCESSING' } }, data: { ...tabs, lastError: null } });
+    db.submission.findUnique.mockResolvedValueOnce({ productId: 'product-1' });
+    await saveAdminListingPictures(ID, tabs);
+    expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'product-1' }, data: { images: tabs.images } });
     expect((await saveAdminListingPictures(ID, { ...tabs, images: ['https://evil.example/x.jpg'] })).success).toBe(false);
     expect((await saveAdminListingPictures(ID, { ...tabs, aiImages: [] })).success).toBe(false);
   });

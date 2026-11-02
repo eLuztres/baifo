@@ -7,7 +7,6 @@ import { getAdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { getListingCategories } from '@/lib/marketplace/catalog';
 import { LISTING_DAYS } from '@/lib/marketplace/config';
-import { getShopPlaces } from '@/lib/places';
 
 interface AdminListingWorkspaceProps {
   id: string;
@@ -19,7 +18,7 @@ interface AdminListingWorkspaceProps {
 export default async function AdminListingWorkspace({ id, locale, texts }: AdminListingWorkspaceProps) {
   const listing = await getAdminListing(id);
   if (!listing) notFound();
-  const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(locale)]);
+  const categories = await getListingCategories();
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });
   // The shop language's text is the listing's own; every other language gets its own title and description.
@@ -29,14 +28,10 @@ export default async function AdminListingWorkspace({ id, locale, texts }: Admin
 
   return (
     <>
-      {/* The editor shows the title as the big editable headline. */}
-      <h1 className='sr-only'>{listing.title ?? texts.newListing}</h1>
       <ListingWorkspace
         initial={listing}
         // "Parent · Child": a subcategory's own name may not say where it belongs.
         categories={categories.map(({ slug, name, parent }) => ({ slug, name: [parent?.name, name].filter(Boolean).map((text) => localize(text, locale)).join(' · ') }))}
-        // Live places, and the listing's own even when it isn't live (anymore).
-        places={places.filter((place) => place.isLive || place.id === listing.placeId).map(({ id, name }) => ({ id, name }))}
         languages={languages}
         shopLanguage={languageOf(shopLocale)}
         listingDays={LISTING_DAYS}

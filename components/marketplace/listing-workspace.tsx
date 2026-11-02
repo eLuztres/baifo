@@ -8,7 +8,7 @@ import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.acti
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
-import ListingEditor, { type CategoryOption, type EditorLanguage, type PlaceOption } from './listing-editor';
+import type { CategoryOption, EditorLanguage } from './editor-types';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
 import PublishedView from './published-view';
@@ -16,7 +16,6 @@ import PublishedView from './published-view';
 interface ListingWorkspaceProps {
   initial: AdminListing;
   categories: CategoryOption[];
-  places: PlaceOption[];
   /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
   /** The shop's own language, the first tab in the editor. */
@@ -29,7 +28,7 @@ interface ListingWorkspaceProps {
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -95,68 +94,41 @@ export default function ListingWorkspace({ initial, categories, places, language
     );
   }
 
-  const canSwitchSteps = listing.createdByAdmin && listing.status === 'COLLECTING';
-  // The listing to check and publish comes after the last step.
-  const steps = listing.createdByAdmin && listing.status !== 'LIVE' && (
-    <ListingSteps current={2} texts={texts} />
-  );
-
-  // While the AI writes, the description stays in view with what it is doing.
-  if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING' || isGoingLive) {
-    const shownStep = canSwitchSteps ? step : 1;
-    return (
-      <div className='space-y-3 sm:space-y-4'>
-        {/* Anuncio or Evento was chosen under "Crear"; the editor can still switch it afterwards. */}
-        {listing.createdByAdmin && <h1 className='text-center font-display text-2xl sm:text-3xl'>{listing.type === 'EVENT' ? texts.newEvent : texts.newListing}</h1>}
-        {listing.createdByAdmin && <ListingSteps current={shownStep} texts={texts} onSelect={canSwitchSteps ? setStep : undefined} />}
-        {/* Only hidden on the other steps, so a picture still being made arrives and nothing written is lost. */}
-        {canSwitchSteps && (
-          <div hidden={shownStep !== 0} className='space-y-4'>
-            <PictureTabs
-              listingId={listing.id}
-              initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages }}
-              texts={texts}
-              onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
-            />
-          </div>
-        )}
-        {/* The description and contact steps, and on every step the button that finishes the setup. */}
-        <DescriptionStep
-          listing={listing}
-          languages={languages}
-          shopLanguage={shopLanguage}
-          categories={categories}
-          listingDays={listingDays}
-          texts={texts}
-          onSent={(next, forPerson = false) => {
-            setListing(next);
-            setIsForPerson(forPerson);
-            setIsJustPublished(true);
-          }}
-          step={shownStep}
-          onStep={setStep}
-        />
-      </div>
-    );
-  }
-
-  const handlePublished = () => {
-    setIsJustPublished(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
+  // Free to move between the steps, for a new listing and an existing one alike; not while the AI writes it.
+  const canSwitchSteps = listing.status !== 'PROCESSING';
+  const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING' && !isGoingLive;
+  const shownStep = canSwitchSteps ? step : 1;
+  const title = isEditing ? (listing.type === 'EVENT' ? texts.editEvent : texts.editListing) : listing.type === 'EVENT' ? texts.newEvent : texts.newListing;
   return (
     <div className='space-y-3 sm:space-y-4'>
-      <ListingEditor
-        key={listing.status}
+      <h1 className='text-center font-display text-2xl sm:text-3xl'>{title}</h1>
+      <ListingSteps current={shownStep} texts={texts} onSelect={canSwitchSteps ? setStep : undefined} />
+      {/* Only hidden on the other steps, so a picture still being made arrives and nothing written is lost. */}
+      {canSwitchSteps && (
+        <div hidden={shownStep !== 0} className='space-y-4'>
+          <PictureTabs
+            listingId={listing.id}
+            initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages }}
+            texts={texts}
+            onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
+          />
+        </div>
+      )}
+      {/* The description, contact and "Más" steps, and on every step the button that finishes or saves. */}
+      <DescriptionStep
         listing={listing}
-        categories={categories}
-        places={places}
         languages={languages}
         shopLanguage={shopLanguage}
+        categories={categories}
+        listingDays={listingDays}
         texts={texts}
-        onPublished={handlePublished}
-        steps={steps}
+        onSent={(next, forPerson = false) => {
+          setListing(next);
+          setIsForPerson(forPerson);
+          setIsJustPublished(true);
+        }}
+        step={shownStep}
+        onStep={setStep}
       />
     </div>
   );

@@ -3,14 +3,34 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Loader2, MessageCircle, RotateCw, Send, Sparkles } from 'lucide-react';
+import { CalendarPlus, Check, Loader2, MessageCircle, RotateCw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { describeAdminListing, draftAdminListingText, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { useRouter } from 'next/navigation';
+import DeleteDialog from '@/components/shared/delete-dialog';
+import {
+  deleteAdminListing,
+  translateListingText,
+  describeAdminListing,
+  draftAdminListingText,
+  enableAdminListing,
+  extendAdminListing,
+  getAdminListing,
+  hideAdminListing,
+  markAdminListingSold,
+  publishAdminListing,
+  retryAdminListing,
+  setAdminListingEnd,
+  updateAdminListing,
+  type AdminListing,
+} from '@/lib/marketplace/admin.actions';
+import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
+import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
+import PaymentPanel, { type AdminPayMethod } from './payment-panel';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
@@ -18,8 +38,9 @@ import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constant
 import { cn } from '@/lib/utils';
 import { pictureOf } from '@/lib/video';
 import { toShopDateTime } from '@/lib/event-date';
+import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
-import type { CategoryOption, EditorLanguage } from './listing-editor';
+import type { CategoryOption, EditorLanguage } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -45,7 +66,7 @@ interface DescriptionStepProps {
 export default function DescriptionStep({ listing, languages, shopLanguage, categories, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   // "Enviar por WhatsApp" belongs to the contact: only there, and not while the AI writes.
-  const isSendShown = isOnContact && listing.status !== 'PROCESSING';
+  const isSendShown = isOnContact && listing.status === 'COLLECTING';
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
   // "Ofrezco | Busco" on an Anuncio: the admin says it, the AI doesn't guess it.
@@ -56,8 +77,11 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     if (!price) setPriceMode(wanted ? 'UP_TO' : 'FIXED');
   };
   const [notes, setNotes] = useState(listing.rawText);
-  const [sellerPhone, setSellerPhone] = useState('');
-  const [sellerName, setSellerName] = useState('');
+  // An existing listing (online, hidden, sold, waiting …) is edited with the same steps and saved, not published.
+  const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING';
+  const router = useRouter();
+  const [sellerPhone, setSellerPhone] = useState(isEditing && /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '');
+  const [sellerName, setSellerName] = useState(isEditing ? (listing.sellerName ?? '') : '');
   const notesInput = useRef<HTMLTextAreaElement>(null);
   // How "Crear descripción" treats the words: improved, corrected (the default) or only translated; always into every language.
   const [textMode, setTextMode] = useState<TextMode>(listing.title ? (listing.textMode as TextMode) : 'corrected');
@@ -69,7 +93,10 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       ? { ...(listing.translations as ListingTexts), [shopLanguage.id]: { title: listing.title, description: listing.description ?? '', short: listing.shortTitle ?? '' } }
       : {}
   );
-  const hasDraft = Boolean(draft[shopLanguage.id]?.title);
+  // Complete: a title and a description in every shop language, the AI's or the admin's own.
+  const isTextsComplete = (made: ListingTexts) => textLanguages.every(({ id }) => Boolean(made[id]?.title.trim() && made[id]?.description.trim()));
+  const ownText = draft[shopLanguage.id];
+  const hasOwnText = Boolean(ownText?.title.trim() && ownText?.description.trim());
   const [isDrafting, setIsDrafting] = useState(false);
   const [textLanguage, setTextLanguage] = useState(shopLanguage.id);
   const shownText = draft[textLanguage] ?? { title: '', description: '' };
@@ -84,7 +111,15 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   const [category, setCategory] = useState(listing.category ?? '');
   // "Más": Online goes live on Publicar, Oculto keeps it ready; an Anuncio shows until the end of "Online hasta".
   const [isHidden, setIsHidden] = useState(false);
-  const [onlineUntil, setOnlineUntil] = useState(() => toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10));
+  const [onlineUntil, setOnlineUntil] = useState(() =>
+    toShopDateTime(isEditing && listing.expiresAt ? new Date(listing.expiresAt) : new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10)
+  );
+  // Editing: the state it should end in, from the ones that fit where it is now.
+  const [targetStatus, setTargetStatus] = useState(listing.status);
+  const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
+  const statusName = (status: AdminListing['status']) =>
+    status === 'SOLD' && listing.type !== 'PRODUCT' ? texts[`status_SOLD_${listing.type}`] : texts[`status_${status}`];
+  const willBeLive = isEditing ? targetStatus === 'LIVE' : !isHidden;
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
   const errorBox = useRef<HTMLDivElement>(null);
@@ -98,7 +133,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // A video without a still doesn't count as a picture.
   const hasNoPhoto = listing.images.length === 0 && !listing.rawImages.some(pictureOf);
   // The person's OK to show their number, confirmed by the admin who creates the listing with them.
-  const [hasConsent, setHasConsent] = useState(false);
+  const [hasConsent, setHasConsent] = useState(isEditing && Boolean(listing.consentAt));
   // A "missing" message is old news as soon as something is filled in.
   useEffect(() => setError(''), [notes, sellerPhone, hasConsent, startsAt]);
   const hasText = Boolean(listing.title);
@@ -122,19 +157,38 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       setError('');
       // Buyers always write to the person's own WhatsApp ("through the Corral" is parked, #131).
       // Everything missing in one message, and the first step it is on opens.
-      const missing = [
-        hasNoPhoto && { step: 0, text: texts.missingPicture },
-        !notes.trim() && { step: 1, text: texts.missingText },
-        Boolean(notes.trim()) && !hasDraft && { step: 1, text: texts.missingDraft },
-        isEvent && !startsAt && { step: 1, text: texts.missingDate },
-        hasDraft && !category && { step: 1, text: texts.missingCategory },
-        !sellerPhone.trim() && { step: 2, text: texts.missingPhone },
-        !hasConsent && { step: 2, text: texts.missingConsent },
-      ].filter((item) => item !== false);
-      if (missing.length > 0) {
-        onStep(missing[0].step);
-        return setError(fillText(texts.missingToPublish, { items: new Intl.ListFormat(locale).format(missing.map((item) => item.text)) }));
-      }
+      // An existing listing has its texts already; the shop's own listings may stay without a WhatsApp (and so need no OK).
+      const isHouseListing = isEditing && !/^\d+$/.test(listing.seller.waId);
+      const hasPhone = Boolean(sellerPhone.trim());
+      // Texts: every language set, or the AI fills what's missing from the shop language or from "Cuéntamelo todo".
+      const hasSomeText = hasOwnText || Boolean(notes.trim());
+      const tellMissing = (missing: ({ step: number; text: string } | false)[]) => {
+        const shown = missing.filter((item) => item !== false);
+        if (shown.length === 0) return false;
+        onStep(shown[0].step);
+        const items = new Intl.ListFormat(locale).format(shown.map((item) => item.text));
+        setError(fillText(isEditing ? texts.missingToSave : texts.missingToPublish, { items }));
+        return true;
+      };
+      if (
+        tellMissing([
+          hasNoPhoto && { step: 0, text: texts.missingPicture },
+          !isTextsComplete(draft) && !hasSomeText && { step: 1, text: texts.missingText },
+          !hasPhone && !isHouseListing && { step: 2, text: texts.missingPhone },
+          !hasConsent && willBeLive && (hasPhone || !isHouseListing) && { step: 2, text: texts.missingConsent },
+        ])
+      )
+        return;
+      const filled = await fillMissingTexts();
+      if (!filled) return;
+      if (
+        tellMissing([
+          isEvent && !filled.startsAt && { step: 1, text: texts.missingDate },
+          !filled.category && { step: 1, text: texts.missingCategory },
+        ])
+      )
+        return;
+      if (isEditing) return saveChanges(filled);
       const result = await describeAdminListing(listing.id, {
         notes,
         sellerPhone: sellerPhone.trim(),
@@ -142,11 +196,11 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         textMode,
         hasConsent,
         ...(!isEvent && { isWanted }),
-        texts: draft,
+        texts: filled.texts,
         priceMode: isEvent ? 'FIXED' : priceMode,
-        price,
-        ...(isEvent && { startsAt, address }),
-        category,
+        price: filled.price,
+        ...(isEvent && { startsAt: filled.startsAt, address }),
+        category: filled.category,
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
@@ -155,19 +209,90 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
     });
 
+  // An existing listing: its texts, price and contact, then the state and the end chosen in "Más"; then its page.
+  const saveChanges = async (filled: FilledTexts) => {
+    const { [shopLanguage.id]: own, ...others } = filled.texts;
+    const saved = await updateAdminListing(listing.id, {
+      ...(!isEvent && { type: isWanted ? 'WANTED' : listing.type === 'WANTED' ? 'PRODUCT' : listing.type }),
+      title: own?.title ?? '',
+      shortTitle: own?.short ?? '',
+      description: own?.description ?? '',
+      translations: Object.fromEntries(
+        Object.entries(others as ListingTexts).map(([id, text]) => [id, { title: text?.title ?? '', description: text?.description ?? '', short: text?.short }])
+      ),
+      category: filled.category,
+      priceMode: isEvent ? 'FIXED' : priceMode,
+      price: isEvent ? filled.price || '0' : filled.price,
+      images: listing.images.length > 0 ? listing.images : listing.rawImages,
+      startsAt: isEvent ? filled.startsAt : '',
+      address: isEvent ? address : '',
+      textMode,
+      sellerPhone: sellerPhone.trim(),
+      hasConsent: hasConsent && !listing.consentAt,
+    });
+    if (!saved.success) return setError(saved.message);
+    const from = listing.status;
+    const change =
+      targetStatus === from
+        ? null
+        : targetStatus === 'HIDDEN'
+          ? hideAdminListing
+          : targetStatus === 'SOLD'
+            ? markAdminListingSold
+            : from === 'IN_REVIEW' || from === 'AWAITING_PAYMENT'
+              ? (id: string) => publishAdminListing(id, 'normal')
+              : enableAdminListing;
+    const changed = change && (await change(listing.id));
+    if (changed && !changed.success) return setError(changed.message);
+    if (targetStatus === 'LIVE' && !isEvent) await setAdminListingEnd(listing.id, onlineUntil);
+    const next = await getAdminListing(listing.id);
+    router.push(next?.status === 'LIVE' && next.product?.slug ? `/product/${next.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`);
+  };
+
+  // "Prolongar 1 mes": an online listing's end moves a month on, saved at once.
+  const extendMonth = () =>
+    startTransition(async () => {
+      const result = await extendAdminListing(listing.id);
+      if (!result.success) return setError(result.message);
+      const next = await getAdminListing(listing.id);
+      if (next?.expiresAt) setOnlineUntil(toShopDateTime(new Date(next.expiresAt)).slice(0, 10));
+    });
+
+  // No save first: the listing is gone anyway; the dialog shows how it went.
+  const deleteAndLeave = async (id: string) => {
+    const result = await deleteAdminListing(id);
+    if (result.success) router.push('/admin/listings');
+    return result;
+  };
+
+  // A person paid by Bizum or in cash: it goes online, and the admin sees it there.
+  const markPaid = (method: AdminPayMethod, amount: string) =>
+    startTransition(async () => {
+      const result = await markListingPaid(listing.id, { plan: (listing.plan as 'normal' | 'big') ?? 'normal', method, amount });
+      if (!result.success) return setError(result.message);
+      const next = await getAdminListing(listing.id);
+      if (next?.product?.slug) router.push(`/product/${next.product.slug}`);
+    });
+
   // The AI writes the texts now, in every language; a price the AI read fills an empty one.
-  const createDescription = async () => {
+  const createDescription = async (): Promise<FilledTexts | null> => {
     if (!notes.trim()) {
       notesInput.current?.focus();
-      return setError(fillText(texts.missingToPublish, { items: texts.missingText }));
+      setError(fillText(texts.missingToPublish, { items: texts.missingText }));
+      return null;
     }
     setError('');
     setIsDrafting(true);
     const result = await draftAdminListingText(listing.id, { notes, textMode, ...(!isEvent && { isWanted }), priceMode, price, ...(isEvent && { startsAt, address }) });
     setIsDrafting(false);
-    if (!('texts' in result && result.texts)) return setError(result.message);
+    if (!('texts' in result && result.texts)) {
+      setError(result.message);
+      return null;
+    }
     setDraft(result.texts);
     setTextLanguage(shopLanguage.id);
+    // What the AI read only fills what the admin left empty.
+    const filledPrice = price || (result.price && result.priceMode ? result.price : '');
     if (!price && result.price && result.priceMode) {
       setPrice(result.price);
       setPriceMode(result.priceMode);
@@ -175,6 +300,27 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     if (!startsAt && result.startsAt) setStartsAt(result.startsAt);
     if (!address && result.address) setAddress(result.address);
     if (!category && result.category) setCategory(result.category);
+    return { texts: result.texts, category: category || result.category || '', startsAt: startsAt || result.startsAt || '', price: filledPrice };
+  };
+
+  // Publicar / Guardar: every language as it is when complete; else the AI translates the missing ones from the shop
+  // language, or writes them all from "Cuéntamelo todo" when there is no text yet.
+  const fillMissingTexts = async (): Promise<FilledTexts | null> => {
+    const current = { texts: draft, category, startsAt, price };
+    if (isTextsComplete(draft)) return current;
+    if (!hasOwnText) return createDescription();
+    setIsDrafting(true);
+    const result = await translateListingText(listing.id, { title: ownText!.title, description: ownText!.description, short: ownText!.short });
+    setIsDrafting(false);
+    if (!('translations' in result && result.translations)) {
+      setError(result.message);
+      return null;
+    }
+    const translated = result.translations as ListingTexts;
+    const isSet = (locale: Locale) => Boolean(draft[locale]?.title.trim() && draft[locale]?.description.trim());
+    const texts = { ...draft, ...Object.fromEntries(languages.filter(({ id }) => !isSet(id) && translated[id]).map(({ id }) => [id, translated[id]])) };
+    setDraft(texts);
+    return { ...current, texts };
   };
 
   const retry = () =>
@@ -333,7 +479,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         {/* Always there, so nothing jumps: usable once "Crear descripción" wrote the texts. */}
         <fieldset
           hidden={step !== 1}
-          disabled={!hasDraft || isDrafting || isWriting}
+          disabled={isDrafting || isWriting}
           className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'
         >
           <div role='tablist' aria-label={texts.languagesLabel} className='flex flex-wrap gap-1'>
@@ -395,7 +541,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               <Input
                 id='seller-name'
                 value={sellerName}
-                readOnly={isWriting}
+                // The name the person chose stays theirs: it is set when creating, never changed here.
+                readOnly={isWriting || isEditing}
                 maxLength={30}
                 onChange={(event) => setSellerName(event.target.value)}
                 placeholder={texts.sellerNamePlaceholder}
@@ -416,10 +563,20 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               <Label htmlFor='listing-state' className='px-1 text-xs text-muted-foreground'>
                 {texts.statusLabel}
               </Label>
-              <select id='listing-state' value={isHidden ? 'HIDDEN' : 'LIVE'} disabled={isWriting} onChange={(event) => setIsHidden(event.target.value === 'HIDDEN')} className={SELECT_CLASS}>
-                <option value='LIVE'>{texts.status_LIVE}</option>
-                <option value='HIDDEN'>{texts.status_HIDDEN}</option>
-              </select>
+              {isEditing ? (
+                <select id='listing-state' value={targetStatus} onChange={(event) => setTargetStatus(event.target.value as AdminListing['status'])} className={SELECT_CLASS}>
+                  {statusChoices.map((status) => (
+                    <option key={status} value={status}>
+                      {statusName(status)}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select id='listing-state' value={isHidden ? 'HIDDEN' : 'LIVE'} disabled={isWriting} onChange={(event) => setIsHidden(event.target.value === 'HIDDEN')} className={SELECT_CLASS}>
+                  <option value='LIVE'>{texts.status_LIVE}</option>
+                  <option value='HIDDEN'>{texts.status_HIDDEN}</option>
+                </select>
+              )}
             </div>
             <div className='space-y-1'>
               <Label htmlFor='online-until' className='px-1 text-xs text-muted-foreground'>
@@ -434,8 +591,37 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               ) : (
                 <Input id='online-until' type='date' value={onlineUntil} readOnly={isWriting} onChange={(event) => setOnlineUntil(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
               )}
+              {isEditing && listing.status === 'LIVE' && !isEvent && (
+                <Button variant='outline' className='mt-2 w-full rounded-full' disabled={isPending} onClick={extendMonth}>
+                  <CalendarPlus /> {texts.extendMonth}
+                </Button>
+              )}
             </div>
           </div>
+        )}
+
+        {step === 3 && isEditing && listing.status === 'AWAITING_PAYMENT' && (
+          <PaymentPanel
+            listing={listing}
+            plan={(listing.plan as 'normal' | 'big') ?? 'normal'}
+            hasPersonNumber={/^\d+$/.test(listing.seller.waId)}
+            texts={texts}
+            isPending={isPending}
+            onConsent={() => startTransition(async () => void (await recordWhatsAppConsent(listing.id)))}
+            onPaid={markPaid}
+          />
+        )}
+        {step === 3 && isEditing && (
+          <DeleteDialog
+            id={listing.id}
+            action={deleteAndLeave}
+            description={texts.deleteHint}
+            trigger={
+              <Button variant='outline' className='w-full rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive'>
+                <Trash2 /> {texts.deleteListing}
+              </Button>
+            }
+          />
         )}
 
         {(error || listing.lastError) && (
@@ -460,9 +646,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
             </Button>
           )}
           <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', !isSendShown && 'sm:col-span-2')} disabled={isPending || isWriting} onClick={() => send()}>
-            {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Send />}{' '}
+              {isPending || isWriting ? <Loader2 className='animate-spin' /> : isEditing ? <Save /> : <Send />}{' '}
             {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-            {isWriting ? texts.status_PROCESSING : isHidden ? texts.saveHidden : texts.publishButton}
+            {isWriting ? texts.status_PROCESSING : isEditing ? texts.saveChanges : isHidden ? texts.saveHidden : texts.publishButton}
           </Button>
         </div>
       </div>
@@ -477,6 +663,14 @@ interface WorkStateProps {
 
 // Native selects: on a phone they open the system's own picker.
 const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+/** The texts in every language and what goes with them, after the AI filled what was missing. */
+interface FilledTexts {
+  texts: ListingTexts;
+  category: string;
+  startsAt: string;
+  price: string;
+}
 
 /** One part of the AI's work (pictures or text): busy, or done. */
 function WorkState({ isDone, label }: WorkStateProps) {

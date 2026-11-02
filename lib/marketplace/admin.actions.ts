@@ -65,11 +65,18 @@ export async function saveAdminListingPictures(id: string, input: z.input<typeof
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = picturesSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
+  // A new listing or one being edited, never while the AI writes it; an online one shows the new pictures at once.
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true },
+    where: { id, status: { not: 'PROCESSING' } },
     data: { ...parsed.data, lastError: null },
   });
-  return count > 0 ? { success: true, message: 'Fotos guardadas' } : { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  const { productId } = (await prisma.submission.findUnique({ where: { id }, select: { productId: true } })) ?? {};
+  if (productId && parsed.data.images.length > 0) {
+    await prisma.product.update({ where: { id: productId }, data: { images: parsed.data.images } });
+    revalidatePath('/');
+  }
+  return { success: true, message: 'Fotos guardadas' };
 }
 
 // An amount as typed ("12", "12,50"); empty: none.
@@ -114,7 +121,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
   // A price the admin set wins; without one the AI reads it from the words.
   const hasOwnPrice = priceMode === 'NONE' || Boolean(price);
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true },
+    where: { id, status: { not: 'PROCESSING' } },
     data: {
       rawText: notes,
       textMode,
@@ -192,17 +199,18 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
   if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su número' };
-  if (!notes) return { success: false, message: 'Escribe la descripción' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true, title: true } });
-  // Published only in every language: "Crear descripción" has to have run.
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true } });
+  // Published only with a title and description in every shop language: the AI's or the admin's own.
   const shopLocale = getShopLocale();
   const own = texts?.[shopLocale];
-  if (!listing?.title || !own) return { success: false, message: 'Crea primero la descripción' };
+  if (!listing || !own || listingLocales().some((locale) => !texts?.[locale]?.title || !texts[locale]?.description)) {
+    return { success: false, message: 'Faltan el título y la descripción en algún idioma' };
+  }
   // An event goes online only with its date (a database rule too).
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const category = categorySlug ? findCategory(await getListingCategories(), categorySlug) : undefined;
-  if (categorySlug !== undefined && !category) return { success: false, message: 'Elige una de las categorías' };
+  if (!category) return { success: false, message: 'Elige una de las categorías' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
   if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
@@ -228,7 +236,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
-      ...(category && { category: category.slug }),
+      category: category.slug,
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
@@ -301,6 +309,8 @@ const editSchema = z.object({
     .optional(),
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
+  // The admin confirms the person's OK to show their number.
+  hasConsent: z.boolean().optional(),
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
@@ -328,11 +338,12 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, hasConsent, ...fields } = parsed.data;
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
   // A person's listing keeps a number to write to; the house's own may stay without one.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
   if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
+  if (hasConsent) await recordConsent({ id }, 'admin-confirmed');
   // "No price" keeps no amount; an older service's kind of offer stays only while it is a service, an event's date and address only on an event.
   const edit = {
     ...fields,
@@ -564,6 +575,23 @@ export async function extendAdminListing(id: string) {
   ]);
   revalidatePath('/');
   return { success: true, message: `Online hasta el ${expiresAt.toLocaleDateString('es-ES', { timeZone: 'Atlantic/Canary' })}` };
+}
+
+/** "Online hasta" changed in the editor: the listing (and its product, when online) ends with that whole day. */
+export async function setAdminListingEnd(id: string, onlineUntil: string) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !/^\d{4}-\d{2}-\d{2}$/.test(onlineUntil)) return NOT_ALLOWED;
+  const expiresAt = fromShopDateTime(`${onlineUntil}T23:59`);
+  if (!expiresAt || expiresAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { productId: true, type: true } });
+  if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
+  // An event ends with its own day.
+  if (submission.type === 'EVENT') return { success: true, message: '' };
+  await prisma.$transaction([
+    prisma.submission.update({ where: { id }, data: { expiresAt, remindedAt: null } }),
+    ...(submission.productId ? [prisma.product.update({ where: { id: submission.productId }, data: { expiresAt } })] : []),
+  ]);
+  revalidatePath('/');
+  return { success: true, message: '' };
 }
 
 /** An event the admin marks as sold ends as cancelled, as when the person calls it off on their page. */

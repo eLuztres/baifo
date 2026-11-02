@@ -2,10 +2,27 @@
 import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DescriptionStep from '@/components/marketplace/description-step';
-import { describeAdminListing, draftAdminListingText, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { describeAdminListing, draftAdminListingText, translateListingText, extendAdminListing, getAdminListing, hideAdminListing, updateAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
-jest.mock('@/lib/marketplace/admin.actions', () => ({ describeAdminListing: jest.fn(), draftAdminListingText: jest.fn(), retryAdminListing: jest.fn() }));
+jest.mock('@/lib/marketplace/admin.actions', () => ({
+  describeAdminListing: jest.fn(),
+  draftAdminListingText: jest.fn(),
+  translateListingText: jest.fn(),
+  retryAdminListing: jest.fn(),
+  updateAdminListing: jest.fn(),
+  hideAdminListing: jest.fn(),
+  markAdminListingSold: jest.fn(),
+  publishAdminListing: jest.fn(),
+  enableAdminListing: jest.fn(),
+  extendAdminListing: jest.fn(),
+  setAdminListingEnd: jest.fn(),
+  getAdminListing: jest.fn(),
+  deleteAdminListing: jest.fn(),
+}));
+jest.mock('@/lib/marketplace/payment.actions', () => ({ markListingPaid: jest.fn(), recordWhatsAppConsent: jest.fn() }));
+const mockPush = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush, refresh: jest.fn() }) }));
 jest.mock('@/components/marketplace/address-input', () => ({
   __esModule: true,
   default: ({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) => <input id={id} value={value} onChange={(event) => onChange(event.target.value)} />,
@@ -93,16 +110,46 @@ describe('DescriptionStep', () => {
     expect(mockDescribe).not.toHaveBeenCalled();
   });
 
-  it('keeps the languages greyed out until "Crear descripción" made them, and refuses to publish before', async () => {
+  it('needs some text: the description, or the texts written in the language box', async () => {
     renderStep();
 
-    expect(screen.getByLabelText('titleLabel')).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Bici, 80€' } });
+    expect(screen.getByLabelText('titleLabel')).toBeEnabled();
     fillContact();
     fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingDraft');
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingText');
     expect(mockDescribe).not.toHaveBeenCalled();
+  });
+
+  it('publishes the admin\'s own texts, letting the AI translate only the languages left empty', async () => {
+    (translateListingText as jest.Mock).mockResolvedValue({ success: true, translations: { en: { title: 'My bike', description: 'Comfy bike.' } } });
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep({ ...listing, category: 'hogar' } as AdminListing);
+
+    fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'Mi bici' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici cómoda.' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
+
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalled());
+    expect(translateListingText).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Mi bici', description: 'Bici cómoda.' }));
+    expect(mockDraft).not.toHaveBeenCalled();
+    expect(mockDescribe).toHaveBeenCalledWith(
+      'abc',
+      expect.objectContaining({ texts: { es: { title: 'Mi bici', description: 'Bici cómoda.' }, en: { title: 'My bike', description: 'Comfy bike.' } }, category: 'hogar' })
+    );
+  });
+
+  it('lets the AI write every language from "Cuéntamelo todo" when the language box is empty', async () => {
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy.' } }, category: 'hogar' });
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep();
+
+    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'bici 80 euros' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
+
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ category: 'hogar', texts: expect.objectContaining({ en: { title: 'Bike', description: 'Comfy.' } }) })));
   });
 
   it('corrects by default, writes every language on "Crear descripción", and takes the price the AI read', async () => {
@@ -122,7 +169,7 @@ describe('DescriptionStep', () => {
   });
 
   it('takes the category the AI chose into an empty field, lets the admin change it, and publishes it', async () => {
-    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Pedal', description: 'Pedal de loops.' } }, category: 'musica' });
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Pedal', description: 'Pedal de loops.' }, en: { title: 'Pedal', description: 'Loop pedal.' } }, category: 'musica' });
     mockDescribe.mockResolvedValue({ success: true });
     renderStep();
 
@@ -185,7 +232,15 @@ describe('DescriptionStep', () => {
   });
 
   it('fills an empty date and place from "Crear descripción", and needs the date to publish an event', async () => {
-    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bachata', description: 'Bachata gratis.' } }, priceMode: 'FIXED', price: '0', startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
+    mockDraft.mockResolvedValue({
+      success: true,
+      texts: { es: { title: 'Bachata', description: 'Bachata gratis.' }, en: { title: 'Bachata', description: 'Free bachata.' } },
+      category: 'musica',
+      priceMode: 'FIXED',
+      price: '0',
+      startsAt: '2026-11-26T19:00',
+      address: 'Plaza de Lajares',
+    });
     mockDescribe.mockResolvedValue({ success: true });
     renderStep({ ...listing, type: 'EVENT' } as AdminListing);
 
@@ -275,5 +330,56 @@ describe('DescriptionStep', () => {
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
 
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('');
+  });
+
+  describe('an existing listing', () => {
+    const live = {
+      ...drafted,
+      status: 'LIVE',
+      consentAt: new Date('2026-10-01'),
+      sellerName: 'Lula',
+      seller: { waId: '34612345678', name: 'Lula' },
+      expiresAt: new Date('2026-12-24T23:00:00Z'),
+      product: { slug: 'bici-de-paseo-abc123' },
+    } as unknown as AdminListing;
+
+    it('is saved, not published, with the states that fit, "Prolongar 1 mes" and delete in Más', () => {
+      renderStep(live);
+
+      expect(screen.getByRole('button', { name: /saveChanges/ })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+      expect([...screen.getByLabelText('statusLabel').querySelectorAll('option')].map((option) => option.value)).toEqual(['LIVE', 'HIDDEN', 'SOLD']);
+      expect(screen.getByLabelText('onlineUntilLabel')).toHaveValue('2026-12-24');
+      expect(screen.getByRole('button', { name: /extendMonth/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /deleteListing/ })).toBeInTheDocument();
+    });
+
+    it('moves the end a month on with "Prolongar 1 mes"', async () => {
+      (extendAdminListing as jest.Mock).mockResolvedValue({ success: true, message: '' });
+      (getAdminListing as jest.Mock).mockResolvedValue({ ...live, expiresAt: new Date('2027-01-24T23:00:00Z') });
+      renderStep(live);
+
+      fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+      fireEvent.click(screen.getByRole('button', { name: /extendMonth/ }));
+
+      await waitFor(() => expect(screen.getByLabelText('onlineUntilLabel')).toHaveValue('2027-01-24'));
+    });
+
+    it('saves the edits, hides it when Oculto is chosen, and shows it as visitors would', async () => {
+      (updateAdminListing as jest.Mock).mockResolvedValue({ success: true, message: 'Guardado' });
+      (hideAdminListing as jest.Mock).mockResolvedValue({ success: true, message: '' });
+      (getAdminListing as jest.Mock).mockResolvedValue({ ...live, status: 'HIDDEN' });
+      renderStep(live);
+
+      fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'Bici azul' } });
+      fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+      fireEvent.change(screen.getByLabelText('statusLabel'), { target: { value: 'HIDDEN' } });
+      fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/product/vista-abc'));
+      expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici azul', category: 'hogar', sellerPhone: '+34612345678' }));
+      expect(updateAdminListing).not.toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: expect.anything() }));
+      expect(hideAdminListing).toHaveBeenCalledWith('abc');
+    });
   });
 });
