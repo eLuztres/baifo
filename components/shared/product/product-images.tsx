@@ -27,9 +27,11 @@ interface ProductImagesProps {
   stamp?: string;
   /** Set when the AI made the pictures: what their small mark says. */
   aiLabel?: string;
+  /** Phones: sizes the swiped photos, e.g. smaller on short screens. */
+  phoneClassName?: string;
 }
 
-const ProductImages = ({ images, alt, stamp, aiLabel }: ProductImagesProps) => {
+const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName }: ProductImagesProps) => {
   const [current, setCurrent] = useState(0);
   const [phoneIndex, setPhoneIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -80,7 +82,7 @@ const ProductImages = ({ images, alt, stamp, aiLabel }: ProductImagesProps) => {
   return (
     <>
       {/* Phones: the photos full width, one at a time, swiped sideways; a tap opens one full screen. */}
-      <div className='relative aspect-[3/4] sm:hidden'>
+      <div className={cn('relative aspect-[3/4] sm:hidden', phoneClassName)}>
         <div
           className='flex size-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none]'
           onScroll={(event) => setPhoneIndex(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}

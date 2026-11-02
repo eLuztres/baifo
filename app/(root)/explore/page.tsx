@@ -10,6 +10,7 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
+import CategoryRail, { type RailCategory } from '@/components/shared/category-rail';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
@@ -136,6 +137,16 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     })),
   ];
 
+  // Phones search without typing: every category as a picture, "Todo" first.
+  const railCategories: RailCategory[] = filledCategories.map((category) => ({
+    href: `/explore?c=${category.slug}`,
+    label: localize(category.name, locale),
+    image: category.image ?? inCategory(category.id)[0]?.image,
+    count: inCategory(category.id).length,
+    isActive: focus?.id === category.id,
+  }));
+  const railAll: RailCategory = { href: '/explore', label: t('EXPLORE_ALL'), count: listings.length, isActive: !results };
+
   const renderCard = (listing: Listing) => {
     // A listing's product is created when it goes live, so createdAt is its publish time.
     // An event isn't "new" nor old: its card leads with its day and time instead (the "new" counts still include it).
@@ -172,11 +183,18 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
-    <div className='mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:space-y-8 sm:py-8' data-feed-page=''>
+    <div className='mx-auto w-full max-w-7xl space-y-6 px-4 py-6 max-sm:pt-0 sm:space-y-8 sm:py-8' data-feed-page=''>
       <h1 className='sr-only'>{filterLabel || t('EXPLORE_TITLE')}</h1>
       <div className='sr-only'>{pullUpHome}</div>
 
-      {listings.length > 0 && <ExploreSearch key={filterLabel} listings={searchListings} choices={searchChoices} value={filterLabel} isFiltered={Boolean(results)} />}
+      {listings.length > 0 && (
+        <>
+          <CategoryRail all={railAll} categories={railCategories} />
+          <div className='max-sm:hidden'>
+            <ExploreSearch key={filterLabel} listings={searchListings} choices={searchChoices} value={filterLabel} isFiltered={Boolean(results)} />
+          </div>
+        </>
+      )}
 
       {listings.length === 0 && allListings.length > 0 ? (
         <div className='space-y-4 py-16 text-center'>

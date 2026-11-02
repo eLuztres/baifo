@@ -21,21 +21,15 @@ export const priceLabelKey = (type: ListingType, priceMode?: PriceMode | null) =
 
 const labelOf = (t: Translator, key?: ReturnType<typeof priceLabelKey>) => (key ? t(key) : undefined);
 
-/** What a feed card says around a listing's price: "from" or "up to" before it, "Free" for a free event, and its badge:
-    the event's date, the service's kind of offer, or "Busco". */
+/** What a feed card says around a listing's price: "from" or "up to" before it, "Free" for a free event, and its
+    badges: "Evento" with the event's date, or "Busco". Services get none: they read like any other offer. */
 export function feedCardLabels(listing: LabelledListing, t: Translator, locale: string, now = new Date()) {
-  const serviceKey = serviceTypeKey(listing.serviceType);
+  const isEvent = listing.type === 'EVENT';
   return {
     priceLabel: listing.price ? labelOf(t, priceLabelKey(listing.type, listing.priceMode)) : undefined,
-    priceText: listing.type === 'EVENT' && SHOWS_PRICES && !listing.price ? t('EVENT_FREE') : undefined,
-    badge:
-      listing.type === 'EVENT' && listing.startsAt
-        ? // Short, so it fits a 320px phone's small tile.
-          formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'), now, undefined, 'short')
-        : listing.type === 'SERVICE'
-          ? t(serviceKey ?? 'EXPLORE_SERVICE_BADGE')
-          : listing.type === 'WANTED'
-            ? t('EXPLORE_WANTED_BADGE')
-            : undefined,
+    priceText: isEvent && SHOWS_PRICES && !listing.price ? t('EVENT_FREE') : undefined,
+    badge: isEvent ? t('EXPLORE_EVENT_BADGE') : listing.type === 'WANTED' ? t('EXPLORE_WANTED_BADGE') : undefined,
+    // Short, so it fits a 320px phone's small tile next to "Evento".
+    dateBadge: isEvent && listing.startsAt ? formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'), now, undefined, 'short') : undefined,
   };
 }

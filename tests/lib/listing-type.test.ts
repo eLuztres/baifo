@@ -41,7 +41,7 @@ describe('feedCardLabels', () => {
   const base = { price: '20.00', priceMode: 'FIXED' as const, serviceType: null, startsAt: null };
 
   it('shows nothing extra for an item for sale', () => {
-    expect(feedCardLabels({ ...base, type: 'PRODUCT' }, t, 'es', now)).toEqual({ priceLabel: undefined, priceText: undefined, badge: undefined });
+    expect(feedCardLabels({ ...base, type: 'PRODUCT' }, t, 'es', now)).toEqual({ priceLabel: undefined, priceText: undefined, badge: undefined, dateBadge: undefined });
   });
 
   it('marks a wanted ad and its "up to" budget', () => {
@@ -58,22 +58,23 @@ describe('feedCardLabels', () => {
     expect(feedCardLabels({ ...base, type: 'SERVICE', priceMode: 'FROM', price: undefined }, t, 'es', now).priceLabel).toBeUndefined();
   });
 
-  it('shows a service\'s kind of offer and its "from" price', () => {
+  it('gives a service its "from" price but no badge', () => {
     expect(feedCardLabels({ ...base, type: 'SERVICE', priceMode: 'FROM', serviceType: 'class' }, t, 'es', now)).toMatchObject({
       priceLabel: t('PRICE_FROM'),
-      badge: t('SERVICE_TYPE_CLASS'),
+      badge: undefined,
     });
   });
 
   it('shows an event\'s day and "free" without an entry price', () => {
     const labels = feedCardLabels({ ...base, type: 'EVENT', price: undefined, startsAt: new Date('2026-11-26T19:00:00Z') }, t, 'es', now);
-    expect(labels.badge).toContain(t('EVENT_TODAY'));
+    expect(labels.badge).toBe(t('EXPLORE_EVENT_BADGE'));
+    expect(labels.dateBadge).toContain(t('EVENT_TODAY'));
     expect(labels.priceText).toBe(t('EVENT_FREE'));
   });
 
   it('gives a later event a short weekday, so its badge fits a small tile', () => {
     const startsAt = new Date('2026-11-27T19:00:00Z');
-    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, t, 'es', now).badge).toBe('Vie 27/11 · 19:00');
-    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, getTranslator('en'), 'en', now).badge).toBe('Fri 27/11 · 19:00');
+    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, t, 'es', now).dateBadge).toBe('Vie 27/11 · 19:00');
+    expect(feedCardLabels({ ...base, type: 'EVENT', startsAt }, getTranslator('en'), 'en', now).dateBadge).toBe('Fri 27/11 · 19:00');
   });
 });

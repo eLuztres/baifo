@@ -1,9 +1,6 @@
-/* From tablets up the product page is one fixed screen: the window never scrolls. Phones scroll a little below the photo.
-   The footer stays on the other pages. */
-@media (min-width: 640px) {
-  :global(html):has(.view) {
-    overflow: hidden;
-  }
+/* The product page is one fixed screen: the window never scrolls. The footer stays on the other pages. */
+:global(html):has(.view) {
+  overflow: hidden;
 }
 
 :global(main):has(.view) + :global(footer) {
@@ -14,7 +11,7 @@
   padding-bottom: 1rem;
 }
 
-/* The screen minus the sticky header (sm:h-20), the space above the page (main's sm:pt-12) and a little below. */
+/* Tablets up: the screen minus the sticky header (sm:h-20), the space above the page (main's sm:pt-12) and a little below. */
 @media (min-width: 640px) {
   .view {
     height: calc(100svh - 9.5rem);
@@ -27,24 +24,15 @@
   display: none;
 }
 
-/* Phones turn the listing in two steps, like the home page: the photo, then the details filling the whole screen.
-   The header slides away on the way down, so the details get the full height. */
+/* Phones: the screen minus the header (h-16) and main's pt-8, which the photo pulls itself up into. */
 @media (max-width: 639px) {
-  :global(html):has(.view) {
-    scroll-snap-type: y mandatory;
+  .view {
+    height: calc(100svh - 6rem);
   }
 
-  /* Its margin keeps the header in view at the first stop; a full screen tall, so the details card doesn't peek in. */
-  .photo {
-    scroll-snap-align: start;
-    scroll-margin-top: 4rem;
-    min-height: calc(100svh - 4rem);
-  }
-
-  .details {
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-    height: calc(100svh - 1rem);
-    padding-top: 0.5rem;
+  /* Full width, but smaller on short screens, so title, price and buttons (about 13rem) still fit below it. */
+  .phonePicture {
+    width: min(100%, calc((100svh - 4rem - 13rem) * 0.75));
+    margin-inline: auto;
   }
 }

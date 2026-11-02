@@ -11,6 +11,7 @@ import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
+import ListingInfoButton from '@/components/shared/product/listing-info-button';
 import AdminEditButton from '@/components/shared/admin-edit-button';
 import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
@@ -132,6 +133,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     categories.find((category) => category.slug === categoryId) ??
     categories.find((category) => ownRing?.categoryIds.includes(category.id));
   const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
+  // Phones put the description in a pop-up beside the contact button; without that row it stays on the page.
+  const hasInfoRow = !isOver && (SHOWCASE_MODE || isService || isEvent);
+  const phoneOnlyOnBig = hasInfoRow && 'max-sm:hidden';
+  const mapHref = product.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`;
 
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
@@ -164,10 +169,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         {t('BACK_TO_SHOP')}
       </Link>
 
-      {/* Phones stack photo and details; a long description scrolls inside its card. */}
+      {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}
-        <div className={cn(styles.photo, 'relative max-sm:-mx-4 max-sm:-mt-8 sm:min-h-[50%] sm:flex-1 lg:min-h-0')}>
+        <div className={cn(styles.photo, 'relative max-sm:-mx-4 max-sm:-mt-8 max-sm:shrink-0 sm:min-h-[50%] sm:flex-1 lg:min-h-0')}>
           <Link
             href={feedHref}
             aria-label={t('BACK_TO_SHOP')}
@@ -186,41 +191,41 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             alt={name}
             stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined}
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
+            phoneClassName={styles.phonePicture}
           />
-          {/* Phones: the first step is only the photo and its title; the details card waits for the next step. */}
-          <p className='px-4 pt-4 font-display text-xl leading-tight tracking-tight sm:hidden'>{name}</p>
         </div>
 
-        <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 max-sm:justify-center lg:justify-center lg:gap-5')}>
-          <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
+        <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 max-sm:flex-1 max-sm:justify-center lg:justify-center lg:gap-5')}>
+          {/* Phones: no card around it, just the text under the photo. */}
+          <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md max-sm:gap-2 max-sm:border-0 max-sm:bg-transparent max-sm:px-1 max-sm:py-0 max-sm:shadow-none max-sm:backdrop-blur-none sm:gap-4 sm:p-7'>
             {/* A thin gold light along the top edge, like the rim of a jewellery box. */}
             <span
               aria-hidden='true'
-              className='absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent'
+              className='absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent max-sm:hidden'
             />
             <div className='flex shrink-0 items-start justify-between gap-2'>
-              <h1 className='text-xl leading-tight sm:text-3xl'>{name}</h1>
+              <h1 className='line-clamp-2 text-xl leading-tight sm:line-clamp-none sm:text-3xl'>{name}</h1>
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
-                <ShareButton title={name} />
+                <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
               </div>
             </div>
             {(condition || serviceKey || isEvent) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
-                {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
-                {serviceKey && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(serviceKey)}</p>}
+                {condition && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(condition)}</p>}
+                {serviceKey && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(serviceKey)}</p>}
                 {isEvent && product.startsAt && (
                   <p className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary'>
                     <CalendarDays className='size-3.5' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
                   </p>
                 )}
-                {isEvent && product.address && (
+                {isEvent && mapHref && (
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`}
+                    href={mapHref}
                     target='_blank'
                     rel='noopener noreferrer'
                     title={t('EVENT_MAP')}
-                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/40'
+                    className={cn('inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/40', phoneOnlyOnBig)}
                   >
                     <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{product.address}</span>
                   </a>
@@ -228,7 +233,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             )}
             {description && (
-              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
+              <ScrollText
+                moreLabel={t('PRODUCT_DESCRIPTION_MORE')}
+                className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'
+                boxClassName={cn(phoneOnlyOnBig)}
+              >
                 {description}
               </ScrollText>
             )}
@@ -244,6 +253,25 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 )}
                 {seller?.name && <p className='shrink-0 truncate text-sm text-muted-foreground'>{t('SELLER_OFFERED_BY', { name: seller.name })}</p>}
                 <div className='flex shrink-0 items-center gap-2'>
+                  <ListingInfoButton title={name} label={t('PRODUCT_DESCRIPTION')} closeLabel={t('CLOSE')} className='sm:hidden'>
+                    {isEvent && product.startsAt && (
+                      <p className='mb-1 flex items-center gap-2 font-medium text-primary'>
+                        <CalendarDays className='size-4 shrink-0' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
+                      </p>
+                    )}
+                    {isEvent && mapHref && (
+                      <a href={mapHref} target='_blank' rel='noopener noreferrer' className='mb-3 flex items-center gap-2 text-primary underline-offset-4 hover:underline'>
+                        <MapPin className='size-4 shrink-0' aria-hidden /> {product.address}
+                      </a>
+                    )}
+                    {(condition || serviceKey) && (
+                      <span className='mb-3 flex flex-wrap gap-2 text-sm'>
+                        {condition && <span className='rounded-full border border-border bg-muted px-3 py-1'>{t(condition)}</span>}
+                        {serviceKey && <span className='rounded-full border border-border bg-muted px-3 py-1'>{t(serviceKey)}</span>}
+                      </span>
+                    )}
+                    {description && <span className='block whitespace-pre-line'>{description}</span>}
+                  </ListingInfoButton>
                   {sellerMessageTexts ? (
                     <ContactSellerButton
                       productId={product.id}
@@ -267,6 +295,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       className='w-full'
                     />
                   )}
+                  <ShareButton title={name} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
                 </div>
               </>
             ) : (

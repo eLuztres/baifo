@@ -5,6 +5,14 @@
   gap: 0.5rem;
 }
 
+/* Phones: the pictures almost edge to edge, like a gallery. */
+@media (max-width: 639px) {
+  .grid {
+    gap: 0.375rem;
+    margin-inline: -0.625rem;
+  }
+}
+
 @media (min-width: 640px) {
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

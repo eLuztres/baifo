@@ -14,8 +14,10 @@ interface FeedCardProps {
   priceLabel?: string;
   /** Shown where the price would be, e.g. "Free" on a free event. */
   priceText?: string;
-  /** One badge on the picture, e.g. the event's date, "Service" or the category. */
+  /** One badge on the picture: "Evento" or "Busco". */
   badge?: string;
+  /** An event's day and time, beside its badge. */
+  dateBadge?: string;
   /** Set on a picture the AI made: what its small mark beside the price says. */
   aiLabel?: string;
   isReserved: boolean;
@@ -27,8 +29,8 @@ interface FeedCardProps {
 }
 
 /** A marketplace card like the admin's listing cards: the photo on top (the next one on hover), and below it the short
-    name, the price and when and where it was listed. */
-export default function FeedCard({ href, name, images, price: rawPrice, priceLabel, priceText, badge, aiLabel, isReserved, reservedLabel, newLabel, listedAgo }: FeedCardProps) {
+    name, the price and when and where it was listed. Phones show only the picture with the name on it. */
+export default function FeedCard({ href, name, images, price: rawPrice, priceLabel, priceText, badge, dateBadge, aiLabel, isReserved, reservedLabel, newLabel, listedAgo }: FeedCardProps) {
   // A wanted ad without a budget or a service without a price is stored as 0: "0 €" says nothing.
   const price = (priceLabel || badge) && Number(rawPrice) === 0 ? undefined : rawPrice;
   const sizes = '(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw';
@@ -37,7 +39,7 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceLab
   return (
     <Link
       href={href}
-      className='group block h-full overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-reduce:transition-none'
+      className='group block h-full overflow-hidden rounded-3xl border border-border bg-card transition max-sm:rounded-2xl max-sm:border-0 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background motion-reduce:transition-none'
     >
       <div className='relative aspect-[3/4] bg-muted'>
         {/* The photo fills its frame, like the admin's listing cards. */}
@@ -47,11 +49,11 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceLab
             <ProductMedia src={images[1]} alt='' fill sizes={sizes} isStill />
           </div>
         )}
-        {(newLabel || badge || isReserved) && (
+        {(newLabel || badge || dateBadge || isReserved) && (
           // Small badges, so two still fit side by side on a 320px phone's card.
           <div className='absolute inset-x-2 top-2 flex flex-wrap gap-1 sm:inset-x-3 sm:top-3 sm:gap-1.5'>
             {newLabel && (
-              <span className='inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[0.7rem] font-medium shadow-sm sm:text-xs'>
+              <span className='inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[0.7rem] font-medium shadow-sm max-sm:hidden sm:text-xs'>
                 <span aria-hidden='true' className='size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none' />
                 {newLabel}
               </span>
@@ -59,11 +61,19 @@ export default function FeedCard({ href, name, images, price: rawPrice, priceLab
             {badge && (
               <span className='max-w-full truncate rounded-full bg-primary px-2 py-0.5 text-[0.7rem] font-medium text-primary-foreground shadow-sm sm:text-xs'>{badge}</span>
             )}
+            {dateBadge && (
+              <span className='max-w-full truncate rounded-full bg-background/90 px-2 py-0.5 text-[0.7rem] font-medium shadow-sm sm:text-xs'>{dateBadge}</span>
+            )}
             {isReserved && <span className='rounded-full bg-background/90 px-2 py-0.5 text-[0.7rem] font-medium shadow-sm sm:text-xs'>{reservedLabel}</span>}
           </div>
         )}
+        {/* Phones: only the picture and its name, on a dark fade so it reads on any photo. */}
+        <h2 className='absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-2.5 pb-2 pt-8 font-sans text-sm font-semibold leading-tight text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.5)] sm:hidden'>
+          {/* Clamped inside the padding, so a third line doesn't peek out below. */}
+          <span className='line-clamp-2'>{name}</span>
+        </h2>
       </div>
-      <div className='space-y-1 p-3 sm:p-4'>
+      <div className='space-y-1 p-3 max-sm:hidden sm:p-4'>
         <h2 className='truncate font-sans font-medium'>{name}</h2>
         {(priceTag || aiLabel) && (
           <div className='flex min-w-0 items-center gap-1.5'>

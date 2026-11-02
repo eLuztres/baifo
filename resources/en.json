@@ -781,6 +781,7 @@
   "VALIDATION_CORRAL_POSITION": "Paste the position as “latitude, longitude”",
   "CORRAL_DEFAULT_NAME": "Corral de {place}",
   "PLACES_SOON_LIST": "Soon:",
+  "EXPLORE_EVENT_BADGE": "Event",
   "EXPLORE_WANTED_BADGE": "Wanted",
   "CONTACT_CORRAL_MESSAGE": "Hi {to}! I’m interested in “{name}”: {url}",
   "SELL_WHATSAPP_MESSAGE": "Hi {shop}! 📸 I’d like to place an ad:",
