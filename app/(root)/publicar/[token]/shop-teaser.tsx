@@ -2,14 +2,17 @@ import Link from 'next/link';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import FeedCard from '@/components/shared/product/feed-card';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
-import { Button } from '@/components/ui/button';
+import CorralHostsButton from '@/components/shared/home/corral-hosts-button';
+import { getCorralHosts } from '@/components/shared/home/corral-hosts';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { BRAND } from '@/lib/brand';
 import { localizeProduct } from '@/lib/category';
+import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { feedCardLabels } from '@/lib/listing-labels';
 import type { PublishPageTexts } from '@/lib/marketplace/page-texts';
 import { getVisitorPlaceIds } from '@/lib/places';
-import { timeAgo } from '@/lib/utils';
+import { cn, timeAgo } from '@/lib/utils';
 
 // A taste of the shop, not a second feed: four tiles fill two rows on a phone.
 const TEASER_COUNT = 4;
@@ -29,6 +32,7 @@ export default async function ShopTeaser({ texts, ownSlug }: ShopTeaserProps) {
     .slice(0, TEASER_COUNT);
   const now = new Date();
   const publishUrl = BRAND.contact.whatsappUrl;
+  const hosts = await getCorralHosts((name) => t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME }));
 
   return (
     <section aria-labelledby='shop-teaser' className='space-y-4 border-t border-border pt-6'>
@@ -63,7 +67,12 @@ export default async function ShopTeaser({ texts, ownSlug }: ShopTeaserProps) {
             {texts.teaserAll} <ArrowRight />
           </Link>
         </Button>
-        {publishUrl && (
+        {/* Publishing again starts with a person too: the corral hosts; the shop's number only without any. */}
+        {hosts.length > 0 ? (
+          <CorralHostsButton hosts={hosts} text={t('CONTACT_HOSTS_TEXT')} className={cn(buttonVariants({ variant: 'outline' }), 'h-12 flex-1 rounded-full')}>
+            <MessageCircle /> {texts.publishAnother}
+          </CorralHostsButton>
+        ) : publishUrl && (
           <Button asChild variant='outline' className='h-12 flex-1 rounded-full'>
             <a href={publishUrl} target='_blank' rel='noopener noreferrer'>
               <MessageCircle /> {texts.publishAnother}
