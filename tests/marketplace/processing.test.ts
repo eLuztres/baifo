@@ -77,6 +77,15 @@ describe('a new listing after "Publicar"', () => {
     expect(publishByAdmin).toHaveBeenCalledWith('sub-1', 'normal');
   });
 
+  it("keeps the admin's Ofrezco an offer, even when the AI reads a search", async () => {
+    db.findUnique.mockResolvedValueOnce({ ...WANTED, type: 'PRODUCT' }).mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(textUpdate()).toMatchObject({ type: 'PRODUCT' });
+  });
+
   it('keeps an event without a date in the editor, and a listing without the OK', async () => {
     db.findUnique.mockResolvedValue(written);
     db.update.mockResolvedValue({ ...written, type: 'EVENT', startsAt: null, consentAt: new Date(), seller: {} });
@@ -175,14 +184,15 @@ describe('processSubmission without a photo', () => {
     expect((writeListing as jest.Mock).mock.calls[0][5]).toEqual({ title: undefined, description: WANTED.rawText, isCorrected: false });
   });
 
-  it('saves the type the AI read, so an item sent as for sale can turn out to be a wanted ad', async () => {
-    db.findUnique.mockResolvedValueOnce({ ...WANTED, type: 'PRODUCT' }).mockResolvedValue({ ...WANTED, title: 'Busco tabla', description: '' });
+  it('saves the type the AI read, so an Anuncio can turn out to be a service', async () => {
+    (writeListing as jest.Mock).mockResolvedValueOnce({ ...(await (writeListing as jest.Mock)()), type: 'SERVICE', priceMode: 'FROM' });
+    db.findUnique.mockResolvedValueOnce({ ...WANTED, type: 'PRODUCT' }).mockResolvedValue({ ...WANTED, title: 'Clases de surf', description: '' });
     db.update.mockResolvedValue({ ...WANTED, seller: {} });
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('PRODUCT');
-    expect(textUpdate()).toMatchObject({ type: 'WANTED', category: 'deporte', price: '150.00', priceMode: 'UP_TO', startsAt: null });
+    expect((writeListing as jest.Mock).mock.calls.at(-1)[4]).toBe('PRODUCT');
+    expect(textUpdate()).toMatchObject({ type: 'SERVICE', category: 'deporte', priceMode: 'FROM', startsAt: null });
   });
 
   it('still refuses a WhatsApp item for sale without a photo', async () => {

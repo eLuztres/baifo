@@ -92,6 +92,7 @@ export default function ListingWorkspace({ initial, categories, places, language
         <DescriptionStep
           listing={listing}
           languages={languages}
+          shopLanguage={shopLanguage}
           texts={texts}
           onSent={(next) => {
             setListing(next);

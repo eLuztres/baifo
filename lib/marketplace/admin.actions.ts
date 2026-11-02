@@ -20,7 +20,7 @@ import { toWaId } from './seller';
 import { moveListingToNumber } from './seller-number';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
-import { makeListingPictures, processSubmission } from './processing';
+import { makeListingPictures, processSubmission, writeDraftText } from './processing';
 import { lacksConsent, markSent, recordConsent } from './listing-payment';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { pictureCounterpart } from './pictures';
@@ -70,6 +70,52 @@ export async function saveAdminListingPictures(id: string, input: z.input<typeof
   return count > 0 ? { success: true, message: 'Fotos guardadas' } : { success: false, message: 'La IA ya está escribiendo este anuncio' };
 }
 
+// An amount as typed ("12", "12,50"); empty: none.
+const amountSchema = z
+  .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])
+  .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : undefined))
+  .optional();
+const listingTextSchema = z.object({ title: z.string().trim().min(1).max(120), description: z.string().trim().max(3000), short: z.string().trim().max(40).optional() });
+
+const draftSchema = z.object({
+  notes: z.string().trim().min(1).max(2000),
+  textMode: z.enum(TEXT_MODES),
+  isWanted: z.boolean().optional(),
+  priceMode: z.enum(PRICE_MODES).optional(),
+  price: amountSchema,
+});
+
+/** "Crear descripción": the AI writes title and description in every language from the admin's words (improved,
+    corrected or only translated) and reads the category and, unless the admin set one, the price. Nothing goes online. */
+export async function draftAdminListingText(id: string, input: z.input<typeof draftSchema>) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = draftSchema.safeParse(input);
+  if (!parsed.success) return { success: false, message: 'Escribe la descripción' };
+  const { notes, textMode, isWanted, priceMode, price } = parsed.data;
+  const current = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
+  if (!current) return NOT_ALLOWED;
+  const type = current.type === 'EVENT' ? 'EVENT' : isWanted ? 'WANTED' : 'PRODUCT';
+  // A price the admin set wins; without one the AI reads it from the words.
+  const hasOwnPrice = priceMode === 'NONE' || Boolean(price);
+  const { count } = await prisma.submission.updateMany({
+    where: { id, status: 'COLLECTING', createdByAdmin: true },
+    data: { rawText: notes, textMode, originalTitle: null, type, price: hasOwnPrice ? (price ?? null) : null, priceMode: hasOwnPrice ? priceMode : null },
+  });
+  if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  try {
+    const written = await writeDraftText(id);
+    if (!written?.title) return { success: false, message: 'La IA no pudo escribir la descripción. Inténtalo otra vez.' };
+    const texts: ListingTexts = {
+      ...(written.translations as ListingTexts),
+      [getShopLocale()]: { title: written.title, description: written.description ?? '', short: written.shortTitle ?? '' },
+    };
+    return { success: true, message: '', texts, type: written.type, priceMode: written.priceMode, price: written.price?.toString() ?? null };
+  } catch (error) {
+    console.error(`Text of listing ${id} not written`, error);
+    return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo escribir la descripción. Inténtalo otra vez.' };
+  }
+}
+
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema.optional(),
@@ -80,6 +126,12 @@ const descriptionSchema = z.object({
   originalTitle: z.string().trim().max(120).optional(),
   // The admin confirms the person agreed to show their number: it goes online by itself once the AI is done.
   hasConsent: z.boolean().default(false),
+  // "Ofrezco | Busco" on an Anuncio: Busco makes it a wanted ad, Ofrezco never one. Missing (an event): the type stays.
+  isWanted: z.boolean().optional(),
+  // The texts made by "Crear descripción", as the admin edited them, in every language.
+  texts: z.record(z.string(), listingTextSchema).optional(),
+  priceMode: z.enum(PRICE_MODES).optional(),
+  price: amountSchema,
 });
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
@@ -90,12 +142,16 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent } = parsed.data;
+  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price } = parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
   if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su número' };
   if (!notes) return { success: false, message: 'Escribe la descripción' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true, title: true } });
+  // Published only in every language: "Crear descripción" has to have run.
+  const shopLocale = getShopLocale();
+  const own = texts?.[shopLocale];
+  if (!listing?.title || !own) return { success: false, message: 'Crea primero la descripción' };
   // A video without a still counts as no photo; a picture made from words counts.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
@@ -109,6 +165,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
     data: {
       status: 'PROCESSING',
       rawText: notes,
+      ...(isWanted !== undefined && listing?.type !== 'EVENT' && { type: isWanted ? 'WANTED' : 'PRODUCT' }),
+      // The texts as the admin left them: the AI doesn't write them again.
+      title: own.title,
+      description: own.description,
+      shortTitle: own.short || null,
+      translations: Object.fromEntries(Object.entries(texts).filter(([locale]) => locale !== shopLocale)),
+      // The price is optional: a kind of price without an amount is no price.
+      ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       sellerId: seller.id,
       textMode,
       originalTitle: (textMode !== 'ai' && originalTitle) || null,

@@ -3,25 +3,28 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Loader2, RotateCw, Send } from 'lucide-react';
+import { Check, Loader2, RotateCw, Send, Sparkles } from 'lucide-react';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { describeAdminListing, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { describeAdminListing, draftAdminListingText, retryAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
-import type { TextMode } from '@/lib/marketplace/text-versions';
+import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
+import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 import { pictureOf } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
-import TextModeSwitch from './text-mode-switch';
 
 interface DescriptionStepProps {
   listing: AdminListing;
   /** The shop's other languages, which the text is translated into. */
   languages: EditorLanguage[];
+  /** The shop's own language, the first tab of the texts. */
+  shopLanguage: EditorLanguage;
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   onSent: (listing: AdminListing) => void;
@@ -32,21 +35,40 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
-  const isWanted = listing.type === 'WANTED';
+  const isEvent = listing.type === 'EVENT';
+  // "Ofrezco | Busco" on an Anuncio: the admin says it, the AI doesn't guess it.
+  const [isWanted, setIsWanted] = useState(listing.type === 'WANTED');
+  // A search's price usually is its top budget, an offer's a set price; one the admin typed stays.
+  const chooseWanted = (wanted: boolean) => {
+    setIsWanted(wanted);
+    if (!price) setPriceMode(wanted ? 'UP_TO' : 'FIXED');
+  };
   const [notes, setNotes] = useState(listing.rawText);
   const [sellerPhone, setSellerPhone] = useState('');
   const [sellerName, setSellerName] = useState('');
   const notesInput = useRef<HTMLTextAreaElement>(null);
-  // Chosen before the AI runs: improve the text, or keep the admin's words (maybe with their mistakes fixed) and translate them.
-  const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
-  const [originalTitle, setOriginalTitle] = useState(listing.originalTitle ?? '');
+  // How "Crear descripción" treats the words: improved, corrected (the default) or only translated; always into every language.
+  const [textMode, setTextMode] = useState<TextMode>(listing.title ? (listing.textMode as TextMode) : 'corrected');
   const isOriginal = textMode === 'original';
-  const isOwnWords = textMode !== 'ai';
-  const modeResults = { ai: texts.textModeAiResult, corrected: texts.textModeCorrectedResult, original: texts.textModeOriginalResult };
-  const languageList = languages.map(({ label }) => label).join(', ');
+  // The texts "Crear descripción" made, in every language, as the admin edits them; empty until it ran.
+  const textLanguages = [shopLanguage, ...languages];
+  const [draft, setDraft] = useState<ListingTexts>(() =>
+    listing.title
+      ? { ...(listing.translations as ListingTexts), [shopLanguage.id]: { title: listing.title, description: listing.description ?? '', short: listing.shortTitle ?? '' } }
+      : {}
+  );
+  const hasDraft = Boolean(draft[shopLanguage.id]?.title);
+  const [isDrafting, setIsDrafting] = useState(false);
+  const [textLanguage, setTextLanguage] = useState(shopLanguage.id);
+  const shownText = draft[textLanguage] ?? { title: '', description: '' };
+  const setShownText = (name: 'title' | 'description') => (value: string) =>
+    setDraft((current) => ({ ...current, [textLanguage]: { ...(current[textLanguage] ?? { title: '', description: '' }), [name]: value } }));
+  // Optional: a kind of price and its amount; an event only has its entry.
+  const [priceMode, setPriceMode] = useState<PriceMode>(listing.priceMode ?? DEFAULT_PRICE_MODES[listing.type]);
+  const [price, setPrice] = useState(listing.price ?? '');
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
   const errorBox = useRef<HTMLDivElement>(null);
@@ -64,11 +86,9 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
   // A "missing" message is old news as soon as something is filled in.
   useEffect(() => setError(''), [notes, sellerPhone, hasConsent]);
   const hasText = Boolean(listing.title);
-  const placeholder = isOwnWords
-    ? texts.tellOriginalPlaceholder
-    : isService
+  const placeholder = isService
       ? texts.tellServicePlaceholder
-      : listing.type === 'EVENT'
+      : isEvent
         ? texts.tellEventPlaceholder
         : isWanted
           ? texts.tellWantedPlaceholder
@@ -89,6 +109,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
       const missing = [
         hasNoPhoto && { step: 0, text: texts.missingPicture },
         !notes.trim() && { step: 1, text: texts.missingText },
+        Boolean(notes.trim()) && !hasDraft && { step: 1, text: texts.missingDraft },
         !sellerPhone.trim() && { step: 2, text: texts.missingPhone },
         !hasConsent && { step: 2, text: texts.missingConsent },
       ].filter((item) => item !== false);
@@ -101,12 +122,34 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
         sellerPhone: sellerPhone.trim(),
         sellerName,
         textMode,
-        originalTitle,
         hasConsent,
+        ...(!isEvent && { isWanted }),
+        texts: draft,
+        priceMode: isEvent ? 'FIXED' : priceMode,
+        price,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null });
     });
+
+  // The AI writes the texts now, in every language; a price the AI read fills an empty one.
+  const createDescription = async () => {
+    if (!notes.trim()) {
+      notesInput.current?.focus();
+      return setError(fillText(texts.missingToPublish, { items: texts.missingText }));
+    }
+    setError('');
+    setIsDrafting(true);
+    const result = await draftAdminListingText(listing.id, { notes, textMode, ...(!isEvent && { isWanted }), priceMode, price });
+    setIsDrafting(false);
+    if (!('texts' in result && result.texts)) return setError(result.message);
+    setDraft(result.texts);
+    setTextLanguage(shopLanguage.id);
+    if (!price && result.price && result.priceMode) {
+      setPrice(result.price);
+      setPriceMode(result.priceMode);
+    }
+  };
 
   const retry = () =>
     startTransition(async () => {
@@ -124,7 +167,65 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
           </ul>
         )}
 
-        <div hidden={step !== 1} className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+        {step === 1 && !isEvent && (
+          <div role='radiogroup' aria-label={texts.typeLabel} className='grid grid-cols-2 gap-1 rounded-full border border-border bg-card p-1'>
+            {[false, true].map((wanted) => (
+              <button
+                key={String(wanted)}
+                type='button'
+                role='radio'
+                aria-checked={isWanted === wanted}
+                disabled={isWriting}
+                onClick={() => chooseWanted(wanted)}
+                className={cn(
+                  'min-h-11 rounded-full px-3 py-2 text-sm font-medium transition-colors',
+                  isWanted === wanted ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {wanted ? texts.wantedLabel : texts.offerLabel}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className='grid grid-cols-2 gap-2'>
+            {!isEvent && (
+              <div className='space-y-1'>
+                <Label htmlFor='price-mode' className='px-1 text-xs text-muted-foreground'>
+                  {texts.priceShort}
+                </Label>
+                <select id='price-mode' value={priceMode} disabled={isWriting} onChange={(event) => setPriceMode(event.target.value as PriceMode)} className={SELECT_CLASS}>
+                  {PRICE_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {texts[`priceMode_${mode}`]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(isEvent || priceMode !== 'NONE') && (
+              <div className={cn('space-y-1', isEvent && 'col-span-2')}>
+                <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
+                  {isEvent ? texts.eventPrice : texts.priceAmount}
+                </Label>
+                <div className='relative'>
+                  <Input
+                    id='price'
+                    inputMode='decimal'
+                    value={price}
+                    readOnly={isWriting}
+                    onChange={(event) => setPrice(event.target.value)}
+                    className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg'
+                  />
+                  <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div hidden={step !== 1} className='space-y-3 rounded-3xl border border-border bg-card p-4 sm:p-5'>
           <div className='flex items-center justify-between gap-3'>
             <Label htmlFor='notes' className='font-display text-xl'>
               {texts.tellLabel}
@@ -132,41 +233,78 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
             {/* Spoken words land in the field, where they can still be corrected before sending. */}
             {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
           </div>
-          {isOwnWords && (
-            <div className='space-y-1'>
-              <Label htmlFor='original-title' className='px-1 text-xs text-muted-foreground'>
-                {texts.originalTitleLabel}
-              </Label>
-              <Input
-                id='original-title'
-                value={originalTitle}
-                readOnly={isWriting}
-                onChange={(event) => setOriginalTitle(event.target.value)}
-                placeholder={texts.originalTitlePlaceholder}
-                className='h-12 rounded-2xl bg-background font-display text-lg md:text-lg'
-              />
-            </div>
-          )}
           <Textarea
             ref={notesInput}
             id='notes'
-            rows={5}
+            rows={4}
             value={notes}
             readOnly={isWriting}
             onChange={(event) => setNotes(event.target.value)}
             placeholder={placeholder}
-            className='field-sizing-content max-h-[40svh] min-h-32 resize-none rounded-2xl bg-background text-base md:text-base'
+            className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
           />
-          <div className='space-y-2 pt-2'>
-            <p className='text-sm font-medium'>{texts.textModeQuestion}</p>
-            <TextModeSwitch value={textMode} onChange={setTextMode} texts={texts} disabled={isWriting} />
-            {languageList && (
-              <p className='px-1 text-xs text-muted-foreground'>
-                {fillText(modeResults[textMode], { languages: languageList })}
-              </p>
-            )}
+          <div className='grid gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_auto]'>
+            <select
+              aria-label={texts.textModeQuestion}
+              value={textMode}
+              disabled={isWriting || isDrafting}
+              onChange={(event) => setTextMode(event.target.value as TextMode)}
+              className={SELECT_CLASS}
+            >
+              {(['ai', 'corrected', 'original'] as const).map((mode) => (
+                <option key={mode} value={mode}>
+                  {texts[`textModeChoice_${mode}`]}
+                </option>
+              ))}
+            </select>
+            <Button className='h-12 rounded-full px-4' disabled={isWriting || isDrafting} onClick={createDescription}>
+              {isDrafting ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.createDescription}
+            </Button>
           </div>
         </div>
+
+        {/* Always there, so nothing jumps: usable once "Crear descripción" wrote the texts. */}
+        <fieldset
+          hidden={step !== 1}
+          disabled={!hasDraft || isDrafting || isWriting}
+          className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'
+        >
+          <div role='tablist' aria-label={texts.languagesLabel} className='flex flex-wrap gap-1'>
+            {textLanguages.map(({ id, label }) => (
+              <button
+                key={id}
+                type='button'
+                role='tab'
+                aria-selected={id === textLanguage}
+                onClick={() => setTextLanguage(id)}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                  id === textLanguage ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className='space-y-1'>
+            <Label htmlFor='draft-title' className='px-1 text-xs text-muted-foreground'>
+              {texts.titleLabel}
+            </Label>
+            <Input id='draft-title' value={shownText.title} onChange={(event) => setShownText('title')(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
+          </div>
+          <div className='space-y-1'>
+            <Label htmlFor='draft-description' className='px-1 text-xs text-muted-foreground'>
+              {texts.descriptionLabel}
+            </Label>
+            <Textarea
+              id='draft-description'
+              rows={4}
+              value={shownText.description}
+              onChange={(event) => setShownText('description')(event.target.value)}
+              className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
+            />
+          </div>
+        </fieldset>
 
         {isOnContact && (
           <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>
@@ -232,6 +370,9 @@ interface WorkStateProps {
   isDone: boolean;
   label: string;
 }
+
+// Native selects: on a phone they open the system's own picker.
+const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** One part of the AI's work (pictures or text): busy, or done. */
 function WorkState({ isDone, label }: WorkStateProps) {

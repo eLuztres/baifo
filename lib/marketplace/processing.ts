@@ -123,7 +123,8 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   // A place the admin already set stays; else the town the AI read. None named stays empty, unless there's only one.
   const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
-  const { type } = text;
+  // An admin's "Ofrezco" is never a wanted ad, whatever the AI read.
+  const type = submission.createdByAdmin && submission.type === 'PRODUCT' && text.type === 'WANTED' ? 'PRODUCT' : text.type;
   // What the person set wins over the AI's reading; an event's price is its entry.
   const priceMode = submission.priceMode ?? (type === 'EVENT' ? 'FIXED' : (text.priceMode ?? (text.price ? DEFAULT_PRICE_MODES[type] : 'NONE')));
   const price = priceMode === 'NONE' ? null : (submission.price ?? parsePrice(submission.rawText) ?? toPrice(text.price));
@@ -145,6 +146,15 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
       address: submission.address ?? (type === 'EVENT' ? text.address : null),
     },
   });
+}
+
+/** "Crear descripción" on a new listing: the text written again now from its words, its type and the first photo. */
+export async function writeDraftText(submissionId: string) {
+  const submission = await findSubmission(submissionId);
+  if (!submission) return null;
+  const [firstPhotoUrl] = photosOf(submission.rawImages);
+  await writeText({ ...submission, title: null }, firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null);
+  return findSubmission(submissionId);
 }
 
 /** The shop pictures: from the photos (or video stills), else drawn from the admin's idea or the listing's words. */
