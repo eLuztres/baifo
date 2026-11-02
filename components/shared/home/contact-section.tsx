@@ -3,15 +3,18 @@ import { ArrowUpRight } from 'lucide-react';
 import PageHeader from '@/components/shared/page-header';
 import { getContactChannels } from '@/components/shared/contact-channels';
 import { APP_NAME, FREE_SHIPPING_THRESHOLD, PAYMENT_METHODS, SHIPPING_PRICE, SHOWCASE_MODE } from '@/lib/constants';
-import { hasContactInfo } from '@/lib/brand';
+import { BRAND, hasContactInfo } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { cn, formatCurrency, paymentMethodLabel } from '@/lib/utils';
+import CorralHostsButton from './corral-hosts-button';
+import { getCorralHosts } from './corral-hosts';
 import { SECTION_IDS } from './one-page';
 import styles from './one-page.module.css';
 
 export default async function ContactSection() {
   const { t } = await getT();
   const channels = getContactChannels(t);
+  const hosts = await getCorralHosts((name) => t('CONTACT_HOST_MESSAGE', { name }));
 
   // The menu links here whenever .env has contact details, so hiding them all keeps the rules showing.
   if (!hasContactInfo) return null;
@@ -43,26 +46,42 @@ export default async function ContactSection() {
       />
 
       <div className='shrink-0 space-y-2'>
-        {channels.map(({ label, value, href, icon: Icon, external }) => (
-          <Link
-            key={label}
-            href={href}
-            target={external ? '_blank' : undefined}
-            rel={external ? 'noopener noreferrer' : undefined}
-            className='group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-2.5 transition hover:border-primary/40 hover:bg-muted/50 sm:py-3'
-          >
-            <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary sm:h-10 sm:w-10'>
-              <Icon className='h-5 w-5' />
-            </span>
-            <span className='min-w-0 flex-1'>
-              <span className='block text-xs uppercase tracking-[0.2em] text-muted-foreground'>
-                {label}
+        {channels.map(({ label, value, href, icon: Icon, external }) => {
+          const rowClass =
+            'group flex w-full items-center gap-4 rounded-2xl border border-border bg-card px-4 py-2.5 text-left transition hover:border-primary/40 hover:bg-muted/50 sm:py-3';
+          const rowContent = (shown: string, isWrapped = false) => (
+            <>
+              <span className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary sm:h-10 sm:w-10'>
+                <Icon className='h-5 w-5' />
               </span>
-              <span className='block truncate text-base text-foreground'>{value}</span>
-            </span>
-            <ArrowUpRight className='h-5 w-5 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground' />
-          </Link>
-        ))}
+              <span className='min-w-0 flex-1'>
+                <span className='block text-xs uppercase tracking-[0.2em] text-muted-foreground'>
+                  {label}
+                </span>
+                <span className={cn('block text-base text-foreground', isWrapped ? 'text-balance' : 'truncate')}>{shown}</span>
+              </span>
+              <ArrowUpRight className='h-5 w-5 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground' />
+            </>
+          );
+          // WhatsApp goes to a person: the corral hosts, when there are any.
+          const isToHosts = href === BRAND.contact.whatsappUrl && hosts.length > 0;
+          const row = isToHosts ? rowContent(t('CONTACT_HOSTS_VALUE'), true) : rowContent(value);
+          return isToHosts ? (
+            <CorralHostsButton key={label} hosts={hosts} text={t('CONTACT_HOSTS_TEXT')} className={rowClass}>
+              {row}
+            </CorralHostsButton>
+          ) : (
+            <Link
+              key={label}
+              href={href}
+              target={external ? '_blank' : undefined}
+              rel={external ? 'noopener noreferrer' : undefined}
+              className={rowClass}
+            >
+              {row}
+            </Link>
+          );
+        })}
       </div>
 
       <div className='flex min-h-0 flex-col gap-3'>

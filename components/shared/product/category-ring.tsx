@@ -1,6 +1,6 @@
 'use client';
 
-import { CSSProperties, MouseEvent, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { CSSProperties, MouseEvent, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -68,6 +68,22 @@ const WIDE_SCREEN_QUERY = '(min-width: 1024px)';
 const TURN_MS = 1400;
 // The arrows beside the front card's name take their place once the ring has settled (a turn, or the 1.4s entrance on load).
 const SETTLE_MS = 1400;
+// The arrows' width plus a little air, kept free on each side of the flat front name.
+const FLAT_NAME_ARROW_ROOM_PX = 64;
+const FLAT_NAME_MIN_PX = 260;
+// The new name fades in when the card has nearly arrived (with its grow, --grow-delay), never before it.
+const NAME_SWAP_MS = TURN_MS * 0.6;
+
+/** The front name as the flat label shows it: on a turn the old one fades out and the new one comes when its card arrives. */
+function useShownName(name: string) {
+  const [shown, setShown] = useState({ name, isShown: true });
+  useEffect(() => {
+    setShown((current) => (current.name === name ? current : { ...current, isShown: false }));
+    const timer = setTimeout(() => setShown({ name, isShown: true }), NAME_SWAP_MS);
+    return () => clearTimeout(timer);
+  }, [name]);
+  return shown;
+}
 // Copies of the center picture stacked below it give it its thickness.
 const PIECE_LAYERS = 16;
 const FLYER_COUNT = 3;
@@ -175,6 +191,21 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   const ringTan = 1 / (2 * Math.tan(Math.PI / count));
   const hasPiece = center !== 'band' && center !== 'none';
   const captionSpots = useCaptionSpots(stageRef, frontIndex, SETTLE_MS);
+  // The front name is drawn flat between the arrows: inside the tilted 3D ring it came out blurred and bent.
+  // It gets at least FLAT_NAME_MIN_PX (half the screen on a phone), and the arrows move out to make room for it.
+  const frontName = useMemo(() => {
+    if (captionSpots.length !== 2) return undefined;
+    const [left, right] = captionSpots;
+    const center = (left.x + right.x) / 2;
+    const width = Math.max(right.x - left.x - FLAT_NAME_ARROW_ROOM_PX, Math.min(FLAT_NAME_MIN_PX, window.innerWidth / 2));
+    const arrowX = width / 2 + FLAT_NAME_ARROW_ROOM_PX / 2;
+    return {
+      style: { left: center, top: left.y, width },
+      arrows: [{ ...left, x: center - arrowX }, { ...right, x: center + arrowX }],
+    };
+  }, [captionSpots]);
+  const arrowSpots = frontName?.arrows ?? captionSpots;
+  const shownName = useShownName(front.name);
   const openFeed = useOpenFeed(stageRef);
   const feedHref = `/explore?c=${front.id}`;
   const rowProducts = front.products.slice(0, RING_PREVIEW_COUNT);
@@ -213,6 +244,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
         role='region'
         aria-label={label}
         className={cn(styles.stage, styles.categoryStage, hasPiece && styles.pieceStage)}
+        data-flat-name={frontName ? '' : undefined}
         style={
           {
             '--ring-tan': ringTan,
@@ -279,7 +311,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
         )}
       </div>
       {/* An arrow on each side of the front card's name; beside the stage, whose faded edges would hide them on a phone. */}
-      {captionSpots.map(({ offset, x, y }) => (
+      {arrowSpots.map(({ offset, x, y }) => (
         <button
           key={offset}
           type='button'
@@ -291,6 +323,12 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
           {offset === -1 ? <ChevronLeft /> : <ChevronRight />}
         </button>
       ))}
+
+      {frontName && (
+        <p className={styles.frontName} style={frontName.style} data-shown={shownName.isShown} aria-hidden='true'>
+          {shownName.name}
+        </p>
+      )}
 
       {/* The name already shows under the front card; this tells screen readers about a turn. */}
       <p className='sr-only' aria-live='polite'>
