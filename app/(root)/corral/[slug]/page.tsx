@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -12,8 +14,9 @@ import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getPlaceWithCorral, type PlaceWithCorral } from '@/lib/places';
+import { firstName } from '@/lib/places-core';
 import { metaDescription, pageAlternates } from '@/lib/seo';
-import { timeAgo } from '@/lib/utils';
+import { cn, timeAgo } from '@/lib/utils';
 
 interface CorralPageProps {
   params: Promise<{ slug: string }>;
@@ -24,6 +27,11 @@ const LISTING_COUNT = 8;
 // Around the pin: about two streets each way.
 const MAP_SPAN = { lat: 0.0025, lng: 0.004 };
 
+// A town's typical scene behind its host, when the shop has one in public/brand/corral/.
+const backgroundOf = (slug: string) => {
+  const file = `/brand/corral/${slug}-background.jpg`;
+  return existsSync(path.join(process.cwd(), 'public', file)) ? file : undefined;
+};
 const digits = (phone: string) => phone.replace(/\D/g, '');
 const directionsUrl = ({ venue, address }: { venue: string | null; address: string }) =>
   `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([venue, address].filter(Boolean).join(', '))}`;
@@ -66,72 +74,61 @@ export default async function CorralPage({ params }: CorralPageProps) {
     { icon: Users, title: t('CORRAL_DO_MEET_TITLE'), text: t('CORRAL_DO_MEET_TEXT') },
   ];
   const portrait = corral.image ?? corral.hostImage;
+  const background = backgroundOf(place.slug);
 
   return (
     <div className='mx-auto w-full max-w-6xl space-y-16 px-4 py-8 sm:space-y-24 sm:py-14'>
-      {/* The welcome: what it is and how to get there in the first screen, then who's there. */}
-      <section className='grid items-center gap-8 lg:grid-cols-[1.1fr_1fr] lg:gap-14'>
-        <div className='space-y-6'>
-          <p className='inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary'>
-            <MapPin className='size-4' aria-hidden /> {t('CORRAL_EYEBROW', { shop: APP_NAME, place: place.name })}
-          </p>
-          <h1 className='text-balance font-display text-5xl leading-[1.05] sm:text-6xl'>{corral.name}</h1>
-          {corral.text && <p className='max-w-xl text-pretty text-lg text-muted-foreground'>{corral.text}</p>}
-          <p className='flex items-start gap-2 text-base'>
-            <MapPin className='mt-1 size-4 shrink-0 text-primary' aria-hidden />
+      {/* The person first: who welcomes you, then how to reach them. */}
+      <section
+        className={cn(
+          'relative grid items-center gap-8 lg:gap-14',
+          portrait && 'lg:grid-cols-[1fr_1.2fr]',
+          background && 'isolate overflow-hidden rounded-[2rem] border border-border px-4 py-10 sm:px-10 sm:py-14'
+        )}
+      >
+        {background && (
+          <>
+            <ProductMedia src={background} fill sizes='(min-width: 1280px) 72rem, 100vw' className='-z-20 object-cover' priority />
+            {/* Softened so the person and the words stay in front, in light and dark themes. */}
+            <span className='absolute inset-0 -z-10 bg-gradient-to-b from-background/40 via-background/75 to-background/95 lg:bg-gradient-to-r lg:from-background/20 lg:via-background/70 lg:to-background/90' aria-hidden />
+          </>
+        )}
+        {portrait && (
+          <figure className='relative mx-auto w-full max-w-48 sm:max-w-sm'>
+            {/* An arch, like the doorways of the island's old houses. */}
+            <div className='relative aspect-[3/4] overflow-hidden rounded-t-full rounded-b-3xl border border-primary/25 shadow-2xl shadow-primary/15'>
+              <ProductMedia src={portrait} alt={corral.hostName ?? corral.name} fill sizes='(min-width: 640px) 24rem, 12rem' className='object-cover object-top' priority />
+            </div>
+          </figure>
+        )}
+        <div className={cn('space-y-4 text-center sm:space-y-5', portrait && 'lg:text-left')}>
+          <h1 className='text-balance font-display text-4xl leading-[1.05] sm:text-6xl'>
+            {corral.hostName ? t('CORRAL_HELLO', { name: firstName(corral.hostName) }) : corral.name}
+          </h1>
+          {corral.text && <p className={cn('mx-auto max-w-xl text-pretty text-lg text-muted-foreground', portrait && 'lg:mx-0')}>{corral.text}</p>}
+          <p className='text-pretty text-base'>
+            <MapPin className='mr-1.5 inline size-4 -translate-y-px text-primary' aria-hidden />
             <span>
-              {corral.venue && <span className='font-medium'>{corral.venue} · </span>}
-              {corral.address}
+              <span className='font-medium'>{corral.name}</span>
+              {' · '}
+              {[corral.venue, corral.address].filter(Boolean).join(', ')}
             </span>
           </p>
-          <div className='flex flex-wrap gap-3'>
-            <Button asChild size='lg' className='rounded-full'>
-              <a href={directionsUrl(corral)} target='_blank' rel='noopener noreferrer'>
-                <Navigation /> {t('CORRAL_DIRECTIONS')}
-              </a>
-            </Button>
+          <div className={cn('flex flex-wrap justify-center gap-3', portrait && 'lg:justify-start')}>
             {corral.whatsapp && (
-              <Button asChild size='lg' variant='outline' className='rounded-full'>
+              <Button asChild size='lg' className='rounded-full'>
                 <a href={`https://wa.me/${digits(corral.whatsapp)}`} target='_blank' rel='noopener noreferrer'>
                   <MessageCircle /> {t('CORRAL_WHATSAPP')}
                 </a>
               </Button>
             )}
+            <Button asChild size='lg' variant={corral.whatsapp ? 'outline' : 'default'} className='rounded-full'>
+              <a href={directionsUrl(corral)} target='_blank' rel='noopener noreferrer'>
+                <Navigation /> {t('CORRAL_DIRECTIONS')}
+              </a>
+            </Button>
           </div>
         </div>
-
-        {portrait && (
-          <figure className='relative mx-auto w-full max-w-72 sm:max-w-md'>
-            {/* An arch, like the doorways of the island's old houses. */}
-            <div className='relative aspect-[4/5] overflow-hidden rounded-t-full rounded-b-3xl border border-primary/25 shadow-2xl shadow-primary/15'>
-              <ProductMedia src={portrait} alt={corral.hostName ?? corral.name} fill sizes='(min-width: 1024px) 28rem, 90vw' className='object-cover object-top' priority />
-            </div>
-            {corral.hostName && (
-              <figcaption className='absolute -bottom-5 left-1/2 w-max max-w-[90%] -translate-x-1/2 rounded-2xl border border-border bg-card px-5 py-3 text-center shadow-lg'>
-                <span className='block text-xs uppercase tracking-widest text-muted-foreground'>{t('CORRAL_HOST')}</span>
-                <span className='block font-display text-xl'>{corral.hostName}</span>
-                {corral.venue && <span className='block text-sm text-muted-foreground'>{t('CORRAL_HOST_AT', { venue: corral.venue })}</span>}
-              </figcaption>
-            )}
-          </figure>
-        )}
-      </section>
-
-      <section aria-labelledby='corral-do' className='space-y-6'>
-        <h2 id='corral-do' className='text-center font-display text-3xl sm:text-4xl'>
-          {t('CORRAL_DO_TITLE')}
-        </h2>
-        <ul className='grid gap-4 sm:grid-cols-3'>
-          {activities.map(({ icon: Icon, title, text }) => (
-            <li key={title} className='space-y-3 rounded-3xl border border-border bg-card p-6'>
-              <span className='flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary'>
-                <Icon className='size-6' aria-hidden />
-              </span>
-              <h3 className='font-display text-xl'>{title}</h3>
-              <p className='text-pretty text-muted-foreground'>{text}</p>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section aria-labelledby='corral-where' className='grid gap-6 lg:grid-cols-[1.4fr_1fr]'>
@@ -228,6 +225,23 @@ export default async function CorralPage({ params }: CorralPageProps) {
           </ul>
         </section>
       )}
+
+      <section aria-labelledby='corral-do' className='space-y-6'>
+        <h2 id='corral-do' className='text-center font-display text-3xl sm:text-4xl'>
+          {t('CORRAL_DO_TITLE')}
+        </h2>
+        <ul className='grid gap-4 sm:grid-cols-3'>
+          {activities.map(({ icon: Icon, title, text }) => (
+            <li key={title} className='space-y-3 rounded-3xl border border-border bg-card p-6'>
+              <span className='flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary'>
+                <Icon className='size-6' aria-hidden />
+              </span>
+              <h3 className='font-display text-xl'>{title}</h3>
+              <p className='text-pretty text-muted-foreground'>{text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

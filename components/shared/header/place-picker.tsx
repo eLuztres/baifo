@@ -1,16 +1,17 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Loader2, MapPin } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
-import IslandMap from '@/components/shared/island-map';
+import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Label } from '@/components/ui/label';
-import { chosenPlaces, PLACES_COOKIE, PLACES_COOKIE_MAX_AGE, PLACES_STORAGE_KEY, type ShopPlace } from '@/lib/places-core';
+import { chosenPlaces, firstName, PLACES_COOKIE, PLACES_COOKIE_MAX_AGE, PLACES_STORAGE_KEY, type ShopPlace } from '@/lib/places-core';
 import { cn } from '@/lib/utils';
 
 interface PlacePickerProps {
@@ -19,6 +20,8 @@ interface PlacePickerProps {
   savedSlugs: string[];
   className?: string;
 }
+
+const CORRAL_ICON = '/brand/icons/corral-128.png';
 
 const writeCookie = (value: string) => {
   document.cookie = `${PLACES_COOKIE}=${value}; path=/; max-age=${PLACES_COOKIE_MAX_AGE}; samesite=lax`;
@@ -35,7 +38,7 @@ export function savePlaces(slugs: string[]) {
   writeCookie(value);
 }
 
-/** "📍 Corralejo" in the header: opens the island, where the visitor switches the places they want to see on and off. */
+/** "📍 Corralejo" in the header: opens the people of each place, where the visitor switches the places they want to see on and off. */
 export default function PlacePicker({ places, savedSlugs, className }: PlacePickerProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -43,7 +46,6 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
   const [chosen, setChosen] = useState(() => chosenPlaces(places, savedSlugs).map((place) => place.slug));
   const live = places.filter((place) => place.isLive);
   const soon = places.filter((place) => !place.isLive);
-  const corrals = live.filter((place) => place.corralName && chosen.includes(place.slug));
 
   // The browser's saved choice wins over a cookie that was cleared or never set; the other way round fills the storage.
   useEffect(() => {
@@ -77,23 +79,20 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
   // Island order, not tap order. "Whole island" only once no place is still to come.
   const chosenNames = live.filter((place) => chosen.includes(place.slug)).map((place) => place.name);
   const isWholeIsland = places.length > 1 && chosenNames.length === places.length;
-  const shortLabel = isWholeIsland
-    ? t('PLACES_ALL_ISLAND')
-    : chosenNames.length === 1
-      ? chosenNames[0]
-      : t('PLACES_FIRST_AND_MORE', { place: chosenNames[0], count: chosenNames.length - 1 });
-  const fullLabel = isWholeIsland ? shortLabel : chosenNames.join(' · ');
-  // Phones only have room for one name; wider screens show two in full.
-  const hasRoomForFull = chosenNames.length <= 2;
+  const fullLabel = isWholeIsland ? t('PLACES_ALL_ISLAND') : chosenNames.join(' · ');
 
   return (
     <Drawer>
       <DrawerTrigger asChild>
-        <Button variant='ghost' className={cn('h-9 gap-1.5 rounded-full px-2 text-sm sm:px-3', className)} aria-label={`${t('PLACES_TITLE')}: ${fullLabel}`}>
-          {/* At 320px the pin would push the menu button off the screen; the name says enough there. */}
-          {isPending ? <Loader2 className='size-4 animate-spin text-primary' /> : <MapPin className='size-4 text-primary max-[359px]:hidden' />}
-          <span className={cn('whitespace-nowrap', hasRoomForFull && 'sm:hidden')}>{shortLabel}</span>
-          {hasRoomForFull && <span className='hidden whitespace-nowrap sm:inline'>{fullLabel}</span>}
+        <Button variant='ghost' className={cn('group h-11 gap-1.5 rounded-full px-1 text-sm sm:pr-3', className)} aria-label={`${t('PLACES_TITLE')}: ${fullLabel}`}>
+          {/* A little corral with its baifos: the people of each place are behind it. */}
+          {isPending ? (
+            <Loader2 className='size-11 animate-spin p-2.5 text-primary' />
+          ) : (
+            <Image src={CORRAL_ICON} alt='' width={44} height={44} className='size-11 transition-transform group-hover:-rotate-6 group-hover:scale-110' />
+          )}
+          {/* At 320px the word would push the menu button off the screen; the corral says enough there. */}
+          <span className='whitespace-nowrap max-[359px]:hidden'>{t('PLACES_BUTTON')}</span>
         </Button>
       </DrawerTrigger>
       <DrawerContent className='mx-auto max-w-md'>
@@ -104,51 +103,67 @@ export default function PlacePicker({ places, savedSlugs, className }: PlacePick
           </DrawerDescription>
         </DrawerHeader>
         <div className='max-h-[70svh] overflow-y-auto px-4 pb-8'>
-          <IslandMap places={places} chosen={chosen} onToggle={toggle} className='max-h-[34svh]' />
-          {/* Only a real choice gets checkboxes: with one live place there's nothing to switch. */}
-          {live.length > 1 && (
-            <ul className='mt-4 flex flex-wrap justify-center gap-2'>
-              {live.map((place) => (
+          {/* People first: each live place is the person who welcomes you there. */}
+          <ul className='space-y-3'>
+            {live.map((place) => {
+              const isChosen = chosen.includes(place.slug);
+              // Only a real choice can be switched: with one live place there's nothing to tap on or off.
+              const Card = live.length > 1 ? Label : 'div';
+              return (
                 <li key={place.slug}>
-                  <Label className='flex items-center gap-2 rounded-full border border-border px-3 py-2 font-normal'>
-                    <Checkbox checked={chosen.includes(place.slug)} onCheckedChange={() => toggle(place.slug)} />
-                    {place.name}
-                  </Label>
+                  <Card
+                    className={cn(
+                      'flex items-center gap-4 rounded-3xl border p-3 font-normal transition',
+                      isChosen ? 'border-primary/40 bg-primary/10' : 'border-border bg-card opacity-60'
+                    )}
+                  >
+                    <HostPhoto place={place} />
+                    <div className='min-w-0 flex-1'>
+                      <p className='truncate font-display text-xl leading-tight'>{place.hostName ? firstName(place.hostName) : place.name}</p>
+                      {place.hostName && <p className='truncate text-sm text-muted-foreground'>{place.name}</p>}
+                      {place.corralName && (
+                        <DrawerClose asChild>
+                          <Link
+                            href={`/corral/${place.slug}`}
+                            className='mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline'
+                          >
+                            {place.hostName ? t('CORRAL_MEET', { name: firstName(place.hostName) }) : t('CORRAL_VISIT', { name: place.corralName })}
+                            <ArrowRight className='size-4' aria-hidden />
+                          </Link>
+                        </DrawerClose>
+                      )}
+                    </div>
+                    {live.length > 1 && <Checkbox checked={isChosen} onCheckedChange={() => toggle(place.slug)} aria-label={place.name} className='size-6' />}
+                  </Card>
                 </li>
-              ))}
-            </ul>
-          )}
+              );
+            })}
+          </ul>
           {soon.length > 0 && (
-            <p className='mt-3 text-balance text-center text-sm text-muted-foreground'>
+            <p className='mt-4 text-balance text-center text-sm text-muted-foreground'>
               <span className='font-medium text-foreground'>{t('PLACES_SOON_LIST')}</span> {soon.map((place) => place.name).join(' · ')}
             </p>
-          )}
-          {/* The Corral of each chosen place: the real spot behind it, one tap away. */}
-          {corrals.length > 0 && (
-            <ul className='mt-4 space-y-2'>
-              {corrals.map((place) => (
-                <li key={place.slug}>
-                  <DrawerClose asChild>
-                    <Link
-                      href={`/corral/${place.slug}`}
-                      className='flex items-center justify-between gap-3 rounded-2xl bg-primary/10 px-4 py-3 text-sm font-medium text-primary transition hover:bg-primary/15'
-                    >
-                      {t('CORRAL_VISIT', { name: place.corralName ?? '' })}
-                      <ArrowRight className='size-4' aria-hidden />
-                    </Link>
-                  </DrawerClose>
-                </li>
-              ))}
-            </ul>
           )}
           {live.length > 1 && chosen.length < live.length && (
             <Button variant='outline' className='mt-4 w-full rounded-full' onClick={() => choose(live.map((place) => place.slug))}>
               {t('PLACES_CHOOSE_ALL')}
             </Button>
           )}
-          <p className='mt-4 text-center text-[0.65rem] text-muted-foreground'>{t('PLACES_MAP_CREDIT')}</p>
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+/** The host's face in a circle; a pin while a place has no one yet. */
+function HostPhoto({ place }: { place: ShopPlace }) {
+  return (
+    <span className='relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary'>
+      {place.hostImage ? (
+        <ProductMedia src={place.hostImage} alt={place.hostName ?? place.name} fill sizes='64px' className='object-cover object-top' />
+      ) : (
+        <MapPin className='size-6' aria-hidden />
+      )}
+    </span>
   );
 }

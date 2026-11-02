@@ -14,7 +14,13 @@ export interface ShopPlace {
   isLive: boolean;
   /** Its Corral's name, when the place has its meeting spot. */
   corralName?: string;
+  /** The person who welcomes you there: the picker shows them, not a map. */
+  hostName?: string;
+  hostImage?: string;
 }
+
+/** "Chantal Montaldo" → "Chantal": the host greets you by first name. */
+export const firstName = (name: string) => name.split(' ')[0];
 
 /** The saved slugs as written in the cookie or storage ("corralejo,el-cotillo"). */
 export const parsePlaceSlugs = (value?: string | null) =>

@@ -20,6 +20,8 @@ export async function getShopPlaces(locale: Locale): Promise<ShopPlace[]> {
     y,
     isLive,
     corralName: corral?.name,
+    hostName: corral?.hostName ?? undefined,
+    hostImage: corral?.hostImage ?? undefined,
   }));
 }
 
