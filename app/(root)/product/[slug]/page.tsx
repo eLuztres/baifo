@@ -11,6 +11,7 @@ import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
+import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ListingInfoButton from '@/components/shared/product/listing-info-button';
 import AdminEditButton from '@/components/shared/admin-edit-button';
 import { Button } from '@/components/ui/button';
@@ -160,6 +161,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           ),
         }}
       />
+      {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       <Link
         href={feedHref}
