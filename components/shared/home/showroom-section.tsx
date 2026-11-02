@@ -22,13 +22,16 @@ export default async function ShowroomSection({ rings, counts, storeCategories }
   const groups = groupByCategory(storeCategories, rings, locale);
   const images = new Map(storeCategories.map((category) => [category.slug, category.image]));
   // A category without a cover shows its newest ring.
-  const categories = groups.map((group) => ({
-    ...group,
-    image: images.get(group.id) ?? group.rings[0]?.image ?? BRAND.heroImage,
-    // A ring loaded for another category (or the opening scene) can be in this one too, after its first few.
-    products: group.rings.slice(0, RING_PREVIEW_COUNT),
-    ...counts.get(group.id),
-  }));
+  // The category with the most listings comes first; equal ones keep the admin's order.
+  const categories = groups
+    .map((group) => ({
+      ...group,
+      image: images.get(group.id) ?? group.rings[0]?.image ?? BRAND.heroImage,
+      // A ring loaded for another category (or the opening scene) can be in this one too, after its first few.
+      products: group.rings.slice(0, RING_PREVIEW_COUNT),
+      ...counts.get(group.id),
+    }))
+    .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
   const figures = [
     ...(BRAND.ringFigure ? [{ image: BRAND.ringFigure, spinner: BRAND.ringFigureSpinner, at: BRAND.ringFigureAt }] : []),
     ...RING_FIGURES,
