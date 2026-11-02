@@ -34,10 +34,11 @@
     scroll-snap-type: y mandatory;
   }
 
-  /* Its margin keeps the header in view at the first stop. */
+  /* Its margin keeps the header in view at the first stop; a full screen tall, so the details card doesn't peek in. */
   .photo {
     scroll-snap-align: start;
     scroll-margin-top: 4rem;
+    min-height: calc(100svh - 4rem);
   }
 
   .details {

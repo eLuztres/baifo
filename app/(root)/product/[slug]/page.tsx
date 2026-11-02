@@ -26,7 +26,7 @@ import { absoluteUrl, BRAND } from '@/lib/brand';
 import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
-import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
@@ -86,7 +86,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   if (!product) notFound();
   // The page itself always opens (a shared link); what it suggests next stays in the visitor's places.
   const visibleRings = inPlaces(summaries, placeIds);
-  const place = product.placeId ? (await getShopPlaces(locale)).find((item) => item.id === product.placeId) : undefined;
 
   const inStock = product.stock > 0;
   const isReserved = inStock && isReservationActive(product);
@@ -174,10 +173,12 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined}
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
           />
+          {/* Phones: the first step is only the photo and its title; the details card waits for the next step. */}
+          <p className='px-4 pt-4 font-display text-xl leading-tight tracking-tight sm:hidden'>{name}</p>
         </div>
 
         <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5')}>
-          <div className='relative flex min-h-0 flex-col max-sm:flex-1 gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
+          <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
             {/* A thin gold light along the top edge, like the rim of a jewellery box. */}
             <span
               aria-hidden='true'
@@ -190,7 +191,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 <ShareButton title={name} />
               </div>
             </div>
-            {(condition || serviceKey || isEvent || place) && (
+            {(condition || serviceKey || isEvent) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
                 {condition && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(condition)}</p>}
                 {serviceKey && <p className='w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm'>{t(serviceKey)}</p>}
@@ -210,15 +211,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                     <MapPin className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{product.address}</span>
                   </a>
                 )}
-                {place && (
-                  <p className='inline-flex w-fit items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm'>
-                    <MapPin className='size-3.5 text-primary' aria-hidden /> {place.name}
-                  </p>
-                )}
               </div>
             )}
             {description && (
-              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} boxClassName='max-sm:flex-1' className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
+              <ScrollText moreLabel={t('PRODUCT_DESCRIPTION_MORE')} className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'>
                 {description}
               </ScrollText>
             )}
