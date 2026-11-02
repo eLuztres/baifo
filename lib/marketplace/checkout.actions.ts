@@ -13,7 +13,7 @@ import { clientIp } from '@/lib/sign-in-limit';
 import { sellerLocaleSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { HOUSE_SELLER, LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
-import { publishSubmission, takeDown } from './publish';
+import { publishConfirmed, publishSubmission, takeDown } from './publish';
 import { toWaId } from './seller';
 import { moveListingToNumber } from './seller-number';
 
@@ -52,10 +52,13 @@ async function saveChoice(input: unknown) {
   return prisma.submission.update({ where: { id: submission.id }, data });
 }
 
-/** "Confirmar": the person agrees to show their number and picks a plan; the page then shows how to pay. */
+/** "Publicar mi anuncio": the person agrees to show their number and the listing goes online; no money is asked. */
 export async function confirmListing(input: ListingChoice): Promise<ActionResult> {
   try {
-    return { success: Boolean(await saveChoice(input)) };
+    const submission = await saveChoice(input);
+    if (!submission) return { success: false };
+    await publishConfirmed(submission.id);
+    return { success: true };
   } catch (error) {
     console.error('[listing] confirmation failed', error);
     return { success: false };

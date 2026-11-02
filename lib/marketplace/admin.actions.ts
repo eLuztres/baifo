@@ -559,7 +559,7 @@ export async function enableAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const outcome = await enableListing(id);
   if (!outcome) return { success: false, message: 'Este anuncio ya está online' };
-  return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el pago de nuevo' };
+  return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el OK de la persona de nuevo' };
 }
 
 /** "1 mes más": a live listing stays online a month longer, for free; a payment for it is the admin's own business. */

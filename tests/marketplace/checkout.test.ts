@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
 import { paypal } from '@/lib/paypal';
 import { isRateLimited } from '@/lib/rate-limit';
-import { publishSubmission, takeDown } from '@/lib/marketplace/publish';
+import { publishConfirmed, publishSubmission, takeDown } from '@/lib/marketplace/publish';
 import {
   captureListingPayPalOrder,
   changeSellerPhone,
@@ -18,7 +18,7 @@ jest.mock('@/lib/paypal', () => ({ paypal: { createOrder: jest.fn(), capturePaym
 jest.mock('next/headers', () => ({ headers: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
-jest.mock('@/lib/marketplace/publish', () => ({ publishSubmission: jest.fn(), takeDown: jest.fn() }));
+jest.mock('@/lib/marketplace/publish', () => ({ publishConfirmed: jest.fn(), publishSubmission: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ HOUSE_SELLER: 'baifo', LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
 jest.mock('@/lib/marketplace/listing-payment', () => ({ isLinkExpired: () => false, recordConsent: jest.fn() }));
 jest.mock('@/db/prisma', () => {
@@ -47,15 +47,17 @@ beforeEach(() => {
 });
 
 describe('confirmListing', () => {
-  it('saves the normal plan with the person\'s OK', async () => {
+  it('saves the person\'s OK and puts the listing online, without asking for money', async () => {
     expect(await confirmListing({ token: TOKEN, plan: 'normal', hasContactConsent: true })).toEqual({ success: true });
     expect(db.submission.update.mock.calls[0][0].data).toEqual({ plan: 'normal', hasContactConsent: true });
+    expect(publishConfirmed).toHaveBeenCalledWith('sub-1');
   });
 
   it('refuses Premium and the extras, which are only shown as coming soon', async () => {
     expect((await confirmListing({ token: TOKEN, plan: 'big', hasContactConsent: true } as never)).success).toBe(false);
     expect((await confirmListing({ token: TOKEN, plan: 'normal', hasContactConsent: true, crossPostFacebook: true } as never)).success).toBe(false);
     expect(db.submission.update).not.toHaveBeenCalled();
+    expect(publishConfirmed).not.toHaveBeenCalled();
   });
 });
 

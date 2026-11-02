@@ -10,11 +10,10 @@ import { absoluteUrl, BRAND } from '@/lib/brand';
 import { localize } from '@/lib/category';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
-import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PAYMENT_ON_PAGE, LISTING_PRICES, UNPAID_LISTING_HOURS, type ListingPlan } from '@/lib/marketplace/config';
+import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS } from '@/lib/marketplace/config';
 import { fill, publishPageTexts } from '@/lib/marketplace/page-texts';
 import { getListingPreview as loadListingPreview } from '@/lib/marketplace/preview';
 import { conditionKey, SERVER_URL } from '@/lib/constants';
-import { formatCurrency } from '@/lib/utils';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
@@ -108,35 +107,6 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     validUntil,
     helpUrl: BRAND.contact.whatsappUrl,
   };
-  // Renewals are paid by Bizum or cash only: the card webhooks know first payments only.
-  const renewMethods = LISTING_PAYMENT_METHODS.filter((method) => method === 'bizum' || method === 'cash');
-  // Without payment on the page the person asks the admin on WhatsApp instead.
-  const canRenew = LISTING_PAYMENT_ON_PAGE && (isLive || isEnded) && Boolean(listing.paidAt) && listing.hasSellerPhone && renewMethods.length > 0;
-  const plan = (listing.plan ?? 'normal') as ListingPlan;
-  const renewTexts = {
-    ...texts,
-    payTitle: texts.renewTitle,
-    payIntro: fill(texts.renewIntro, { price: formatCurrency(LISTING_PRICES[plan]), days: LISTING_DAYS }),
-    doneText: texts.renewDoneText,
-    doneNextCash: texts.renewDoneNextCash,
-    laterText: texts.renewLaterText,
-  };
-  // A claim from before the last payment belongs to that payment.
-  const renewClaim = listing.payClaimedAt && listing.paidAt && listing.payClaimedAt > listing.paidAt ? listing.payClaimedMethod : null;
-  const renewForm = canRenew && (
-    <PublishForm
-      token={token}
-      texts={renewTexts}
-      prices={LISTING_PRICES}
-      days={LISTING_DAYS}
-      initial={{ isConfirmed: true, claimedMethod: renewClaim === 'cash' ? 'cash' : renewClaim === 'bizum' ? 'bizum' : null }}
-      payment={{ ...payment, methods: renewMethods }}
-      paypalClientId=''
-      shopTeaser={null}
-      isRenewal
-    />
-  );
-
   const sellerNameForm = listing.hasSellerPhone && (
     <SellerNameForm
       token={token}
@@ -201,14 +171,13 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
         {isEnded ? (
           <>
             <p className='rounded-3xl border border-border bg-muted p-6'>
-              {fill(LISTING_PAYMENT_ON_PAGE ? texts.endedOn : texts.endedOnAsk, { date: endDate })}
-              {!LISTING_PAYMENT_ON_PAGE && BRAND.contact.whatsappUrl && (
+              {fill(texts.endedOnAsk, { date: endDate })}
+              {BRAND.contact.whatsappUrl && (
                 <a href={BRAND.contact.whatsappUrl} target='_blank' rel='noopener noreferrer' className='mt-3 flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline'>
                   {texts.askUs}
                 </a>
               )}
             </p>
-            {renewForm}
             <ShopTeaser texts={texts} />
           </>
         ) : isLive || pagado ? (
@@ -223,7 +192,6 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
             </div>
             {isLive && sellerNameForm}
             {isLive && sellerPhoneForm}
-            {isLive && renewForm}
             {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
             <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
           </>
@@ -241,7 +209,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               payment={payment}
               paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
               shopTeaser={<ShopTeaser texts={texts} />}
-              hasPayment={LISTING_PAYMENT_ON_PAGE}
+              hasPayment={false}
             />
           </>
         )}

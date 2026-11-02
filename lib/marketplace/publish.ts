@@ -162,6 +162,12 @@ export async function publishPaidByAdmin(submissionId: string, plan: ListingPlan
   return product ? 'published' : 'not-waiting';
 }
 
+/** The person gave their OK on their private page: there's no fee, so it goes online at once. */
+export async function publishConfirmed(submissionId: string) {
+  const submission = await prisma.submission.findUnique({ where: { id: submissionId }, include: { seller: true } });
+  return submission ? goLive(submission, ['AWAITING_PAYMENT'], 'Persona') : null;
+}
+
 /** The admin puts a listing online without payment (own listings, or a seller who paid otherwise). */
 export async function publishByAdmin(submissionId: string, plan: ListingPlan) {
   const submission = await prisma.submission.update({

@@ -69,7 +69,8 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
   // Premium is shown but not offered yet, so the plan is always the normal one.
   const plan: ListingPlan = 'normal';
   const [hasConsent, setHasConsent] = useState(initial.isConfirmed);
-  const [isConfirmed, setIsConfirmed] = useState(initial.isConfirmed);
+  // Without payment the OK is the step that publishes, so an OK given before (e.g. to the admin) still shows its button.
+  const [isConfirmed, setIsConfirmed] = useState(hasPayment && initial.isConfirmed);
   // Bizum and cash are paid outside the page; with only one of them there is nothing to choose.
   const manualMethods = payment.methods.filter((option): option is ManualPayMethod => option === 'bizum' || option === 'cash');
   const [method, setMethod] = useState<ManualPayMethod | null>(manualMethods.length === 1 ? manualMethods[0] : null);
@@ -119,7 +120,9 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
     if (!input) return;
     startTransition(async () => {
       const result = await confirmListing(input);
-      if (result.success) setIsConfirmed(true);
+      // Without payment the OK publishes it: the page comes back showing it online.
+      if (result.success && !hasPayment) router.refresh();
+      else if (result.success) setIsConfirmed(true);
       else setError(texts.error);
     });
   };

@@ -28,9 +28,7 @@ import {
   updateAdminListing,
   type AdminListing,
 } from '@/lib/marketplace/admin.actions';
-import { markListingPaid, recordWhatsAppConsent } from '@/lib/marketplace/payment.actions';
 import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
-import PaymentPanel, { type AdminPayMethod } from './payment-panel';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
@@ -264,15 +262,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     if (result.success) router.push('/admin/listings');
     return result;
   };
-
-  // A person paid by Bizum or in cash: it goes online, and the admin sees it there.
-  const markPaid = (method: AdminPayMethod, amount: string) =>
-    startTransition(async () => {
-      const result = await markListingPaid(listing.id, { plan: (listing.plan as 'normal' | 'big') ?? 'normal', method, amount });
-      if (!result.success) return setError(result.message);
-      const next = await getAdminListing(listing.id);
-      if (next?.product?.slug) router.push(`/product/${next.product.slug}`);
-    });
 
   // The AI writes the texts now, in every language; a price the AI read fills an empty one.
   const createDescription = async (): Promise<FilledTexts | null> => {
@@ -600,17 +589,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
           </div>
         )}
 
-        {step === 3 && isEditing && listing.status === 'AWAITING_PAYMENT' && (
-          <PaymentPanel
-            listing={listing}
-            plan={(listing.plan as 'normal' | 'big') ?? 'normal'}
-            hasPersonNumber={/^\d+$/.test(listing.seller.waId)}
-            texts={texts}
-            isPending={isPending}
-            onConsent={() => startTransition(async () => void (await recordWhatsAppConsent(listing.id)))}
-            onPaid={markPaid}
-          />
-        )}
         {step === 3 && isEditing && (
           <DeleteDialog
             id={listing.id}
