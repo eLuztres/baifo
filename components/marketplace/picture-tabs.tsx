@@ -213,7 +213,8 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
 
       {shown ? (
         <>
-          <ListingStage src={shown} className='mx-auto aspect-[3/4] h-[52svh] w-auto max-w-full sm:h-[60svh]'>
+          {/* Sized by the width: Safari's bars change the screen height while scrolling, and the picture with it. */}
+          <ListingStage src={shown} className='mx-auto aspect-[3/4] w-full max-w-72 sm:max-w-sm'>
             {/* Under the other buttons: a tap on the picture itself opens it full screen. */}
             <button
               type='button'

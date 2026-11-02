@@ -1,8 +1,10 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, ChevronLeft, MapPin, MessageCircle } from 'lucide-react';
+import { CalendarDays, ChevronLeft, EyeOff, MapPin, MessageCircle } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
+import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
+import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
 import BuyNowButton from '@/components/shared/product/buyNowButton';
@@ -38,8 +40,11 @@ import styles from './product-view.module.css';
 import { coverPicture } from '@/lib/video';
 
 
-// generateMetadata and the page need the same row: one query per request.
-const getProduct = cache(getProductBySlug);
+// generateMetadata and the page need the same row: one query per request. An admin also sees a listing that isn't
+// online (yet) here, at /product/vista-<id>, as visitors would.
+const getProduct = cache(
+  async (slug: string) => (await getProductBySlug(slug)) ?? ((await getAdminProductPreview(slug)) as unknown as Awaited<ReturnType<typeof getProductBySlug>>)
+);
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -52,6 +57,8 @@ export async function generateMetadata(props: ProductPageProps) {
   const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
   if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
   const { name, description } = localizeProduct(product, locale);
+  // An admin's look at a listing not online stays out of search engines.
+  if (isAdminPreviewSlug(slug)) return { title: name, robots: { index: false } };
   const cover = coverPicture(product.images);
   return {
     title: t(product.type === 'SERVICE' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
@@ -168,6 +175,12 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           >
             <ChevronLeft className='size-5' aria-hidden />
           </Link>
+          {/* Only the admin gets here before it's online: the photo says so, on phones too. */}
+          {isAdminPreviewSlug(slug) && (
+            <p className='absolute left-1/2 top-3 z-10 inline-flex max-w-[calc(100%-6rem)] -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm sm:text-sm'>
+              <EyeOff className='size-4 shrink-0' aria-hidden /> {t('PRODUCT_ADMIN_PREVIEW')}
+            </p>
+          )}
           <ProductImages
             images={product.images}
             alt={name}

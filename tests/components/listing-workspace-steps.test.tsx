@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ListingWorkspace from '@/components/marketplace/listing-workspace';
 import { getAdminListing, saveAdminListingPictures, type AdminListing } from '@/lib/marketplace/admin.actions';

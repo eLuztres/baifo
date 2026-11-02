@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Loader2, RotateCw, Send, Sparkles } from 'lucide-react';
+import { Check, Loader2, MessageCircle, RotateCw, Send, Sparkles } from 'lucide-react';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +33,8 @@ interface DescriptionStepProps {
   listingDays: number;
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
-  onSent: (listing: AdminListing) => void;
+  /** isForPerson: "Enviar a la persona", the listing waits for their OK instead of going online. */
+  onSent: (listing: AdminListing, isForPerson?: boolean) => void;
   /** The step the workspace's bar shows: 0 the pictures (only the finish button here), 1 the description, 2 the contact. */
   step: number;
   /** Opens the step where something is missing. */
@@ -43,6 +44,8 @@ interface DescriptionStepProps {
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
 export default function DescriptionStep({ listing, languages, shopLanguage, categories, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
+  // "Enviar por WhatsApp" belongs to the contact: only there, and not while the AI writes.
+  const isSendShown = isOnContact && listing.status !== 'PROCESSING';
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
   // "Ofrezco | Busco" on an Anuncio: the admin says it, the AI doesn't guess it.
@@ -114,7 +117,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnContact]);
 
-  const send = () =>
+  const send = (isForPerson = false) =>
     startTransition(async () => {
       setError('');
       // Buyers always write to the person's own WhatsApp ("through the Corral" is parked, #131).
@@ -144,11 +147,12 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         price,
         ...(isEvent && { startsAt, address }),
         category,
-        isHidden,
+        // Sent to the person, it stays ready, not shown, until they give their OK on their page.
+        isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
       });
       if (!result.success) return setError(result.message);
-      onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null });
+      onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
     });
 
   // The AI writes the texts now, in every language; a price the AI read fills an empty one.
@@ -447,11 +451,20 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
 
         {/* The end of the setup on every step, so it can be finished from wherever the admin is. Not sticky: on phones a
             floating button jumped over the field with the keyboard open. */}
-        <Button size='lg' className='w-full rounded-full shadow-xl shadow-primary/20' disabled={isPending || isWriting} onClick={send}>
-          {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Send />}{' '}
-          {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-          {isWriting ? texts.status_PROCESSING : isHidden ? texts.saveHidden : texts.publishButton}
-        </Button>
+        <div className='grid gap-3 sm:grid-cols-2'>
+          {/* Only on Contacto, next to the number it goes to: the person sees their listing first and gives their OK on
+              their private page, instead of it going online. */}
+          {isSendShown && (
+            <Button size='lg' variant='outline' className='w-full rounded-full' disabled={isPending} onClick={() => send(true)}>
+              <MessageCircle /> {texts.sendWhatsApp}
+            </Button>
+          )}
+          <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', !isSendShown && 'sm:col-span-2')} disabled={isPending || isWriting} onClick={() => send()}>
+            {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Send />}{' '}
+            {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
+            {isWriting ? texts.status_PROCESSING : isHidden ? texts.saveHidden : texts.publishButton}
+          </Button>
+        </div>
       </div>
     </>
   );

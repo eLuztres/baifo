@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
@@ -27,14 +30,17 @@ const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
+  const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
+  // "Enviar a la persona" instead of "Publicar": it ends ready to send, not online.
+  const [isForPerson, setIsForPerson] = useState(false);
   // 0 pictures, 1 description, 2 contact: free to move between them until the description is sent.
   const [step, setStep] = useState(0);
   // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
   // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one.
-  const isGoingLive = isJustPublished && listing.status === 'IN_REVIEW' && listing.autoPublish && !(listing.type === 'EVENT' && !listing.startsAt);
+  const isGoingLive = isJustPublished && !isForPerson && listing.status === 'IN_REVIEW' && listing.autoPublish && !(listing.type === 'EVENT' && !listing.startsAt);
   // The AI is busy: on the pictures (still collecting) or on the text, or the listing is on its way online.
   const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures || isGoingLive);
 
@@ -50,10 +56,34 @@ export default function ListingWorkspace({ initial, categories, places, language
     return () => clearInterval(timer);
   }, [isWaiting, listing.id]);
 
-  // Shown once the refresh brings the LIVE listing, so the done screen never shows a listing that isn't online.
-  if (isJustPublished && listing.status === 'LIVE') {
+  // After "Publicar" the admin sees the listing as visitors do: online on its page, Oculto on its admin-only preview.
+  const doneHref =
+    !isJustPublished || isForPerson
+      ? null
+      : listing.status === 'LIVE' && listing.product?.slug
+        ? `/product/${listing.product.slug}`
+        : listing.status === 'IN_REVIEW' && !listing.autoPublish
+          ? `/product/${adminPreviewSlug(listing.id)}`
+          : null;
+  useEffect(() => {
+    if (doneHref) router.push(doneHref);
+  }, [doneHref, router]);
+  if (doneHref) {
+    return (
+      <div className='flex justify-center py-16'>
+        <Loader2 className='size-8 animate-spin text-primary' aria-label={texts.status_PROCESSING} />
+      </div>
+    );
+  }
+
+  // "Enviar a la persona": ready to send once the refresh brings it.
+  const isReadyToSend = isJustPublished && isForPerson && (listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT');
+  if (isReadyToSend) {
     return (
       <PublishedView
+        listingId={listing.id}
+        type={listing.type}
+        isForPerson={isReadyToSend}
         image={coverPicture(listing.images) ?? coverPicture(listing.rawImages)}
         title={listing.title ?? ''}
         price={listing.price}
@@ -98,8 +128,9 @@ export default function ListingWorkspace({ initial, categories, places, language
           categories={categories}
           listingDays={listingDays}
           texts={texts}
-          onSent={(next) => {
+          onSent={(next, forPerson = false) => {
             setListing(next);
+            setIsForPerson(forPerson);
             setIsJustPublished(true);
           }}
           step={shownStep}

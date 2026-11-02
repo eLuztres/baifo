@@ -32,7 +32,7 @@ export default function ListingSteps({ current, texts, onSelect }: ListingStepsP
               {index + 1}
             </span>
             {/* Four steps don't fit a 320px phone: there only the current one says its name. */}
-            <span className={cn(index === current ? 'font-semibold' : 'max-[379px]:sr-only')}>{label}</span>
+            <span className={cn(index === current ? 'font-semibold' : 'max-[359px]:sr-only')}>{label}</span>
           </StepLink>
         </li>
       ))}
