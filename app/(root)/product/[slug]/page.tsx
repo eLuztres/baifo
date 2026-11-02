@@ -32,7 +32,7 @@ import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
-import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
+import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
@@ -127,7 +127,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       : undefined;
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
-  const sellerMessageTexts = hasSellerContact ? getContactMessageTexts(product) : undefined;
+  const sellerMessage = hasSellerContact ? getContactMessage(product) : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
@@ -272,11 +272,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                     )}
                     {description && <span className='block whitespace-pre-line'>{description}</span>}
                   </ListingInfoButton>
-                  {sellerMessageTexts ? (
+                  {sellerMessage ? (
                     <ContactSellerButton
                       productId={product.id}
-                      messageTexts={sellerMessageTexts}
-                      image={BRAND.contactImage}
+                      message={sellerMessage}
                       className='flex-1 shrink-0'
                     />
                   ) : shopChatUrl ? (

@@ -35,7 +35,7 @@ export async function getProductContact(productId: string) {
     select: { contactPhone: true },
   });
   const digits = product?.contactPhone?.replace(/\D/g, '');
-  return digits ? { phone: `+${digits}`, whatsappUrl: `https://wa.me/${digits}` } : null;
+  return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
 }
 
 // Get single product by it's ID
