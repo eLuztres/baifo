@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Clock, Handshake, LifeBuoy, Mail, MapPin, MessageCircle, Navigation, Phone, Users } from 'lucide-react';
+import { Clock, LifeBuoy, Mail, MapPin, MessageCircle, Navigation, Phone, Users } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import FeedCard from '@/components/shared/product/feed-card';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
@@ -69,7 +69,6 @@ export default async function CorralPage({ params }: CorralPageProps) {
     corral.email && { href: `mailto:${corral.email}`, icon: Mail, label: 'Email', value: corral.email.replace('@', '@\u200B') },
   ].filter((contact) => !!contact);
   const activities = [
-    { icon: Handshake, title: t('CORRAL_DO_HANDOVER_TITLE'), text: t('CORRAL_DO_HANDOVER_TEXT') },
     { icon: LifeBuoy, title: t('CORRAL_DO_HELP_TITLE'), text: t('CORRAL_DO_HELP_TEXT') },
     { icon: Users, title: t('CORRAL_DO_MEET_TITLE'), text: t('CORRAL_DO_MEET_TEXT') },
   ];
@@ -230,7 +229,7 @@ export default async function CorralPage({ params }: CorralPageProps) {
         <h2 id='corral-do' className='text-center font-display text-3xl sm:text-4xl'>
           {t('CORRAL_DO_TITLE')}
         </h2>
-        <ul className='grid gap-4 sm:grid-cols-3'>
+        <ul className='mx-auto grid max-w-3xl gap-4 sm:grid-cols-2'>
           {activities.map(({ icon: Icon, title, text }) => (
             <li key={title} className='space-y-3 rounded-3xl border border-border bg-card p-6'>
               <span className='flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary'>
