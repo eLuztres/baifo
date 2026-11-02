@@ -49,7 +49,6 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       <AdvertiseBox
         title={order}
         text={orderText}
-        buttonLabel={t('HOME_HERO_ORDER_BUTTON')}
         hosts={hosts}
         fallbackHref={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
       />

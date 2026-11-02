@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/components/i18n-provider';
-import WhatsAppLogo from '@/components/shared/whatsapp-logo';
 import type { CorralHost } from './corral-hosts';
 import CorralHostsDialog from './corral-hosts-dialog';
 import styles from './scene-hero.module.css';
@@ -11,14 +10,13 @@ import styles from './scene-hero.module.css';
 interface AdvertiseBoxProps {
   title: string;
   text: string;
-  buttonLabel: string;
   hosts: CorralHost[];
   /** Where the box goes when no corral has a host yet. */
   fallbackHref: string;
 }
 
-/** The ad box at the bottom of the hero: the whole box is the button, and it opens the corral hosts to write to. */
-export default function AdvertiseBox({ title, text, buttonLabel, hosts, fallbackHref }: AdvertiseBoxProps) {
+/** The ad box at the bottom of the hero: one centered line; the whole box is the button, and it opens the corral hosts to write to. */
+export default function AdvertiseBox({ title, text, hosts, fallbackHref }: AdvertiseBoxProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -27,10 +25,6 @@ export default function AdvertiseBox({ title, text, buttonLabel, hosts, fallback
       <span className={styles.advertiseWords}>
         <span className={styles.advertiseTitle}>{title}</span>
         {text && <span className={styles.advertiseText}>{text}</span>}
-      </span>
-      <span className={styles.advertiseButton}>
-        <WhatsAppLogo />
-        {buttonLabel}
       </span>
     </>
   );
