@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarDays, ChevronLeft, EyeOff, MapPin, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
@@ -163,14 +163,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       />
       {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
-      <Link
-        href={feedHref}
-        className='inline-flex shrink-0 items-center gap-1 self-start text-sm text-muted-foreground transition hover:text-foreground max-sm:hidden'
-      >
-        <ChevronLeft className='h-4 w-4' />
-        {t('BACK_TO_SHOP')}
-      </Link>
-
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}
@@ -178,13 +170,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           <Link
             href={feedHref}
             aria-label={t('BACK_TO_SHOP')}
-            className='absolute left-3 top-3 z-10 flex size-9 items-center justify-center rounded-full bg-background/70 text-foreground shadow-sm backdrop-blur-sm sm:hidden'
+            className='absolute left-3.5 top-3.5 z-10 flex size-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg shadow-black/40 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-90'
           >
-            <ChevronLeft className='size-5' aria-hidden />
+            <ArrowLeft className='size-7' strokeWidth={2.6} aria-hidden />
           </Link>
           {/* Only the admin gets here before it's online: the photo says so, on phones too. */}
           {isAdminPreviewSlug(slug) && (
-            <p className='absolute left-1/2 top-3 z-10 inline-flex max-w-[calc(100%-6rem)] -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm sm:text-sm'>
+            <p className='absolute left-1/2 top-3 z-10 inline-flex max-w-[calc(100%-10rem)] -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm sm:text-sm'>
               <EyeOff className='size-4 shrink-0' aria-hidden /> {t('PRODUCT_ADMIN_PREVIEW')}
             </p>
           )}
