@@ -4,8 +4,9 @@ import { APP_NAME } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
+import { getPlaces } from '@/lib/places';
 import { cn } from '@/lib/utils';
-import { WhatsAppLogo } from './dark-room-hero';
+import AdvertiseBox, { type CorralHost } from './advertise-box';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey } from './hero-pictures';
@@ -22,6 +23,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
+  const hosts = await getCorralHosts(t);
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = pictures.map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
@@ -44,20 +46,30 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       </div>
 
       {/* A small ad like in the local paper: the only place the site talks about the fee. */}
-      <div className={styles.advertise}>
-        <div className={styles.advertiseWords}>
-          <p className={styles.advertiseTitle}>{order}</p>
-          {orderText && <p className={styles.advertiseText}>{orderText}</p>}
-        </div>
-        <Link
-          href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
-          {...(whatsappUrl && { target: '_blank', rel: 'noopener noreferrer' })}
-          className={styles.advertiseButton}
-        >
-          {whatsappUrl && <WhatsAppLogo />}
-          {t('HOME_HERO_ORDER_BUTTON')}
-        </Link>
-      </div>
+      <AdvertiseBox
+        title={order}
+        text={orderText}
+        buttonLabel={t('HOME_HERO_ORDER_BUTTON')}
+        hosts={hosts}
+        fallbackHref={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
+      />
     </section>
   );
+}
+
+type Translate = Awaited<ReturnType<typeof getT>>['t'];
+
+/** The people of the live corrals, so an ad starts with a face; a host without their own number gets the shop's. */
+async function getCorralHosts(t: Translate): Promise<CorralHost[]> {
+  const places = await getPlaces();
+  return places.flatMap(({ isLive, corral }) => {
+    if (!isLive || !corral?.hostName || !corral.hostImage) return [];
+    const name = corral.hostName.split(' ')[0];
+    const message = t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME });
+    const phone = corral.whatsapp?.replace(/\D/g, '');
+    const whatsappUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`
+      : BRAND.contact.showPhone && BRAND.contact.sellWhatsappUrl(message);
+    return whatsappUrl ? [{ name, corralName: corral.name, image: corral.hostImage, whatsappUrl }] : [];
+  });
 }
