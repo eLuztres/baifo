@@ -24,6 +24,79 @@
   display: none;
 }
 
+/* The way back: a dark disc in a ring of the brand's colors, turning slowly with a soft glow behind it. */
+.backButton {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  isolation: isolate;
+  color: var(--foreground);
+  transition: transform 0.2s ease;
+}
+
+.backButton::before,
+.backButton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: conic-gradient(var(--primary), var(--accent), var(--chart-3), var(--primary));
+}
+
+.backButton::before {
+  inset: -2px;
+  filter: blur(7px);
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.backButton svg {
+  width: calc(100% - 5px);
+  height: calc(100% - 5px);
+  padding: 0.5625rem;
+  border-radius: 50%;
+  background: var(--background);
+  transition: transform 0.2s ease;
+}
+
+.backButton:hover::before,
+.backButton:active::before {
+  opacity: 1;
+}
+
+.backButton:hover svg {
+  transform: translateX(-1px);
+}
+
+.backButton:active {
+  transform: scale(0.88);
+}
+
+.backButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .backButton::before,
+  .backButton::after {
+    animation: backButtonTurn 5s linear infinite;
+  }
+}
+
+@keyframes backButtonTurn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Phones: the screen minus the header (h-16) and main's pt-8, which the photo pulls itself up into. */
 @media (max-width: 639px) {
   .view {

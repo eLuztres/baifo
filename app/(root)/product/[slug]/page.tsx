@@ -170,9 +170,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           <Link
             href={feedHref}
             aria-label={t('BACK_TO_SHOP')}
-            className='absolute left-3.5 top-3.5 z-10 flex size-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg shadow-black/40 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-90'
+            className={styles.backButton}
           >
-            <ArrowLeft className='size-7' strokeWidth={2.6} aria-hidden />
+            <ArrowLeft strokeWidth={2.4} aria-hidden />
           </Link>
           {/* Only the admin gets here before it's online: the photo says so, on phones too. */}
           {isAdminPreviewSlug(slug) && (
