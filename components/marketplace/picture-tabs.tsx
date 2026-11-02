@@ -8,10 +8,11 @@ import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useDragOrder } from '@/hooks/use-drag-order';
 import { useToast } from '@/hooks/use-toast';
 import { createAdminListingPicture, saveAdminListingPictures } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
-import { addCreated, addUpload, photoBehind, pictureCounterpart, removePicture, setAiVersion, switchVersion, type PictureSet } from '@/lib/marketplace/pictures';
+import { addCreated, addUpload, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, switchVersion, type PictureSet } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,14 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
     });
     return next;
   };
+
+  // Dragging a tab changes the order; the first picture is the listing's cover.
+  const drag = useDragOrder((from, to) => {
+    const images = movePicture(latest.current.images, from, to);
+    if (images === latest.current.images) return false;
+    update((current) => ({ ...current, images }));
+    return true;
+  });
 
   const isNewTab = selected === NEW_TAB || !pictures.images.includes(selected);
   const shown = isNewTab ? undefined : selected;
@@ -160,53 +169,59 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
       />
 
       {hasTabs && (
-        <div role='tablist' aria-label={texts.photosLabel} className='flex gap-2 overflow-x-auto p-1'>
+        <ul ref={drag.listRef} role='tablist' aria-label={texts.photosLabel} className='flex gap-2 overflow-x-auto p-1'>
           {pictures.images.map((url, index) => {
             const isAi = Boolean(pictureCounterpart(pictures, url)?.isAi);
             return (
-              <button
-                key={url}
-                type='button'
-                role='tab'
-                aria-selected={url === selected}
-                aria-label={`${texts.photosLabel} ${index + 1}`}
-                onClick={() => setSelected(url)}
-                className={cn(
-                  'relative aspect-[3/4] w-14 shrink-0 overflow-hidden rounded-2xl border-2 bg-muted transition',
-                  url === selected ? 'border-primary' : 'border-transparent opacity-80 hover:opacity-100'
-                )}
-              >
-                <ProductMedia src={pictureOf(url) ?? url} alt='' fill sizes='3.5rem' />
-                {isAi && <span className='absolute bottom-1 right-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground'>{texts.aiPicture}</span>}
-                {busy.includes(url) && (
-                  <span className='absolute inset-0 flex items-center justify-center bg-background/60'>
-                    <Loader2 className='size-4 animate-spin text-primary' aria-hidden />
-                  </span>
-                )}
-              </button>
+              // The key has the place: a moved tab is a new element, so it doesn't slide back from where it was.
+              <li key={`${index}-${url}`} role='presentation' className='shrink-0 transition-transform' {...drag.itemProps(index)}>
+                <button
+                  {...drag.handleProps(index)}
+                  type='button'
+                  role='tab'
+                  aria-selected={url === selected}
+                  aria-label={`${texts.photosLabel} ${index + 1}`}
+                  onClick={() => setSelected(url)}
+                  className={cn(
+                    'relative block aspect-[3/4] w-14 cursor-grab select-none overflow-hidden rounded-2xl border-2 bg-muted transition [-webkit-touch-callout:none]',
+                    url === selected ? 'border-primary' : 'border-transparent opacity-80 hover:opacity-100',
+                    drag.draggedIndex === index && 'cursor-grabbing opacity-100 shadow-xl'
+                  )}
+                >
+                  <ProductMedia src={pictureOf(url) ?? url} alt='' fill sizes='3.5rem' />
+                  {isAi && <span className='absolute bottom-1 right-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground'>{texts.aiPicture}</span>}
+                  {busy.includes(url) && (
+                    <span className='absolute inset-0 flex items-center justify-center bg-background/60'>
+                      <Loader2 className='size-4 animate-spin text-primary' aria-hidden />
+                    </span>
+                  )}
+                </button>
+              </li>
             );
           })}
           {Array.from({ length: pendingCount }, (_, index) => (
-            <span key={`pending-${index}`} className='flex aspect-[3/4] w-14 shrink-0 items-center justify-center rounded-2xl bg-muted' aria-label={texts.newPictureWorking}>
+            <li key={`pending-${index}`} role='presentation' className='flex aspect-[3/4] w-14 shrink-0 items-center justify-center rounded-2xl bg-muted' aria-label={texts.newPictureWorking}>
               <Loader2 className='size-4 animate-spin text-primary' aria-hidden />
-            </span>
+            </li>
           ))}
           {canAdd && (
-            <button
-              type='button'
-              role='tab'
-              aria-selected={isNewTab}
-              aria-label={texts.addPhoto}
-              onClick={() => setSelected(NEW_TAB)}
-              className={cn(
-                'flex aspect-[3/4] w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-dashed text-primary transition',
-                isNewTab ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
-              )}
-            >
-              <Plus className='size-6' aria-hidden />
-            </button>
+            <li role='presentation' className='shrink-0'>
+              <button
+                type='button'
+                role='tab'
+                aria-selected={isNewTab}
+                aria-label={texts.addPhoto}
+                onClick={() => setSelected(NEW_TAB)}
+                className={cn(
+                  'flex aspect-[3/4] w-14 items-center justify-center rounded-2xl border-2 border-dashed text-primary transition',
+                  isNewTab ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
+                )}
+              >
+                <Plus className='size-6' aria-hidden />
+              </button>
+            </li>
           )}
-        </div>
+        </ul>
       )}
 
       <ImageLightbox images={pictures.images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
