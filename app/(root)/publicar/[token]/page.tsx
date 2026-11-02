@@ -17,7 +17,7 @@ import { conditionKey, SERVER_URL } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
-import { serviceTypeKey, wantedBudgetKey } from '@/lib/listing-labels';
+import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
 import { isLocale } from '@/lib/i18n-core';
 import { getShopPlaces } from '@/lib/places';
 import CloseListingForm from './close-listing-form';
@@ -78,9 +78,10 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   const serviceKey = listing.type === 'SERVICE' ? serviceTypeKey(listing.serviceType) : undefined;
   const isEvent = listing.type === 'EVENT';
   const place = listing.place ? (await getShopPlaces(locale)).find((item) => item.id === listing.place?.id) : undefined;
-  // As on the product page: 0 is a free event or a service without a "from" price.
-  const hasPrice = listing.type === 'PRODUCT' || listing.type === 'WANTED' || Number(listing.price) > 0;
-  const priceLabel = listing.type === 'WANTED' ? t(wantedBudgetKey(listing.price?.toString(), listing.priceMax?.toString())) : listing.type === 'SERVICE' ? t('PRICE_FROM') : undefined;
+  // As on the product page: no price at all, and 0 (a free event), show no amount.
+  const hasPrice = listing.priceMode !== 'NONE' && Number(listing.price) > 0;
+  const priceLabelText = priceLabelKey(listing.type, listing.priceMode);
+  const priceLabel = priceLabelText && t(priceLabelText);
   const corral = listing.place?.corral;
   // Until when the person can still pay: the link stops working this long after it was sent.
   const validUntil = listing.sentAt
@@ -191,7 +192,7 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
             </ScrollText>
           )}
           {hasPrice ? (
-            <ProductPrice value={Number(listing.price)} maxValue={listing.priceMax?.toString()} label={priceLabel} />
+            <ProductPrice value={Number(listing.price)} label={priceLabel} />
           ) : (
             isEvent && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
           )}

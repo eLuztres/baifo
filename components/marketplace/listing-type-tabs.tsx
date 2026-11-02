@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarDays, HandHelping, Package, Search } from 'lucide-react';
-import { LISTING_TYPES, newListingPath, type ListingType } from '@/lib/constants';
+import { CalendarDays, Megaphone } from 'lucide-react';
+import { newListingPath, type ListingType } from '@/lib/constants';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 import ListingTypeInfo from './listing-type-info';
@@ -19,19 +19,21 @@ interface ListingTypeTabsProps {
   isDisabled?: boolean;
 }
 
-const TYPE_ICONS = { PRODUCT: Package, WANTED: Search, SERVICE: HandHelping, EVENT: CalendarDays } as const;
+// Two tabs: an Anuncio (a thing, a service or a search, the AI tells which) and an event, which has its date and address.
+const TABS = ['PRODUCT', 'EVENT'] as const satisfies readonly ListingType[];
+const TAB_ICONS = { PRODUCT: Megaphone, EVENT: CalendarDays } as const;
 
 const TAB_CLASS =
   'flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-2 py-2 text-xs font-medium transition-colors min-[400px]:px-3 min-[400px]:text-sm sm:px-4';
 
-/** Producto · Busco · Servicio · Evento, the same row on every step of a new listing and in the editor. */
+/** Anuncio · Evento, the same row on every step of a new listing and in the editor. */
 export default function ListingTypeTabs({ type, texts, hasLinks = false, onSelect, hasInfo = false, isDisabled = false }: ListingTypeTabsProps) {
-  const intro = { PRODUCT: '', SERVICE: texts.newServiceIntro, WANTED: texts.newWantedIntro, EVENT: texts.newEventIntro }[type];
+  const intro = type === 'EVENT' ? texts.newEventIntro : '';
   // One row in every language down to 320px: small words and tight padding on phones, no icons.
-  const tabs = LISTING_TYPES.map((option) => {
-    const Icon = TYPE_ICONS[option];
-    const label = texts[`type_${option}`];
-    const isChosen = option === type;
+  const tabs = TABS.map((option) => {
+    const Icon = TAB_ICONS[option];
+    const label = option === 'EVENT' ? texts.type_EVENT : texts.type_AD;
+    const isChosen = option === 'EVENT' ? type === 'EVENT' : type !== 'EVENT';
     const icon = <Icon className='hidden size-4 shrink-0 sm:block' aria-hidden />;
     const className = cn(TAB_CLASS, isChosen ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground');
     // The chosen type's tab explains it in a popup instead of a paragraph under the tabs.

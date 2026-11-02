@@ -9,11 +9,6 @@ const decimalsAsStrings = Prisma.defineExtension({
           return product.price.toString();
         },
       },
-      priceMax: {
-        compute(product) {
-          return product.priceMax?.toString() ?? null;
-        },
-      },
       rating: {
         compute(product) {
           return product.rating.toString();

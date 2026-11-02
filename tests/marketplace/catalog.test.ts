@@ -68,7 +68,7 @@ describe('writeListing', () => {
       expect(prompt).toContain('Never describe or analyse the photo');
       expect(prompt).toContain('Never judge its condition or say anything negative about it');
       expect(prompt).not.toContain('visible condition');
-      if (type === 'PRODUCT') expect(prompt).toContain('the texts never mention it');
+      if (type !== 'EVENT') expect(prompt).toContain('The texts never mention the price');
     }
   });
 
@@ -79,20 +79,25 @@ describe('writeListing', () => {
 
     const { prompt } = draft.mock.calls[0][3];
     expect(prompt).toContain('The seller wrote nothing.');
-    expect(prompt).toContain('only say neutrally and briefly what the item is');
+    expect(prompt).toContain('only say neutrally and briefly what it is');
     expect(prompt).toContain('Never judge its condition');
   });
 
-  it('lets the AI tell an item for sale from a wanted ad, independent of its category', async () => {
-    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'WANTED', condition: 'good', price: 50, priceMax: 90 });
+  it('lets the AI tell an item for sale, a service and a wanted ad apart, with how its price reads', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'WANTED', price: 90, priceMode: 'UP_TO' });
 
-    const listing = await writeListing(Buffer.from(''), 'busco bici', CATEGORIES, ['es', 'en']);
+    const listing = await writeListing(Buffer.from(''), 'busco bici, hasta 90€', CATEGORIES, ['es', 'en']);
 
-    expect(listing).toMatchObject({ category: 'motor', type: 'WANTED', priceMax: 90 });
+    expect(listing).toMatchObject({ category: 'motor', type: 'WANTED', price: 90, priceMode: 'UP_TO' });
     const { prompt, schema } = draft.mock.calls[0][3];
-    expect(schema.properties.type.enum).toEqual(['PRODUCT', 'WANTED']);
-    expect(schema.required).toContain('type');
-    expect(prompt).toContain('type: WANTED if the person is LOOKING FOR something');
+    expect(schema.properties.type.enum).toEqual(['PRODUCT', 'SERVICE', 'WANTED']);
+    expect(schema.properties.priceMode.enum).toEqual(['NONE', 'FIXED', 'FROM', 'UP_TO']);
+    expect(schema.required).toEqual(expect.arrayContaining(['type', 'price', 'priceMode']));
+    expect(schema.properties).not.toHaveProperty('condition');
+    expect(prompt).toContain('WANTED if the person is LOOKING FOR a thing or someone');
+
+    draft.mockResolvedValue({ texts: TEXTS, category: 'hogar', type: 'SERVICE', price: 20, priceMode: 'FROM' });
+    expect(await writeListing(Buffer.from(''), 'Ana, clases de guitarra desde 20€', CATEGORIES, ['es', 'en'])).toMatchObject({ type: 'SERVICE', priceMode: 'FROM' });
   });
 
   it('keeps a type the admin chose, whatever the AI answers', async () => {
@@ -100,7 +105,7 @@ describe('writeListing', () => {
     expect((await writeListing(Buffer.from(''), 'tabla', CATEGORIES, ['es', 'en'], 'WANTED')).type).toBe('WANTED');
     expect(draft.mock.calls[0][3].prompt).toContain('this IS a wanted ad');
 
-    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', serviceType: 'service', price: null });
+    draft.mockResolvedValue({ texts: TEXTS, category: 'motor', type: 'PRODUCT', price: null, priceMode: 'NONE' });
     expect((await writeListing(Buffer.from(''), 'taller de bicis', CATEGORIES, ['es', 'en'], 'SERVICE')).type).toBe('SERVICE');
   });
 
@@ -115,17 +120,16 @@ describe('writeListing', () => {
     expect((await writeListing(Buffer.from(''), '', CATEGORIES, ['es', 'en'])).category).toBe('hogar');
   });
 
-  it('asks for a service without condition, with its kind of offer and a "from" price only if named', async () => {
-    draft.mockResolvedValue({ texts: TEXTS, category: 'clases', serviceType: 'class', price: 20 });
+  it('asks a service only for its price and how it reads, never guessed', async () => {
+    draft.mockResolvedValue({ texts: TEXTS, category: 'clases', price: 20, priceMode: 'FROM' });
 
     const listing = await writeListing(Buffer.from(''), 'Ana, clases de guitarra desde 20€', ALL_CATEGORIES, ['es', 'en'], 'SERVICE');
 
-    expect(listing).toMatchObject({ category: 'clases', condition: null, price: 20, serviceType: 'class', type: 'SERVICE' });
+    expect(listing).toMatchObject({ category: 'clases', price: 20, priceMode: 'FROM', type: 'SERVICE' });
     const { prompt, schema } = draft.mock.calls[0][3];
-    expect(schema.required).toEqual(['texts', 'category', 'serviceType', 'price']);
+    expect(schema.required).toEqual(['texts', 'category', 'price', 'priceMode']);
     expect(schema.properties.category.enum).toEqual(['motor', 'hogar', 'clases']);
-    expect(schema.properties.serviceType.enum).toEqual(['class', 'service', 'support']);
-    expect(prompt).toContain('Never guess one');
+    expect(prompt).toContain('never guessed');
   });
 
   it('reads an event\'s entry price, start and address, and sorts it into any category', async () => {
@@ -158,7 +162,7 @@ describe('writeListing with the admin\'s own text', () => {
 
     expect(listing.texts.es).toEqual({ title: 'Mi bici', description: 'bici comoda 80€' });
     expect(listing.texts.en).toEqual(TEXTS.en);
-    expect(listing).toMatchObject({ category: 'motor', condition: 'good', price: 80 });
+    expect(listing).toMatchObject({ category: 'motor', price: 80 });
     expect(draft.mock.calls[0][3].prompt).toContain('title is exactly "Mi bici"');
   });
 

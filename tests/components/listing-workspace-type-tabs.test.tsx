@@ -61,10 +61,10 @@ describe('ListingWorkspace type tabs', () => {
     const notes = screen.getByPlaceholderText(texts.tellPlaceholder);
     await userEvent.type(notes, 'Bici de montaña');
 
-    await switchTo(texts.type_SERVICE);
+    await switchTo(texts.type_EVENT);
 
-    expect(mockSave).toHaveBeenCalledWith('listing-1', { photos: [PHOTO], useAi: true, type: 'SERVICE' });
-    expect(screen.getByPlaceholderText(texts.tellServicePlaceholder)).toHaveValue('Bici de montaña');
+    expect(mockSave).toHaveBeenCalledWith('listing-1', { photos: [PHOTO], useAi: false, type: 'EVENT' });
+    expect(screen.getByDisplayValue('Bici de montaña')).toBeInTheDocument();
   });
 
   it('uses an event’s photos as they are, and turns the AI pictures back on when leaving it', async () => {
@@ -73,7 +73,7 @@ describe('ListingWorkspace type tabs', () => {
     await switchTo(texts.type_EVENT);
     expect(mockSave).toHaveBeenLastCalledWith('listing-1', { photos: [PHOTO], useAi: false, type: 'EVENT' });
 
-    await switchTo(texts.type_PRODUCT);
+    await switchTo(texts.type_AD);
     expect(mockSave).toHaveBeenLastCalledWith('listing-1', { photos: [PHOTO], useAi: true, type: 'PRODUCT' });
   });
 
@@ -89,15 +89,15 @@ describe('ListingWorkspace type tabs', () => {
     mockSave.mockResolvedValue({ success: false, message: 'La IA ya está escribiendo este anuncio' });
     renderWorkspace();
 
-    await switchTo(texts.type_WANTED);
+    await switchTo(texts.type_EVENT);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('La IA ya está escribiendo este anuncio');
-    await waitFor(() => expect(screen.getByRole('radio', { name: texts.type_PRODUCT })).toHaveAttribute('aria-checked', 'true'));
+    await waitFor(() => expect(screen.getByRole('radio', { name: texts.type_AD })).toHaveAttribute('aria-checked', 'true'));
   });
 
   it('locks the tabs while the AI writes the listing', () => {
     renderWorkspace({ status: 'PROCESSING' });
 
-    expect(screen.getByRole('radio', { name: texts.type_WANTED })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: texts.type_EVENT })).toBeDisabled();
   });
 });

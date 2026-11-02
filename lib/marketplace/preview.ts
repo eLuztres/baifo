@@ -16,7 +16,7 @@ const PREVIEW_FIELDS = {
   images: true,
   rawImages: true,
   price: true,
-  priceMax: true,
+  priceMode: true,
   condition: true,
   serviceType: true,
   startsAt: true,

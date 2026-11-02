@@ -15,8 +15,8 @@ jest.mock('@/lib/marketplace/ai', () => ({
     texts: { es: { title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' } },
     category: 'deporte',
     type: 'WANTED',
-    condition: 'good',
     price: 150,
+    priceMode: 'UP_TO',
     place: 'el-cotillo',
   })),
   createPicture: jest.fn(async () => Buffer.from('picture')),
@@ -157,7 +157,7 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('PRODUCT');
-    expect(textUpdate()).toMatchObject({ type: 'WANTED', category: 'deporte', serviceType: null, startsAt: null });
+    expect(textUpdate()).toMatchObject({ type: 'WANTED', category: 'deporte', price: '150.00', priceMode: 'UP_TO', startsAt: null });
   });
 
   it('still refuses a WhatsApp item for sale without a photo', async () => {

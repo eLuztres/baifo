@@ -1,5 +1,5 @@
 import type { CollectionRing } from '@/components/shared/home/in-stock-rings';
-import { SERVICE_TYPES, SHOWS_PRICES, type ServiceType } from '@/lib/constants';
+import { SERVICE_TYPES, SHOWS_PRICES, type ListingType, type PriceMode, type ServiceType } from '@/lib/constants';
 import { formatEventDate } from '@/lib/event-date';
 import type { Translator } from '@/lib/i18n-core';
 
@@ -13,18 +13,20 @@ const SERVICE_TYPE_KEYS = {
 export const serviceTypeKey = (serviceType?: string | null) =>
   SERVICE_TYPES.includes(serviceType as ServiceType) ? SERVICE_TYPE_KEYS[serviceType as ServiceType] : undefined;
 
-type LabelledListing = Pick<CollectionRing, 'price' | 'priceMax' | 'type' | 'isFromPrice' | 'serviceType' | 'startsAt'>;
+type LabelledListing = Pick<CollectionRing, 'price' | 'priceMode' | 'type' | 'serviceType' | 'startsAt'>;
 
-/** A wanted ad's budget label: "Budget up to" when it has only an upper end. */
-export const wantedBudgetKey = (price?: string | number | null, priceMax?: string | number | null) =>
-  priceMax && !Number(price) ? 'WANTED_BUDGET_UP_TO' : 'WANTED_BUDGET';
+/** The text key said before a price: "from", or "up to" ("Budget up to" on a wanted ad); none for a set price. */
+export const priceLabelKey = (type: ListingType, priceMode?: PriceMode | null) =>
+  priceMode === 'FROM' ? 'PRICE_FROM' : priceMode === 'UP_TO' ? (type === 'WANTED' ? 'WANTED_BUDGET_UP_TO' : 'PRICE_UP_TO') : undefined;
 
-/** What a feed card says around a listing's price: "Budget" or "from" before it, "Free" for a free event, and its badge:
+const labelOf = (t: Translator, key?: ReturnType<typeof priceLabelKey>) => (key ? t(key) : undefined);
+
+/** What a feed card says around a listing's price: "from" or "up to" before it, "Free" for a free event, and its badge:
     the event's date, the service's kind of offer, or "Busco". */
 export function feedCardLabels(listing: LabelledListing, t: Translator, locale: string, now = new Date()) {
   const serviceKey = serviceTypeKey(listing.serviceType);
   return {
-    priceLabel: listing.type === 'WANTED' ? t(wantedBudgetKey(listing.price, listing.priceMax)) : listing.isFromPrice ? t('PRICE_FROM') : undefined,
+    priceLabel: listing.price ? labelOf(t, priceLabelKey(listing.type, listing.priceMode)) : undefined,
     priceText: listing.type === 'EVENT' && SHOWS_PRICES && !listing.price ? t('EVENT_FREE') : undefined,
     badge:
       listing.type === 'EVENT' && listing.startsAt

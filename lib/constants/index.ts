@@ -1,4 +1,4 @@
-import type { ListingType } from '@prisma/client';
+import type { ListingType, PriceMode } from '@prisma/client';
 import { BRAND } from '@/lib/brand';
 
 export const APP_NAME = BRAND.name;
@@ -61,10 +61,17 @@ export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 // A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
 // Every listing is exactly one of these, and any type goes in any category. A service (babysitter, gardener …) or an
-// event (a workshop, a concert) never has a cart, only its contact; a service's price is a "from" price, an event's
-// its entry (0: free) and a wanted ad's ("Busco …") the budget of the person looking.
+// event (a workshop, a concert) never has a cart, only its contact; an event's price is its entry (0: free).
 export const LISTING_TYPES = ['PRODUCT', 'WANTED', 'SERVICE', 'EVENT'] as const satisfies readonly ListingType[];
 export type { ListingType };
+// An "Anuncio" is any of these; the AI tells which from the words and photo, and the person can change it.
+export const AD_TYPES = ['PRODUCT', 'SERVICE', 'WANTED'] as const satisfies readonly ListingType[];
+export type AdType = (typeof AD_TYPES)[number];
+// How a price reads; an event always has FIXED (its entry, 0: free).
+export const PRICE_MODES = ['NONE', 'FIXED', 'FROM', 'UP_TO'] as const satisfies readonly PriceMode[];
+export type { PriceMode };
+// What each type usually means when nothing else is said: a thing has a set price, a service a "from", a search a maximum.
+export const DEFAULT_PRICE_MODES = { PRODUCT: 'FIXED', SERVICE: 'FROM', WANTED: 'UP_TO', EVENT: 'FIXED' } as const satisfies Record<ListingType, PriceMode>;
 // Each type's name in links (?tipo=busco) and in the feed's chips.
 export const LISTING_TYPE_PARAMS = { PRODUCT: 'productos', WANTED: 'busco', SERVICE: 'servicios', EVENT: 'eventos' } as const satisfies Record<ListingType, string>;
 export const LISTING_TYPE_KEYS = {

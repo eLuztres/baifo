@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { localize } from '@/lib/category';
-import { PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType } from '@/lib/constants';
+import { AD_TYPES, PRICE_MODES, type ListingType } from '@/lib/constants';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
@@ -29,6 +29,12 @@ const SERVICE_PHOTO_PROMPT =
   'friendly, with soft sand and sea tones like the rest of the shop. Upright 3:4 photo, photorealistic. Text that is ' +
   'already in the photo (a sign, a logo) stays readable as it is; add no text, logos or watermark.';
 
+// An "Anuncio" may be a thing or a service, and its photo is retouched before the AI has read the words: the photo tells.
+const AD_PHOTO_PROMPT =
+  'Look at this phone photo for a local listing first. If it shows mainly ONE object (something to sell or wanted), follow ' +
+  'rule A; if it shows people, their work, a place or a poster, follow rule B.\n' +
+  `A: ${photoPrompt(ITEM_SCENE)}\nB: ${SERVICE_PHOTO_PROMPT}`;
+
 const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Spanish', en: 'English', it: 'Italian', de: 'German', fr: 'French' };
 
 // Only a listing's texts have a short title.
@@ -36,23 +42,19 @@ const LANGUAGE_NAMES: Record<Locale, string> = { es: 'Spanish', en: 'English', i
 const withoutLinks = (text: string) => text.replace(/\s*\(\[[^\]]*\]\([^)]*\)\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
 const textSchema = z.object({ title: z.string(), description: z.string().transform(withoutLinks), short: z.string().optional() });
 
-// From a seller's words and photos the AI only tells an item for sale from a wanted ad; services and events are chosen (admin or WhatsApp welcome).
-const GOODS_TYPES = ['PRODUCT', 'WANTED'] as const satisfies readonly ListingType[];
+// From the words and photos the AI tells an item for sale, a service and a wanted ad apart; an event is chosen.
 
 const listingSchema = z.object({
   texts: z.record(z.string(), textSchema),
   category: z.string(),
-  // Only asked for an item: whether it is for sale or wanted.
-  type: z.enum(GOODS_TYPES).nullable().default(null),
-  // A service has neither: the AI isn't asked for them.
-  condition: z.enum(PRODUCT_CONDITIONS).nullable().default(null),
+  // Only asked for an Anuncio: a thing for sale, a service or a search.
+  type: z.enum(AD_TYPES).nullable().default(null),
   price: z.number().nullable().default(null),
-  // Only a wanted ad's budget has an upper end.
-  priceMax: z.number().nullable().default(null),
+  // How the price reads; an event isn't asked (its price is its entry).
+  priceMode: z.enum(PRICE_MODES).nullable().default(null),
   // Only asked when the shop has more than one live place; null when no town is named.
   place: z.string().nullable().default(null),
-  // Only a service's kind of offer, and an event's start ("2026-11-29T19:00" on the island) and address.
-  serviceType: z.enum(SERVICE_TYPES).nullable().default(null),
+  // Only an event's start ("2026-11-29T19:00" on the island) and address.
   startsAt: z.string().nullable().default(null),
   address: z.string().nullable().default(null),
 });
@@ -86,10 +88,10 @@ const serviceJsonSchema = (locales: Locale[], slugs: string[]) => ({
   properties: {
     texts: textsJsonSchema(locales, listingTextJsonSchema),
     category: { type: 'string', enum: slugs },
-    serviceType: { type: 'string', enum: SERVICE_TYPES },
     price: { type: ['number', 'null'] },
+    priceMode: { type: 'string', enum: PRICE_MODES },
   },
-  required: ['texts', 'category', 'serviceType', 'price'],
+  required: ['texts', 'category', 'price', 'priceMode'],
 });
 
 const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
@@ -104,21 +106,17 @@ const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
   required: ['texts', 'category', 'price', 'startsAt', 'address'],
 });
 
-const NULLABLE_CONDITION = { type: ['string', 'null'], enum: [...PRODUCT_CONDITIONS, null] };
-
 const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
   type: 'object',
   properties: {
     texts: textsJsonSchema(locales, listingTextJsonSchema),
     // An enum of the slugs: the AI can only answer with a category that exists.
     category: { type: 'string', enum: slugs },
-    type: { type: 'string', enum: GOODS_TYPES },
-    // Null: unknown, without a photo and nothing said about it.
-    condition: NULLABLE_CONDITION,
+    type: { type: 'string', enum: AD_TYPES },
     price: { type: ['number', 'null'] },
-    priceMax: { type: ['number', 'null'] },
+    priceMode: { type: 'string', enum: PRICE_MODES },
   },
-  required: ['texts', 'category', 'type', 'condition', 'price', 'priceMax'],
+  required: ['texts', 'category', 'type', 'price', 'priceMode'],
 });
 
 /** The fields a listing of this type has, as read from its description alone; null: the text doesn't say. */
@@ -127,9 +125,9 @@ const fieldsJsonSchema = (type: ListingType, slugs: string[]) => {
   const properties = {
     category: { type: 'string', enum: slugs },
     price: amount,
-    ...(type === 'SERVICE' && { serviceType: { type: ['string', 'null'], enum: [...SERVICE_TYPES, null] } }),
-    ...(type === 'EVENT' && { startsAt: { type: ['string', 'null'] }, address: { type: ['string', 'null'] } }),
-    ...((type === 'PRODUCT' || type === 'WANTED') && { condition: NULLABLE_CONDITION, priceMax: amount }),
+    ...(type === 'EVENT'
+      ? { startsAt: { type: ['string', 'null'] }, address: { type: ['string', 'null'] } }
+      : { priceMode: { type: ['string', 'null'], enum: [...PRICE_MODES, null] } }),
   };
   return { type: 'object', properties, required: Object.keys(properties) };
 };
@@ -170,12 +168,20 @@ const categoryRule = (what: string, categories: ListingCategory[]) =>
   categories.map(categoryLine).join('\n') +
   `\n  Use ${FALLBACK_CATEGORY_SLUG} only if none of the others fits.\n`;
 
-const WANTED_RULE =
-  '- type: WANTED if the person is LOOKING FOR something (busco, estoy buscando, looking for, cerco, suche …) instead ' +
-  'of selling it, else PRODUCT. A WANTED ad is different: the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", ' +
-  '"Looking for a surfboard"), the description says what they need and when, condition is the worst they accept ' +
-  '(good if unsaid, any if they take it in any condition), price and priceMax are the lowest and highest end of their budget (if they name one amount, ' +
-  'that is priceMax and price is null; if they name none, both null: never guess a budget), and category is where the wanted thing would be found.\n';
+const TYPE_RULE =
+  '- type: PRODUCT if a thing is offered (for sale or to give away); SERVICE if a person offers work, lessons, help or ' +
+  'care; WANTED if the person is LOOKING FOR a thing or someone (busco, estoy buscando, looking for, cerco, suche …). ' +
+  'A WANTED ad: the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", "Busco fontanero"), ' +
+  'the description says what they need and when, and category is where the wanted thing would be found. A SERVICE: the ' +
+  'title has the person\'s first name (if stated) and the service, e.g. "Ana, canguro en Corralejo", the description what ' +
+  'they offer, where and when, languages, experience; never invent qualifications, places, times or experience.\n';
+
+// One rule for every listing but an event: the price as it was written, never guessed.
+const PRICE_RULE =
+  '- priceMode and price, as written and never guessed: FIXED and the amount for a set price ("40 €"); FROM and the ' +
+  'lowest amount for a starting price ("desde 20 €", "a partir de", a service\'s cheapest rate); UP_TO and the highest ' +
+  'amount for a maximum or a budget ("hasta 60 €", "máximo", what someone looking for something can pay); NONE and null ' +
+  'when no price is named. The texts never mention the price.\n';
 
 // Shared by items, services and events: the seller's own words lead, the photo only tells what it is.
 const WRITING_RULE =
@@ -187,17 +193,11 @@ const WRITING_RULE =
 
 // Only for items with a photo: the AI names what it is and looks the model up, but describes it as sold new.
 const PRODUCT_RESEARCH_RULE =
-  '  From the photo, name the item\'s colour and kind (e.g. "a red city bike", "a black base"). If a brand or model is ' +
+  '  Only for a thing, never for a service: from the photo, name the item\'s colour and kind (e.g. "a red city bike", "a black base"). If a brand or model is ' +
   'recognisable (logo, label, typical shape), search the web for it and add one or two facts about that product as it ' +
   'is sold new (what it is, what it is for, a known feature); only facts you found for exactly that model, never prices ' +
   'and never links or sources in the texts. Still never judge its state: not broken, worn, good or bad.\n';
 
-// The fields are read from what was written (and seen), never guessed: one that isn't stated stays null.
-const ITEM_PRICE_RULE = '- price: the price in euros the seller asked for, or null if they named none. Never guess one.\n';
-const SERVICE_FIELD_RULES =
-  '- serviceType: class (lessons, courses, teaching), support (someone who goes along with or looks after a person: ' +
-  'company, care, accompaniment) or service (work done for you; anything else).\n' +
-  '- price: the lowest price in euros the admin named (it is shown as "from"), or null if none is named. Never guess one.\n';
 const eventFieldRules = () =>
   '- price: the entry or ticket price in euros, 0 if it is free, null if not stated.\n' +
   `- startsAt: when it starts, as YYYY-MM-DDTHH:mm in local time, or null if no date is stated. Today is ${toShopDateTime(new Date())}; ` +
@@ -205,40 +205,25 @@ const eventFieldRules = () =>
   '- address: where it is (venue, street, town), as stated, or null.\n';
 
 const listingPrompt = (sellerText: string, categories: ListingCategory[], locales: Locale[]) =>
-  'You write second-hand listings for Baifo, a local marketplace in Fuerteventura. Return JSON:\n' +
+  'You write listings for Baifo, a local marketplace in Fuerteventura: a second-hand thing, a service someone offers, ' +
+  'or someone looking for something. Return JSON:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–6 words ` +
-  'naming what the item is (brand and model only if visible or stated), and a description of 2–4 short, friendly ' +
-  'sentences. The same facts in every language. If the seller wrote nothing, only say neutrally and briefly what the ' +
-  'item is.\n' +
+  'naming what it is (brand and model only if visible or stated), and a description of 2–4 short, friendly ' +
+  'sentences. The same facts in every language. If the seller wrote nothing, only say neutrally and briefly what it ' +
+  'is.\n' +
   WRITING_RULE +
   PRODUCT_RESEARCH_RULE +
   SHORT_RULE +
-  categoryRule('this item (decide by what the main item is, not by the background or the props around it)', categories) +
-  WANTED_RULE +
-  '- condition: for an item for sale exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good ' +
-  '(normal signs of use), fair (clear wear, scratches or defects). Judge from the photo and what the seller wrote, and ' +
-  'never rate it better than you can see. This field only: the texts never mention it.\n' +
-  ITEM_PRICE_RULE +
-  '- priceMax: null, except for a wanted ad.\n' +
-  (sellerText ? `What the seller wrote (trust it, it may name the item, condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
-
-// Reading the fields again from a description the admin changed: only what it says, for a type that is already chosen.
-const ITEM_FIELD_RULES =
-  '- condition: exactly one of new (unused, with tags or in its box), like_new (used but no visible wear), good (normal ' +
-  'signs of use), fair (clear wear, scratches or defects), as the text says it; null if it says nothing about it.\n' +
-  ITEM_PRICE_RULE +
-  '- priceMax: null.\n';
-const WANTED_FIELD_RULES =
-  '- condition: the worst condition they accept (new, like_new, good, fair, or any if they take it in any condition), ' +
-  'null if unsaid.\n' +
-  '- price and priceMax: the lowest and highest end of their budget in euros; one amount is priceMax and price is null; ' +
-  'none named: both null.\n';
+  categoryRule('this listing (decide by what the main thing or service is, not by the background or the props around it)', categories) +
+  TYPE_RULE +
+  PRICE_RULE +
+  (sellerText ? `What the seller wrote (trust it, it may name the item, its condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
 
 const fieldsPrompt = (type: ListingType, text: string, categories: ListingCategory[]) =>
   'Read the fields of a listing on Baifo, a local marketplace in Fuerteventura, from what the admin wrote, and return ' +
   'JSON. Only what the text really says: never guess or invent anything; a field the text does not mention is null.\n' +
   categoryRule('this listing', categories) +
-  (type === 'EVENT' ? eventFieldRules() : type === 'SERVICE' ? SERVICE_FIELD_RULES : type === 'WANTED' ? WANTED_FIELD_RULES : ITEM_FIELD_RULES) +
+  (type === 'EVENT' ? eventFieldRules() : PRICE_RULE) +
   `What the admin wrote: ${text}\n`;
 
 const servicePrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
@@ -251,7 +236,7 @@ const servicePrompt = (adminText: string, categories: ListingCategory[], locales
   WRITING_RULE +
   SHORT_RULE +
   categoryRule('this service', categories) +
-  SERVICE_FIELD_RULES +
+  PRICE_RULE +
   (adminText ? `What the admin wrote about the person (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
 const eventPrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
@@ -278,7 +263,7 @@ const CORRECTION_RULE =
   'with only its spelling, grammar and punctuation mistakes fixed: keep their words, style, tone and order, and never ' +
   'rewrite, add or leave out anything';
 
-// Added after the usual prompt, so category, condition and price are still read from the text.
+// Added after the usual prompt, so type, category and price are still read from the text.
 const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   `IMPORTANT: the admin wants their own words, so the texts rule above does not apply. In ${locales[0]}, the ` +
   (kept.title ? `title is ${kept.isCorrected ? '' : 'exactly '}"${kept.title}"` : 'title is 2–6 words taken from their text') +
@@ -286,12 +271,11 @@ const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   ' Every other language gets a faithful translation of that title and description, adding and leaving out nothing.\n';
 
 // Added when the admin started the listing as "Busco": the wanted rule above is the one that applies.
-const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow the WANTED rule for texts, condition, price and category.\n';
+const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow the WANTED rule for texts, price and category.\n';
 
 // Without a photo, everything comes from the words; the picture is made from the text afterwards.
 const NO_PHOTO_RULE =
-  'There is no photo: take everything from what was written. Never describe a look, color or condition that is not stated; ' +
-  'condition is null if unsaid.\n';
+  'There is no photo: take everything from what was written. Never describe a look, color or condition that is not stated.\n';
 
 const translatePrompt = (from: Locale, locales: Locale[]) =>
   `Translate this listing's title and description from ${LANGUAGE_NAMES[from]} into ` +
@@ -308,9 +292,13 @@ const withWish = (prompt: string, wish?: string | null) =>
       'person stay identical, no face becomes recognisable that the rules above keep hidden, and no text, logos or watermark are added.'
     : prompt;
 
-/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. */
+const photoPromptFor = (type: ListingType) =>
+  type === 'PRODUCT' ? AD_PHOTO_PROMPT : type === 'WANTED' ? photoPrompt(ITEM_SCENE) : SERVICE_PHOTO_PROMPT;
+
+/** A clean marketplace photo of the item, or a retouched photo of a service, from the original photo. A new Anuncio
+    (PRODUCT until the AI has read it) lets the photo decide which. */
 export const enhancePhoto = (photo: Buffer, type: ListingType, wish?: string | null) =>
-  editImage(withWish(type === 'PRODUCT' || type === 'WANTED' ? photoPrompt(ITEM_SCENE) : SERVICE_PHOTO_PROMPT, wish), [photo], { size: LISTING_PHOTO_SIZE });
+  editImage(withWish(photoPromptFor(type), wish), [photo], { size: LISTING_PHOTO_SIZE });
 
 // The shop's look for a picture made from words alone, so it sits well next to the retouched photos.
 const PICTURE_STYLE =
@@ -327,18 +315,21 @@ const picturePrompt = ({ title, description }: { title: string; description: str
       : type === 'WANTED'
         ? `A clean photo of the kind of thing someone is looking for, alone ${scene}, the background softly out of ` +
           'focus, as an example of what they want. '
-        : `A clean marketplace photo of this second-hand item, alone ${scene}, the background softly out of focus ` +
-          'and a gentle contact shadow, the whole item visible and centered. ') +
+        : // An Anuncio's picture starts before the AI has read whether it is a thing or a service.
+          `If this listing offers a thing: a clean marketplace photo of it, alone ${scene}, the background softly out of focus ` +
+          'and a gentle contact shadow, the whole item visible and centered. If it offers a service: a friendly photo of ' +
+          'it being done in Fuerteventura, people only from behind, from afar or as hands, never a recognisable face. If ' +
+          'someone is looking for something: a clean example photo of what they want. ') +
   `${PICTURE_STYLE}\nThe listing: ${title}. ${description}`;
 
 /** A picture made from the listing's text alone, for a listing without any photo. */
 export const createPicture = (text: { title: string; description: string }, type: ListingType, wish?: string | null) =>
   generateImage(withWish(picturePrompt(text, type, ITEM_SCENE), wish), { size: LISTING_PHOTO_SIZE });
 
-/** Title and description in every shop language (the first one is the shop's), the category and the type for a listing;
-    an item also gets condition and price. With `kept`, the admin's own text stays as it is (or only corrected) and is translated.
-    Without a photo the AI goes by the text alone. A PRODUCT may come back as WANTED (someone looking for it); the
-    other types stay as the admin chose them. With several live `places`, it also names the town. */
+/** Title and description in every shop language (the first one is the shop's), the category, the type and the price.
+    With `kept`, the admin's own text stays as it is (or only corrected) and is translated. Without a photo the AI goes
+    by the text alone. An Anuncio (PRODUCT) may come back as SERVICE or WANTED; the other types stay as chosen. With
+    several live `places`, it also names the town. */
 export async function writeListing(
   photo: Buffer | null,
   sellerText: string,
@@ -375,7 +366,7 @@ export async function writeListing(
     const own = result.texts[locales[0]];
     result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description, short: own?.short };
   }
-  const resolvedType = type === 'PRODUCT' && result.type === 'WANTED' ? 'WANTED' : type;
+  const resolvedType = type === 'PRODUCT' ? (result.type ?? 'PRODUCT') : type;
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   const category = slugs.includes(result.category) ? result.category : slugs.includes(FALLBACK_CATEGORY_SLUG) ? FALLBACK_CATEGORY_SLUG : slugs[0];
   return { ...result, category, type: resolvedType };

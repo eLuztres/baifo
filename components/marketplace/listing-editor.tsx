@@ -6,7 +6,7 @@ import { CalendarPlus, Camera, CheckCircle2, Circle, CircleDot, ImageIcon, Image
 import ProductMedia from '@/components/ProductMedia';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import ImageLightbox from '@/components/shared/image-lightbox';
-import { ANY_CONDITION, PRODUCT_CONDITIONS, SERVICE_TYPES, type ListingType, type ProductCondition, type ServiceType } from '@/lib/constants';
+import { AD_TYPES, DEFAULT_PRICE_MODES, PRICE_MODES, type ListingType, type PriceMode } from '@/lib/constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,10 +107,8 @@ interface EditorFields {
   translations: Record<string, { title: string; description: string; short: string }>;
   category: string;
   price: string;
-  priceMax: string;
-  condition: ProductCondition | '';
+  priceMode: PriceMode;
   placeId: string;
-  serviceType: ServiceType | '';
   /** An event's start as the island's clock shows it ("2026-11-29T19:00"). */
   startsAt: string;
   address: string;
@@ -118,12 +116,14 @@ interface EditorFields {
   sellerPhone: string;
 }
 
-// A service sends no condition and no budget range: it never has either. textMode says which of the two texts this is.
-// Only an item for sale has a condition; a wanted ad sends none.
-const toEdit = ({ priceMax, condition, ...fields }: EditorFields, images: string[], type: ListingType, textMode: TextMode) =>
-  type === 'SERVICE'
-    ? { ...fields, type, images, textMode }
-    : { ...fields, type, priceMax, condition: type === 'PRODUCT' && condition !== ANY_CONDITION ? condition : '', images, textMode };
+// textMode says which of the two texts this is; "no price" sends no amount.
+const toEdit = (fields: EditorFields, images: string[], type: ListingType, textMode: TextMode) => ({
+  ...fields,
+  price: fields.priceMode === 'NONE' ? '' : fields.price,
+  type,
+  images,
+  textMode,
+});
 
 const FIELD_CLASS = 'rounded-xl bg-background sm:rounded-2xl text-base md:text-base';
 const LABEL_CLASS = 'px-1 text-xs text-muted-foreground';
@@ -175,11 +175,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
     category: listing.category ?? '',
     // An event starts out free: 0 is its entry until the admin names one.
     price: listing.price ?? (listing.type === 'EVENT' ? '0' : ''),
-    priceMax: listing.priceMax ?? '',
-    // An unknown value from older data counts as none.
-    condition: (PRODUCT_CONDITIONS.includes(listing.condition as ProductCondition) ? listing.condition : '') as ProductCondition | '',
+    priceMode: listing.priceMode ?? DEFAULT_PRICE_MODES[listing.type],
     placeId: listing.placeId ?? '',
-    serviceType: (SERVICE_TYPES.includes(listing.serviceType as ServiceType) ? listing.serviceType : '') as ServiceType | '',
     startsAt: listing.startsAt ? toShopDateTime(listing.startsAt) : '',
     address: listing.address ?? '',
     sellerPhone: /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '',
@@ -201,12 +198,8 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const hasOriginalText = listing.rawText.trim() !== '';
   // What the server has: edits only save on the Save button (or an action), never by themselves.
   const savedSnapshot = useRef(JSON.stringify({ ...fields, images, type }));
-  // A service has a "from" price and no condition.
-  const isService = type === 'SERVICE';
-  // An event has its entry price (0: free), a date and an address.
+  // An event has its entry price (0: free), a date and an address; every other listing a price choice.
   const isEvent = type === 'EVENT';
-  // A wanted ad's price is a budget range, and it may take any condition.
-  const isWanted = type === 'WANTED';
   const isOpen = listing.status === 'IN_REVIEW' || listing.status === 'AWAITING_PAYMENT';
   // Listings without the person's WhatsApp belong to the house: nobody to send them to. A number typed here counts, as sending saves it first.
   const hasPersonWhatsApp = fields.sellerPhone.trim() !== '';
@@ -218,7 +211,7 @@ export default function ListingEditor({ listing, categories, places, languages, 
   const isShopLanguage = language === shopLanguage.id;
   const text = isShopLanguage ? { title: fields.title, description: fields.description, short: fields.shortTitle } : fields.translations[language];
 
-  const set = (name: FillableField | 'sellerPhone') => (event: { target: { value: string } }) => setFields((current) => ({ ...current, [name]: event.target.value }));
+  const set = (name: FillableField | 'priceMode' | 'sellerPhone') => (event: { target: { value: string } }) => setFields((current) => ({ ...current, [name]: event.target.value }));
   // Set, missing, or missing and needed to publish.
   const stateOf = (name: FillableField) => fieldState(name, fields[name], type);
   // The shop language is the listing's own title and description; the others are its translations.
@@ -258,9 +251,11 @@ export default function ListingEditor({ listing, categories, places, languages, 
 
   // Set when the switch to an event filled in its free entry, so switching away takes that "0" back out.
   const isEventPriceFilled = useRef(false);
-  // An event starts out free, like a new one; everything else stays as it is.
+  // An event starts out free, like a new one; a price choice still on the old type's usual one follows the new type.
   const applyType = (next: ListingType) => {
     setType(next);
+    if (next !== 'EVENT') lastAdType.current = next;
+    if (next !== 'EVENT' && fields.priceMode === DEFAULT_PRICE_MODES[type]) setFields((current) => ({ ...current, priceMode: DEFAULT_PRICE_MODES[next] }));
     if (next === 'EVENT' && !fields.price.trim()) {
       isEventPriceFilled.current = true;
       setFields((current) => ({ ...current, price: '0' }));
@@ -269,8 +264,11 @@ export default function ListingEditor({ listing, categories, places, languages, 
       if (fields.price === '0') setFields((current) => ({ ...current, price: '' }));
     }
   };
+  // The Anuncio tab brings back the kind it was before the event (the tab itself only says PRODUCT).
+  const lastAdType = useRef<ListingType>(listing.type === 'EVENT' ? 'PRODUCT' : listing.type);
   // A paid live listing asks first: it changes in the shop with the next save, for the same fee.
-  const chooseType = (next: ListingType) => {
+  const chooseType = (picked: ListingType) => {
+    const next = type === 'EVENT' && picked === 'PRODUCT' ? lastAdType.current : picked;
     if (next === type) return;
     if (listing.status === 'LIVE' && listing.paidAt) setAskedType(next);
     else applyType(next);
@@ -680,20 +678,34 @@ export default function ListingEditor({ listing, categories, places, languages, 
       </section>
 
       <div className='grid grid-cols-2 gap-2 sm:gap-3'>
-        {isService && (
+        {!isEvent && (
           <>
-            <PriceInput id='price' label={texts.priceFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
+            {/* The AI chose what it is from the words; the person can change it. */}
             <div className='space-y-1'>
-              <FieldLabel htmlFor='serviceType' label={texts.serviceTypeLabel} state={stateOf('serviceType')} texts={texts} />
-              <select id='serviceType' value={fields.serviceType} onChange={set('serviceType')} className={cn(SELECT_CLASS, neededClass(stateOf('serviceType')))}>
-                <option value=''>–</option>
-                {SERVICE_TYPES.map((serviceType) => (
-                  <option key={serviceType} value={serviceType}>
-                    {texts[`serviceType_${serviceType}`]}
+              <FieldLabel htmlFor='adType' label={texts.typeLabel} state='set' texts={texts} />
+              <select id='adType' value={type} onChange={(event) => chooseType(event.target.value as ListingType)} className={SELECT_CLASS}>
+                {AD_TYPES.map((adType) => (
+                  <option key={adType} value={adType}>
+                    {texts[`type_${adType}`]}
                   </option>
                 ))}
               </select>
             </div>
+            <div className='space-y-1'>
+              <FieldLabel htmlFor='priceMode' label={texts.priceShort} state='set' texts={texts} />
+              <select id='priceMode' value={fields.priceMode} onChange={set('priceMode')} className={SELECT_CLASS}>
+                {PRICE_MODES.map((priceMode) => (
+                  <option key={priceMode} value={priceMode}>
+                    {texts[`priceMode_${priceMode}`]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {fields.priceMode !== 'NONE' && (
+              <div className='col-span-2'>
+                <PriceInput id='price' label={texts.priceAmount} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
+              </div>
+            )}
           </>
         )}
         {isEvent && (
@@ -723,32 +735,6 @@ export default function ListingEditor({ listing, categories, places, languages, 
                 className='h-10 rounded-xl bg-card text-base sm:h-12 sm:rounded-2xl md:text-base'
               />
             </div>
-          </>
-        )}
-        {(type === 'PRODUCT' || isWanted) && (
-          <>
-            {isWanted ? (
-              // A wanted ad's budget is a range, so it gets a row of its own.
-              <div className='col-span-2 grid grid-cols-2 gap-2 sm:gap-3'>
-                <PriceInput id='price' label={texts.budgetFrom} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
-                <PriceInput id='priceMax' label={texts.budgetTo} value={fields.priceMax} onChange={set('priceMax')} state={stateOf('priceMax')} texts={texts} />
-              </div>
-            ) : (
-              <PriceInput id='price' label={texts.priceShort} value={fields.price} onChange={set('price')} state={stateOf('price')} texts={texts} />
-            )}
-            {!isWanted && (
-              <div className='space-y-1'>
-                <FieldLabel htmlFor='condition' label={texts.conditionLabel} state={stateOf('condition')} texts={texts} />
-                <select id='condition' value={fields.condition} onChange={set('condition')} className={SELECT_CLASS}>
-                  <option value=''>–</option>
-                  {PRODUCT_CONDITIONS.filter((condition) => condition !== ANY_CONDITION).map((condition) => (
-                    <option key={condition} value={condition}>
-                      {texts[`condition_${condition}`]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </>
         )}
         <div className='col-span-2 space-y-1'>

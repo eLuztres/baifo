@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { ANY_CONDITION, LISTING_TYPES, PRODUCT_CONDITIONS, SERVICE_TYPES } from '@/lib/constants';
+import { LISTING_TYPES, PRICE_MODES } from '@/lib/constants';
 import { fromShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
@@ -163,9 +163,9 @@ export async function getAdminListing(id: string) {
     include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } } },
   });
   if (!submission) return null;
-  const { price, priceMax, ...rest } = submission;
+  const { price, ...rest } = submission;
   // The plan prices come along: the editor's "Pagado" starts from the chosen plan's price.
-  return { ...rest, price: price?.toString() ?? null, priceMax: priceMax?.toString() ?? null, planPrices: LISTING_PRICES };
+  return { ...rest, price: price?.toString() ?? null, planPrices: LISTING_PRICES };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -182,21 +182,14 @@ const editSchema = z.object({
   // The other shop languages; the shop language's text is title and description.
   translations: z.record(z.string(), textSchema),
   category: z.string().trim().max(60),
-  // Empty: the admin took the condition away.
-  condition: z.union([z.enum(PRODUCT_CONDITIONS), z.literal('')]).transform((value) => value || null).optional(),
-  // Empty: none (only a service may have none, then it shows no "from" price).
+  // How the price reads; an event always has a set entry (0: free).
+  priceMode: z.enum(PRICE_MODES).optional(),
+  // Empty: none, only right with "no price".
   price: z
     .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])
     .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : undefined))
     .optional(),
-  // The upper end of a wanted ad's budget; empty: one amount, no range.
-  priceMax: z
-    .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])
-    .transform((value) => (value ? Number(value.replace(',', '.')).toFixed(2) : null))
-    .optional(),
   images: z.array(photoUrlSchema).min(1).max(12),
-  // Only a service's kind of offer; empty: none.
-  serviceType: z.union([z.enum(SERVICE_TYPES), z.literal('')]).transform((value) => value || null).optional(),
   // Only an event's start, as the island's clock shows it ("2026-11-29T19:00"), and its address.
   startsAt: z
     .string()
@@ -231,18 +224,13 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   // Everything is checked for the type it is saved as.
   const type = (parsed.success && parsed.data.type) || current?.type;
   const isService = type === 'SERVICE';
-  const isWanted = type === 'WANTED';
   const isEvent = type === 'EVENT';
-  // A wanted ad may have only an upper end ("hasta 60 €").
-  const hasPrice = parsed.success && (parsed.data.price || (isWanted && parsed.data.priceMax));
-  if (!parsed.success || (!isService && !hasPrice)) return { success: false, message: 'Revisa el título, el precio y las fotos' };
+  const priceMode = isEvent ? 'FIXED' : ((parsed.success && parsed.data.priceMode) || 'FIXED');
+  if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
+  if (priceMode !== 'NONE' && !parsed.data.price) return { success: false, message: 'Escribe el precio o elige «Sin precio»' };
   if (isEvent && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const category = findCategory(await getListingCategories(), parsed.data.category);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
-  if (parsed.data.condition === ANY_CONDITION && !isWanted) return { success: false, message: 'Elige el estado del artículo' };
-  if (isWanted && parsed.data.priceMax && Number(parsed.data.priceMax) <= Number(parsed.data.price)) {
-    return { success: false, message: 'Hasta tiene que ser más que Desde' };
-  }
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
@@ -253,12 +241,15 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   // A person's listing keeps a number to write to; the house's own may stay without one.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
   if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
-  // A service's empty price takes its "from" price away, a wanted ad's its lower end; only a service has a kind of offer.
-  const typed = isService ? { ...fields, price: fields.price ?? null } : { ...fields, price: isWanted ? (fields.price ?? null) : fields.price, serviceType: null };
-  // What the editor kept from another type goes: only an item for sale has a condition, only an event a date and address.
-  const edit = { ...typed, condition: type === 'PRODUCT' ? typed.condition : null, startsAt: isEvent ? typed.startsAt : null, address: isEvent ? typed.address : null };
-  // Only a wanted ad has a range, and only one whose upper end is above its lower end (none counts as 0).
-  const priceMax = isWanted && edit.priceMax && Number(edit.priceMax) > Number(edit.price ?? 0) ? edit.priceMax : null;
+  // "No price" keeps no amount; an older service's kind of offer stays only while it is a service, an event's date and address only on an event.
+  const edit = {
+    ...fields,
+    priceMode,
+    price: priceMode === 'NONE' ? null : (fields.price ?? null),
+    serviceType: isService ? undefined : null,
+    startsAt: isEvent ? fields.startsAt : null,
+    address: isEvent ? fields.address : null,
+  };
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
   // A save that was still on its way when the admin switched texts only updates its own version, never the one in use.
@@ -268,11 +259,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, priceMax, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, shortTitle, description, price, images, condition, placeId, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, placeId, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -286,9 +277,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         serviceType,
         startsAt,
         address,
-        priceMax,
+        priceMode,
         images,
-        condition,
         placeId,
         category: categoryName(category, getShopLocale()),
         categories: { set: categoryRefs(category) },

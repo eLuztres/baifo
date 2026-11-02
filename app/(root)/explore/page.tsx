@@ -147,7 +147,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         name={localizeProduct(listing, locale).name}
         images={listing.images}
         price={listing.price}
-        priceMax={listing.priceMax}
         {...feedCardLabels(listing, t, locale, now)}
         aiLabel={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
         isReserved={listing.isReserved}

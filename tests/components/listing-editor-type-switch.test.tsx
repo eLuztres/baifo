@@ -44,9 +44,9 @@ const LISTING = {
   description: 'Pedal de loops',
   translations: {},
   category: 'music',
-  condition: 'good',
+  condition: null,
   price: '200.00',
-  priceMax: null,
+  priceMode: 'FIXED',
   images: ['https://utfs.io/f/a.jpg'],
   rawImages: [],
   aiImages: [],
@@ -77,6 +77,7 @@ const renderEditor = (listing: Partial<AdminListing> = {}, locale: Locale = 'es'
   );
 
 const switchTo = (label: string) => userEvent.click(screen.getByRole('radio', { name: label }));
+const chooseKind = (texts: ReturnType<typeof adminTexts>, label: string) => userEvent.selectOptions(screen.getByLabelText(texts.typeLabel, { selector: 'select' }), label);
 const lastEdit = () => mockUpdate.mock.calls.at(-1)[1];
 
 beforeEach(() => {
@@ -85,18 +86,13 @@ beforeEach(() => {
 });
 
 describe('ListingEditor type switch', () => {
-  it.each(LOCALES)('offers the four types and saves the chosen one (%s)', async (locale) => {
+  it.each(LOCALES)('offers an Anuncio and an event and saves the chosen one (%s)', async (locale) => {
     const texts = adminTexts(locale);
     renderEditor({}, locale);
 
     const group = screen.getByRole('radiogroup', { name: texts.typeLabel });
-    expect(within(group).getAllByRole('radio').map((radio) => radio.textContent?.trim())).toEqual([
-      texts.type_PRODUCT,
-      texts.type_WANTED,
-      texts.type_SERVICE,
-      texts.type_EVENT,
-    ]);
-    expect(screen.getByRole('radio', { name: texts.type_PRODUCT })).toHaveAttribute('aria-checked', 'true');
+    expect(within(group).getAllByRole('radio').map((radio) => radio.textContent?.trim())).toEqual([texts.type_AD, texts.type_EVENT]);
+    expect(screen.getByRole('radio', { name: texts.type_AD })).toHaveAttribute('aria-checked', 'true');
 
     await switchTo(texts.type_EVENT);
     expect(screen.getByLabelText(texts.eventStartsLabel)).toBeInTheDocument();
@@ -106,47 +102,58 @@ describe('ListingEditor type switch', () => {
     expect(lastEdit()).toMatchObject({ type: 'EVENT', title: 'Boss RC-500', price: '200.00' });
   });
 
-  it('shows the fields each type needs and keeps the others for switching back', async () => {
+  it('shows what it is and one price choice on an Anuncio, the price choice following the kind', async () => {
     const texts = adminTexts('es');
     renderEditor();
 
+    expect(screen.getByLabelText(texts.typeLabel, { selector: 'select' })).toHaveValue('PRODUCT');
+    expect(screen.getByLabelText(texts.priceShort)).toHaveValue('FIXED');
+    expect(screen.getByLabelText(texts.priceAmount)).toHaveValue('200.00');
+
+    await chooseKind(texts, texts.type_WANTED);
+    expect(screen.getByLabelText(texts.priceShort)).toHaveValue('UP_TO');
+    await chooseKind(texts, texts.type_SERVICE);
+    expect(screen.getByLabelText(texts.priceShort)).toHaveValue('FROM');
+
     await switchTo(texts.type_EVENT);
     expect(screen.getByLabelText(texts.eventStartsLabel)).toBeInTheDocument();
-    expect(screen.queryByLabelText(texts.conditionLabel)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(texts.typeLabel, { selector: 'select' })).not.toBeInTheDocument();
 
-    await switchTo(texts.type_WANTED);
-    expect(screen.getByLabelText(texts.budgetTo)).toBeInTheDocument();
-    expect(screen.queryByLabelText(texts.eventStartsLabel)).not.toBeInTheDocument();
-    // A wanted ad has no condition.
-    expect(screen.queryByLabelText(texts.conditionLabel)).not.toBeInTheDocument();
-
-    await switchTo(texts.type_SERVICE);
-    expect(screen.getByLabelText(texts.serviceTypeLabel)).toBeInTheDocument();
-    expect(screen.getByLabelText(texts.priceFrom)).toHaveValue('200.00');
-
-    await switchTo(texts.type_PRODUCT);
-    expect(screen.getByLabelText(texts.conditionLabel)).toHaveValue('good');
-    expect(screen.getByLabelText(texts.priceShort)).toHaveValue('200.00');
+    await switchTo(texts.type_AD);
+    await chooseKind(texts, texts.type_PRODUCT);
+    expect(screen.getByLabelText(texts.priceShort)).toHaveValue('FIXED');
     // Back where it started: nothing to save.
     expect(screen.getByRole('button', { name: texts.saveNow })).toBeDisabled();
   });
 
-  it('lets an event start free and sends a service without condition', async () => {
+  it('hides the amount for "no price" and sends none', async () => {
     const texts = adminTexts('es');
-    renderEditor({ type: 'SERVICE', price: null, condition: null });
+    renderEditor();
+
+    await userEvent.selectOptions(screen.getByLabelText(texts.priceShort), texts.priceMode_NONE);
+    expect(screen.queryByLabelText(texts.priceAmount)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: texts.saveNow }));
+
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+    expect(lastEdit()).toMatchObject({ priceMode: 'NONE', price: '' });
+  });
+
+  it('lets an event start free, and takes that 0 back when it is an Anuncio again', async () => {
+    const texts = adminTexts('es');
+    renderEditor({ type: 'SERVICE', price: null, priceMode: 'FROM' });
 
     await switchTo(texts.type_EVENT);
     expect(screen.getByLabelText(texts.eventPrice)).toHaveValue('0');
 
-    // The free entry was only the event's: the service is back without a "from" price, nothing to save.
-    await switchTo(texts.type_SERVICE);
-    expect(screen.getByLabelText(texts.priceFrom)).toHaveValue('');
+    await switchTo(texts.type_AD);
+    await chooseKind(texts, texts.type_SERVICE);
+    expect(screen.getByLabelText(texts.priceAmount)).toHaveValue('');
     expect(screen.getByRole('button', { name: texts.saveNow })).toBeDisabled();
 
-    await userEvent.type(screen.getByLabelText(texts.priceFrom), '25');
+    await userEvent.type(screen.getByLabelText(texts.priceAmount), '25');
     await userEvent.click(screen.getByRole('button', { name: texts.saveNow }));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    expect(lastEdit()).toMatchObject({ type: 'SERVICE', price: '25' });
+    expect(lastEdit()).toMatchObject({ type: 'SERVICE', price: '25', priceMode: 'FROM' });
     expect(lastEdit()).not.toHaveProperty('condition');
   });
 
@@ -158,18 +165,18 @@ describe('ListingEditor type switch', () => {
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(texts.changeTypeConfirm);
     await userEvent.click(within(dialog).getByRole('button', { name: texts.changeTypeCancel }));
-    expect(screen.getByRole('radio', { name: texts.type_PRODUCT })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: texts.type_AD })).toHaveAttribute('aria-checked', 'true');
 
     await switchTo(texts.type_EVENT);
     await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: texts.type_EVENT }));
     expect(screen.getByRole('radio', { name: texts.type_EVENT })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('switches a listing in review without asking, and publishes it as the new type', async () => {
+  it('switches a listing in review without asking, and publishes it as the new kind', async () => {
     const texts = adminTexts('es');
     renderEditor({ status: 'IN_REVIEW', product: null, paidAt: null });
 
-    await switchTo(texts.type_WANTED);
+    await chooseKind(texts, texts.type_WANTED);
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: new RegExp(texts.publishNow) }));
 

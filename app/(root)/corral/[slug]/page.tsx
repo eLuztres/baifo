@@ -218,7 +218,6 @@ export default async function CorralPage({ params }: CorralPageProps) {
                   name={localizeProduct(listing, locale).shortName}
                   images={listing.images}
                   price={listing.price}
-                  priceMax={listing.priceMax}
                   {...feedCardLabels(listing, t, locale, now)}
                   isReserved={listing.isReserved}
                   reservedLabel={t('RESERVE_BADGE')}

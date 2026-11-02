@@ -59,7 +59,7 @@ export default function ListingWorkspace({ initial, categories, places, language
         image={coverPicture(listing.images) ?? coverPicture(listing.rawImages)}
         title={listing.title ?? ''}
         price={listing.price}
-        priceMax={listing.priceMax}
+        priceMode={listing.priceMode}
         slug={listing.product?.slug}
         texts={texts}
         onKeepEditing={() => setIsJustPublished(false)}

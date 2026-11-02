@@ -1,17 +1,15 @@
 import Link from 'next/link';
 import ProductMedia from '@/components/ProductMedia';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
-import { cn, formatPriceOrRange, formatPriceTag } from '@/lib/utils';
+import { cn, formatPriceTag } from '@/lib/utils';
 
 interface FeedCardProps {
   href: string;
   /** The listing's short name: the card has no room for the full title or the description. */
   name: string;
   images: string[];
-  /** Missing for services and when the shop shows no prices. */
+  /** Missing for a listing without a price and when the shop shows no prices. */
   price?: string;
-  /** The upper end of a price range: shown as a range. */
-  priceMax?: string;
   /** Said before the price, e.g. "Up to" on a wanted ad. */
   priceLabel?: string;
   /** Shown where the price would be, e.g. "Free" on a free event. */
@@ -30,11 +28,11 @@ interface FeedCardProps {
 
 /** A marketplace card like the admin's listing cards: the photo on top (the next one on hover), and below it the short
     name, the price and when and where it was listed. */
-export default function FeedCard({ href, name, images, price: rawPrice, priceMax, priceLabel, priceText, badge, aiLabel, isReserved, reservedLabel, newLabel, listedAgo }: FeedCardProps) {
+export default function FeedCard({ href, name, images, price: rawPrice, priceLabel, priceText, badge, aiLabel, isReserved, reservedLabel, newLabel, listedAgo }: FeedCardProps) {
   // A wanted ad without a budget or a service without a price is stored as 0: "0 €" says nothing.
-  const price = (priceLabel || badge) && !priceMax && Number(rawPrice) === 0 ? undefined : rawPrice;
+  const price = (priceLabel || badge) && Number(rawPrice) === 0 ? undefined : rawPrice;
   const sizes = '(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw';
-  const priceTag = price ? (priceMax ? formatPriceOrRange(price, priceMax) : formatPriceTag(Number(price))) : priceText;
+  const priceTag = price ? formatPriceTag(Number(price)) : priceText;
 
   return (
     <Link

@@ -31,7 +31,7 @@ import { isReservationActive } from '@/lib/reservation';
 import { localizeProduct } from '@/lib/category';
 import { getContactMessageTexts } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
-import { serviceTypeKey, wantedBudgetKey } from '@/lib/listing-labels';
+import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
 import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
@@ -101,10 +101,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // A shared link to a past event still opens, but without a way to sign up.
   const isOver = isEvent && product.startsAt !== null && isEventOver(product.startsAt);
   const serviceKey = isService ? serviceTypeKey(product.serviceType) : undefined;
-  // 0 is no "from" price for a service and a free event.
-  const hasPrice = SHOWS_PRICES && (product.type === 'PRODUCT' || product.type === 'WANTED' || Number(product.price) > 0);
+  // No price at all, and 0 (a free event), show no amount.
+  const hasPrice = SHOWS_PRICES && product.priceMode !== 'NONE' && Number(product.price) > 0;
   const isIllustrative = Boolean(ownRing?.isIllustrative);
-  const priceLabel = product.type === 'WANTED' ? t(wantedBudgetKey(product.price?.toString(), product.priceMax?.toString())) : isService ? t('PRICE_FROM') : undefined;
+  const priceLabelText = priceLabelKey(product.type, product.priceMode);
+  const priceLabel = priceLabelText && t(priceLabelText);
   // Only an item for sale has a condition: the AI may still read one for a wanted ad or an event.
   const condition = product.type === 'PRODUCT' ? conditionKey(product.condition) : undefined;
   const { name, description } = localizeProduct(product, locale);
@@ -177,7 +178,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           <p className='px-4 pt-4 font-display text-xl leading-tight tracking-tight sm:hidden'>{name}</p>
         </div>
 
-        <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 lg:justify-center lg:gap-5')}>
+        <div className={cn(styles.details, 'flex min-h-0 flex-col gap-3 max-sm:justify-center lg:justify-center lg:gap-5')}>
           <div className='relative flex min-h-0 flex-col gap-3 overflow-hidden rounded-3xl border border-primary/25 bg-card/70 p-4 shadow-2xl shadow-primary/10 backdrop-blur-md sm:gap-4 sm:p-7'>
             {/* A thin gold light along the top edge, like the rim of a jewellery box. */}
             <span
@@ -224,7 +225,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             ) : SHOWCASE_MODE || isService || isEvent ? (
               <>
                 {hasPrice ? (
-                  <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />
+                  <ProductPrice value={Number(product.price)} label={priceLabel} />
                 ) : (
                   isEvent && SHOWS_PRICES && <p className='text-2xl font-semibold'>{t('EVENT_FREE')}</p>
                 )}
@@ -258,7 +259,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             ) : (
               <>
                 <div className='flex shrink-0 flex-wrap items-center gap-3'>
-                  <ProductPrice value={Number(product.price)} maxValue={product.priceMax} label={priceLabel} />
+                  <ProductPrice value={Number(product.price)} label={priceLabel} />
                   {!inStock ? (
                     <span className='rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground'>
                       {t('SOLD_OUT')}

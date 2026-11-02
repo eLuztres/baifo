@@ -1,5 +1,5 @@
 import { prisma } from '@/db/prisma';
-import { ANY_CONDITION, type ListingType } from '@/lib/constants';
+import { DEFAULT_PRICE_MODES, type ListingType } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { aiErrorCode } from '@/lib/ai-errors';
 import { fromShopDateTime } from '@/lib/event-date';
@@ -110,7 +110,7 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   if (submission.title) return;
   const shopLocale = getShopLocale();
   const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
-  // 'original': the admin's own words stay; the AI only translates them and still reads category, condition and price.
+  // 'original': the admin's own words stay; the AI only translates them and still reads type, category and price.
   // 'corrected': the same, with their spelling and grammar fixed first.
   const kept =
     submission.textMode === 'ai'
@@ -123,11 +123,9 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
   const { type } = text;
-  const isWanted = type === 'WANTED';
-  // What the seller asked for wins over the AI's suggestion; a service's price is its "from" price, an event's its entry.
-  // A wanted ad's amount in the notes is only one end of its budget, so the AI's range is used.
-  const price = submission.price ?? (isWanted ? null : parsePrice(submission.rawText)) ?? toPrice(text.price);
-  const priceMax = isWanted ? (submission.priceMax ?? toPrice(text.priceMax)) : null;
+  // What the person set wins over the AI's reading; an event's price is its entry.
+  const priceMode = submission.priceMode ?? (type === 'EVENT' ? 'FIXED' : (text.priceMode ?? (text.price ? DEFAULT_PRICE_MODES[type] : 'NONE')));
+  const price = priceMode === 'NONE' ? null : (submission.price ?? parsePrice(submission.rawText) ?? toPrice(text.price));
   await prisma.submission.update({
     where: { id: submission.id },
     data: {
@@ -138,12 +136,9 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
       textVersions: { [submission.textMode]: text.texts },
       category: text.category,
       type,
-      // "Any condition" only fits a wanted ad; an item for sale always is in one.
-      condition: text.condition === ANY_CONDITION && !isWanted ? null : text.condition,
       placeId,
       price,
-      priceMax: price && priceMax && Number(priceMax) > Number(price) ? priceMax : null,
-      serviceType: type === 'SERVICE' ? text.serviceType : null,
+      priceMode,
       // A date the admin already set stays.
       startsAt: submission.startsAt ?? (type === 'EVENT' && text.startsAt ? fromShopDateTime(text.startsAt) : null),
       address: submission.address ?? (type === 'EVENT' ? text.address : null),

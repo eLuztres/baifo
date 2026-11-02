@@ -36,27 +36,27 @@ describe('readListingFields', () => {
   });
 
   it('leaves what the text does not say empty', async () => {
-    draft.mockResolvedValue({ category: 'otros', price: null, condition: null, priceMax: null });
+    draft.mockResolvedValue({ category: 'otros', price: null, priceMode: null });
 
-    expect(await readListingFields('Una mesa de madera', 'PRODUCT', CATEGORIES)).toMatchObject({ price: null, condition: null, priceMax: null, place: null });
+    expect(await readListingFields('Una mesa de madera', 'PRODUCT', CATEGORIES)).toMatchObject({ price: null, priceMode: null, place: null });
     const { schema, prompt } = draft.mock.calls[0][3];
-    expect(schema.properties.condition.enum).toContain(null);
+    expect(schema.properties.priceMode.enum).toContain(null);
     // One live place: nothing to choose, so the AI isn't asked.
     expect(schema.properties.place).toBeUndefined();
-    expect(prompt).toMatch(/price: .*null if they named none\. Never guess one/);
+    expect(prompt).toContain('NONE and null when no price is named');
   });
 
-  it("asks a service for its kind of offer and a wanted ad for its budget", async () => {
-    draft.mockResolvedValue({ category: 'otros', price: 20, serviceType: 'class' });
-    expect(await readListingFields('Clases de guitarra desde 20€', 'SERVICE', CATEGORIES)).toMatchObject({ price: 20, serviceType: 'class' });
+  it('asks every listing but an event for its price and how it reads', async () => {
+    draft.mockResolvedValue({ category: 'otros', price: 20, priceMode: 'FROM' });
+    expect(await readListingFields('Clases de guitarra desde 20€', 'SERVICE', CATEGORIES)).toMatchObject({ price: 20, priceMode: 'FROM' });
 
-    draft.mockResolvedValue({ category: 'otros', price: null, priceMax: 150, condition: 'any' });
+    draft.mockResolvedValue({ category: 'otros', price: 150, priceMode: 'UP_TO' });
     await readListingFields('Busco tabla, hasta 150€', 'WANTED', CATEGORIES);
-    expect(Object.keys(draft.mock.calls[1][3].schema.properties).sort()).toEqual(['category', 'condition', 'price', 'priceMax']);
+    expect(Object.keys(draft.mock.calls[1][3].schema.properties).sort()).toEqual(['category', 'price', 'priceMode']);
   });
 
   it('gives no category when the AI answers with one that is gone', async () => {
-    draft.mockResolvedValue({ category: 'deleted', price: null, condition: null, priceMax: null });
+    draft.mockResolvedValue({ category: 'deleted', price: null, priceMode: null });
     expect((await readListingFields('Algo', 'PRODUCT', CATEGORIES)).category).toBeNull();
   });
 });
@@ -66,9 +66,9 @@ describe('fieldState', () => {
     expect(fieldState('address', 'Bar La Ola', 'EVENT')).toBe('set');
     expect(fieldState('address', '', 'EVENT')).toBe('missing');
     expect(fieldState('startsAt', '', 'EVENT')).toBe('needed');
+    // The amount only shows while a price is chosen.
     expect(fieldState('price', '', 'PRODUCT')).toBe('needed');
-    // A service may go without a "from" price.
-    expect(fieldState('price', '', 'SERVICE')).toBe('missing');
+    expect(fieldState('price', '', 'SERVICE')).toBe('needed');
     expect(fieldState('category', ' ', 'SERVICE')).toBe('needed');
   });
 });

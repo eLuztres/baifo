@@ -43,7 +43,7 @@ export function groupByCategory(
         newCount: inCategory.filter((ring) => ring.createdAt.getTime() > since).length,
         rings: inCategory.map((ring) => {
           const { name, shortName } = localizeProduct(ring, locale);
-          return { id: ring.id, slug: ring.slug, name, shortName, image: ring.image, price: ring.price, priceMax: ring.priceMax, type: ring.type, isFromPrice: ring.isFromPrice, isReserved: ring.isReserved };
+          return { id: ring.id, slug: ring.slug, name, shortName, image: ring.image, price: ring.price, priceMode: ring.priceMode, type: ring.type, isReserved: ring.isReserved };
         }),
       };
     })

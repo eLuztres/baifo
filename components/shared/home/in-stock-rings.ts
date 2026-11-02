@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
-import { SHOWCASE_MODE, SHOWS_PRICES, type ListingType } from '@/lib/constants';
+import { SHOWCASE_MODE, SHOWS_PRICES, type ListingType, type PriceMode } from '@/lib/constants';
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/category';
 import { coverPicture } from '@/lib/video';
@@ -21,14 +21,12 @@ export interface CollectionRing {
   images: string[];
   /** Missing in showcase mode (the price is never read from the database), for a service without a "from" price and a free event. */
   price?: string;
-  /** The upper end of a wanted ad's budget, if it is a range. */
-  priceMax?: string;
   /** An item for sale, a wanted ad ("Busco …": its price is the budget of the person looking), a service or an event. */
   type: ListingType;
   /** A service's kind of offer (SERVICE_TYPES). */
   serviceType?: string | null;
-  /** A service's price: shown as "from 20 €". */
-  isFromPrice?: boolean;
+  /** How its price reads ("from 20 €", "up to 20 €"); missing in showcase mode. */
+  priceMode?: PriceMode;
   /** An event or workshop: when it starts; it is only listed until the end of that day. */
   startsAt?: Date | null;
   /** An item whose picture the AI made from words alone (no photo of the real thing): buyers see a note. */
@@ -71,7 +69,7 @@ const RING_SELECT = {
   shortName: true,
   images: true,
   price: SHOWS_PRICES,
-  priceMax: SHOWS_PRICES,
+  priceMode: SHOWS_PRICES,
   reservedUntil: !SHOWCASE_MODE,
   createdAt: true,
   condition: true,
@@ -89,14 +87,12 @@ const RING_SELECT = {
 // From the extended client, which hands prices over as strings.
 type RingRow = Prisma.Result<typeof prisma.product, { select: typeof RING_SELECT }, 'findFirstOrThrow'>;
 
-const toCollectionRing = ({ images, reservedUntil, categories, price, priceMax, submission, expiresAt, ...product }: RingRow): CollectionRing => {
+const toCollectionRing = ({ images, reservedUntil, categories, price, submission, expiresAt, ...product }: RingRow): CollectionRing => {
   const { type } = product;
   return {
     ...product,
-    // 0 means none for a service (no "from" price) and free for an event: no amount to show.
-    price: (type === 'SERVICE' || type === 'EVENT') && Number(price) === 0 ? undefined : price,
-    priceMax: priceMax ?? undefined,
-    isFromPrice: type === 'SERVICE' && Number(price) > 0,
+    // A listing without a price, and a free event (0): no amount to show.
+    price: product.priceMode === 'NONE' || (type === 'EVENT' && Number(price) === 0) ? undefined : price,
     // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
     isIllustrative: (type === 'PRODUCT' || type === 'EVENT') && Boolean(submission && submission.rawImages.length === 0),
     image: coverPicture(images) ?? images[0],

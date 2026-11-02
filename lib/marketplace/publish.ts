@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
+import { DEFAULT_PRICE_MODES } from '@/lib/constants';
 import { getShopLocale } from '@/lib/i18n-server';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
@@ -67,9 +68,9 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         description: submission.description ?? '',
         translations: toProductTranslations(submission.translations),
         stock: 1,
-        // 0: a service without a "from" price, or a free event.
+        // 0: no price, or a free event.
         price: submission.price ?? 0,
-        priceMax: submission.priceMax,
+        priceMode: submission.priceMode ?? (submission.price ? DEFAULT_PRICE_MODES[submission.type] : 'NONE'),
         type: submission.type,
         serviceType: submission.serviceType,
         startsAt: submission.startsAt,
