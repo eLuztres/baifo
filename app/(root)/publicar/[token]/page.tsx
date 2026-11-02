@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Eye, MapPin } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Eye, MapPin } from 'lucide-react';
 import ProductImages from '@/components/shared/product/product-images';
 import ProductPrice from '@/components/shared/product/product-price';
 import ScrollText from '@/components/shared/product/scroll-text';
@@ -17,12 +17,9 @@ import { conditionKey, SERVER_URL } from '@/lib/constants';
 import { formatEventDate } from '@/lib/event-date';
 import { getT } from '@/lib/i18n-server';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
-import { isLocale } from '@/lib/i18n-core';
 import { getShopPlaces } from '@/lib/places';
-import CloseListingForm from './close-listing-form';
+import ListingActions from './listing-actions';
 import PublishForm from './publish-form';
-import SellerNameForm from './seller-name-form';
-import SellerPhoneForm from './seller-phone-form';
 import ShopTeaser from './shop-teaser';
 import { coverPicture } from '@/lib/video';
 import { metaDescription } from '@/lib/seo';
@@ -30,7 +27,7 @@ import { metaDescription } from '@/lib/seo';
 // A private link: no search engine should list or follow it.
 interface PublishPageProps {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ pagado?: string }>;
+  searchParams: Promise<{ pagado?: string; borrado?: string }>;
 }
 
 // generateMetadata and the page need the same row: one query per request.
@@ -58,16 +55,18 @@ const CHIP_CLASS = 'inline-flex w-fit min-w-0 max-w-full items-center gap-1 roun
 
 /** The person's private page: their listing as it will look, their OK to show their number, the plan and how to pay. */
 export default async function PublishPage({ params, searchParams }: PublishPageProps) {
-  const [{ token }, { pagado }, { t, locale }] = await Promise.all([params, searchParams, getT()]);
+  const [{ token }, { pagado, borrado }, { t, locale }] = await Promise.all([params, searchParams, getT()]);
   const texts = publishPageTexts(locale);
   const listing = await getListingPreview(token);
 
   if (!listing) {
-    return <p className='mx-auto max-w-xl py-16 text-center text-muted-foreground'>{texts.unavailable}</p>;
+    // Deleted by the person a moment ago: the link is gone, but they hear it went well.
+    return <p className='mx-auto max-w-xl py-16 text-center text-muted-foreground'>{borrado ? texts.manageDeleted : texts.unavailable}</p>;
   }
 
   const isLive = listing.status === 'LIVE';
   const isEnded = listing.status === 'EXPIRED';
+  const isClosed = listing.status === 'SOLD' || listing.status === 'CANCELLED';
   // The person sees the listing in their language; the shop language's text is the fallback.
   const translation = (listing.translations as ListingTranslations)[locale];
   const title = translation?.title || listing.title || '';
@@ -107,24 +106,12 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     validUntil,
     helpUrl: BRAND.contact.whatsappUrl,
   };
-  const sellerNameForm = listing.hasSellerPhone && (
-    <SellerNameForm
-      token={token}
-      texts={texts}
-      name={listing.sellerName ?? ''}
-      defaultName={listing.sellerDefault.name}
-      locale={isLocale(listing.sellerLocale) ? listing.sellerLocale : (listing.sellerDefault.locale ?? locale)}
-    />
-  );
-
-  const sellerPhoneForm = listing.hasSellerPhone && <SellerPhoneForm token={token} texts={texts} phoneEnd={listing.sellerPhoneEnd} />;
-
   return (
     <section className='mx-auto grid max-w-5xl grid-cols-1 gap-6 py-6 lg:grid-cols-2 lg:gap-12'>
       <div className='relative aspect-square'>
         <ProductImages images={listing.images.length > 0 ? listing.images : listing.rawImages} alt={title} />
         {/* Centered: a portrait photo is narrower than its square, so a corner badge would float beside it. */}
-        {!isLive && (
+        {!isLive && !isClosed && (
           <span className='pointer-events-none absolute left-1/2 top-3 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-background/90 px-3 py-1 text-xs font-medium shadow-sm'>
             <Eye className='size-3.5 text-primary' aria-hidden /> {texts.previewBadge}
           </span>
@@ -180,6 +167,18 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
             </p>
             <ShopTeaser texts={texts} />
           </>
+        ) : isClosed ? (
+          <>
+            <p role='status' className='flex items-start gap-2 rounded-3xl border border-primary/30 bg-card p-5 sm:p-6'>
+              <CheckCircle2 className='mt-0.5 size-5 shrink-0 text-primary' aria-hidden /> {listing.status === 'CANCELLED' ? texts.closedCancelled : texts.closedSold}
+            </p>
+            <ShopTeaser texts={texts} />
+          </>
+        ) : listing.status === 'HIDDEN' ? (
+          <>
+            <ListingActions token={token} texts={texts} type={listing.type} isHidden />
+            <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
+          </>
         ) : isLive || pagado ? (
           <>
             <div className='space-y-4 rounded-3xl border border-primary/30 bg-primary/10 p-6'>
@@ -190,16 +189,12 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
                 </Button>
               )}
             </div>
-            {isLive && sellerNameForm}
-            {isLive && sellerPhoneForm}
-            {isLive && listing.hasSellerPhone && (listing.type === 'PRODUCT' || isEvent) && <CloseListingForm token={token} texts={texts} isEvent={isEvent} />}
+            {isLive && <ListingActions token={token} texts={texts} type={listing.type} isHidden={false} />}
             <ShopTeaser texts={texts} ownSlug={listing.product?.slug} />
           </>
         ) : (
           <>
             <p className='text-muted-foreground'>{texts.intro}</p>
-            {sellerNameForm}
-            {sellerPhoneForm}
             <PublishForm
               token={token}
               texts={texts}

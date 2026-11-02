@@ -2,12 +2,12 @@ import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
 import { paypal } from '@/lib/paypal';
 import { isRateLimited } from '@/lib/rate-limit';
-import { publishConfirmed, publishSubmission, takeDown } from '@/lib/marketplace/publish';
+import { enableListing, publishConfirmed, publishSubmission, takeDown } from '@/lib/marketplace/publish';
 import {
   captureListingPayPalOrder,
   changeSellerPhone,
   claimListingPayment,
-  closeListing,
+  manageListing,
   confirmListing,
   createListingPayPalOrder,
   saveSellerName,
@@ -18,20 +18,20 @@ jest.mock('@/lib/paypal', () => ({ paypal: { createOrder: jest.fn(), capturePaym
 jest.mock('next/headers', () => ({ headers: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
-jest.mock('@/lib/marketplace/publish', () => ({ publishConfirmed: jest.fn(), publishSubmission: jest.fn(), takeDown: jest.fn() }));
+jest.mock('@/lib/marketplace/publish', () => ({ enableListing: jest.fn(), publishConfirmed: jest.fn(), publishSubmission: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ HOUSE_SELLER: 'baifo', LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
 jest.mock('@/lib/marketplace/listing-payment', () => ({ isLinkExpired: () => false, recordConsent: jest.fn() }));
 jest.mock('@/db/prisma', () => {
   const prisma: Record<string, unknown> = {
-    submission: { findFirst: jest.fn(), update: jest.fn(async () => ({ id: 'sub-1' })) },
+    submission: { findFirst: jest.fn(), update: jest.fn(async () => ({ id: 'sub-1' })), delete: jest.fn() },
     seller: { upsert: jest.fn(async () => ({ id: 'seller-2' })) },
-    product: { update: jest.fn() },
-    $transaction: jest.fn(async (run: (tx: unknown) => unknown) => run(prisma)),
+    product: { update: jest.fn(), delete: jest.fn() },
+    $transaction: jest.fn(async (run: ((tx: unknown) => unknown) | unknown[]) => (Array.isArray(run) ? Promise.all(run) : run(prisma))),
   };
   return { prisma };
 });
 
-const db = prisma as unknown as { submission: Record<'findFirst' | 'update', jest.Mock>; seller: { upsert: jest.Mock }; product: { update: jest.Mock } };
+const db = prisma as unknown as { submission: Record<'findFirst' | 'update' | 'delete', jest.Mock>; seller: { upsert: jest.Mock }; product: Record<'update' | 'delete', jest.Mock> };
 const TOKEN = 'ff25bd1e-d82d-4561-8ca2-337545aa373e';
 const mockLimited = isRateLimited as jest.Mock;
 const mockPaypal = paypal as unknown as Record<'createOrder' | 'capturePayment', jest.Mock>;
@@ -100,32 +100,48 @@ describe('saveSellerName', () => {
   });
 });
 
-describe('closeListing', () => {
-  const live = (type: string) => db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type, seller: { waId: '34612345678' } });
+describe('manageListing', () => {
+  const listing = (type: string, status = 'LIVE', productId: string | null = 'prod-1') =>
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type, status, productId });
 
-  it('marks a live product sold with the seller\'s number, written any way', async () => {
-    live('PRODUCT');
-    expect(await closeListing(TOKEN, '+34 612 34 56 78')).toEqual({ success: true });
-    expect(db.submission.findFirst.mock.calls[0][0].where).toMatchObject({ payToken: TOKEN, status: 'LIVE' });
+  it('marks a live product sold with the private link alone', async () => {
+    listing('PRODUCT');
+    expect(await manageListing(TOKEN, 'sold')).toEqual({ success: true });
+    expect(db.submission.findFirst.mock.calls[0][0].where).toMatchObject({ payToken: TOKEN, status: { in: ['LIVE', 'HIDDEN'] } });
     expect(takeDown).toHaveBeenCalledWith('sub-1', 'SOLD');
   });
 
-  it('cancels a live event', async () => {
-    live('EVENT');
-    expect(await closeListing(TOKEN, '612345678')).toEqual({ success: true });
+  it('cancels a live event, and has no "sold" for a service', async () => {
+    listing('EVENT');
+    expect(await manageListing(TOKEN, 'sold')).toEqual({ success: true });
     expect(takeDown).toHaveBeenCalledWith('sub-1', 'CANCELLED');
-  });
-
-  it('refuses a different or too short number', async () => {
-    live('PRODUCT');
-    expect(await closeListing(TOKEN, '612345679')).toEqual({ success: false, isWrongPhone: true });
-    expect(await closeListing(TOKEN, '345678')).toEqual({ success: false, isWrongPhone: true });
+    (takeDown as jest.Mock).mockClear();
+    listing('SERVICE');
+    expect((await manageListing(TOKEN, 'sold')).success).toBe(false);
     expect(takeDown).not.toHaveBeenCalled();
   });
 
-  it('does nothing for a link without a live listing', async () => {
+  it('hides a live listing and shows a hidden one again', async () => {
+    listing('SERVICE');
+    expect(await manageListing(TOKEN, 'hide')).toEqual({ success: true });
+    expect(takeDown).toHaveBeenCalledWith('sub-1', 'HIDDEN');
+    listing('SERVICE', 'HIDDEN');
+    (enableListing as jest.Mock).mockResolvedValue('live');
+    expect(await manageListing(TOKEN, 'show')).toEqual({ success: true });
+    expect(enableListing).toHaveBeenCalledWith('sub-1');
+  });
+
+  it('deletes the listing with its product', async () => {
+    listing('PRODUCT', 'HIDDEN');
+    expect(await manageListing(TOKEN, 'delete')).toEqual({ success: true });
+    expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'prod-1' } });
+    expect(db.submission.delete).toHaveBeenCalledWith({ where: { id: 'sub-1' } });
+  });
+
+  it('does nothing for a link without a live or hidden listing, or an unknown action', async () => {
     db.submission.findFirst.mockResolvedValue(null);
-    expect(await closeListing(TOKEN, '612345678')).toEqual({ success: false });
+    expect(await manageListing(TOKEN, 'hide')).toEqual({ success: false });
+    expect((await manageListing(TOKEN, 'publish' as never)).success).toBe(false);
     expect(takeDown).not.toHaveBeenCalled();
   });
 });
@@ -207,21 +223,21 @@ describe('rate limits on the /publicar buttons', () => {
   });
 
   it('does not count a request with an invalid token', async () => {
-    expect((await closeListing('not-a-token', '612345678')).success).toBe(false);
+    expect((await manageListing('not-a-token', 'hide')).success).toBe(false);
     expect(mockLimited).not.toHaveBeenCalled();
   });
 
-  it.each(['close-listing', 'close-listing-link'])('stops guessing the seller\'s number once %s is used up', async (action) => {
-    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', seller: { waId: '34612345678' } });
+  it.each(['close-listing', 'close-listing-link'])('stops the listing buttons once %s is used up', async (action) => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', status: 'LIVE', productId: null });
     limitReached(action);
-    expect(await closeListing(TOKEN, '612345678')).toEqual({ success: false, isTooMany: true });
+    expect(await manageListing(TOKEN, 'sold')).toEqual({ success: false, isTooMany: true });
     expect(db.submission.findFirst).not.toHaveBeenCalled();
     expect(takeDown).not.toHaveBeenCalled();
   });
 
-  it('limits closing per link, whatever the IP', async () => {
-    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', seller: { waId: '34612345678' } });
-    await closeListing(TOKEN, '612345679');
+  it('limits the listing buttons per link, whatever the IP', async () => {
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', status: 'LIVE', productId: null });
+    await manageListing(TOKEN, 'hide');
     expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'close-listing-link', max: 5 }), TOKEN);
   });
 });

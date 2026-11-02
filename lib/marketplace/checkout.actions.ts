@@ -13,7 +13,7 @@ import { clientIp } from '@/lib/sign-in-limit';
 import { sellerLocaleSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { HOUSE_SELLER, LISTING_PAYMENT_METHODS, LISTING_PRICES, publishUrl, type ListingPlan } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
-import { publishConfirmed, publishSubmission, takeDown } from './publish';
+import { enableListing, publishConfirmed, publishSubmission, takeDown } from './publish';
 import { toWaId } from './seller';
 import { moveListingToNumber } from './seller-number';
 
@@ -114,33 +114,54 @@ export async function saveSellerName(token: string, name: string, locale: string
   }
 }
 
-const closeSchema = z.object({ token: z.string().uuid(), phone: z.string().max(30) });
-
 // The last nine digits are the Spanish number, so "612 345 678", "+34 612…" and "0034 612…" all match.
 const isSamePhone = (typed: string, waId: string) => {
   const digits = typed.replace(/\D/g, '');
   return digits.length >= 9 && digits.slice(-9) === waId.slice(-9);
 };
 
+const manageSchema = z.object({ token: z.string().uuid(), action: z.enum(['sold', 'hide', 'show', 'delete']) });
+
+export type ListingAction = z.infer<typeof manageSchema>['action'];
+
 /**
- * "Marcar como vendido" / "Cancelar el evento": a live product or event leaves the shop. The person types their
- * WhatsApp number as well, so a forwarded link alone can't take the listing down.
+ * The person's own buttons on their private page: sold (a product; an event is cancelled), hide, show again or delete.
+ * The private link is theirs alone, as it is for publishing, so nothing else is asked.
  */
-export async function closeListing(token: string, phone: string): Promise<ActionResult & { isWrongPhone?: boolean; isTooMany?: boolean }> {
+export async function manageListing(token: string, action: ListingAction): Promise<ActionResult & { isTooMany?: boolean }> {
   try {
-    const parsed = closeSchema.safeParse({ token, phone });
+    const parsed = manageSchema.safeParse({ token, action });
     if (!parsed.success) return { success: false };
     if (await isOverLimit(CLOSE_LISTING_LIMIT, CLOSE_LISTING_LINK_LIMIT, parsed.data.token)) return { success: false, isTooMany: true };
     const submission = await prisma.submission.findFirst({
-      where: { payToken: parsed.data.token, status: 'LIVE', type: { in: ['PRODUCT', 'EVENT'] } },
-      select: { id: true, type: true, seller: { select: { waId: true } } },
+      where: { payToken: parsed.data.token, status: { in: ['LIVE', 'HIDDEN'] } },
+      select: { id: true, type: true, status: true, productId: true },
     });
     if (!submission) return { success: false };
-    if (!isSamePhone(parsed.data.phone, submission.seller.waId)) return { success: false, isWrongPhone: true };
-    await takeDown(submission.id, submission.type === 'EVENT' ? 'CANCELLED' : 'SOLD');
+    const isLive = submission.status === 'LIVE';
+    switch (parsed.data.action) {
+      case 'sold':
+        if (!isLive || (submission.type !== 'PRODUCT' && submission.type !== 'EVENT')) return { success: false };
+        await takeDown(submission.id, submission.type === 'EVENT' ? 'CANCELLED' : 'SOLD');
+        break;
+      case 'hide':
+        if (!isLive) return { success: false };
+        await takeDown(submission.id, 'HIDDEN');
+        break;
+      case 'show':
+        if (isLive || !(await enableListing(submission.id))) return { success: false };
+        break;
+      case 'delete':
+        await prisma.$transaction([
+          ...(submission.productId ? [prisma.product.delete({ where: { id: submission.productId } })] : []),
+          prisma.submission.delete({ where: { id: submission.id } }),
+        ]);
+        revalidatePath('/');
+        break;
+    }
     return { success: true };
   } catch (error) {
-    console.error('[listing] closing failed', error);
+    console.error('[listing] managing failed', error);
     return { success: false };
   }
 }

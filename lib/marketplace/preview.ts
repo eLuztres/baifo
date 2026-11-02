@@ -38,6 +38,8 @@ const PREVIEW_FIELDS = {
 /** Waiting for its first payment, online, or ended after it was paid once (and so renewable). */
 const isOpenListing = (listing: { status: string; sentAt: Date | null; paidAt: Date | null; consentAt: Date | null }, now: Date) =>
   listing.status === 'LIVE' ||
+  // Hidden by the person: their page stays, to show it again or delete it; sold or cancelled, it says so.
+  ['HIDDEN', 'SOLD', 'CANCELLED'].includes(listing.status) ||
   (listing.status === 'AWAITING_PAYMENT' && !isLinkExpired(listing.sentAt, now)) ||
   // Paid before the listing was made: once the person said OK, it only waits for the admin.
   (listing.status === 'AWAITING_PAYMENT' && !LISTING_PAYMENT_ON_PAGE && Boolean(listing.consentAt)) ||
