@@ -31,8 +31,10 @@ export default function ListingWorkspace({ initial, categories, places, language
   const [step, setStep] = useState(0);
   // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
-  // The AI is busy: on the pictures (still collecting) or on the text.
-  const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures);
+  // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one.
+  const isGoingLive = isJustPublished && listing.status === 'IN_REVIEW' && !(listing.type === 'EVENT' && !listing.startsAt);
+  // The AI is busy: on the pictures (still collecting) or on the text, or the listing is on its way online.
+  const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures || isGoingLive);
 
   // Server renders (after an action's refresh) bring a newer listing.
   useEffect(() => setListing(initial), [initial]);
@@ -68,7 +70,7 @@ export default function ListingWorkspace({ initial, categories, places, language
   );
 
   // While the AI writes, the description stays in view with what it is doing.
-  if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING') {
+  if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING' || isGoingLive) {
     const shownStep = canSwitchSteps ? step : 1;
     return (
       <div className='space-y-3 sm:space-y-4'>
@@ -87,7 +89,17 @@ export default function ListingWorkspace({ initial, categories, places, language
           </div>
         )}
         {/* The description and contact steps, and on every step the button that finishes the setup. */}
-        <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} step={shownStep} onStep={setStep} />
+        <DescriptionStep
+          listing={listing}
+          languages={languages}
+          texts={texts}
+          onSent={(next) => {
+            setListing(next);
+            setIsJustPublished(true);
+          }}
+          step={shownStep}
+          onStep={setStep}
+        />
       </div>
     );
   }

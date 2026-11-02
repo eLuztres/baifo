@@ -21,7 +21,7 @@ import { moveListingToNumber } from './seller-number';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission } from './processing';
-import { lacksConsent, markSent } from './listing-payment';
+import { lacksConsent, markSent, recordConsent } from './listing-payment';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { pictureCounterpart } from './pictures';
 import { takeVideoStill } from './video-cleanup';
@@ -78,23 +78,27 @@ const descriptionSchema = z.object({
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
+  // The admin confirms the person agreed to show their number: it goes online by itself once the AI is done.
+  hasConsent: z.boolean().default(false),
 });
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 
-/** Step 2: everything the admin knows about the item; the AI writes the listing from it and the pictures. */
+/** "Publicar": the AI writes the listing from the description (as the admin chose) and it goes online once it is done.
+    A picture, the description, the person's WhatsApp and their OK to show it are needed. */
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle } = parsed.data;
+  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent } = parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
-  if (textMode !== 'ai' && !notes) return { success: false, message: 'Escribe tu texto para usarlo tal cual' };
+  if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su número' };
+  if (!notes) return { success: false, message: 'Escribe la descripción' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true } });
-  // A video without a still counts as no photo: the AI makes the picture from the description. A picture made from words counts.
+  // A video without a still counts as no photo; a picture made from words counts.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
-  if (!hasPhoto && !listing?.images?.length && !notes) return { success: false, message: 'Sin foto, la IA necesita tu descripción para crearla' };
+  if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
   // Their OK to show the number comes later, from them.
   const waId = toWaId(sellerPhone);
   const name = sellerName ?? undefined;
@@ -112,6 +116,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
     },
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  await recordConsent({ id }, 'admin-confirmed');
   after(() => processSubmission(id));
   // Before the description only the pictures run, so an error then was theirs: they start again too.
   if (hasPhoto && listing?.lastError && listing.images.length === 0) after(() => makeListingPictures(id));

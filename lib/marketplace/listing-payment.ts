@@ -6,7 +6,8 @@ import { HOUSE_SELLER, UNPAID_LISTING_HOURS } from './config';
 /** The consent text the person agreed to; change the date whenever its wording changes. */
 export const CONSENT_TEXT_VERSION = '2026-10-28';
 
-export type ConsentSource = 'publish-page' | 'whatsapp-reply';
+// 'admin-confirmed': the admin ticked that the person agreed, when creating the listing with them.
+export type ConsentSource = 'publish-page' | 'whatsapp-reply' | 'admin-confirmed';
 
 // Read off a phone and typed into Bizum: no 0/O, 1/I/L that people mix up.
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

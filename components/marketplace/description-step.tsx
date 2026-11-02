@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
-import ProductMedia from '@/components/ProductMedia';
+import { Check, Loader2, RotateCw, Send } from 'lucide-react';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,11 +57,12 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
   const [isPending, startTransition] = useTransition();
   // Sent: the AI writes the text, and the pictures may still be on their way. The editor comes once both are there.
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
-  // No picture (a video without a still doesn't count): this text is all the AI has to write from, so it can't be empty.
+  // A video without a still doesn't count as a picture.
   const hasNoPhoto = listing.images.length === 0 && !listing.rawImages.some(pictureOf);
-  const hasPictures = listing.images.length > 0;
-  // The AI's pictures run on their own since step 1 (from the photos or the admin's idea), so the admin writes meanwhile.
-  const showsPictureWork = listing.usesAi && !listing.lastError;
+  // The person's OK to show their number, confirmed by the admin who creates the listing with them.
+  const [hasConsent, setHasConsent] = useState(false);
+  // A "missing" message is old news as soon as something is filled in.
+  useEffect(() => setError(''), [notes, sellerPhone, hasConsent]);
   const hasText = Boolean(listing.title);
   const placeholder = isOwnWords
     ? texts.tellOriginalPlaceholder
@@ -72,8 +73,6 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
         : isWanted
           ? texts.tellWantedPlaceholder
           : texts.tellPlaceholder;
-  // The AI needs the admin's own words to keep, and words to write from when there is no photo; the picture never comes from them.
-  const canContinue = !((isOwnWords || hasNoPhoto) && !notes.trim());
 
   // A number already written in the description is most likely the contact; the admin can still change it.
   useEffect(() => {
@@ -85,12 +84,13 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
   const send = () =>
     startTransition(async () => {
       setError('');
-      // The person's own OK to show their number comes later, on their page or by WhatsApp.
       // Buyers always write to the person's own WhatsApp ("through the Corral" is parked, #131).
       // Everything missing in one message, and the first step it is on opens.
       const missing = [
-        !canContinue && { step: 1, text: hasNoPhoto && !isOwnWords ? texts.missingPictureOrText : texts.missingText },
+        hasNoPhoto && { step: 0, text: texts.missingPicture },
+        !notes.trim() && { step: 1, text: texts.missingText },
         !sellerPhone.trim() && { step: 2, text: texts.missingPhone },
+        !hasConsent && { step: 2, text: texts.missingConsent },
       ].filter((item) => item !== false);
       if (missing.length > 0) {
         onStep(missing[0].step);
@@ -102,6 +102,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
         sellerName,
         textMode,
         originalTitle,
+        hasConsent,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null });
@@ -117,21 +118,11 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
     <>
       <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
         {/* What the AI is doing, part by part; nothing here blocks the form. */}
-        {(showsPictureWork || isWriting) && (
+        {isWriting && (
           <ul aria-live='polite' className='flex flex-wrap gap-2 text-sm'>
-            {showsPictureWork && <WorkState isDone={hasPictures} label={hasPictures ? texts.picturesReady : texts.picturesWorking} />}
-            {isWriting && <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />}
+            <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />
           </ul>
         )}
-        <ul hidden={step === 0} className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
-          {/* The originals until the AI pictures arrive, which then take their place. Before the AI picture of a video-only service, its videos. */}
-          {(hasPictures ? listing.images : listing.rawImages).map((url, index) => (
-            <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
-              <ProductMedia src={url} alt='' fill sizes='6rem' />
-              {showsPictureWork && !hasPictures && <span className='absolute inset-0 animate-pulse bg-primary/20 motion-reduce:animate-none' aria-hidden />}
-            </li>
-          ))}
-        </ul>
 
         <div hidden={step !== 1} className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
           <div className='flex items-center justify-between gap-3'>
@@ -207,6 +198,10 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
               />
               <p className='text-xs text-muted-foreground'>{texts.sellerNameHint}</p>
             </div>
+            <Label className='flex items-start gap-3 rounded-2xl border border-border bg-background p-3 text-sm font-normal leading-5'>
+              <Checkbox checked={hasConsent} disabled={isWriting} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
+              {texts.consentConfirm}
+            </Label>
           </div>
         )}
 
@@ -224,9 +219,9 @@ export default function DescriptionStep({ listing, languages, texts, onSent, ste
         {/* The end of the setup on every step, so it can be finished from wherever the admin is. Not sticky: on phones a
             floating button jumped over the field with the keyboard open. */}
         <Button size='lg' className='w-full rounded-full shadow-xl shadow-primary/20' disabled={isPending || isWriting} onClick={send}>
-          {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
+          {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Send />}{' '}
           {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-          {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
+          {isWriting ? texts.status_PROCESSING : texts.publishButton}
         </Button>
       </div>
     </>

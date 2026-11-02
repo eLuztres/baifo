@@ -5,10 +5,12 @@ import { makeListingPictures, processSubmission } from '@/lib/marketplace/proces
 import { cleanUpVideo } from '@/lib/marketplace/video-cleanup';
 import { getShopPlaces } from '@/lib/places';
 import { sendForReview } from '@/lib/marketplace/review';
+import { publishByAdmin } from '@/lib/marketplace/publish';
 
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ sendForReview: jest.fn() }));
+jest.mock('@/lib/marketplace/publish', () => ({ publishByAdmin: jest.fn() }));
 jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => [{ slug: 'deporte' }]) }));
 jest.mock('@/lib/marketplace/ai', () => ({
   writeListing: jest.fn(async () => ({
@@ -62,6 +64,29 @@ beforeEach(() => {
 
 // Text and pictures run at once, so the text's save is found by what it saves, not by its place in the calls.
 const textUpdate = () => db.update.mock.calls.map(([call]) => call.data).find((data) => 'placeId' in data);
+
+describe('a new listing after "Publicar"', () => {
+  const written = { ...WANTED, title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.', images: ['https://x.ufs.sh/f/made.jpg'] };
+
+  it('goes online by itself once written, with the OK the admin confirmed', async () => {
+    db.findUnique.mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, consentAt: new Date(), seller: {} });
+
+    await processSubmission('sub-1');
+
+    expect(publishByAdmin).toHaveBeenCalledWith('sub-1', 'normal');
+  });
+
+  it('keeps an event without a date in the editor, and a listing without the OK', async () => {
+    db.findUnique.mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, type: 'EVENT', startsAt: null, consentAt: new Date(), seller: {} });
+    await processSubmission('sub-1');
+    db.update.mockResolvedValue({ ...written, consentAt: null, seller: {} });
+    await processSubmission('sub-1');
+
+    expect(publishByAdmin).not.toHaveBeenCalled();
+  });
+});
 
 describe('processSubmission without a photo', () => {
   it('writes the text and draws the picture from the words at the same time', async () => {

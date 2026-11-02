@@ -12,6 +12,7 @@ import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { cleanUpVideo } from './video-cleanup';
 import { parsePrice } from './price';
+import { publishByAdmin } from './publish';
 import { sendForReview } from './review';
 
 // A submission still PROCESSING after this long counts as stuck, so the cron starts it again.
@@ -166,7 +167,9 @@ async function finishSubmission(submission: FoundSubmission) {
     data: { status: 'IN_REVIEW', lastError: null },
     include: { seller: true },
   });
-  if (!submission.createdByAdmin) await sendForReview(finished);
+  if (!submission.createdByAdmin) return sendForReview(finished);
+  // "Publicar" on a new listing: online as soon as it is written. An event without a date waits in the editor for one.
+  if (finished.consentAt && !(finished.type === 'EVENT' && !finished.startsAt)) await publishByAdmin(finished.id, 'normal');
 }
 
 /** The pictures of a listing the admin creates, started with the upload: the admin writes the description meanwhile and

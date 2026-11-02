@@ -3,6 +3,7 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { Camera, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
+import ImageLightbox from '@/components/shared/image-lightbox';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,8 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
   // Tabs the AI is working on, and new pictures still being made or uploaded.
   const [busy, setBusy] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  // The picture open full screen.
+  const [viewedIndex, setViewedIndex] = useState<number | null>(null);
 
   const { startUpload } = useUploadThing('photosUploader', {
     onUploadError: () => {
@@ -206,9 +209,18 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
         </div>
       )}
 
+      <ImageLightbox images={pictures.images} alt={texts.photosLabel} index={viewedIndex} onIndexChange={setViewedIndex} />
+
       {shown ? (
         <>
           <ListingStage src={shown} className='mx-auto aspect-[3/4] h-[52svh] w-auto max-w-full sm:h-[60svh]'>
+            {/* Under the other buttons: a tap on the picture itself opens it full screen. */}
+            <button
+              type='button'
+              onClick={() => setViewedIndex(pictures.images.indexOf(shown))}
+              aria-label={texts.photosLabel}
+              className='absolute inset-0 cursor-zoom-in focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-ring/40'
+            />
             <button
               type='button'
               onClick={remove}

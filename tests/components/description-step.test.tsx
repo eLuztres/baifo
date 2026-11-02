@@ -22,7 +22,7 @@ const listing = {
   textMode: 'ai',
   originalTitle: null,
   rawImages: [],
-  images: [],
+  images: ['https://x.ufs.sh/f/bike.jpg'],
   usesAi: true,
   lastError: null,
   title: null,
@@ -30,31 +30,31 @@ const listing = {
 } as unknown as AdminListing;
 
 // The workspace's step bar, as two plain buttons.
-function Steps() {
+function Steps({ shown = listing }: { shown?: AdminListing }) {
   const [step, setStep] = useState(1);
   return (
     <>
       <button onClick={() => setStep(0)}>stepPhotos</button>
       <button onClick={() => setStep(1)}>stepDetails</button>
       <button onClick={() => setStep(2)}>stepContact</button>
-      <DescriptionStep listing={listing} languages={[]} texts={texts} onSent={jest.fn()} step={step} onStep={setStep} />
+      <DescriptionStep listing={shown} languages={[]} texts={texts} onSent={jest.fn()} step={step} onStep={setStep} />
     </>
   );
 }
 
-const renderStep = () => render(<Steps />);
+const renderStep = (shown?: AdminListing) => render(<Steps shown={shown} />);
 
 beforeEach(() => mockDescribe.mockReset());
 
 describe('DescriptionStep', () => {
   it('finishes from any step, naming everything missing and opening the first step it is on', async () => {
-    renderStep();
-    fireEvent.click(screen.getByRole('button', { name: /stepPhotos/ }));
+    renderStep({ ...listing, images: [] });
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
 
-    fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPictureOrText and missingPhone');
-    expect(screen.getByLabelText('tellLabel')).toBeVisible();
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPicture, missingText, missingPhone, and missingConsent');
+    expect(screen.queryByLabelText('servicePhoneLabel')).not.toBeInTheDocument();
     expect(mockDescribe).not.toHaveBeenCalled();
   });
 
@@ -66,20 +66,21 @@ describe('DescriptionStep', () => {
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     fireEvent.change(screen.getByLabelText('servicePhoneLabel'), { target: { value: ' 612345678 ' } });
     fireEvent.change(screen.getByLabelText('sellerNameLabel'), { target: { value: 'Lula' } });
-    fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
     await waitFor(() => expect(mockDescribe).toHaveBeenCalled());
-    expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ notes: 'Bici, 80€', sellerPhone: '612345678', sellerName: 'Lula' }));
+    expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ notes: 'Bici, 80€', sellerPhone: '612345678', sellerName: 'Lula', hasConsent: true }));
   });
 
-  it('asks for the number before sending', async () => {
+  it('asks for the number and the person\'s OK before publishing', async () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
-    fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPhone');
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPhone and missingConsent');
     expect(mockDescribe).not.toHaveBeenCalled();
   });
 
