@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import ListingSteps from '@/components/marketplace/listing-steps';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
-const texts = { stepPhotos: 'Photos', stepDetails: 'Description', stepContact: 'Contact' } as AdminTexts;
+const texts = { stepPhotos: 'Photos', stepDetails: 'Description', stepContact: 'Contact', stepMore: 'More' } as AdminTexts;
 
 describe('ListingSteps', () => {
   it('shows plain steps when the admin can not switch', () => {
@@ -16,11 +16,13 @@ describe('ListingSteps', () => {
     const onSelect = jest.fn();
     render(<ListingSteps current={1} texts={texts} onSelect={onSelect} />);
 
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.getAllByRole('button')).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: /Photos/ }));
     expect(onSelect).toHaveBeenCalledWith(0);
     fireEvent.click(screen.getByRole('button', { name: /Contact/ }));
     expect(onSelect).toHaveBeenCalledWith(2);
+    fireEvent.click(screen.getByRole('button', { name: /More/ }));
+    expect(onSelect).toHaveBeenCalledWith(3);
   });
 
   it('marks the current step', () => {
@@ -30,12 +32,13 @@ describe('ListingSteps', () => {
     expect(screen.getByRole('button', { name: /Description/ })).not.toHaveAttribute('aria-current');
   });
 
-  it('shows the numbers 1 to 3 on any step, never a check mark', () => {
+  it('shows the numbers 1 to 4 on any step, never a check mark', () => {
     const { container } = render(<ListingSteps current={2} texts={texts} />);
 
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
     expect(container.querySelector('svg')).not.toBeInTheDocument();
   });
 

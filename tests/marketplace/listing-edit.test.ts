@@ -31,6 +31,7 @@ jest.mock('@/lib/marketplace/ai', () => ({
   enhancePhoto: jest.fn(async () => Buffer.from('')),
 }));
 jest.mock('@/lib/places', () => ({
+  getDefaultPlaceId: jest.fn(async () => 'place-1'),
   getShopPlaces: jest.fn(async () => [
     { id: 'place-1', slug: 'corralejo', name: 'Corralejo', isLive: true },
     { id: 'place-2', slug: 'el-cotillo', name: 'El Cotillo', isLive: true },
@@ -329,8 +330,10 @@ describe('describeAdminListing', () => {
     await send(false);
     expect(typeSent()).toBe('PRODUCT');
     db.submission.findUnique.mockResolvedValue({ type: 'EVENT', title: 'Bici', rawImages: ['https://utfs.io/f/poster.jpg'], images: [] });
-    await send(true);
+    expect(await send(true)).toEqual({ success: false, message: 'Elige la fecha y la hora del evento' });
+    await describeAdminListing(ID, { notes: 'Bachata', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', isWanted: true, startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
     expect(typeSent()).toBeUndefined();
+    expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ startsAt: new Date('2026-11-26T19:00:00Z'), address: 'Plaza de Lajares' });
   });
 
   it('publishes only a description made in every language, with the texts and the price as the admin left them', async () => {
@@ -346,8 +349,22 @@ describe('describeAdminListing', () => {
       priceMode: 'FROM',
       price: '20.00',
     });
+    await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', category: 'motor' });
+    expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ category: 'motor' });
+    expect(await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', category: 'muebles' })).toEqual({ success: false, message: 'Elige una de las categorías' });
     await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', priceMode: 'FIXED', price: '' });
     expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ priceMode: 'NONE', price: null });
+  });
+
+  it('goes online by itself unless Oculto, and keeps the last day chosen through its end', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+    const send = (extra: object) => describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', ...extra });
+
+    await send({ onlineUntil: '2099-12-24' });
+    expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ autoPublish: true, expiresAt: new Date('2099-12-24T23:59:00Z') });
+    await send({ isHidden: true });
+    expect(db.submission.updateMany.mock.calls.at(-2)[0].data).toMatchObject({ autoPublish: false });
+    expect(await send({ onlineUntil: '2020-01-01' })).toEqual({ success: false, message: 'Elige un día de hoy en adelante' });
   });
 
   it('needs the description and the person\'s OK to show their number, and records that OK', async () => {
@@ -450,7 +467,7 @@ describe('draftAdminListingText', () => {
 describe('a new listing as a draft', () => {
   it('opens an empty draft right away, hidden from the listings while it is collected', async () => {
     expect(await startAdminListing('EVENT')).toEqual({ success: true, message: '', id: 'new-1' });
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ status: 'COLLECTING', createdByAdmin: true, type: 'EVENT', usesAi: false });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ status: 'COLLECTING', createdByAdmin: true, type: 'EVENT', usesAi: false, placeId: 'place-1' });
     expect((await startAdminListing('CAR')).success).toBe(false);
   });
 

@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import AdminListingWorkspace from '@/components/marketplace/admin-listing-workspace';
 import StartListing from '@/components/marketplace/start-listing';
 import { requireAdmin } from '@/lib/auth-guard';
@@ -27,15 +25,10 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
   await requireAdmin();
   const [locale, { tipo, anuncio }] = await Promise.all([getLocale(), searchParams]);
   const texts = adminTexts(locale);
-  const backLink = (
-    <Link href='/admin/listings' className='inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground'>
-      <ChevronLeft className='size-4' /> {texts.back}
-    </Link>
-  );
   if (anuncio) {
     return (
+      // No "back" link: the admin menu on top leads to the listings.
       <div className='space-y-4'>
-        {backLink}
         <AdminListingWorkspace id={anuncio} locale={locale} texts={texts} />
       </div>
     );
@@ -43,7 +36,6 @@ export default async function NewListingPage({ searchParams }: NewListingPagePro
   const listingType = listingTypeOf(tipo) ?? 'PRODUCT';
   return (
     <div className='space-y-8'>
-      {backLink}
       <StartListing type={listingType} texts={texts} />
     </div>
   );

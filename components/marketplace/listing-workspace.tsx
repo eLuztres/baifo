@@ -18,13 +18,15 @@ interface ListingWorkspaceProps {
   languages: EditorLanguage[];
   /** The shop's own language, the first tab in the editor. */
   shopLanguage: EditorLanguage;
+  /** How many days a listing stays online by default (LISTING_DAYS). */
+  listingDays: number;
   texts: AdminTexts;
 }
 
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
   // 0 pictures, 1 description, 2 contact: free to move between them until the description is sent.
@@ -32,7 +34,7 @@ export default function ListingWorkspace({ initial, categories, places, language
   // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
   // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one.
-  const isGoingLive = isJustPublished && listing.status === 'IN_REVIEW' && !(listing.type === 'EVENT' && !listing.startsAt);
+  const isGoingLive = isJustPublished && listing.status === 'IN_REVIEW' && listing.autoPublish && !(listing.type === 'EVENT' && !listing.startsAt);
   // The AI is busy: on the pictures (still collecting) or on the text, or the listing is on its way online.
   const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures || isGoingLive);
 
@@ -93,6 +95,8 @@ export default function ListingWorkspace({ initial, categories, places, language
           listing={listing}
           languages={languages}
           shopLanguage={shopLanguage}
+          categories={categories}
+          listingDays={listingDays}
           texts={texts}
           onSent={(next) => {
             setListing(next);

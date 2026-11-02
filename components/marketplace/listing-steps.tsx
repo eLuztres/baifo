@@ -3,16 +3,16 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
 interface ListingStepsProps {
-  /** 0 photos, 1 description, 2 contact (and the listing to publish). */
+  /** 0 photos, 1 description, 2 contact, 3 more (state and how long it stays online). */
   current: number;
   texts: AdminTexts;
   /** Set while the admin may go back and forth: the other steps become buttons. */
   onSelect?: (index: number) => void;
 }
 
-/** Where the admin is in creating a listing: photos, the description, then the contact. */
+/** Where the admin is in creating a listing: photos, the description, the contact, and "Más". */
 export default function ListingSteps({ current, texts, onSelect }: ListingStepsProps) {
-  const steps = [texts.stepPhotos, texts.stepDetails, texts.stepContact];
+  const steps = [texts.stepPhotos, texts.stepDetails, texts.stepContact, texts.stepMore];
   return (
     <ol className='mx-auto flex w-full max-w-xl items-center justify-center gap-1 text-xs sm:gap-2 sm:text-sm'>
       {steps.map((label, index) => (
@@ -31,7 +31,8 @@ export default function ListingSteps({ current, texts, onSelect }: ListingStepsP
             >
               {index + 1}
             </span>
-            <span className={cn(index === current && 'font-semibold')}>{label}</span>
+            {/* Four steps don't fit a 320px phone: there only the current one says its name. */}
+            <span className={cn(index === current ? 'font-semibold' : 'max-[379px]:sr-only')}>{label}</span>
           </StepLink>
         </li>
       ))}

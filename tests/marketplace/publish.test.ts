@@ -108,6 +108,21 @@ describe('publishByAdmin', () => {
     );
     expect(db.product.create).toHaveBeenCalledWith({ data: expect.objectContaining({ isFeatured: false }) });
   });
+
+  it("keeps the admin's \"Online hasta\" for the first period, else LISTING_DAYS", async () => {
+    const chosen = new Date(Date.now() + 10 * 86_400_000);
+    db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', plan: 'normal', createdByAdmin: true, paidAt: null, expiresAt: chosen });
+    await publishByAdmin(SUBMISSION.id, 'normal');
+    expect(db.submission.updateMany.mock.calls.at(-1)[0].data.expiresAt).toEqual(chosen);
+  });
+
+  it('keeps an event online until its day is over, however far away it is', async () => {
+    const startsAt = new Date('2027-08-14T21:00:00Z');
+    db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', type: 'EVENT', startsAt, plan: 'normal', createdByAdmin: true, paidAt: null });
+    await publishByAdmin(SUBMISSION.id, 'normal');
+    // 14 August ends at midnight on the island (UTC+1 in summer).
+    expect(db.submission.updateMany.mock.calls.at(-1)[0].data.expiresAt).toEqual(new Date('2027-08-14T23:00:00Z'));
+  });
 });
 
 describe('publishPaidByAdmin', () => {

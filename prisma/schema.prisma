@@ -362,6 +362,8 @@ model Submission {
   remindedAt        DateTime?        @db.Timestamp(6)
   // Made on /admin/listings/new: no WhatsApp review, the admin sees the result right away.
   createdByAdmin    Boolean          @default(false)
+  // "Publicar" with Estado Online: it goes online by itself once written; Oculto keeps it ready, not shown.
+  autoPublish       Boolean          @default(false)
   // The product it becomes takes it over.
   type              ListingType      @default(PRODUCT)
   // Its place; the product it becomes takes it over.

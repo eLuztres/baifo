@@ -17,7 +17,9 @@ import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { pictureOf } from '@/lib/video';
-import type { EditorLanguage } from './listing-editor';
+import { toShopDateTime } from '@/lib/event-date';
+import AddressInput from './address-input';
+import type { CategoryOption, EditorLanguage } from './listing-editor';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -25,6 +27,10 @@ interface DescriptionStepProps {
   languages: EditorLanguage[];
   /** The shop's own language, the first tab of the texts. */
   shopLanguage: EditorLanguage;
+  /** The store's categories; the AI suggests one, the admin decides. */
+  categories: CategoryOption[];
+  /** How many days a listing stays online by default (LISTING_DAYS). */
+  listingDays: number;
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   onSent: (listing: AdminListing) => void;
@@ -35,7 +41,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, categories, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -69,6 +75,13 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
   // Optional: a kind of price and its amount; an event only has its entry.
   const [priceMode, setPriceMode] = useState<PriceMode>(listing.priceMode ?? DEFAULT_PRICE_MODES[listing.type]);
   const [price, setPrice] = useState(listing.price ?? '');
+  // An event's date ("2026-11-29T19:00" on the island's clock) and place; "Crear descripción" fills empty ones from the words.
+  const [startsAt, setStartsAt] = useState(listing.startsAt ? toShopDateTime(listing.startsAt) : '');
+  const [address, setAddress] = useState(listing.address ?? '');
+  const [category, setCategory] = useState(listing.category ?? '');
+  // "Más": Online goes live on Publicar, Oculto keeps it ready; an Anuncio shows until the end of "Online hasta".
+  const [isHidden, setIsHidden] = useState(false);
+  const [onlineUntil, setOnlineUntil] = useState(() => toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10));
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
   const errorBox = useRef<HTMLDivElement>(null);
@@ -84,7 +97,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
   // The person's OK to show their number, confirmed by the admin who creates the listing with them.
   const [hasConsent, setHasConsent] = useState(false);
   // A "missing" message is old news as soon as something is filled in.
-  useEffect(() => setError(''), [notes, sellerPhone, hasConsent]);
+  useEffect(() => setError(''), [notes, sellerPhone, hasConsent, startsAt]);
   const hasText = Boolean(listing.title);
   const placeholder = isService
       ? texts.tellServicePlaceholder
@@ -110,6 +123,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
         hasNoPhoto && { step: 0, text: texts.missingPicture },
         !notes.trim() && { step: 1, text: texts.missingText },
         Boolean(notes.trim()) && !hasDraft && { step: 1, text: texts.missingDraft },
+        isEvent && !startsAt && { step: 1, text: texts.missingDate },
+        hasDraft && !category && { step: 1, text: texts.missingCategory },
         !sellerPhone.trim() && { step: 2, text: texts.missingPhone },
         !hasConsent && { step: 2, text: texts.missingConsent },
       ].filter((item) => item !== false);
@@ -127,6 +142,10 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
         texts: draft,
         priceMode: isEvent ? 'FIXED' : priceMode,
         price,
+        ...(isEvent && { startsAt, address }),
+        category,
+        isHidden,
+        ...(!isEvent && { onlineUntil }),
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null });
@@ -140,7 +159,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
     }
     setError('');
     setIsDrafting(true);
-    const result = await draftAdminListingText(listing.id, { notes, textMode, ...(!isEvent && { isWanted }), priceMode, price });
+    const result = await draftAdminListingText(listing.id, { notes, textMode, ...(!isEvent && { isWanted }), priceMode, price, ...(isEvent && { startsAt, address }) });
     setIsDrafting(false);
     if (!('texts' in result && result.texts)) return setError(result.message);
     setDraft(result.texts);
@@ -149,6 +168,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
       setPrice(result.price);
       setPriceMode(result.priceMode);
     }
+    if (!startsAt && result.startsAt) setStartsAt(result.startsAt);
+    if (!address && result.address) setAddress(result.address);
+    if (!category && result.category) setCategory(result.category);
   };
 
   const retry = () =>
@@ -185,43 +207,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
                 {wanted ? texts.wantedLabel : texts.offerLabel}
               </button>
             ))}
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className='grid grid-cols-2 gap-2'>
-            {!isEvent && (
-              <div className='space-y-1'>
-                <Label htmlFor='price-mode' className='px-1 text-xs text-muted-foreground'>
-                  {texts.priceShort}
-                </Label>
-                <select id='price-mode' value={priceMode} disabled={isWriting} onChange={(event) => setPriceMode(event.target.value as PriceMode)} className={SELECT_CLASS}>
-                  {PRICE_MODES.map((mode) => (
-                    <option key={mode} value={mode}>
-                      {texts[`priceMode_${mode}`]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {(isEvent || priceMode !== 'NONE') && (
-              <div className={cn('space-y-1', isEvent && 'col-span-2')}>
-                <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
-                  {isEvent ? texts.eventPrice : texts.priceAmount}
-                </Label>
-                <div className='relative'>
-                  <Input
-                    id='price'
-                    inputMode='decimal'
-                    value={price}
-                    readOnly={isWriting}
-                    onChange={(event) => setPrice(event.target.value)}
-                    className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg'
-                  />
-                  <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -262,6 +247,84 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
             </Button>
           </div>
         </div>
+
+        {step === 1 && (
+          <div className='grid grid-cols-2 gap-2'>
+            {!isEvent && (
+              <div className='space-y-1'>
+                <Label htmlFor='price-mode' className='px-1 text-xs text-muted-foreground'>
+                  {texts.priceShort}
+                </Label>
+                <select id='price-mode' value={priceMode} disabled={isWriting} onChange={(event) => setPriceMode(event.target.value as PriceMode)} className={SELECT_CLASS}>
+                  {PRICE_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {texts[`priceMode_${mode}`]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {(isEvent || priceMode !== 'NONE') && (
+              <div className={cn('space-y-1', isEvent && 'col-span-2')}>
+                <Label htmlFor='price' className='px-1 text-xs text-muted-foreground'>
+                  {isEvent ? texts.eventPrice : texts.priceAmount}
+                </Label>
+                <div className='relative'>
+                  <Input
+                    id='price'
+                    inputMode='decimal'
+                    value={price}
+                    readOnly={isWriting}
+                    onChange={(event) => setPrice(event.target.value)}
+                    className='h-12 rounded-2xl bg-card pr-8 text-lg font-semibold text-primary md:text-lg'
+                  />
+                  <span className='absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground'>€</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 1 && isEvent && (
+          <div className='grid gap-2 sm:grid-cols-2'>
+            {/* The native date and time picker needs the whole width on a phone. */}
+            <div className='space-y-1'>
+              <Label htmlFor='starts-at' className='px-1 text-xs text-muted-foreground'>
+                {texts.eventStartsLabel}
+              </Label>
+              <Input id='starts-at' type='datetime-local' value={startsAt} readOnly={isWriting} onChange={(event) => setStartsAt(event.target.value)} className='h-12 rounded-2xl bg-card text-base md:text-base' />
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='address' className='px-1 text-xs text-muted-foreground'>
+                {texts.addressLabel}
+              </Label>
+              <AddressInput
+                id='address'
+                value={address}
+                onChange={setAddress}
+                placeId={listing.placeId ?? ''}
+                placeholder={texts.addressPlaceholder}
+                className='h-12 rounded-2xl bg-card text-base md:text-base'
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className='space-y-1'>
+            <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
+              {texts.categoryLabel}
+            </Label>
+            <select id='category' value={category} disabled={isWriting} onChange={(event) => setCategory(event.target.value)} className={SELECT_CLASS}>
+              {!category && <option value=''>–</option>}
+              {categories.map((option) => (
+                <option key={option.slug} value={option.slug}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Always there, so nothing jumps: usable once "Crear descripción" wrote the texts. */}
         <fieldset
@@ -343,6 +406,34 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
           </div>
         )}
 
+        {step === 3 && (
+          <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+            <div className='space-y-1'>
+              <Label htmlFor='listing-state' className='px-1 text-xs text-muted-foreground'>
+                {texts.statusLabel}
+              </Label>
+              <select id='listing-state' value={isHidden ? 'HIDDEN' : 'LIVE'} disabled={isWriting} onChange={(event) => setIsHidden(event.target.value === 'HIDDEN')} className={SELECT_CLASS}>
+                <option value='LIVE'>{texts.status_LIVE}</option>
+                <option value='HIDDEN'>{texts.status_HIDDEN}</option>
+              </select>
+            </div>
+            <div className='space-y-1'>
+              <Label htmlFor='online-until' className='px-1 text-xs text-muted-foreground'>
+                {texts.onlineUntilLabel}
+              </Label>
+              {/* An event stays until its day is over: the date set in Descripción, shown here but changed only there. */}
+              {isEvent ? (
+                <>
+                  <Input id='online-until' type='date' value={startsAt.slice(0, 10)} disabled className='h-12 rounded-2xl bg-background text-base md:text-base' />
+                  <p className='px-1 text-xs text-muted-foreground'>{texts.eventDateFromDescription}</p>
+                </>
+              ) : (
+                <Input id='online-until' type='date' value={onlineUntil} readOnly={isWriting} onChange={(event) => setOnlineUntil(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
+              )}
+            </div>
+          </div>
+        )}
+
         {(error || listing.lastError) && (
           <div ref={errorBox} role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
             <span>{error || aiErrorText(t, listing.lastError) || texts.errorGeneric}</span>
@@ -359,7 +450,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, text
         <Button size='lg' className='w-full rounded-full shadow-xl shadow-primary/20' disabled={isPending || isWriting} onClick={send}>
           {isPending || isWriting ? <Loader2 className='animate-spin' /> : <Send />}{' '}
           {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-          {isWriting ? texts.status_PROCESSING : texts.publishButton}
+          {isWriting ? texts.status_PROCESSING : isHidden ? texts.saveHidden : texts.publishButton}
         </Button>
       </div>
     </>

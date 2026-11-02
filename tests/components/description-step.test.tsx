@@ -6,6 +6,10 @@ import { describeAdminListing, draftAdminListingText, type AdminListing } from '
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
 jest.mock('@/lib/marketplace/admin.actions', () => ({ describeAdminListing: jest.fn(), draftAdminListingText: jest.fn(), retryAdminListing: jest.fn() }));
+jest.mock('@/components/marketplace/address-input', () => ({
+  __esModule: true,
+  default: ({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) => <input id={id} value={value} onChange={(event) => onChange(event.target.value)} />,
+}));
 jest.mock('@/components/i18n-provider', () => ({ useI18n: () => ({ t: (key: string) => key, locale: 'en' }) }));
 jest.mock('@/components/shared/voice-input-button', () => () => null);
 jest.mock('@/components/ProductMedia', () => () => null);
@@ -36,7 +40,7 @@ const listing = {
 } as unknown as AdminListing;
 
 // "Crear descripción" already ran.
-const drafted = { ...listing, rawText: 'Bici, 80€', title: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { title: 'City bike', description: 'Comfy bike.' } } } as AdminListing;
+const drafted = { ...listing, rawText: 'Bici, 80€', category: 'hogar', title: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { title: 'City bike', description: 'Comfy bike.' } } } as AdminListing;
 
 // The workspace's step bar, as plain buttons.
 function Steps({ shown = listing }: { shown?: AdminListing }) {
@@ -46,10 +50,16 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
       <button onClick={() => setStep(0)}>stepPhotos</button>
       <button onClick={() => setStep(1)}>stepDetails</button>
       <button onClick={() => setStep(2)}>stepContact</button>
+      <button onClick={() => setStep(3)}>stepMore</button>
       <DescriptionStep
         listing={shown}
         languages={[{ id: 'en', label: 'EN' }]}
         shopLanguage={{ id: 'es', label: 'ES' }}
+        categories={[
+          { slug: 'musica', name: 'Música' },
+          { slug: 'hogar', name: 'Hogar' },
+        ]}
+        listingDays={90}
         texts={texts}
         onSent={jest.fn()}
         step={step}
@@ -111,6 +121,21 @@ describe('DescriptionStep', () => {
     expect(screen.getByLabelText('titleLabel')).toHaveValue('Bike');
   });
 
+  it('takes the category the AI chose into an empty field, lets the admin change it, and publishes it', async () => {
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Pedal', description: 'Pedal de loops.' } }, category: 'musica' });
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep();
+
+    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'pedal looper' } });
+    fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
+    await waitFor(() => expect(screen.getByLabelText('categoryLabel')).toHaveValue('musica'));
+    fireEvent.change(screen.getByLabelText('categoryLabel'), { target: { value: 'hogar' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
+
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ category: 'hogar' })));
+  });
+
   it('publishes the texts as edited, with the number, the name, the OK and the price', async () => {
     mockDescribe.mockResolvedValue({ success: true });
     renderStep(drafted);
@@ -149,12 +174,62 @@ describe('DescriptionStep', () => {
     await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ isWanted: true, priceMode: 'UP_TO' })));
   });
 
-  it('has no Ofrezco or Busco on an event, only its entry', () => {
+  it('has no Ofrezco or Busco on an event, but its entry, date and place', () => {
     renderStep({ ...listing, type: 'EVENT' } as AdminListing);
 
     expect(screen.queryByRole('radio', { name: 'wantedLabel' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('priceShort')).not.toBeInTheDocument();
     expect(screen.getByLabelText('eventPrice')).toBeInTheDocument();
+    expect(screen.getByLabelText('eventStartsLabel')).toBeInTheDocument();
+    expect(screen.getByLabelText('addressLabel')).toBeInTheDocument();
+  });
+
+  it('fills an empty date and place from "Crear descripción", and needs the date to publish an event', async () => {
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bachata', description: 'Bachata gratis.' } }, priceMode: 'FIXED', price: '0', startsAt: '2026-11-26T19:00', address: 'Plaza de Lajares' });
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep({ ...listing, type: 'EVENT' } as AdminListing);
+
+    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Bachata gratis el jueves a las 19h en la plaza de Lajares' } });
+    fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
+    await waitFor(() => expect(screen.getByLabelText('eventStartsLabel')).toHaveValue('2026-11-26T19:00'));
+    expect(screen.getByLabelText('addressLabel')).toHaveValue('Plaza de Lajares');
+
+    fireEvent.change(screen.getByLabelText('eventStartsLabel'), { target: { value: '' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingDate');
+    expect(mockDescribe).not.toHaveBeenCalled();
+  });
+
+  it('publishes Online until LISTING_DAYS by default, or saves it hidden with its own last day', async () => {
+    jest.useFakeTimers({ now: new Date('2026-11-02T10:00:00Z'), doNotFake: ['setTimeout', 'setInterval', 'queueMicrotask'] });
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep(drafted);
+
+    fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+    expect(screen.getByLabelText('statusLabel')).toHaveValue('LIVE');
+    expect(screen.getByLabelText('onlineUntilLabel')).toHaveValue('2027-01-31');
+    fireEvent.change(screen.getByLabelText('statusLabel'), { target: { value: 'HIDDEN' } });
+    fireEvent.change(screen.getByLabelText('onlineUntilLabel'), { target: { value: '2026-12-24' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /saveHidden/ }));
+
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ isHidden: true, onlineUntil: '2026-12-24' })));
+    jest.useRealTimers();
+  });
+
+  it('shows an event online until its day is over, not as a choice', () => {
+    renderStep({ ...listing, type: 'EVENT', startsAt: new Date('2026-11-26T19:00:00Z') } as AdminListing);
+
+    fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+    expect(screen.getByLabelText('onlineUntilLabel')).toBeDisabled();
+    expect(screen.getByText('eventDateFromDescription')).toBeInTheDocument();
+
+    // The date set in Descripción shows here at once.
+    fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
+    fireEvent.change(screen.getByLabelText('eventStartsLabel'), { target: { value: '2026-12-31T22:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+    expect(screen.getByLabelText('onlineUntilLabel')).toHaveValue('2026-12-31');
   });
 
   it('asks for the number and the person\'s OK before publishing', async () => {

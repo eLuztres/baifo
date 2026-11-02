@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES } from '@/lib/constants';
+import { startOfShopDay } from '@/lib/event-date';
 import { getShopLocale } from '@/lib/i18n-server';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
@@ -42,7 +43,12 @@ const isPhoneNumber = (waId: string) => /^\d+$/.test(waId);
  */
 async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[], paymentLabel: string, fee?: FeeRecord) {
   const plan = (submission.plan ?? 'normal') as ListingPlan;
-  const expiresAt = new Date(Date.now() + LISTING_DAYS * DAY_MS);
+  const now = Date.now();
+  // An event stays until its day is over (the daily run finishes it then); an admin's "Online hasta" holds for its first
+  // period; else the shop's LISTING_DAYS.
+  const eventEnd = submission.type === 'EVENT' && submission.startsAt ? new Date(startOfShopDay(submission.startsAt).getTime() + DAY_MS) : null;
+  const chosenEnd = !submission.paidAt && submission.expiresAt && submission.expiresAt.getTime() > now ? submission.expiresAt : null;
+  const expiresAt = eventEnd ?? chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
   const categories = await getListingCategories();
   const category = findCategory(categories, submission.category) ?? findCategory(categories, FALLBACK_CATEGORY_SLUG);

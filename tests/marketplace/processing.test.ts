@@ -70,7 +70,7 @@ describe('a new listing after "Publicar"', () => {
 
   it('goes online by itself once written, with the OK the admin confirmed', async () => {
     db.findUnique.mockResolvedValue(written);
-    db.update.mockResolvedValue({ ...written, consentAt: new Date(), seller: {} });
+    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: new Date(), seller: {} });
 
     await processSubmission('sub-1');
 
@@ -90,7 +90,9 @@ describe('a new listing after "Publicar"', () => {
     db.findUnique.mockResolvedValue(written);
     db.update.mockResolvedValue({ ...written, type: 'EVENT', startsAt: null, consentAt: new Date(), seller: {} });
     await processSubmission('sub-1');
-    db.update.mockResolvedValue({ ...written, consentAt: null, seller: {} });
+    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: null, seller: {} });
+    await processSubmission('sub-1');
+    db.update.mockResolvedValue({ ...written, autoPublish: false, consentAt: new Date(), seller: {} });
     await processSubmission('sub-1');
 
     expect(publishByAdmin).not.toHaveBeenCalled();

@@ -47,7 +47,7 @@ const LISTING = {
 
 const renderWorkspace = (listing: Partial<AdminListing> = {}) =>
   renderWithI18n(
-    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} places={[]} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} texts={texts} />,
+    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} places={[]} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} listingDays={90} texts={texts} />,
   );
 
 

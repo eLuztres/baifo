@@ -127,7 +127,8 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
   const type = submission.createdByAdmin && submission.type === 'PRODUCT' && text.type === 'WANTED' ? 'PRODUCT' : text.type;
   // What the person set wins over the AI's reading; an event's price is its entry.
   const priceMode = submission.priceMode ?? (type === 'EVENT' ? 'FIXED' : (text.priceMode ?? (text.price ? DEFAULT_PRICE_MODES[type] : 'NONE')));
-  const price = priceMode === 'NONE' ? null : (submission.price ?? parsePrice(submission.rawText) ?? toPrice(text.price));
+  // A free event's 0 is its entry, not a missing price.
+  const price = priceMode === 'NONE' ? null : (submission.price ?? parsePrice(submission.rawText) ?? (type === 'EVENT' && text.price === 0 ? '0.00' : toPrice(text.price)));
   await prisma.submission.update({
     where: { id: submission.id },
     data: {
@@ -178,8 +179,8 @@ async function finishSubmission(submission: FoundSubmission) {
     include: { seller: true },
   });
   if (!submission.createdByAdmin) return sendForReview(finished);
-  // "Publicar" on a new listing: online as soon as it is written. An event without a date waits in the editor for one.
-  if (finished.consentAt && !(finished.type === 'EVENT' && !finished.startsAt)) await publishByAdmin(finished.id, 'normal');
+  // "Publicar" with Estado Online: online as soon as it is written; Oculto waits ready in the editor, so does an event without a date.
+  if (finished.autoPublish && finished.consentAt && !(finished.type === 'EVENT' && !finished.startsAt)) await publishByAdmin(finished.id, 'normal');
 }
 
 /** The pictures of a listing the admin creates, started with the upload: the admin writes the description meanwhile and

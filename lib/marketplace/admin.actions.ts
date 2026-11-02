@@ -6,13 +6,14 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
 import { LISTING_TYPES, PRICE_MODES } from '@/lib/constants';
-import { fromShopDateTime } from '@/lib/event-date';
+import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
+import { getDefaultPlaceId } from '@/lib/places';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
@@ -43,8 +44,9 @@ export async function startAdminListing(type: unknown) {
   const parsed = z.enum(LISTING_TYPES).safeParse(type);
   if (!parsed.success) return { success: false, message: 'Elige el tipo' };
   const seller = await prisma.seller.upsert({ where: { waId: HOUSE_SELLER }, update: {}, create: { waId: HOUSE_SELLER } });
+  // The shop's first live place for now; later the Corral of the admin who creates it.
   const submission = await prisma.submission.create({
-    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, type: parsed.data, usesAi: false },
+    data: { sellerId: seller.id, status: 'COLLECTING', createdByAdmin: true, type: parsed.data, usesAi: false, placeId: await getDefaultPlaceId() },
   });
   return { success: true, message: '', id: submission.id };
 }
@@ -77,12 +79,26 @@ const amountSchema = z
   .optional();
 const listingTextSchema = z.object({ title: z.string().trim().min(1).max(120), description: z.string().trim().max(3000), short: z.string().trim().max(40).optional() });
 
+// An event's start as the island's clock shows it ("2026-11-29T19:00"); empty: not set.
+const eventStartSchema = z
+  .string()
+  .transform((value, context) => {
+    const date = value ? fromShopDateTime(value) : null;
+    if (value && !date) context.addIssue({ code: 'custom', message: 'Invalid date' });
+    return date;
+  })
+  .optional();
+const eventAddressSchema = z.string().trim().max(200).transform((value) => value || null).optional();
+
 const draftSchema = z.object({
   notes: z.string().trim().min(1).max(2000),
   textMode: z.enum(TEXT_MODES),
   isWanted: z.boolean().optional(),
   priceMode: z.enum(PRICE_MODES).optional(),
   price: amountSchema,
+  // An event's own date and place win; empty ones the AI reads from the words.
+  startsAt: eventStartSchema,
+  address: eventAddressSchema,
 });
 
 /** "Crear descripción": the AI writes title and description in every language from the admin's words (improved,
@@ -91,7 +107,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = draftSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Escribe la descripción' };
-  const { notes, textMode, isWanted, priceMode, price } = parsed.data;
+  const { notes, textMode, isWanted, priceMode, price, startsAt, address } = parsed.data;
   const current = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
   if (!current) return NOT_ALLOWED;
   const type = current.type === 'EVENT' ? 'EVENT' : isWanted ? 'WANTED' : 'PRODUCT';
@@ -99,7 +115,16 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
   const hasOwnPrice = priceMode === 'NONE' || Boolean(price);
   const { count } = await prisma.submission.updateMany({
     where: { id, status: 'COLLECTING', createdByAdmin: true },
-    data: { rawText: notes, textMode, originalTitle: null, type, price: hasOwnPrice ? (price ?? null) : null, priceMode: hasOwnPrice ? priceMode : null },
+    data: {
+      rawText: notes,
+      textMode,
+      originalTitle: null,
+      type,
+      price: hasOwnPrice ? (price ?? null) : null,
+      priceMode: hasOwnPrice ? priceMode : null,
+      startsAt: type === 'EVENT' ? (startsAt ?? null) : null,
+      address: type === 'EVENT' ? (address ?? null) : null,
+    },
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   try {
@@ -109,7 +134,17 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
       ...(written.translations as ListingTexts),
       [getShopLocale()]: { title: written.title, description: written.description ?? '', short: written.shortTitle ?? '' },
     };
-    return { success: true, message: '', texts, type: written.type, priceMode: written.priceMode, price: written.price?.toString() ?? null };
+    return {
+      success: true,
+      message: '',
+      texts,
+      type: written.type,
+      priceMode: written.priceMode,
+      price: written.price?.toString() ?? null,
+      startsAt: written.startsAt ? toShopDateTime(written.startsAt) : null,
+      address: written.address,
+      category: written.category,
+    };
   } catch (error) {
     console.error(`Text of listing ${id} not written`, error);
     return { success: false, message: aiErrorText((await getT()).t, error) ?? 'La IA no pudo escribir la descripción. Inténtalo otra vez.' };
@@ -132,6 +167,16 @@ const descriptionSchema = z.object({
   texts: z.record(z.string(), listingTextSchema).optional(),
   priceMode: z.enum(PRICE_MODES).optional(),
   price: amountSchema,
+  startsAt: eventStartSchema,
+  address: eventAddressSchema,
+  // The category's slug as the admin left it (the AI's choice, maybe changed).
+  category: z.string().trim().max(60).optional(),
+  // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
+  isHidden: z.boolean().default(false),
+  onlineUntil: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
@@ -142,7 +187,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price } = parsed.data;
+  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, category: categorySlug, isHidden, onlineUntil } =
+    parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
   if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su número' };
@@ -152,6 +198,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const shopLocale = getShopLocale();
   const own = texts?.[shopLocale];
   if (!listing?.title || !own) return { success: false, message: 'Crea primero la descripción' };
+  // An event goes online only with its date (a database rule too).
+  const isEvent = listing.type === 'EVENT';
+  if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
+  const category = categorySlug ? findCategory(await getListingCategories(), categorySlug) : undefined;
+  if (categorySlug !== undefined && !category) return { success: false, message: 'Elige una de las categorías' };
+  // Through the whole last day on the island's clock.
+  const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
+  if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
   // A video without a still counts as no photo; a picture made from words counts.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
@@ -173,6 +227,10 @@ export async function describeAdminListing(id: string, input: ListingDescription
       translations: Object.fromEntries(Object.entries(texts).filter(([locale]) => locale !== shopLocale)),
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
+      ...(isEvent && { startsAt, address: address ?? null }),
+      ...(category && { category: category.slug }),
+      autoPublish: !isHidden,
+      ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
       textMode,
       originalTitle: (textMode !== 'ai' && originalTitle) || null,
