@@ -31,3 +31,50 @@ export function isAiPicture(listing: PicturePairs & { images: string[]; usesAi: 
   if (listing.aiImages.length > 0) return Boolean(pictureCounterpart(listing, url)?.isAi);
   return listing.usesAi && index === 0 && listing.images.length > 0;
 }
+
+/** The picture tabs of a listing being made: the uploads with their AI version at the same index, and the pictures in use. */
+export interface PictureSet extends PicturePairs {
+  images: string[];
+}
+
+/** An uploaded photo or video becomes a new tab, used as it is. */
+export const addUpload = ({ images, rawImages, aiImages }: PictureSet, url: string): PictureSet => ({
+  images: [...images, url],
+  rawImages: [...rawImages, url],
+  aiImages: [...aiImages, ''],
+});
+
+/** A picture made from words alone: a new tab without an original. */
+export const addCreated = (set: PictureSet, url: string): PictureSet => ({ ...set, images: [...set.images, url] });
+
+/** The tab showing `shown` gets a new AI version, which is used right away; an upload keeps its original to switch back to. */
+export function setAiVersion(set: PictureSet, shown: string, ai: string): PictureSet {
+  const images = set.images.map((url) => (url === shown ? ai : url));
+  const pair = pictureCounterpart(set, shown);
+  const raw = pair ? (pair.isAi ? pair.other : shown) : set.rawImages.includes(shown) ? shown : undefined;
+  if (!raw) return { ...set, images };
+  const index = set.rawImages.indexOf(raw);
+  return { ...set, images, aiImages: set.aiImages.map((url, at) => (at === index ? ai : url)) };
+}
+
+/** The tab shows its other version: the original instead of the AI picture, or the reverse. */
+export function switchVersion(set: PictureSet, shown: string): PictureSet {
+  const pair = pictureCounterpart(set, shown);
+  return pair ? { ...set, images: set.images.map((url) => (url === shown ? pair.other : url)) } : set;
+}
+
+/** The tab goes, with its original and AI version. */
+export function removePicture(set: PictureSet, shown: string): PictureSet {
+  const pair = pictureCounterpart(set, shown);
+  const raw = pair ? (pair.isAi ? pair.other : shown) : shown;
+  const index = set.rawImages.indexOf(raw);
+  const images = set.images.filter((url) => url !== shown);
+  if (index < 0) return { ...set, images };
+  return { images, rawImages: set.rawImages.filter((_, at) => at !== index), aiImages: set.aiImages.filter((_, at) => at !== index) };
+}
+
+/** The photo the AI changes for a tab: the upload behind it, or the made picture itself. */
+export function photoBehind(set: PicturePairs, shown: string): string {
+  const pair = pictureCounterpart(set, shown);
+  return pair?.isAi ? pair.other : shown;
+}

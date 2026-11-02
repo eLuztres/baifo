@@ -107,6 +107,8 @@ export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
 export const NEW_PRODUCT_PATH =
   process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
+/** A listing shop's "Crear" first asks Anuncio or Evento instead of opening one creation page. */
+export const CHOOSES_LISTING_TYPE = NEW_PRODUCT_PATH.startsWith('/admin/listings/new');
 /** Where a new listing of a type starts in the admin. */
 export const newListingPath = (type: ListingType) =>
   type === 'PRODUCT' ? '/admin/listings/new' : `/admin/listings/new?tipo=${LISTING_TYPE_PARAMS[type]}`;

@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { ListingType } from '@/lib/constants';
-import { getAdminListing, updateAdminListingPhotos, type AdminListing } from '@/lib/marketplace/admin.actions';
+import { useEffect, useState } from 'react';
+import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
 import ListingEditor, { type CategoryOption, type EditorLanguage, type PlaceOption } from './listing-editor';
 import ListingSteps from './listing-steps';
-import ListingTypeTabs from './listing-type-tabs';
-import NewListingForm from './new-listing-form';
+import PictureTabs from './picture-tabs';
 import PublishedView from './published-view';
 
 interface ListingWorkspaceProps {
@@ -25,20 +23,16 @@ interface ListingWorkspaceProps {
 
 const POLL_MS = 2500;
 
-/** Steps 2 and 3 of a new listing (the description and the contact, then the listing to check and publish), or any listing to edit. */
+/** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
 export default function ListingWorkspace({ initial, categories, places, languages, shopLanguage, texts }: ListingWorkspaceProps) {
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
-  // Until the description is sent, the admin can go back to the photos and return to the text as it was.
-  const [isOnPhotos, setIsOnPhotos] = useState(false);
-  // Still collecting with photos (or video stills) but no pictures yet: the AI is making them. Without any it waits for the description.
-  const isMakingPictures = listing.status === 'COLLECTING' && listing.images.length === 0 && listing.rawImages.some(pictureOf);
+  // 0 pictures, 1 description, 2 contact: free to move between them until the description is sent.
+  const [step, setStep] = useState(0);
+  // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
+  const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
   // The AI is busy: on the pictures (still collecting) or on the text.
   const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures);
-
-  // Set when the switch to an event turned its AI pictures off, so switching away turns them back on.
-  const isAiOffForEvent = useRef(false);
-  const [typeError, setTypeError] = useState('');
 
   // Server renders (after an action's refresh) bring a newer listing.
   useEffect(() => setListing(initial), [initial]);
@@ -67,62 +61,33 @@ export default function ListingWorkspace({ initial, categories, places, language
     );
   }
 
-  // Everything written stays: only what depends on the type follows (the AI's prompt, the hints, the photo choices).
-  // An event uses its photos as they are, and one without any still gets its picture from the description.
-  const switchType = async (next: ListingType) => {
-    const turnsAiOff = next === 'EVENT' && listing.usesAi && listing.rawImages.length > 0;
-    const turnsAiOn = next !== 'EVENT' && isAiOffForEvent.current;
-    const useAi = turnsAiOff ? false : turnsAiOn || listing.usesAi;
-    setTypeError('');
-    setListing((current) => ({ ...current, type: next }));
-    const result = await updateAdminListingPhotos(listing.id, { photos: listing.rawImages, useAi, type: next });
-    if (!result.success) {
-      setTypeError(result.message);
-      setListing((current) => ({ ...current, type: listing.type }));
-      return;
-    }
-    if (turnsAiOff || turnsAiOn) isAiOffForEvent.current = turnsAiOff;
-    if (useAi !== listing.usesAi) {
-      const saved = await getAdminListing(listing.id);
-      if (saved) setListing(saved);
-    }
-  };
-
   const canSwitchSteps = listing.createdByAdmin && listing.status === 'COLLECTING';
   // The listing to check and publish comes after the last step.
   const steps = listing.createdByAdmin && listing.status !== 'LIVE' && (
     <ListingSteps current={2} texts={texts} />
   );
 
-  const backFromPhotos = (next: AdminListing) => {
-    setListing(next);
-    setIsOnPhotos(false);
-  };
-
-  // While the AI still makes the pictures too: the admin writes the description meanwhile.
+  // While the AI writes, the description stays in view with what it is doing.
   if (listing.status === 'COLLECTING' || listing.status === 'PROCESSING') {
-    const showsPhotos = isOnPhotos && canSwitchSteps;
+    const shownStep = canSwitchSteps ? step : 1;
     return (
       <div className='space-y-3 sm:space-y-4'>
-        {/* Locked while the AI writes for the chosen type; the editor switches it afterwards. */}
-        {listing.createdByAdmin && <ListingTypeTabs type={listing.type} texts={texts} onSelect={switchType} hasInfo isDisabled={!canSwitchSteps} />}
-        {typeError && (
-          <p role='alert' className='mx-auto max-w-xl rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
-            {typeError}
-          </p>
+        {/* Anuncio or Evento was chosen under "Crear"; the editor can still switch it afterwards. */}
+        {listing.createdByAdmin && <h1 className='text-center font-display text-2xl sm:text-3xl'>{listing.type === 'EVENT' ? texts.newEvent : texts.newListing}</h1>}
+        {listing.createdByAdmin && <ListingSteps current={shownStep} texts={texts} onSelect={canSwitchSteps ? setStep : undefined} />}
+        {/* Only hidden on the other steps, so a picture still being made arrives and nothing written is lost. */}
+        {canSwitchSteps && (
+          <div hidden={shownStep !== 0} className='space-y-4'>
+            <PictureTabs
+              listingId={listing.id}
+              initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages }}
+              texts={texts}
+              onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
+            />
+          </div>
         )}
-        {showsPhotos && <NewListingForm texts={texts} type={listing.type} listing={listing} onDone={backFromPhotos} />}
-        {/* Only hidden on the photos, so everything written stays. */}
-        <div hidden={showsPhotos} className='space-y-3 sm:space-y-4'>
-          <DescriptionStep
-            listing={listing}
-            languages={languages}
-            texts={texts}
-            onSent={setListing}
-            showsSteps={listing.createdByAdmin}
-            onPhotos={canSwitchSteps ? () => setIsOnPhotos(true) : undefined}
-          />
-        </div>
+        {/* The description and contact steps, and on every step the button that finishes the setup. */}
+        <DescriptionStep listing={listing} languages={languages} texts={texts} onSent={setListing} step={shownStep} onStep={setStep} />
       </div>
     );
   }

@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { ArrowRight, Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
+import { Check, Languages, Loader2, RotateCw, Sparkles } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 import { pictureOf } from '@/lib/video';
 import type { EditorLanguage } from './listing-editor';
-import ListingSteps from './listing-steps';
 import TextModeSwitch from './text-mode-switch';
 
 interface DescriptionStepProps {
@@ -26,20 +25,20 @@ interface DescriptionStepProps {
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   onSent: (listing: AdminListing) => void;
-  /** Shows the step bar (a new listing of the admin). */
-  showsSteps: boolean;
-  /** Back to the photos; none: they can't change anymore. */
-  onPhotos?: () => void;
+  /** The step the workspace's bar shows: 0 the pictures (only the finish button here), 1 the description, 2 the contact. */
+  step: number;
+  /** Opens the step where something is missing. */
+  onStep: (step: number) => void;
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, texts, onSent, showsSteps, onPhotos }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, texts, onSent, step, onStep }: DescriptionStepProps) {
+  const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isWanted = listing.type === 'WANTED';
   const [notes, setNotes] = useState(listing.rawText);
   const [sellerPhone, setSellerPhone] = useState('');
   const [sellerName, setSellerName] = useState('');
-  const [isOnContact, setIsOnContact] = useState(false);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   // Chosen before the AI runs: improve the text, or keep the admin's words (maybe with their mistakes fixed) and translate them.
   const [textMode, setTextMode] = useState<TextMode>(listing.textMode as TextMode);
@@ -48,13 +47,18 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
   const isOwnWords = textMode !== 'ai';
   const modeResults = { ai: texts.textModeAiResult, corrected: texts.textModeCorrectedResult, original: texts.textModeOriginalResult };
   const languageList = languages.map(({ label }) => label).join(', ');
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [error, setError] = useState('');
+  const errorBox = useRef<HTMLDivElement>(null);
+  // The message sits by the button, which can be below the screen after the step changed.
+  useEffect(() => {
+    if (error) errorBox.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
   const [isPending, startTransition] = useTransition();
   // Sent: the AI writes the text, and the pictures may still be on their way. The editor comes once both are there.
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
-  // No photo (a video without a still doesn't count): this text is all the AI has to write from, so it can't be empty.
-  const hasNoPhoto = !listing.rawImages.some(pictureOf);
+  // No picture (a video without a still doesn't count): this text is all the AI has to write from, so it can't be empty.
+  const hasNoPhoto = listing.images.length === 0 && !listing.rawImages.some(pictureOf);
   const hasPictures = listing.images.length > 0;
   // The AI's pictures run on their own since step 1 (from the photos or the admin's idea), so the admin writes meanwhile.
   const showsPictureWork = listing.usesAi && !listing.lastError;
@@ -71,28 +75,27 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
   // The AI needs the admin's own words to keep, and words to write from when there is no photo; the picture never comes from them.
   const canContinue = !((isOwnWords || hasNoPhoto) && !notes.trim());
 
-  const goToContact = () => {
-    if (!canContinue) return notesInput.current?.focus();
-    setError('');
-    // A number already written in the description is most likely the contact; the admin can still change it.
-    if (!sellerPhone.trim()) setSellerPhone(findPhoneInText(notes));
-    setIsOnContact(true);
-  };
-
-  // Between the steps like between photos and description: everything written stays.
-  // The photos step can only come back here, so it returns to the description.
-  const selectStep = (index: number) => {
-    if (index === 2) return goToContact();
-    setIsOnContact(false);
-    if (index === 0) onPhotos?.();
-  };
+  // A number already written in the description is most likely the contact; the admin can still change it.
+  useEffect(() => {
+    if (isOnContact) setSellerPhone((current) => current.trim() || findPhoneInText(notes));
+    // Only when the contact opens: typing in the description must not overwrite the number.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnContact]);
 
   const send = () =>
     startTransition(async () => {
       setError('');
       // The person's own OK to show their number comes later, on their page or by WhatsApp.
       // Buyers always write to the person's own WhatsApp ("through the Corral" is parked, #131).
-      if (!sellerPhone.trim()) return setError(texts.contactNeedsNumber);
+      // Everything missing in one message, and the first step it is on opens.
+      const missing = [
+        !canContinue && { step: 1, text: hasNoPhoto && !isOwnWords ? texts.missingPictureOrText : texts.missingText },
+        !sellerPhone.trim() && { step: 2, text: texts.missingPhone },
+      ].filter((item) => item !== false);
+      if (missing.length > 0) {
+        onStep(missing[0].step);
+        return setError(fillText(texts.missingToPublish, { items: new Intl.ListFormat(locale).format(missing.map((item) => item.text)) }));
+      }
       const result = await describeAdminListing(listing.id, {
         notes,
         sellerPhone: sellerPhone.trim(),
@@ -112,7 +115,6 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
 
   return (
     <>
-      {showsSteps && <ListingSteps current={isOnContact ? 2 : 1} texts={texts} onSelect={isPending || isWriting ? undefined : selectStep} />}
       <div className='mx-auto flex w-full max-w-xl flex-col gap-4'>
         {/* What the AI is doing, part by part; nothing here blocks the form. */}
         {(showsPictureWork || isWriting) && (
@@ -121,7 +123,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
             {isWriting && <WorkState isDone={hasText} label={hasText ? texts.textReady : isOriginal ? texts.translatingNow : texts.writing} />}
           </ul>
         )}
-        <ul className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
+        <ul hidden={step === 0} className='flex gap-3 overflow-x-auto p-1 empty:hidden'>
           {/* The originals until the AI pictures arrive, which then take their place. Before the AI picture of a video-only service, its videos. */}
           {(hasPictures ? listing.images : listing.rawImages).map((url, index) => (
             <li key={`${index}-${url}`} className={index === 0 ? 'relative size-24 shrink-0 overflow-hidden rounded-2xl bg-muted' : 'relative size-16 shrink-0 self-end overflow-hidden rounded-2xl bg-muted'}>
@@ -131,7 +133,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
           ))}
         </ul>
 
-        <div hidden={isOnContact} className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+        <div hidden={step !== 1} className='space-y-2 rounded-3xl border border-border bg-card p-4 sm:p-5'>
           <div className='flex items-center justify-between gap-3'>
             <Label htmlFor='notes' className='font-display text-xl'>
               {texts.tellLabel}
@@ -209,7 +211,7 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
         )}
 
         {(error || listing.lastError) && (
-          <div role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
+          <div ref={errorBox} role='alert' className='flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3 text-sm text-destructive'>
             <span>{error || aiErrorText(t, listing.lastError) || texts.errorGeneric}</span>
             {listing.lastError && (
               <Button variant='outline' size='sm' className='shrink-0 rounded-full' disabled={isPending} onClick={retry}>
@@ -219,18 +221,13 @@ export default function DescriptionStep({ listing, languages, texts, onSent, sho
           </div>
         )}
 
-        {/* Not sticky: on phones a floating button jumped over the field with the keyboard open. */}
-        {isOnContact || isWriting ? (
-          <Button size='lg' className='w-full rounded-full' disabled={isPending || isWriting || !canContinue} onClick={send}>
-            {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
-            {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-            {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
-          </Button>
-        ) : (
-          <Button size='lg' className='w-full rounded-full' disabled={!canContinue} onClick={goToContact}>
-            {texts.nextStep} <ArrowRight />
-          </Button>
-        )}
+        {/* The end of the setup on every step, so it can be finished from wherever the admin is. Not sticky: on phones a
+            floating button jumped over the field with the keyboard open. */}
+        <Button size='lg' className='w-full rounded-full shadow-xl shadow-primary/20' disabled={isPending || isWriting} onClick={send}>
+          {isPending || isWriting ? <Loader2 className='animate-spin' /> : isOriginal ? <Languages /> : <Sparkles />}{' '}
+          {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
+          {isWriting ? texts.status_PROCESSING : isOriginal ? texts.translateButton : texts.writeListing}
+        </Button>
       </div>
     </>
   );

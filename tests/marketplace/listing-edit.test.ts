@@ -2,7 +2,6 @@ import { prisma } from '@/db/prisma';
 import {
   addAdminVideoStill,
   chooseListingText,
-  createAdminListing,
   createAdminListingPicture,
   deleteAdminListing,
   describeAdminListing,
@@ -11,9 +10,10 @@ import {
   markAdminListingSold,
   publishAdminListing,
   retryAdminListing,
+  saveAdminListingPictures,
   setAdminListingCategory,
+  startAdminListing,
   updateAdminListing,
-  updateAdminListingPhotos,
 } from '@/lib/marketplace/admin.actions';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from '@/lib/marketplace/ai';
 import { makeListingPictures, processSubmission } from '@/lib/marketplace/processing';
@@ -385,140 +385,21 @@ describe('describeAdminListing', () => {
   });
 });
 
-describe('updateAdminListingPhotos', () => {
-  const KEPT = 'https://x.ufs.sh/f/kept.jpg';
-  const GONE = 'https://x.ufs.sh/f/gone.jpg';
-  const ADDED = 'https://x.ufs.sh/f/added.jpg';
-  const VIDEO = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
+describe('a new listing as a draft', () => {
+  it('opens an empty draft right away, hidden from the listings while it is collected', async () => {
+    expect(await startAdminListing('EVENT')).toEqual({ success: true, message: '', id: 'new-1' });
+    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ status: 'COLLECTING', createdByAdmin: true, type: 'EVENT', usesAi: false });
+    expect((await startAdminListing('CAR')).success).toBe(false);
+  });
 
-  beforeEach(() => {
-    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT, GONE], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', 'https://x.ufs.sh/f/gone-ai.jpg'], picturePrompt: null });
+  it('saves the picture tabs as they are, only uploaded pictures and only while collecting', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
-  });
+    const tabs = { images: ['https://x.ufs.sh/f/ai.jpg', 'https://x.ufs.sh/f/made.jpg'], rawImages: ['https://utfs.io/f/raw.jpg'], aiImages: ['https://x.ufs.sh/f/ai.jpg'] };
 
-  it('keeps the AI pictures of the photos that stay, without the AI, when one is removed', async () => {
-    expect((await updateAdminListingPhotos(ID, { photos: [KEPT, VIDEO], useAi: true })).success).toBe(true);
-
-    expect(db.submission.updateMany.mock.calls[0][0]).toMatchObject({
-      where: { id: ID, status: 'COLLECTING', createdByAdmin: true },
-      data: { rawImages: [KEPT, VIDEO], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: ['https://x.ufs.sh/f/kept-ai.jpg', VIDEO] },
-    });
-    expect(makeListingPictures).not.toHaveBeenCalled();
-  });
-
-  it('starts the pictures again when a photo without one is added', async () => {
-    await updateAdminListingPhotos(ID, { photos: [KEPT, ADDED], useAi: true });
-
-    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ aiImages: ['https://x.ufs.sh/f/kept-ai.jpg', ''], images: [] });
-    expect(makeListingPictures).toHaveBeenCalledWith(ID);
-  });
-
-  it('makes every picture again with new words for them', async () => {
-    db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: true, picturePrompt: null });
-
-    await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, picturePrompt: ' on a wooden table ' });
-
-    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ aiImages: [''], images: [], picturePrompt: 'on a wooden table' });
-    expect(makeListingPictures).toHaveBeenCalledWith(ID);
-  });
-
-  it('uses the photos as they are without AI', async () => {
-    await updateAdminListingPhotos(ID, { photos: [ADDED, KEPT], useAi: false });
-
-    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: [ADDED, KEPT], usesAi: false });
-    expect(makeListingPictures).not.toHaveBeenCalled();
-  });
-
-  it('refuses once the description was sent', async () => {
-    db.submission.updateMany.mockResolvedValue({ count: 0 });
-
-    expect((await updateAdminListingPhotos(ID, { photos: [ADDED], useAi: true })).success).toBe(false);
-    expect(makeListingPictures).not.toHaveBeenCalled();
-  });
-
-  it('refuses photos from anywhere else', async () => {
-    expect((await updateAdminListingPhotos(ID, { photos: ['https://evil.example/x.jpg'], useAi: true })).success).toBe(false);
-    expect(db.submission.updateMany).not.toHaveBeenCalled();
-  });
-
-  describe('type tabs', () => {
-    beforeEach(() => {
-      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: [''], usesAi: true, picturePrompt: null });
-    });
-
-    it('saves only the type when the photos stay, so no second picture run starts', async () => {
-      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'SERVICE' })).success).toBe(true);
-
-      expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: 'COLLECTING', createdByAdmin: true }, data: { type: 'SERVICE' } });
-      expect(makeListingPictures).not.toHaveBeenCalled();
-    });
-
-    it('uses the photos as they are for an event', async () => {
-      await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: false, type: 'EVENT' });
-
-      expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: [KEPT], usesAi: false, type: 'EVENT' });
-      expect(makeListingPictures).not.toHaveBeenCalled();
-    });
-
-    it('brings the AI pictures made before back when leaving the event', async () => {
-      db.submission.findUnique.mockResolvedValue({ rawImages: [KEPT], aiImages: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: false, picturePrompt: null });
-
-      await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'PRODUCT' });
-
-      expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ images: ['https://x.ufs.sh/f/kept-ai.jpg'], usesAi: true, type: 'PRODUCT' });
-      expect(makeListingPictures).not.toHaveBeenCalled();
-    });
-
-    it('refuses a type that does not exist', async () => {
-      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'JOB' as 'EVENT' })).success).toBe(false);
-      expect(db.submission.updateMany).not.toHaveBeenCalled();
-    });
-
-    it('refuses while the AI writes the listing', async () => {
-      db.submission.updateMany.mockResolvedValue({ count: 0 });
-
-      expect((await updateAdminListingPhotos(ID, { photos: [KEPT], useAi: true, type: 'EVENT' })).success).toBe(false);
-    });
-  });
-});
-
-describe('createAdminListing', () => {
-  it("starts a wanted ad without photos from the admin's idea, and its picture right away", async () => {
-    const result = await createAdminListing({ photos: [], type: 'WANTED', picturePrompt: 'a red surfboard on the sand' });
-
-    expect(result).toMatchObject({ success: true, id: 'new-1' });
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [], type: 'WANTED', picturePrompt: 'a red surfboard on the sand' });
-    expect(makeListingPictures).toHaveBeenCalledWith('new-1');
-  });
-
-  it('needs an idea without photos: the picture never comes from the description', async () => {
-    expect(await createAdminListing({ photos: [], type: 'WANTED', picturePrompt: '  ' })).toEqual({ success: false, message: 'Escribe tu idea para la foto' });
-    expect(db.submission.create).not.toHaveBeenCalled();
-  });
-
-  it('makes the pictures right away when there are photos', async () => {
-    await createAdminListing({ photos: ['https://utfs.io/f/bike.jpg'], type: 'SERVICE' });
-
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ type: 'SERVICE' });
-    expect(makeListingPictures).toHaveBeenCalledWith('new-1');
-  });
-
-  it('uses photos and videos as they are without AI, in the admin\'s order (a first video\'s still is the cover)', async () => {
-    const video = 'https://x.ufs.sh/f/clip#video=https%3A%2F%2Fx.ufs.sh%2Ff%2Fstill';
-    await createAdminListing({ photos: [video, 'https://utfs.io/f/ana.jpg'], type: 'SERVICE', useAi: false });
-
-    expect(db.submission.create.mock.calls[0][0].data).toMatchObject({ rawImages: [video, 'https://utfs.io/f/ana.jpg'], images: [video, 'https://utfs.io/f/ana.jpg'], usesAi: false });
-    expect(makeListingPictures).not.toHaveBeenCalled();
-  });
-
-  it('refuses a type that does not exist', async () => {
-    expect((await createAdminListing({ photos: [], type: 'service' as never })).success).toBe(false);
-    expect(db.submission.create).not.toHaveBeenCalled();
-  });
-
-  it('needs something uploaded to go on without AI', async () => {
-    expect((await createAdminListing({ photos: [], type: 'SERVICE', useAi: false })).success).toBe(false);
-    expect(db.submission.create).not.toHaveBeenCalled();
+    expect((await saveAdminListingPictures(ID, tabs)).success).toBe(true);
+    expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: 'COLLECTING', createdByAdmin: true }, data: { ...tabs, lastError: null } });
+    expect((await saveAdminListingPictures(ID, { ...tabs, images: ['https://evil.example/x.jpg'] })).success).toBe(false);
+    expect((await saveAdminListingPictures(ID, { ...tabs, aiImages: [] })).success).toBe(false);
   });
 });
 
@@ -535,7 +416,16 @@ describe('createAdminListingPicture', () => {
 
     expect((await createAdminListingPicture(ID)).success).toBe(true);
     expect(createPicture).not.toHaveBeenCalled();
-    expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'EVENT');
+    expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'EVENT', undefined);
+  });
+
+  it("changes a picture tab's own photo with the words on top, and fetches only uploaded photos", async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: [] });
+
+    expect((await createAdminListingPicture(ID, 'sobre una mesa', 'https://utfs.io/f/raw.jpg')).success).toBe(true);
+    expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'PRODUCT', 'sobre una mesa');
+    expect(createPicture).not.toHaveBeenCalled();
+    expect(await createAdminListingPicture(ID, 'x', 'https://evil.example/x.jpg')).toEqual({ success: false, message: 'Revisa las fotos' });
   });
 
   it('makes no picture without an idea and without a photo, never from the description', async () => {

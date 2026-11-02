@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import CreateChooser from '@/components/shared/create-chooser';
 import {
   BadgePercent,
   ChevronDown,
@@ -144,12 +145,21 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
       className={cn('flex items-center gap-0.5 rounded-full border border-border bg-muted/60 p-1', className)}
       {...props}
     >
-      {mainLinks.map(({ key, href, label, icon: Icon, isActive }) => (
-        <Link key={key} href={href} aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
-          {Icon && <Icon />}
-          {label}
-        </Link>
-      ))}
+      {mainLinks.map(({ key, href, label, icon: Icon, isActive }) =>
+        href === newProductHref && newProductHref.startsWith('/admin/listings/new') ? (
+          <CreateChooser key={key}>
+            <button type='button' aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
+              {Icon && <Icon />}
+              {label}
+            </button>
+          </CreateChooser>
+        ) : (
+          <Link key={key} href={href} aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
+            {Icon && <Icon />}
+            {label}
+          </Link>
+        )
+      )}
       {advancedLinks.length > 0 && (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger aria-current={isAdvancedActive ? 'page' : undefined} className={linkClass(variant, isAdvancedActive)}>

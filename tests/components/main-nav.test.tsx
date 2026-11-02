@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import MainNav from '@/app/admin/main-nav';
 
 let mockPathname = '/admin/listings/new';
@@ -26,7 +26,8 @@ const renderNav = () =>
     />
   );
 
-const activeLink = () => screen.getByRole('link', { current: 'page' });
+// A link, or the button that opens "Crear"'s choice.
+const activeLink = () => document.querySelector('[aria-current="page"]');
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = jest.fn();
@@ -38,6 +39,16 @@ describe('MainNav', () => {
     renderNav();
 
     expect(activeLink()).toHaveTextContent('ADMIN_NEW_PRODUCT');
+  });
+
+  it('asks Anuncio or Evento first, each going to its own new listing', () => {
+    setAddress('/admin/listings');
+    renderNav();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ADMIN_NEW_PRODUCT' }));
+
+    expect(screen.getByRole('link', { name: /CREATE_AD/ })).toHaveAttribute('href', '/admin/listings/new');
+    expect(screen.getByRole('link', { name: /CREATE_EVENT/ })).toHaveAttribute('href', '/admin/listings/new?tipo=eventos');
   });
 
   it('keeps "New" lit on a listing that is still being created', () => {

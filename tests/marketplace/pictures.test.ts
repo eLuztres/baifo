@@ -1,4 +1,4 @@
-import { canBeMain, isAiPicture, movePicture, pictureCounterpart } from '@/lib/marketplace/pictures';
+import { addCreated, addUpload, canBeMain, isAiPicture, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, switchVersion } from '@/lib/marketplace/pictures';
 
 const listing = { rawImages: ['raw-0', 'raw-1', 'raw-2'], aiImages: ['ai-0', '', 'ai-2'] };
 
@@ -65,5 +65,42 @@ describe('isAiPicture', () => {
     const noAi = { rawImages: ['raw-0', 'raw-1'], aiImages: [], images: ['raw-0', 'raw-1'], usesAi: false };
     expect(isAiPicture(noAi, 'raw-0', 0)).toBe(false);
     expect(isAiPicture(noAi, 'raw-1', 1)).toBe(false);
+  });
+});
+
+describe('picture tabs', () => {
+  const RAW = 'https://utfs.io/f/raw.jpg';
+  const AI = 'https://x.ufs.sh/f/ai.jpg';
+  const MADE = 'https://x.ufs.sh/f/made.jpg';
+  const empty = { images: [], rawImages: [], aiImages: [] };
+
+  it('adds an upload as it is and a made picture without an original', () => {
+    expect(addCreated(addUpload(empty, RAW), MADE)).toEqual({ images: [RAW, MADE], rawImages: [RAW], aiImages: [''] });
+  });
+
+  it("uses a new AI version right away and keeps the original to switch back to", () => {
+    const changed = setAiVersion(addUpload(empty, RAW), RAW, AI);
+    expect(changed).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI] });
+    expect(switchVersion(changed, AI).images).toEqual([RAW]);
+    // Changed again from its original: the newer AI version replaces the older one.
+    expect(setAiVersion(switchVersion(changed, AI), RAW, MADE)).toEqual({ images: [MADE], rawImages: [RAW], aiImages: [MADE] });
+  });
+
+  it('changes a made picture into a new one, with nothing to switch to', () => {
+    const changed = setAiVersion(addCreated(empty, MADE), MADE, AI);
+    expect(changed).toEqual({ images: [AI], rawImages: [], aiImages: [] });
+    expect(switchVersion(changed, AI)).toBe(changed);
+  });
+
+  it('removes a tab with its original and AI version', () => {
+    const set = addCreated(setAiVersion(addUpload(empty, RAW), RAW, AI), MADE);
+    expect(removePicture(set, AI)).toEqual({ images: [MADE], rawImages: [], aiImages: [] });
+    expect(removePicture(set, MADE)).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI] });
+  });
+
+  it('changes the original behind an AI version, else the picture itself', () => {
+    const set = setAiVersion(addUpload(empty, RAW), RAW, AI);
+    expect(photoBehind(set, AI)).toBe(RAW);
+    expect(photoBehind(set, MADE)).toBe(MADE);
   });
 });

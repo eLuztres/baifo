@@ -1,16 +1,17 @@
 /** @jest-environment jsdom */
+import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DescriptionStep from '@/components/marketplace/description-step';
 import { describeAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
 jest.mock('@/lib/marketplace/admin.actions', () => ({ describeAdminListing: jest.fn(), retryAdminListing: jest.fn() }));
-jest.mock('@/components/i18n-provider', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+jest.mock('@/components/i18n-provider', () => ({ useI18n: () => ({ t: (key: string) => key, locale: 'en' }) }));
 jest.mock('@/components/shared/voice-input-button', () => () => null);
 jest.mock('@/components/ProductMedia', () => () => null);
 
 // Any text the step shows is just its key, so the buttons can be found by it.
-const texts = new Proxy({}, { get: (_, key) => String(key) }) as AdminTexts;
+const texts = new Proxy({}, { get: (_, key) => (key === 'missingToPublish' ? 'missing: {items}' : String(key)) }) as AdminTexts;
 const mockDescribe = describeAdminListing as jest.Mock;
 
 const listing = {
@@ -28,21 +29,33 @@ const listing = {
   createdByAdmin: true,
 } as unknown as AdminListing;
 
-const renderStep = (onPhotos = jest.fn()) =>
-  render(<DescriptionStep listing={listing} languages={[]} texts={texts} onSent={jest.fn()} showsSteps onPhotos={onPhotos} />);
+// The workspace's step bar, as two plain buttons.
+function Steps() {
+  const [step, setStep] = useState(1);
+  return (
+    <>
+      <button onClick={() => setStep(0)}>stepPhotos</button>
+      <button onClick={() => setStep(1)}>stepDetails</button>
+      <button onClick={() => setStep(2)}>stepContact</button>
+      <DescriptionStep listing={listing} languages={[]} texts={texts} onSent={jest.fn()} step={step} onStep={setStep} />
+    </>
+  );
+}
+
+const renderStep = () => render(<Steps />);
 
 beforeEach(() => mockDescribe.mockReset());
 
 describe('DescriptionStep', () => {
-  it('without a photo, only goes on to the contact once there is a description', () => {
+  it('finishes from any step, naming everything missing and opening the first step it is on', async () => {
     renderStep();
+    fireEvent.click(screen.getByRole('button', { name: /stepPhotos/ }));
 
-    expect(screen.getByRole('button', { name: /nextStep/ })).toBeDisabled();
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
 
-    expect(screen.getByLabelText('servicePhoneLabel')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /writeListing/ })).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPictureOrText and missingPhone');
+    expect(screen.getByLabelText('tellLabel')).toBeVisible();
+    expect(mockDescribe).not.toHaveBeenCalled();
   });
 
   it('sends the description with the number and the name from the contact step', async () => {
@@ -50,7 +63,7 @@ describe('DescriptionStep', () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     fireEvent.change(screen.getByLabelText('servicePhoneLabel'), { target: { value: ' 612345678 ' } });
     fireEvent.change(screen.getByLabelText('sellerNameLabel'), { target: { value: 'Lula' } });
     fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
@@ -63,10 +76,10 @@ describe('DescriptionStep', () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     fireEvent.click(screen.getByRole('button', { name: /writeListing/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('contactNeedsNumber');
+    expect(await screen.findByRole('alert')).toHaveTextContent('missing: missingPhone');
     expect(mockDescribe).not.toHaveBeenCalled();
   });
 
@@ -74,37 +87,25 @@ describe('DescriptionStep', () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     fireEvent.change(screen.getByLabelText('sellerNameLabel'), { target: { value: 'Lula' } });
     fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
 
     expect(screen.getByLabelText('tellLabel')).toHaveValue('Bici, 80€');
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     expect(screen.getByLabelText('sellerNameLabel')).toHaveValue('Lula');
-  });
-
-  it('from the contact, the photos step comes back to the description', () => {
-    const onPhotos = jest.fn();
-    renderStep(onPhotos);
-
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 80€' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
-    fireEvent.click(screen.getByRole('button', { name: /stepPhotos/ }));
-
-    expect(onPhotos).toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /nextStep/ })).toBeInTheDocument();
   });
 
   it('fills the WhatsApp with the number written in the description, unless one is already there', () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Concierto a las 20:00. Info: 628 111 222' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('628 111 222');
 
     fireEvent.change(screen.getByLabelText('servicePhoneLabel'), { target: { value: '699 000 000' } });
     fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('699 000 000');
   });
 
@@ -112,7 +113,7 @@ describe('DescriptionStep', () => {
     renderStep();
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Bici, 180 euros' } });
-    fireEvent.click(screen.getByRole('button', { name: /nextStep/ }));
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
 
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('');
   });
