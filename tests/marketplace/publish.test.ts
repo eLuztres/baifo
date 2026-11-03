@@ -98,6 +98,15 @@ describe('publishSubmission', () => {
 });
 
 describe('publishByAdmin', () => {
+  it('sends no message when the admin confirmed the OK, the person already knows', async () => {
+    db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', createdByAdmin: true, consentSource: 'admin-confirmed' });
+
+    await publishByAdmin(SUBMISSION.id, 'normal');
+
+    expect(db.product.create).toHaveBeenCalled();
+    expect(sendText).not.toHaveBeenCalled();
+  });
+
   it('publishes a listing under review without payment, with the chosen plan', async () => {
     db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', plan: 'normal', createdByAdmin: true });
 

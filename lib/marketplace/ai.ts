@@ -15,10 +15,16 @@ const ITEM_SCENE =
 // Keeps the seller's actual item: a used product must look like itself, wear included.
 const photoPrompt = (scene: string) =>
   'Turn this phone photo of a second-hand item into a clean marketplace photo. The item must stay IDENTICAL: same ' +
-  'object, shape, colors, materials, wear and scratches; do not repair, add or remove anything on it. Remove the ' +
-  `clutter around it and place it ${scene}, the background softly out of focus so the item stands out, soft daylight ` +
-  'and a gentle contact shadow. The whole item visible and centered, upright 3:4 photo, photorealistic. ' +
-  'No hands, no people, no text, no logos, no watermark.';
+  'object, shape, colors, materials, wear and scratches; do not repair, add or remove anything on it. Paper price ' +
+  'tags and stickers stuck on it are not part of it: remove them completely. Logos, brand names and writing on the ' +
+  'item stay exactly as they are. If the photo shows the size or serial code written on a board (a surfboard, a foil ' +
+  'board), zoom in until that code fills the picture, sharp and straight, with every character identical and nothing ' +
+  'else around it. Otherwise keep the framing of the photo. If it shows the whole item, ' +
+  'show it whole and centered. If it shows only part of the item, that part must run off the edge of the picture ' +
+  'exactly where it does in the photo: never finish it with a made-up end, a cut edge or a rounded shape, and never ' +
+  'turn the visible part into a separate object. Replace only what is around the item, removing the clutter, so it ' +
+  `sits ${scene}, the background softly out of focus so the item stands out, soft daylight and a gentle contact ` +
+  'shadow. Upright 3:4 photo, photorealistic. No hands, no people, no watermark, and add no new text or logos.';
 
 // A service photo shows real people: they must stay exactly themselves, only the photo gets better.
 const SERVICE_PHOTO_PROMPT =

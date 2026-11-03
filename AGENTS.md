@@ -61,6 +61,18 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 - User-facing text goes through `getT()` / `useI18n()`. A new key must be added to **all** `resources/*.json` files.
 - Use `{shop}` in a text for the shop name, and pass `{ shop: APP_NAME }` when translating.
 
+## Adding products from someone's photos
+
+- Every photo goes through AI to remove its background, using Higgsfield (`gpt_image_2_5`) rather than the shop's own AI, so it doesn't use my OpenAI credits. Use the prompt the shop itself uses: `photoPrompt(ITEM_SCENE)` in `lib/marketplace/ai.ts`.
+- Never cut a product out. A photo showing only part of a product stays that way: the product runs off the edge of the picture, with no made-up end.
+- Boards (surfboards, foil boards) get one picture of their size or serial code, zoomed in so it is easy to read and nothing else shows. Cut it straight from my original photo, never through AI, so no digit can change.
+- Check the results against the originals: the AI can change numbers and rewrite small print.
+- When a set of photos arrives, check that the file numbers have no gaps. A gap means products are missing.
+- Show me the finished pictures before uploading anything. Never upload the raw phone photos.
+- Add listings through the shop's own form, on localhost first, and on baifo.es only after my OK.
+- Texts say only what I give you or the pictures show. No comments on condition unless I give the wording. Owners' names on tags stay out of the pictures and texts.
+- Products from a shop carry that shop's badge at the bottom right of every picture (Magma: "Se puede ver en persona en la tienda Magma, en Lajares." in the text too).
+
 ## Creating shops
 
 - `npm run create-shop` (`scripts/create-shop.mjs`) creates customer repos, and the `/new-shop` skill (`.claude/skills/new-shop/`) guides through it and the online setup in `docs/SETUP.md`.
