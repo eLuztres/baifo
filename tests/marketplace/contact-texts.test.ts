@@ -17,6 +17,12 @@ describe('getContactMessage', () => {
     expect(getContactMessage(CLOCK)).toBe(`¡Hola!\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n\n\u200B`);
   });
 
+  it("greets the seller by name when the listing has one, in every language's own way", () => {
+    expect(getContactMessage(CLOCK, 'Lula')).toBe(`¡Hola Lula!\nMe interesa tu anuncio en ${APP_NAME}:\n\n«Reloj antiguo»\n${CLOCK_URL}\n\n\n\u200B`);
+    expect(getContactMessage(CLOCK, null)).toBe(getContactMessage(CLOCK));
+    for (const { id } of LOCALES) expect(getTranslator(id)('CONTACT_MESSAGE_HELLO_NAME', { name: 'Lula' })).toContain('Lula');
+  });
+
   it('fits the wording to a wanted ad, a service and an event', () => {
     const t = getTranslator('es');
 

@@ -581,6 +581,7 @@
   "CONTACT_SELLER": "Kontaktieren",
   "SELLER_OFFERED_BY": "Angeboten von {name}",
   "CONTACT_MESSAGE_HELLO": "Hallo!",
+  "CONTACT_MESSAGE_HELLO_NAME": "Hallo {name}!",
   "CONTACT_MESSAGE_PRODUCT": "{hello}\nMich interessiert deine Anzeige auf {shop}:\n\n„{name}“\n{url}\n\n",
   "CONTACT_MESSAGE_WANTED": "{hello}\nIch habe, was du suchst, auf {shop}:\n\n„{name}“\n{url}\n\n",
   "CONTACT_MESSAGE_SERVICE": "{hello}\nMich interessiert dein Angebot auf {shop}:\n\n„{name}“\n{url}\n\n",
