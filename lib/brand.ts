@@ -108,6 +108,10 @@ export const BRAND = {
   /** The logo's height in the site header, in px, from tablets up (phones get three quarters); at most 72 so the header keeps its height. */
   logoHeight: Math.min(Number(env('BRAND_LOGO_HEIGHT')) || 64, 72),
   icon: env('BRAND_ICON') ?? '/brand/icon.svg',
+  /** The icon on a phone's home screen: a square 512px PNG without see-through parts, which iPhones turn black. */
+  appIcon: env('BRAND_APP_ICON') ?? env('BRAND_ICON') ?? '/brand/icon.svg',
+  /** The same for Android, which crops it to any shape: the mark within the middle 80%. */
+  appIconMaskable: env('BRAND_APP_ICON_MASKABLE') ?? env('BRAND_APP_ICON') ?? env('BRAND_ICON') ?? '/brand/icon.svg',
   ogImage: env('BRAND_OG_IMAGE'),
   heroImage: env('BRAND_HERO_IMAGE'),
   showNameInHeader: env('BRAND_SHOW_NAME') !== 'false',

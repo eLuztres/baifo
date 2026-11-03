@@ -40,7 +40,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description,
     metadataBase: new URL(SERVER_URL),
-    icons: BRAND.icon,
+    icons: { icon: BRAND.icon, apple: BRAND.appIcon },
+    // From the home screen it opens without the browser's bar; the name stays the shop's, also when a listing is what gets added.
+    appleWebApp: { title: BRAND.name, statusBarStyle: BRAND.theme === 'dark' ? 'black' : 'default' },
     ...(process.env.PREVIEW_PASSWORD && { robots: { index: false, follow: false } }),
     openGraph: {
       siteName: BRAND.name,
