@@ -590,6 +590,7 @@
   "CATEGORY_SEE_ALL": "Ver todo",
   "CATEGORY_NEW_COUNT": "Novedades: {count}",
   "CATEGORY_SEE_ALL_IN": "Ver todo en {category} ({count})",
+  "CATEGORY_MORE_LISTINGS": "más",
   "EXPLORE_NEXT_CATEGORY": "Siguiente categoría: {category}",
   "EXPLORE_TITLE": "Todos los anuncios",
   "EXPLORE_ALL": "Todo",

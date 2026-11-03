@@ -210,6 +210,7 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
   const feedHref = `/explore?c=${front.id}`;
   const rowProducts = front.products.slice(0, RING_PREVIEW_COUNT);
   const frontCount = front.count ?? front.products.length;
+  const moreCount = frontCount - rowProducts.length;
 
   // The feed of the front category is the likely next page: fetched ahead, so the morph into it doesn't wait.
   useEffect(() => router.prefetch(feedHref), [router, feedHref]);
@@ -351,9 +352,16 @@ const CategoryRing = ({ categories, label, center = 'band', sea, flyers = [], fi
             onClick={handleFeedLinkClick}
             draggable={false}
             aria-label={t('CATEGORY_SEE_ALL_IN', { category: front.name, count: frontCount })}
-            className='flex size-full items-center justify-center rounded-2xl border border-primary/40 bg-card text-primary transition hover:border-primary'
+            className='flex size-full flex-col items-center justify-center gap-1 rounded-2xl border border-primary/40 bg-card text-primary transition hover:border-primary'
           >
-            <Plus className='size-12' aria-hidden />
+            {moreCount > 0 ? (
+              <>
+                <span className='font-display text-4xl tabular-nums sm:text-5xl'>+{moreCount}</span>
+                <span className='text-sm text-foreground/85'>{t('CATEGORY_MORE_LISTINGS')}</span>
+              </>
+            ) : (
+              <Plus className='size-12' aria-hidden />
+            )}
           </Link>
         }
       />

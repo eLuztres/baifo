@@ -590,6 +590,7 @@
   "CATEGORY_SEE_ALL": "Alle ansehen",
   "CATEGORY_NEW_COUNT": "Neu: {count}",
   "CATEGORY_SEE_ALL_IN": "Alles in {category} ansehen ({count})",
+  "CATEGORY_MORE_LISTINGS": "weitere",
   "EXPLORE_NEXT_CATEGORY": "Nächste Kategorie: {category}",
   "EXPLORE_TITLE": "Alle Anzeigen",
   "EXPLORE_ALL": "Alles",
