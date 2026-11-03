@@ -105,14 +105,14 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     return ownSlug ? `/product/${listing.slug}?c=${ownSlug}` : `/product/${listing.slug}`;
   };
 
-  // Every category as a picture, "Todo" first.
+  // Every category as a picture, "Todo" first, then the fullest ones.
   const railCategories: RailCategory[] = filledCategories.map((category) => ({
     href: `/explore?c=${category.slug}`,
     label: localize(category.name, locale),
     image: category.image ?? inCategory(category.id)[0]?.image,
     count: inCategory(category.id).length,
     isActive: focus?.id === category.id,
-  }));
+  })).sort((a, b) => b.count - a.count);
   const railAll: RailCategory = { href: '/explore', label: t('EXPLORE_ALL'), count: listings.length, isActive: !results };
 
   const renderCard = (listing: Listing) => {
