@@ -1,6 +1,6 @@
 'use client';
 
-import { KeyboardEvent, ReactNode, useRef, useState } from 'react';
+import { KeyboardEvent, ReactNode, useCallback, useRef, useState } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/components/i18n-provider';
 import { useSwipe } from '@/hooks/useSwipe';
 import { cn } from '@/lib/utils';
+import { isVideoUrl } from '@/lib/video';
 import styles from './image-lightbox.module.css';
+import VideoSoundButton from './product/video-sound-button';
 import { usePhotoZoom } from './use-photo-zoom';
 
 export interface ImageCaption {
@@ -49,6 +51,8 @@ const ImageLightbox = ({ images, alt, captions, index, onIndexChange, action }: 
   const { handlers } = useSwipe({ onSwipe: turn });
   // Opened from code, not a Radix trigger, so Radix doesn't know where focus has to go back to.
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const { frameRef } = zoom;
+  const getShownVideo = useCallback(() => (index === null ? null : frameRef.current?.children[index]?.querySelector('video')), [index, frameRef]);
 
   const handleKeyDown = (event: KeyboardEvent) => {
     const direction = KEY_DIRECTIONS[event.key];
@@ -91,6 +95,10 @@ const ImageLightbox = ({ images, alt, captions, index, onIndexChange, action }: 
               </div>
             ))}
           </div>
+
+          {index !== null && isVideoUrl(images[index] ?? '') && (
+            <VideoSoundButton getVideo={getShownVideo} className='bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))]' />
+          )}
 
           {caption && (
             <div

@@ -3,35 +3,40 @@ interface WebkitVideo extends HTMLVideoElement {
   webkitEnterFullscreen?: () => void;
 }
 
-/** Plays a video full screen with sound, from where it is; back on the page it plays muted again. False where the browser can't. */
-export function playFullScreen(video: HTMLVideoElement): boolean {
-  const webkitVideo = video as WebkitVideo;
-  const goQuiet = () => {
+/** Plays with sound; where the browser refuses that (no tap yet), plays muted instead of stopping. */
+export function playWithSound(video: HTMLVideoElement) {
+  video.muted = false;
+  // Old browsers return nothing from play() and requestFullscreen().
+  video.play()?.catch((error: Error) => {
+    if (error.name !== 'NotAllowedError') return;
     video.muted = true;
-    video.play().catch(() => undefined);
-  };
+    video.play()?.catch(() => undefined);
+  });
+}
+
+/** After a tap: plays with sound, full screen where the browser allows it, else right there on the page. */
+export function playFullScreen(video: HTMLVideoElement) {
+  const webkitVideo = video as WebkitVideo;
+  // First, so a full screen that is refused or fails still leaves the sound on.
+  playWithSound(video);
+  // Leaving full screen can pause it.
+  const keepPlaying = () => video.play()?.catch(() => undefined);
 
   if (video.requestFullscreen) {
     const onChange = () => {
       if (document.fullscreenElement) return;
       document.removeEventListener('fullscreenchange', onChange);
-      goQuiet();
+      keepPlaying();
     };
     document.addEventListener('fullscreenchange', onChange);
-    video.requestFullscreen().catch(() => {
-      document.removeEventListener('fullscreenchange', onChange);
-      goQuiet();
-    });
+    video.requestFullscreen()?.catch(() => document.removeEventListener('fullscreenchange', onChange));
   } else if (webkitVideo.webkitEnterFullscreen) {
-    video.addEventListener('webkitendfullscreen', goQuiet, { once: true });
-    webkitVideo.webkitEnterFullscreen();
-  } else {
-    return false;
+    video.addEventListener('webkitendfullscreen', keepPlaying, { once: true });
+    // Throws on a video that hasn't loaded enough yet, e.g. on a slow connection.
+    try {
+      webkitVideo.webkitEnterFullscreen();
+    } catch {
+      video.removeEventListener('webkitendfullscreen', keepPlaying);
+    }
   }
-
-  // The tap that opened full screen lets the browser play with sound.
-  // No controls, also full screen: it just plays.
-  video.muted = false;
-  video.play().catch(() => undefined);
-  return true;
 }

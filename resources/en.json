@@ -61,6 +61,8 @@
   "PRODUCT_PERK_RETURNS": "Easy returns",
   "SHOW_IMAGE": "Show image {n}",
   "IMAGE_FULLSCREEN": "Show photo full screen",
+  "VIDEO_SOUND_ON": "Turn sound on",
+  "VIDEO_SOUND_OFF": "Turn sound off",
   "IMAGE_PREVIOUS": "Previous photo",
   "IMAGE_NEXT": "Next photo",
   "CART_TITLE": "Your cart",

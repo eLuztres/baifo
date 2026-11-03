@@ -61,6 +61,8 @@
   "PRODUCT_PERK_RETURNS": "Einfache Rückgabe",
   "SHOW_IMAGE": "Bild {n} anzeigen",
   "IMAGE_FULLSCREEN": "Foto im Vollbild anzeigen",
+  "VIDEO_SOUND_ON": "Ton einschalten",
+  "VIDEO_SOUND_OFF": "Ton ausschalten",
   "IMAGE_PREVIOUS": "Vorheriges Foto",
   "IMAGE_NEXT": "Nächstes Foto",
   "CART_TITLE": "Dein Warenkorb",

@@ -61,6 +61,8 @@
   "PRODUCT_PERK_RETURNS": "Retours faciles",
   "SHOW_IMAGE": "Afficher l’image {n}",
   "IMAGE_FULLSCREEN": "Afficher la photo en plein écran",
+  "VIDEO_SOUND_ON": "Activer le son",
+  "VIDEO_SOUND_OFF": "Couper le son",
   "IMAGE_PREVIOUS": "Photo précédente",
   "IMAGE_NEXT": "Photo suivante",
   "CART_TITLE": "Votre panier",

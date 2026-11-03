@@ -8,7 +8,7 @@ jest.mock('next/image', () => ({
   __esModule: true,
   default: ({ src, alt }: { src: string; alt: string }) => <img src={src} alt={alt} />,
 }));
-jest.mock('@/lib/video-full-screen', () => ({ playFullScreen: jest.fn() }));
+jest.mock('@/lib/video-full-screen', () => ({ playFullScreen: jest.fn(), playWithSound: jest.fn() }));
 jest.mock('@/components/shared/image-lightbox', () => ({
   __esModule: true,
   default: ({ index }: { index: number | null }) => (index === null ? null : <div role='dialog' aria-label={`viewer ${index}`} />),
@@ -41,7 +41,6 @@ describe('ProductImages phone grid', () => {
   });
 
   it('puts the tapped video tile itself in full screen instead of opening the viewer', () => {
-    mockPlayFullScreen.mockReturnValue(true);
     renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
 
     const tile = phoneTile(1);
@@ -51,13 +50,10 @@ describe('ProductImages phone grid', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('opens the viewer when the browser cannot show the video full screen', () => {
-    mockPlayFullScreen.mockReturnValue(false);
-    renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
+  it('shows no sound button for a photo', () => {
+    renderWithI18n(<ProductImages images={['/board.jpg']} alt='Paddle surf' />);
 
-    fireEvent.click(phoneTile(1));
-
-    expect(screen.getByRole('dialog', { name: 'viewer 0' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t('VIDEO_SOUND_ON') })).not.toBeInTheDocument();
   });
 
   it('opens the viewer for a photo tile', () => {

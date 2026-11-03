@@ -61,6 +61,8 @@
   "PRODUCT_PERK_RETURNS": "Devoluciones fáciles",
   "SHOW_IMAGE": "Mostrar imagen {n}",
   "IMAGE_FULLSCREEN": "Ver la foto a pantalla completa",
+  "VIDEO_SOUND_ON": "Activar sonido",
+  "VIDEO_SOUND_OFF": "Quitar sonido",
   "IMAGE_PREVIOUS": "Foto anterior",
   "IMAGE_NEXT": "Foto siguiente",
   "CART_TITLE": "Tu carrito",

@@ -61,6 +61,8 @@
   "PRODUCT_PERK_RETURNS": "Resi facili",
   "SHOW_IMAGE": "Mostra immagine {n}",
   "IMAGE_FULLSCREEN": "Mostra la foto a schermo intero",
+  "VIDEO_SOUND_ON": "Attiva l'audio",
+  "VIDEO_SOUND_OFF": "Disattiva l'audio",
   "IMAGE_PREVIOUS": "Foto precedente",
   "IMAGE_NEXT": "Foto successiva",
   "CART_TITLE": "Il tuo carrello",
