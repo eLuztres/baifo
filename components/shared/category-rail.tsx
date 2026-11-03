@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { LayoutGrid } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
@@ -20,20 +19,12 @@ interface CategoryRailProps {
   categories: RailCategory[];
 }
 
-/** Phones: the categories as round pictures with their counts, to tap instead of typing. It stays on top while
+/** The categories as round pictures with their counts, to tap instead of typing. It stays on top while
     scrolling, below the header while that shows. */
 export default function CategoryRail({ all, categories }: CategoryRailProps) {
-  const activeRef = useRef<HTMLAnchorElement>(null);
-
-  // The chosen category may be far right: bring it into view after the page opens with it.
-  useEffect(() => {
-    activeRef.current?.scrollIntoView({ inline: 'center', block: 'nearest' });
-  }, []);
-
   const renderItem = (item: RailCategory, picture: React.ReactNode) => (
     <li key={item.href} className='w-[4.5rem] shrink-0'>
       <Link
-        ref={item.isActive ? activeRef : undefined}
         href={item.href}
         aria-current={item.isActive ? 'page' : undefined}
         className='flex flex-col items-center gap-1.5 text-center focus-visible:outline-none'
@@ -59,9 +50,9 @@ export default function CategoryRail({ all, categories }: CategoryRailProps) {
   return (
     <nav
       // Sticks under the header; once the header slides away it moves up to the very top.
-      className='sticky top-16 z-30 -mx-4 !-mt-4 bg-background/95 py-2 backdrop-blur transition-[top] duration-200 [body:has(header[data-hidden=true])_&]:top-0 sm:hidden'
+      className='sticky top-16 z-30 mx-[calc(50%-50vw)] !-mt-4 sm:top-20 bg-background/95 py-2 backdrop-blur transition-[top] duration-200 [body:has(header[data-hidden=true])_&]:top-0'
     >
-      <ul className='flex gap-2 overflow-x-auto px-3 [scrollbar-width:none]'>
+      <ul className='mx-auto flex w-fit max-w-full gap-2 overflow-x-auto px-3 [scrollbar-width:none] sm:[scrollbar-width:thin]'>
         {renderItem(
           all,
           <span className='flex size-full items-center justify-center text-primary'>

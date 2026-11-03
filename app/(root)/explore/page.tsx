@@ -7,11 +7,10 @@ import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rin
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME, LISTING_TYPE_KEYS, LISTING_TYPE_PARAMS, listingTypeOf, NEW_LISTING_HOURS, type ListingType } from '@/lib/constants';
+import { APP_NAME, LISTING_TYPE_KEYS, listingTypeOf, NEW_LISTING_HOURS } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
-import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
 import CategoryRail, { type RailCategory } from '@/components/shared/category-rail';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import PullUpHome from '@/components/shared/pull-up-home';
@@ -19,11 +18,6 @@ import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, queryWords, searchScore, type SearchableText } from '@/lib/search-text';
 import { cn, timeAgo } from '@/lib/utils';
 import styles from './explore.module.css';
-
-/** The field gets this much of each description: enough for suggestions, the results read all of it. */
-const SUGGESTION_TEXT_LENGTH = 400;
-/** The kinds the field offers next to the categories; items for sale are everything else. */
-const SEARCH_KINDS: ListingType[] = ['WANTED', 'SERVICE', 'EVENT'];
 
 interface ExplorePageProps {
   /** `q` the typed search, `c` a category (its slug), `tipo` a kind of listing (e.g. eventos). None: everything. */
@@ -44,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // Every language's text, so a visitor finds a listing by the words of any of them.
 const allTexts = (value: unknown) => Object.values((value ?? {}) as Record<string, string>).filter(Boolean);
 
-/** The whole marketplace in one scroll, with a search on top; a search, category or kind shows its matches first. */
+/** The whole marketplace in one scroll, with the categories on top; a search, category or kind shows its matches first. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const [{ q = '', c: categorySlug, tipo }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
     searchParams,
@@ -111,36 +105,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     return ownSlug ? `/product/${listing.slug}?c=${ownSlug}` : `/product/${listing.slug}`;
   };
 
-  const searchListings: SearchListing[] = listings.map((listing) => {
-    const text = searchTextOf(listing);
-    const category = categoryById.get(listing.categoryIds[0]);
-    return {
-      href: hrefOf(listing),
-      name: localizeProduct(listing, locale).name,
-      image: listing.image,
-      category: category && localize(category.name, locale),
-      text: { names: text.names, rest: text.rest.slice(0, SUGGESTION_TEXT_LENGTH) },
-    };
-  });
-  const searchChoices: SearchChoice[] = [
-    ...SEARCH_KINDS.map((type) => ({ type, count: listings.filter((listing) => listing.type === type).length }))
-      .filter(({ count }) => count > 0)
-      .map(({ type, count }) => ({
-        href: `/explore?tipo=${LISTING_TYPE_PARAMS[type]}`,
-        label: t(LISTING_TYPE_KEYS[type]),
-        count,
-        text: { names: foldText(t(LISTING_TYPE_KEYS[type])), rest: '' },
-      })),
-    ...filledCategories.map((category) => ({
-      href: `/explore?c=${category.slug}`,
-      label: localize(category.name, locale),
-      image: category.image ?? inCategory(category.id)[0]?.image,
-      count: inCategory(category.id).length,
-      text: { names: allTexts(category.name).map(foldText).join(' | '), rest: foldText(category.keywords.join(' ')) },
-    })),
-  ];
-
-  // Phones search without typing: every category as a picture, "Todo" first.
+  // Every category as a picture, "Todo" first.
   const railCategories: RailCategory[] = filledCategories.map((category) => ({
     href: `/explore?c=${category.slug}`,
     label: localize(category.name, locale),
@@ -191,12 +156,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       <div className='sr-only'>{pullUpHome}</div>
 
       {listings.length > 0 && (
-        <>
-          <CategoryRail all={railAll} categories={railCategories} />
-          <div className='max-sm:hidden'>
-            <ExploreSearch key={filterLabel} listings={searchListings} choices={searchChoices} value={filterLabel} isFiltered={Boolean(results)} />
-          </div>
-        </>
+        <CategoryRail all={railAll} categories={railCategories} />
       )}
 
       {listings.length === 0 && allListings.length > 0 ? (
