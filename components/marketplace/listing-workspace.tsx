@@ -9,6 +9,7 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
 import type { CategoryOption, EditorLanguage } from './editor-types';
+import LeaveGuard from './leave-guard';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
 import PublishedView from './published-view';
@@ -101,6 +102,8 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
   const title = isEditing ? (listing.type === 'EVENT' ? texts.editEvent : texts.editListing) : listing.type === 'EVENT' ? texts.newEvent : texts.newListing;
   return (
     <div className='space-y-3 sm:space-y-4'>
+      {/* A new listing is only saved on publishing: leaving loses it. */}
+      {listing.status === 'COLLECTING' && <LeaveGuard hasWork={listing.images.length > 0 || listing.rawImages.length > 0} texts={texts} />}
       <h1 className='text-center font-display text-2xl sm:text-3xl'>{title}</h1>
       <ListingSteps current={shownStep} texts={texts} onSelect={canSwitchSteps ? setStep : undefined} />
       {/* Only hidden on the other steps, so a picture still being made arrives and nothing written is lost. */}
