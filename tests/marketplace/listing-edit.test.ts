@@ -96,16 +96,29 @@ describe('updateAdminListing', () => {
     });
   });
 
-  it('keeps the seller\'s number, name, language and photos as they are', async () => {
+  it('keeps the seller\'s number, language and photos as they are, and the name when none is sent', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'IN_REVIEW', seller: { waId: '34600111222' } });
     // An older editor still sending them changes nothing either; the same number changes nothing too.
-    const oldEdit = { ...EDIT, sellerPhone: '600 111 222', sellerName: 'Lula', sellerLocale: 'de' } as typeof EDIT;
+    const oldEdit = { ...EDIT, sellerPhone: '600 111 222', sellerLocale: 'de' } as typeof EDIT;
 
     expect((await updateAdminListing(ID, oldEdit)).success).toBe(true);
     expect(db.seller.upsert).not.toHaveBeenCalled();
     const { data } = db.submission.update.mock.calls[0][0];
     for (const kept of ['sellerId', 'sellerName', 'sellerLocale', 'hasContactConsent', 'consentAt', 'rawImages']) expect(data).not.toHaveProperty(kept);
     expect(data.images).toEqual(EDIT.images);
+  });
+
+  it('saves a changed name on this listing only; emptied stays empty', async () => {
+    db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', status: 'LIVE', seller: { waId: '34600111222', name: 'Ana' } });
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerName: ' Lula ' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[0][0].data.sellerName).toBe('Lula');
+    expect(db.seller.upsert).not.toHaveBeenCalled();
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerName: '' })).success).toBe(true);
+    expect(db.submission.update.mock.calls[1][0].data.sellerName).toBe('');
+
+    expect((await updateAdminListing(ID, { ...EDIT, sellerName: 'https://example.com' })).message).toBe('Revisa el nombre');
   });
 
   it('moves the listing and its product to a new number, checked like the seller\'s own change', async () => {

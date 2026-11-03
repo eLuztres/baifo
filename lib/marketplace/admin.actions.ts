@@ -309,6 +309,8 @@ const editSchema = z.object({
     .optional(),
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
+  // This listing's name; missing: it stays as it is.
+  sellerName: sellerNameSchema.optional(),
   // The admin confirms the person's OK to show their number.
   hasConsent: z.boolean().optional(),
 });
@@ -323,6 +325,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     select: { translations: true, type: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, seller: { select: { waId: true, name: true } } },
   });
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerPhone')) return { success: false, message: 'Revisa el teléfono' };
+  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) return { success: false, message: 'Revisa el nombre' };
   // Everything is checked for the type it is saved as.
   const type = (parsed.success && parsed.data.type) || current?.type;
   const isService = type === 'SERVICE';
@@ -338,7 +341,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, hasConsent, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, hasConsent, ...fields } = parsed.data;
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
   // A person's listing keeps a number to write to; the house's own may stay without one.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
@@ -352,6 +355,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     serviceType: isService ? undefined : null,
     startsAt: isEvent ? fields.startsAt : null,
     address: isEvent ? fields.address : null,
+    // Emptied stays empty: no name on this listing, not the person's WhatsApp name again.
+    ...(sellerName !== undefined && { sellerName: sellerName ?? '' }),
   };
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };

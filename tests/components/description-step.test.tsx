@@ -381,5 +381,18 @@ describe('DescriptionStep', () => {
       expect(updateAdminListing).not.toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: expect.anything() }));
       expect(hideAdminListing).toHaveBeenCalledWith('abc');
     });
+
+    it('shows the name in use and saves it once changed', async () => {
+      renderStep({ ...live, sellerName: null } as AdminListing);
+      fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
+
+      const name = screen.getByLabelText('sellerNameLabel');
+      expect(name).toHaveValue('Lula');
+      expect(name).not.toHaveAttribute('readonly');
+      fireEvent.change(name, { target: { value: 'Ana' } });
+      fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
+
+      await waitFor(() => expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: 'Ana' })));
+    });
   });
 });

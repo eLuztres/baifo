@@ -31,6 +31,7 @@ import {
 import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
+import { sellerIdentity } from '@/lib/marketplace/seller';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -79,7 +80,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING';
   const router = useRouter();
   const [sellerPhone, setSellerPhone] = useState(isEditing && /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '');
-  const [sellerName, setSellerName] = useState(isEditing ? (listing.sellerName ?? '') : '');
+  // The name visitors see now: only a changed name is saved on the listing.
+  const shownSellerName = isEditing ? (sellerIdentity(listing).name ?? '') : '';
+  const [sellerName, setSellerName] = useState(shownSellerName);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   // How "Crear descripción" treats the words: improved, corrected (the default) or only translated; always into every language.
   const [textMode, setTextMode] = useState<TextMode>(listing.title ? (listing.textMode as TextMode) : 'corrected');
@@ -226,6 +229,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       address: isEvent ? address : '',
       textMode,
       sellerPhone: sellerPhone.trim(),
+      ...(sellerName.trim() !== shownSellerName && { sellerName }),
       hasConsent: hasConsent && !listing.consentAt,
     });
     if (!saved.success) return setError(saved.message);
@@ -530,8 +534,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               <Input
                 id='seller-name'
                 value={sellerName}
-                // The name the person chose stays theirs: it is set when creating, never changed here.
-                readOnly={isWriting || isEditing}
+                readOnly={isWriting}
                 maxLength={30}
                 onChange={(event) => setSellerName(event.target.value)}
                 placeholder={texts.sellerNamePlaceholder}

@@ -13,6 +13,7 @@ import { deleteAdminListing } from '@/lib/marketplace/admin.actions';
 import { requireAdmin } from '@/lib/auth-guard';
 import { getLocale } from '@/lib/i18n-server';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
+import { sellerIdentity } from '@/lib/marketplace/seller';
 import { adminTexts, fillText, statusText } from '@/lib/marketplace/admin-texts';
 import { formatCurrency } from '@/lib/utils';
 import { coverPicture } from '@/lib/video';
@@ -69,7 +70,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       status: listing.status,
       type: listing.type,
       price: Number(listing.price) > 0 ? listing.price?.toString() : undefined,
-      seller: listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (listing.seller.name ?? `+${listing.seller.waId}`),
+      seller: listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (sellerIdentity(listing).name ?? `+${listing.seller.waId}`),
       expiresAt: listing.expiresAt,
       deleteAction: deleteAdminListing,
     })),

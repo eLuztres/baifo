@@ -12,7 +12,7 @@ interface ListingSeller {
 export function sellerIdentity({ sellerName, sellerLocale, seller }: ListingSeller): { name: string | null; locale: Locale | null } {
   const isPerson = seller.waId !== HOUSE_SELLER;
   return {
-    name: sellerName || (isPerson ? seller.name : null) || null,
+    name: (sellerName ?? (isPerson ? seller.name : null)) || null,
     locale: isLocale(sellerLocale) ? sellerLocale : isPerson ? localeOf(seller.waId) : null,
   };
 }

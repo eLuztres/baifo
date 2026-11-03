@@ -11,6 +11,10 @@ describe('sellerIdentity', () => {
     expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: person })).toEqual({ name: 'Lula Müller', locale: 'de' });
   });
 
+  it('shows no name once the admin emptied it on the listing', () => {
+    expect(sellerIdentity({ sellerName: '', sellerLocale: null, seller: person }).name).toBeNull();
+  });
+
   it('has nothing for the house seller unless the admin names one', () => {
     expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: { waId: 'baifo', name: null } })).toEqual({ name: null, locale: null });
     expect(sellerIdentity({ sellerName: 'Baifo', sellerLocale: 'es', seller: { waId: 'baifo', name: null } })).toEqual({ name: 'Baifo', locale: 'es' });
