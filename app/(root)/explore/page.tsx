@@ -19,7 +19,6 @@ import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
-import SettleIntoView from '@/components/shared/settle-into-view';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import PullUpHome from '@/components/shared/pull-up-home';
@@ -271,9 +270,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             )}
           </div>
 
-          <SettleIntoView>
-            <WorkshopSection />
-          </SettleIntoView>
+          <WorkshopSection />
         </>
       )}
     </div>
