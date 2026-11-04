@@ -42,7 +42,7 @@ Personas · encuentro · conexión · corral · apañada · colaboración · cre
 
 ---
 
-A white-label online shop: products, cart, checkout (Stripe, PayPal, cash on delivery), orders, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and Better Auth.
+A white-label online shop: products, listings, user accounts and an admin panel. Built with Next.js 15, Prisma/PostgreSQL and Better Auth.
 
 **Every customer shop runs the same code.** Name, logo, colors, texts, contact details, languages, currency and shop rules are configuration. So you can create a new shop in minutes and update all of them from one place.
 
@@ -234,13 +234,8 @@ With one language, the language switcher disappears.
 ### Money and shop rules
 
 ```env
-NEXT_PUBLIC_CURRENCY=EUR            # for prices, Stripe and PayPal (rebuild needed)
+NEXT_PUBLIC_CURRENCY=EUR            # for prices (rebuild needed)
 NEXT_PUBLIC_NUMBER_LOCALE=de-DE     # number format: de-DE → 1.234,50 €, en-US → €1,234.50
-TAX_RATE=0.21                       # 21 % added at checkout (0 = prices include tax)
-SHIPPING_PRICE=10
-FREE_SHIPPING_THRESHOLD=100         # free shipping above this order value
-PAYMENT_METHODS=Stripe, PayPal      # any of PayPal, Stripe, CashOnDelivery
-DEFAULT_PAYMENT_METHOD=Stripe
 PAGE_SIZE=12                        # products per page
 RESERVATION_HOURS=48                # how long "Show interest" reserves a product
 NEW_LISTING_HOURS=48                # how long a listing shows the "New" badge in the feed
@@ -275,7 +270,7 @@ BRAND_LOADER_IMAGE=/brand/loader.png   # a picture that hops while pages load, i
 BRAND_RING_CENTER=/brand/ring-center.svg  # middle of the category ring: band (gold band, default), none, or a picture shown as a turning 3D piece
 BRAND_RING_FIGURE=/brand/ring-figure.svg  # a picture standing on that piece (e.g. a windmill), with BRAND_RING_FIGURE_SPINNER (sails turning with the ring) and BRAND_RING_FIGURE_AT=x,y
 # more standing pictures (e.g. volcanoes): brand/ring-figures.json, a list of { image, at: { x, y }, scale }
-SHOWCASE_MODE=true                  # no prices, no cart: visitors send "I'm interested" instead
+SHOWCASE_MODE=true                  # no prices: visitors send "I'm interested" instead
 SHOWCASE_SHOW_PRICES=true           # showcase with prices (classifieds); a product's contactPhone adds "Contact the seller"
 ```
 
@@ -298,7 +293,7 @@ Products, prices, stock, categories, banners and users are managed in the shop's
 
 ## 3. Put it online
 
-**[docs/SETUP.md](docs/SETUP.md)** is the step-by-step guide: GitHub, Vercel, database, first admin, Google login, Stripe, PayPal, emails, image uploads, own domain and a final checklist. `/new-shop` in Claude Code guides you through the same steps.
+**[docs/SETUP.md](docs/SETUP.md)** is the step-by-step guide: GitHub, Vercel, database, first admin, Google login, emails, image uploads, own domain and a final checklist. `/new-shop` in Claude Code guides you through the same steps.
 
 ---
 

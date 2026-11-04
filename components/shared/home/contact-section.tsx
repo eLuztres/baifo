@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import PageHeader from '@/components/shared/page-header';
 import { getContactChannels } from '@/components/shared/contact-channels';
-import { APP_NAME, FREE_SHIPPING_THRESHOLD, PAYMENT_METHODS, SHIPPING_PRICE, SHOWCASE_MODE } from '@/lib/constants';
+import { APP_NAME, SHOWCASE_MODE } from '@/lib/constants';
 import { BRAND, hasContactInfo } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
-import { cn, formatCurrency, paymentMethodLabel } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import CorralHostsButton from './corral-hosts-button';
 import { getCorralHosts } from './corral-hosts';
 import { SECTION_IDS } from './one-page';
@@ -19,19 +19,11 @@ export default async function ContactSection() {
   // The menu links here whenever .env has contact details, so hiding them all keeps the rules showing.
   if (!hasContactInfo) return null;
 
-  const prices = { shipping: formatCurrency(SHIPPING_PRICE), threshold: formatCurrency(FREE_SHIPPING_THRESHOLD) };
-  const methods = PAYMENT_METHODS.map((method) => paymentMethodLabel(t, method)).join(', ');
   // The answers are the shop's own FAQ texts, so the rules are written in one place.
-  // Showcase mode sells nothing, so paying and shipping don't apply, and the notice says so first.
+  // Showcase mode: the notice says first that this isn't a shop.
   const rules = [
     ...(SHOWCASE_MODE ? [{ title: t('CONTACT_RULES_NOT_A_SHOP'), text: t('CONTACT_RULES_NOT_A_SHOP_TEXT', { shop: APP_NAME }) }] : []),
     { title: t('CONTACT_RULES_RING'), text: t('HOME_FAQ_1_A') },
-    ...(SHOWCASE_MODE
-      ? []
-      : [
-          { title: t('CONTACT_RULES_PAY'), text: t('CONTACT_RULES_PAY_TEXT', { methods }) },
-          { title: t('CONTACT_RULES_SHIPPING'), text: t('HOME_FAQ_3_A', prices) },
-        ]),
     { title: t('CONTACT_RULES_CUSTOM'), text: t('HOME_FAQ_2_A') },
   ];
 

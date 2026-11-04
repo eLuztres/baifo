@@ -5,11 +5,10 @@ import { buildContentSecurityPolicy } from '@/lib/security-headers';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
 const PROTECTED_PATHS = [
-  /^\/(shipping-address|payment-method|place-order)(\/|$)/,
-  /^\/(user|order|admin)(\/|$)/,
+  /^\/(user|admin)(\/|$)/,
 ];
 
-// Showcase mode sells nothing: the cart, checkout, orders and the price search lead home.
+// Old links to the removed cart, checkout and orders, and the price search, lead home.
 const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 const SHOP_ONLY_PATHS = /^\/(cart|search|shipping-address|payment-method|place-order|order|user\/orders)(\/|$)/;
 
@@ -36,7 +35,7 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  if (SHOWCASE_MODE && SHOP_ONLY_PATHS.test(pathname)) {
+  if (SHOP_ONLY_PATHS.test(pathname) && (SHOWCASE_MODE || pathname !== '/search')) {
     return NextResponse.redirect(new URL('/', request.nextUrl.origin));
   }
 
@@ -63,15 +62,10 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', contentSecurityPolicy);
 
-  // Guests get a cart id so they can shop before signing in.
-  if (!SHOWCASE_MODE && !request.cookies.get('sessionCartId')) {
-    response.cookies.set('sessionCartId', crypto.randomUUID());
-  }
-
   return response;
 }
 
-// Pages and server-action posts only: they need the sign-in guard and the sessionCartId cookie.
+// Pages and server-action posts only: they need the sign-in guard.
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|webp|svg|ico|woff2|mp4|glb|gif)$).*)'],
+  matcher: ['/((?!api|_vercel|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|webp|svg|ico|woff2|mp4|glb|gif)$).*)'],
 };

@@ -11,10 +11,6 @@ const links: { title: TranslationKey; href: string }[] = [
     title: 'USER_PROFILE',
     href: '/user/profile',
   },
-  {
-    title: 'ORDERS_TITLE',
-    href: '/user/orders',
-  },
 ];
 
 interface MainNavProps extends React.HTMLAttributes<HTMLElement> {

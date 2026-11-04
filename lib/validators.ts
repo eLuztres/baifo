@@ -115,94 +115,13 @@ export const signUpFormSchema = z
     path: ['confirmPassword'],
   });
 
-// Cart Schemas
-export const cartItemSchema = z.object({
-  productId: z.string().min(1, message('VALIDATION_PRODUCT_REQUIRED')),
-  name: z.string().min(1, message('VALIDATION_NAME_REQUIRED')),
-  slug: z.string().min(1, message('VALIDATION_SLUG_REQUIRED')),
-  qty: z
-    .number()
-    .int(message('VALIDATION_QUANTITY_INVALID'))
-    .nonnegative(message('VALIDATION_QUANTITY_INVALID')),
-  image: z.string().min(1, message('VALIDATION_IMAGE_REQUIRED')),
-  price: currency,
-});
-
-/** What the add-to-cart action accepts: the server looks up name, price and stock itself. */
-export const addToCartSchema = z.object({ productId: idSchema });
-
-export const insertCartSchema = z.object({
-  items: z.array(cartItemSchema),
-  itemsPrice: currency,
-  totalPrice: currency,
-  shippingPrice: currency,
-  taxPrice: currency,
-  sessionCartId: z.string().min(1, message('VALIDATION_CART_REQUIRED')),
-  userId: z.string().optional().nullable(),
-});
-
-
-// Schema for the shipping address
-export const shippingAddressSchema = z.object({
-  fullName: z.string().min(3, message('VALIDATION_NAME_MIN')),
-  streetAddress: z.string().min(3, message('VALIDATION_ADDRESS_MIN')),
-  city: z.string().min(3, message('VALIDATION_CITY_MIN')),
-  postalCode: z.string().min(3, message('VALIDATION_POSTAL_CODE_MIN')),
-  country: z.string().min(3, message('VALIDATION_COUNTRY_MIN')),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-});
-
-
-// The shop's PAYMENT_METHODS and USER_ROLES come from server env, so the client forms only
+// The shop's USER_ROLES come from server env, so the client forms only
 // check the shape and the actions also check the value with these.
 const oneOf = (allowed: readonly string[], key: TranslationKey) =>
   z.string().refine((value) => allowed.includes(value), message(key));
 
-/** Server side: `allowedPaymentMethodSchema(PAYMENT_METHODS).parse(method)`. */
-export const allowedPaymentMethodSchema = (methods: readonly string[]) =>
-  oneOf(methods, 'VALIDATION_PAYMENT_METHOD_INVALID');
-
 /** Server side: `userRoleSchema(USER_ROLES).parse(role)`. */
 export const userRoleSchema = (roles: readonly string[]) => oneOf(roles, 'VALIDATION_ROLE_INVALID');
-
-// Schema for payment method
-export const paymentMethodSchema = z.object({
-  type: z.string().min(1, message('VALIDATION_PAYMENT_METHOD_REQUIRED')),
-});
-
-
-  // Schema for inserting order
-export const insertOrderSchema = z.object({
-  userId: z.string().min(1, message('VALIDATION_USER_REQUIRED')),
-  itemsPrice: currency,
-  shippingPrice: currency,
-  taxPrice: currency,
-  totalPrice: currency,
-  paymentMethod: z.string().min(1, message('VALIDATION_PAYMENT_METHOD_REQUIRED')),
-  shippingAddress: shippingAddressSchema,
-});
-
-// Schema for inserting an order item
-export const insertOrderItemSchema = z.object({
-  productId: z.string(),
-  slug: z.string(),
-  image: z.string(),
-  name: z.string(),
-  price: currency,
-  qty: z.number(),
-});
-
-// Schema for the PayPal paymentResult
-export const paymentResultSchema = z.object({
-  id: z.string(),
-  status: z.string(),
-  email_address: z.string(),
-  pricePaid: z.string(),
-});
-
-
-
 
 // Schema for updating the user profile
 export const updateProfileSchema = z.object({

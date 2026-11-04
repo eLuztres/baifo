@@ -13,14 +13,14 @@ This code is Baifo's own and lives only in `lib/marketplace/`, `lib/whatsapp-clo
 | `PROCESSING` | Photos → UploadThing, AI photo (OpenAI image edit), AI title/description/category/price; then each video gets an ffmpeg clean-up (steadier, less noise, even light and loudness), kept next to the original. A clean-up that fails or takes over 150 s keeps the original video. Listings made without AI keep their videos as uploaded |
 | `IN_REVIEW` | You get the listing on `ADMIN_WHATSAPP_NUMBER` with Aprobar / Editar / Rechazar. Edit by replying `precio 25`, `título …`, `desc …`, `cat …` |
 | `AWAITING_PAYMENT` | The person gets the private `/publicar/<token>` link (valid `UNPAID_LISTING_HOURS`): a preview of the listing without any contact, where they give their OK to show their number (`consentAt`) and see how to pay (Bizum with their code, e.g. `BAIFO-7Q2K`, or cash at the Corral). "Ya he hecho el Bizum" / "Pasaré por El Corral" only notes it (`payClaimedAt`) for the admin. Premium is shown as "coming soon" and can't be chosen. In "Who offers it" they can set a name or nickname (`sellerName`) and the language buyers write to them in (`sellerLocale`), also once live |
-| `LIVE` | Paid (the admin taps **Pagado**, or a card payment): the fee is booked in `ListingFee` and the product is online until `expiresAt` |
+| `LIVE` | Paid (the admin taps **Pagado**): the fee is booked in `ListingFee` and the product is online until `expiresAt` |
 | `SOLD` / `CANCELLED` / `FINISHED` / `EXPIRED` / `REJECTED` | Off the shop. Only `LIVE` listings are in the shop, without badges for other states. `FINISHED`: the daily cron takes an event down the day after its date, without a message and without renewal. `EXPIRED` covers both a time that ran out and a link never paid |
 | `HIDDEN` | Taken off the shop by the admin for a while (**Ocultar**) |
 
 Seller commands: `ayuda`, `borrar` (start over), `vendido` or `encontrado` (takes the newest live listing down).
 
 The daily cron also takes listings down after `LISTING_DAYS` (the seller gets a WhatsApp a week before) and sends nothing twice. Listings never paid expire `UNPAID_LISTING_HOURS` after their link was sent (`sentAt`). An expired, sold, cancelled, rejected or hidden listing keeps its pictures and texts: **Activar de nuevo** / **Volver a publicar** / **Mostrar de nuevo** in its editor brings it back (online for a new `LISTING_DAYS` if it was paid, waiting for payment if it never was).
-**Renewal:** the reminder and the "ended" message link to the seller's `/publicar/<token>` page. While the listing is live, and after it ended if it was paid once, the page offers another `LISTING_DAYS` for the plan's price (Bizum or cash only; the card webhooks only know first payments). The admin taps **Pagado** under "Renovación" in the editor: the fee is booked in `ListingFee`, a live listing stays online `LISTING_DAYS` past its current end (from today if that has passed), and an ended one comes back for a new period with the same photos and texts.
+**Renewal:** the reminder and the "ended" message link to the seller's `/publicar/<token>` page. While the listing is live, and after it ended if it was paid once, the page offers another `LISTING_DAYS` for the plan's price (Bizum or cash). The admin taps **Pagado** under "Renovación" in the editor: the fee is booked in `ListingFee`, a live listing stays online `LISTING_DAYS` past its current end (from today if that has passed), and an ended one comes back for a new period with the same photos and texts.
 A step that fails is retried by the daily cron (`vercel.json`, `/api/cron/marketplace`); after 3 failures you get a WhatsApp message.
 
 ## Settings (`.env` and Vercel)
@@ -41,15 +41,11 @@ LISTING_DAYS=90
 UNPAID_LISTING_HOURS=48         # the private link of an unpaid listing works this long after it was sent, then it expires
 # ADDRESS_AREA=-14.55,27.99,-13.80,28.78  # the area npm run island-addresses takes event addresses from (west,south,east,north); default Fuerteventura
 
-# How people pay the listing fee on their page: stripe, paypal, bizum, cash. For now Bizum and cash only (no card papers yet);
-# the admin taps "Pagado" in the editor when the money is there. Card payments put the product live by themselves.
+# How people pay the listing fee on their page: bizum, cash;
+# the admin taps "Pagado" in the editor when the money is there.
 LISTING_PAYMENT_METHODS=bizum,cash
 BIZUM_PHONE=600000000           # the number shown for Bizum; blank: no Bizum
-STRIPE_SECRET_KEY=
-STRIPE_LISTING_WEBHOOK_SECRET=  # a second Stripe webhook: https://baifo.es/api/webhooks/stripe-listing, event checkout.session.completed
-PAYPAL_CLIENT_ID=
-PAYPAL_APP_SECRET=
-SHOWCASE_MODE=true              # no cart; buyers contact the seller
+SHOWCASE_MODE=true              # buyers contact the seller
 SHOWCASE_SHOW_PRICES=true
 
 CRON_SECRET=                    # Vercel sends it to the cron route

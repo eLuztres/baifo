@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { loadEnvConfig } from '@next/env';
 import { PrismaClient } from '@prisma/client';
-import { openFirstInStockProduct, signIn, skipUnlessWritesAllowed, t } from './helpers';
+import { skipUnlessWritesAllowed, t } from './helpers';
 
 // Full login journeys against a throwaway database: sign up, sign in/out, roles,
-// deleted users, guest cart. Every user it creates is removed again afterwards.
+// deleted users. Every user it creates is removed again afterwards.
 loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
 const prisma = new PrismaClient();
 
@@ -170,7 +170,7 @@ test.describe('admin and non-admin', () => {
   test('admin pages refuse a normal user and leak no customer data', async ({ page }) => {
     await signUp(page, 'Jade Jewel', newEmail());
 
-    for (const path of ['/admin/users', '/admin/orders', '/admin/products']) {
+    for (const path of ['/admin/users', '/admin/products']) {
       await page.goto(path);
       await expect(page).toHaveURL('/admin/unauthorized');
     }
@@ -207,22 +207,5 @@ test.describe('deleted users', () => {
     await page.getByRole('button', { name: t('SIGN_IN'), exact: true }).click();
 
     await expect(page.getByText('Invalid email or password')).toBeVisible();
-  });
-});
-
-test.describe('guest cart', () => {
-  test('the cart filled as a guest is kept after signing in', async ({ page }) => {
-    const email = newEmail();
-    await signUp(page, 'Mila Mount', email);
-    await signOut(page);
-
-    const name = await openFirstInStockProduct(page);
-    await page.getByRole('button', { name: t('ADD_TO_CART') }).click();
-    await expect(page.getByRole('link', { name: `${t('NAV_CART')} (1)` })).toBeVisible();
-
-    await signIn(page, email, PASSWORD);
-    await page.goto('/cart');
-
-    await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible();
   });
 });

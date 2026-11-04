@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import qs from 'query-string';
 import { CURRENCY, NUMBER_LOCALE, SHOP_TIME_ZONE } from '@/lib/constants/currency';
-import { MESSAGE_SEPARATOR, type TranslationKey, type Translator } from '@/lib/i18n-core';
+import { MESSAGE_SEPARATOR, type TranslationKey } from '@/lib/i18n-core';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -94,7 +94,7 @@ export function formatCurrency(amount: number | string | { toString(): string } 
   }
 }
 
-// Shop windows show a calm "70 €"; cart, checkout and orders keep the exact "70,00 €".
+// Shop windows show a calm "70 €"; the admin keeps the exact "70,00 €".
 const PRICE_TAG_FORMATTER = new Intl.NumberFormat(NUMBER_LOCALE, {
   currency: CURRENCY,
   style: 'currency',
@@ -143,15 +143,6 @@ export const formatDateTime = (date: Date | string, locale: string = NUMBER_LOCA
     timeOnly: format(TIME_OPTIONS),
   };
 };
-
-/** Customer-facing name of a payment method id; ids without a PAYMENT_METHOD_<ID> text show as is. */
-export function paymentMethodLabel(t: Translator, id: string) {
-  const key = `PAYMENT_METHOD_${id.toUpperCase()}`;
-  const label = t(key as TranslationKey);
-  return label === key ? id : label;
-}
-
-
 
 // Form the pagination links
 export function formUrlQuery({

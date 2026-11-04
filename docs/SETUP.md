@@ -11,8 +11,6 @@ This guide takes a new shop from "created by the wizard" to "live with payments"
 | 3 | [Vercel project + database](#3-vercel-project--database) | yes | 10 min |
 | 4 | [First admin](#4-first-admin) | yes | 2 min |
 | 5 | [Google login](#5-google-login) | optional | 10 min |
-| 6 | [Stripe (cards)](#6-stripe-cards) | if you take cards | 10 min |
-| 7 | [PayPal](#7-paypal) | if you take PayPal | 10 min |
 | 8 | [Emails (Resend)](#8-emails-resend) | recommended | 10 min |
 | 9 | [Image uploads (UploadThing)](#9-image-uploads-uploadthing) | to add products | 5 min |
 | 10 | [Own domain](#10-own-domain) (+ Google Search Console) | optional | 15 min |
@@ -70,7 +68,6 @@ Two values change for production:
 | Variable | Value |
 | :--- | :--- |
 | `NEXT_PUBLIC_SERVER_URL` | `https://<project>.vercel.app`, or the own domain later |
-| `PAYPAL_API_URL` | `https://api-m.paypal.com` once PayPal is live (step 7) |
 
 Then **Deployments → Redeploy**. Changing `NEXT_PUBLIC_*` values always needs a redeploy; other values apply on the next deploy as well.
 
@@ -108,40 +105,6 @@ Skip this step and the Google button simply doesn't show.
 
 When the domain changes, add the new origin and redirect URI there as well.
 
-## 6. Stripe (cards)
-
-1. <https://dashboard.stripe.com> → create an account for the customer (or a new account in yours).
-2. Start in **Test mode**. **Developers → API keys**:
-
-| Variable | From |
-| :--- | :--- |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Publishable key `pk_…` |
-| `STRIPE_SECRET_KEY` | Secret key `sk_…` |
-
-3. **Developers → Webhooks → Add endpoint**:
-   - URL: `https://<domain>/api/webhooks/stripe`
-   - Event: `charge.succeeded`
-   - Copy the signing secret into `STRIPE_WEBHOOK_SECRET` (`whsec_…`).
-4. Test with card `4242 4242 4242 4242`, any future date, any CVC. The order must switch to *Paid*.
-5. Going live: activate the account, then repeat steps 2–3 in live mode. Keys and webhook are separate there.
-
-Remove `Stripe` from `PAYMENT_METHODS` if the shop doesn't take cards.
-
-## 7. PayPal
-
-1. <https://developer.paypal.com> → **Apps & Credentials** → *Sandbox* → **Create App**.
-
-| Variable | From |
-| :--- | :--- |
-| `PAYPAL_CLIENT_ID` | Client ID |
-| `PAYPAL_APP_SECRET` | Secret |
-| `PAYPAL_API_URL` | `https://api-m.sandbox.paypal.com` (sandbox) / `https://api-m.paypal.com` (live) |
-
-2. Test with a sandbox buyer account (**Testing Tools → Sandbox Accounts**).
-3. Going live: switch the toggle to *Live*, create the app there, and replace all three values. The customer's PayPal business account must accept the shop currency.
-
-Remove `PayPal` from `PAYMENT_METHODS` if not used.
-
 ## 8. Emails (Resend)
 
 These are the welcome email and order receipts.
@@ -173,7 +136,6 @@ Optional: the **AI product studio** (`/admin/studio`) turns one product photo in
 2. Update, then redeploy:
    - `NEXT_PUBLIC_SERVER_URL=https://<domain>`
    - the Google origins and redirect URIs (step 5)
-   - the Stripe webhook URL (step 6)
 3. **Google Search Console**, once the domain is live, so Google picks up the shop and its listings quickly. One Google account can hold every shop:
    1. <https://search.google.com/search-console> → **Add property** → **Domain** → `<domain>` (without `www`; it covers www, http and all subdomains).
    2. Verify by DNS: at GoDaddy and other big registrars **Start verification** adds the TXT entry by itself after logging in there; elsewhere copy the `google-site-verification=…` TXT value into the domain's DNS.
@@ -186,8 +148,6 @@ Optional: the **AI product studio** (`/admin/studio`) turns one product photo in
 - [ ] Sign up works, and a welcome email arrives
 - [ ] Google login works (if configured)
 - [ ] Admin: create a product with an uploaded image
-- [ ] Test order with Stripe `4242…` → order becomes *Paid*, receipt email arrives
-- [ ] Test order with PayPal sandbox (if configured)
 - [ ] Contact page and footer show the right contact details
 - [ ] Search Console: domain verified, sitemap submitted (if the shop has its own domain)
-- [ ] Switch to live payment keys when the customer is ready
+- [ ] Vercel project → **Analytics** → **Enable**, to see visitors (no cookies, no personal data)

@@ -8,13 +8,13 @@ function Greeting() {
   const { t, locale } = useI18n();
   return (
     <p>
-      {locale}: {t('TOAST_ADDED', { name: 'Lamp' })}
+      {locale}: {t('SELLER_OFFERED_BY', { name: 'Lamp' })}
     </p>
   );
 }
 
 const expected = (locale: Locale) =>
-  `${locale}: ${createTranslator(getDictionary(locale))('TOAST_ADDED', { name: 'Lamp' })}`;
+  `${locale}: ${createTranslator(getDictionary(locale))('SELLER_OFFERED_BY', { name: 'Lamp' })}`;
 
 describe('I18nProvider / useI18n', () => {
   it('translates with the given locale and fills placeholders', () => {

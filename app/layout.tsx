@@ -11,6 +11,7 @@ import { getDictionary } from '@/lib/i18n';
 import { getEnabledLocales, getLocale } from '@/lib/i18n-server';
 import TurnUpright from '@/components/shared/turn-upright';
 import NoPinchZoom from '@/components/shared/no-pinch-zoom';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -88,6 +89,7 @@ export default async function RootLayout({
             <NoPinchZoom />
           </I18nProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );

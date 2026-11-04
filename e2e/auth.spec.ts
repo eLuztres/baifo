@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { t } from './helpers';
 
 test.describe('route protection for guests', () => {
-  for (const path of ['/shipping-address', '/payment-method', '/place-order', '/user/profile', '/user/orders', '/admin/overview']) {
+  for (const path of ['/user/profile', '/admin/overview']) {
     test(`${path} redirects to sign-in`, async ({ page }) => {
       await page.goto(path);
 

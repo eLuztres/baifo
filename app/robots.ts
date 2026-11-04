@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Accounts, checkout and the sellers' private links: nothing to find there.
-      disallow: ['/admin', '/user', '/api', '/publicar', '/cart', '/shipping-address', '/payment-method', '/place-order', '/order'],
+      disallow: ['/admin', '/user', '/api', '/publicar'],
     },
     sitemap: `${SERVER_URL}/sitemap.xml`,
   };

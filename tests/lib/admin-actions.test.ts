@@ -1,15 +1,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/db/prisma';
 import { updateUser, getAllUsers } from '@/lib/actions/user.actions';
-import {
-  deleteOrder,
-  deliverOrder,
-  getAllOrders,
-  getOrderSummary,
-  updateOrderToPaidCOD,
-} from '@/lib/actions/order.actions';
 import { createProduct, deleteProduct, updateProduct } from '@/lib/actions/product.actions';
-import * as orderActions from '@/lib/actions/order.actions';
 
 jest.mock('@/auth', () => ({ auth: jest.fn(), signIn: jest.fn(), signOut: jest.fn() }));
 jest.mock('@/db/prisma', () => {
@@ -36,7 +28,7 @@ jest.mock('@/db/prisma', () => {
 });
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('next/headers', () => ({ cookies: jest.fn(), headers: jest.fn() }));
-jest.mock('@/email', () => ({ sendWelcomeEmail: jest.fn(), sendPurchaseReceipt: jest.fn() }));
+jest.mock('@/email', () => ({ sendWelcomeEmail: jest.fn() }));
 // A shop without an owner, whatever .env says; the owner rules are tested in owner.test.ts.
 jest.mock('@/lib/constants', () => ({ ...jest.requireActual('@/lib/constants'), OWNER_EMAIL: '' }));
 
@@ -63,9 +55,6 @@ const PRODUCT_INPUT = {
 // Each case calls the action and names the DB write it must not reach
 const MUTATIONS: [string, () => Promise<{ success: boolean; message: string }>, () => jest.Mock][] = [
   ['updateUser', () => updateUser({ id: 'u1', name: 'Me', email: 'me@x.com', role: 'admin' }), () => db.user.update],
-  ['deleteOrder', () => deleteOrder('o1'), () => db.order.delete],
-  ['updateOrderToPaidCOD', () => updateOrderToPaidCOD('o1'), () => db.order.findFirst],
-  ['deliverOrder', () => deliverOrder('o1'), () => db.order.update],
   ['createProduct', () => createProduct(PRODUCT_INPUT), () => db.product.create],
   ['updateProduct', () => updateProduct({ ...PRODUCT_INPUT, id: 'p1' }), () => db.product.update],
   ['deleteProduct', () => deleteProduct('p1'), () => db.product.delete],
@@ -73,8 +62,6 @@ const MUTATIONS: [string, () => Promise<{ success: boolean; message: string }>, 
 
 const READS: [string, () => Promise<unknown>][] = [
   ['getAllUsers', () => getAllUsers({ page: 1, query: '' })],
-  ['getAllOrders', () => getAllOrders({ page: 1, query: '' })],
-  ['getOrderSummary', () => getOrderSummary()],
 ];
 
 describe.each([
@@ -91,7 +78,6 @@ describe.each([
   it.each(READS)('%s refuses to return data', async (_, call) => {
     await expect(call()).rejects.toThrow('ERROR_ADMIN_ONLY');
     expect(db.user.findMany).not.toHaveBeenCalled();
-    expect(db.order.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -117,12 +103,5 @@ describe('admin actions called by an admin', () => {
 
   it('getAllUsers returns data', async () => {
     await expect(getAllUsers({ page: 1, query: '' })).resolves.toEqual({ data: [], totalPages: 0 });
-  });
-});
-
-describe('marking orders as paid', () => {
-  // Every export of a 'use server' file can be called from the browser
-  it('is not exposed as a server action', () => {
-    expect(orderActions).not.toHaveProperty('updateOrderToPaid');
   });
 });

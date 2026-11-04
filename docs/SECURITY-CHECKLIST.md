@@ -43,7 +43,7 @@ TLS certificate       Let's Encrypt (YR1/YR2), valid until 2027-01-21, auto-rene
 
 - **Resend**, for the site's emails (`SENDER_EMAIL` is an @baifo.es address). It signs with the `resend._domainkey` DKIM key and bounces through `send.baifo.es`, so DKIM and SPF both line up with baifo.es and pass DMARC. ✅
 - **ImprovMX**, only if you *reply as* @baifo.es through ImprovMX's SMTP (for example Gmail's "Send mail as"). That is why `include:spf.improvmx.com` is in the SPF record. Keep it.
-- Stripe, PayPal, Google, Meta and WhatsApp send from their own domains. They don't count.
+- Google, Meta and WhatsApp send from their own domains. They don't count.
 - If you reply as @baifo.es from Gmail **without** ImprovMX SMTP, those replies will fail DMARC. Before step "Later 2", set up "Send mail as" with ImprovMX SMTP or reply from the Gmail address instead.
 
 ### Step 1: get a place for the reports (free)
@@ -97,8 +97,6 @@ Use an authenticator app (Google Authenticator, Authy, 1Password …) or a passk
 | **GitHub** (the code, and often your login for Vercel, Neon and UploadThing) | **Settings → Password and authentication → Enable two-factor authentication** | <https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/configuring-two-factor-authentication> |
 | **Vercel** | **Account Settings → Authentication → Two-Factor Authentication** | <https://vercel.com/docs/two-factor-authentication> |
 | **Neon** (database) | If you log in with GitHub or Google, 2FA there covers it. Otherwise use **Account settings**. | <https://neon.com/docs/manage/accounts> |
-| **Stripe** | **Settings → Personal details → Two-step authentication** | <https://support.stripe.com/questions/enable-two-step-authentication> |
-| **PayPal** | **Settings (⚙) → Security → 2-step verification → Set up** | <https://www.paypal.com/us/cshelp/article/what-is-2-step-verification-and-how-do-i-turn-it-on-help342> |
 | **UploadThing** | You log in with GitHub, so GitHub's 2FA covers it | <https://docs.uploadthing.com> |
 | **Resend** | Log in with GitHub or Google (covered by them). Otherwise turn on 2FA in the account settings if offered. | <https://resend.com/docs/dashboard/settings/team> |
 | **ImprovMX** | **Account → Security → Two-factor authentication** | <https://improvmx.com/guides/enabling-disabling-password-2fa/> |

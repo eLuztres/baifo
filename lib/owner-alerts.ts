@@ -1,12 +1,10 @@
-import { formatReservationEnd, sendOrderAlert, sendReservationAlert } from '@/email';
+import { formatReservationEnd, sendReservationAlert } from '@/email';
 import { getShopLocale } from '@/email/shop-locale';
 import { SERVER_URL } from '@/lib/constants';
 import { getTranslator } from '@/lib/i18n';
 import { getAlertEmails, getShopSettings } from '@/lib/shop-settings';
-import { formatCurrency } from '@/lib/utils';
 import type { ShopSettingsInput } from '@/lib/validators';
 import { sendWhatsApp } from '@/lib/whatsapp';
-import { Order } from '@/types';
 import { coverPicture } from '@/lib/video';
 
 interface RingAlert {
@@ -41,21 +39,5 @@ export async function alertOwnerOfRing(alert: RingAlert) {
   await Promise.all([
     settings.notifyEmail && sendReservationAlert({ ...alert, to: getAlertEmails(settings) }),
     settings.notifyWhatsapp && sendOwnerWhatsApp(settings, ringWhatsAppLines(alert), alert.product.slug),
-  ]);
-}
-
-/** Tells the owner about a new order, by email and/or WhatsApp as set on the admin overview. */
-export async function alertOwnerOfOrder(order: Order) {
-  const settings = await getShopSettings();
-  const t = getTranslator(getShopLocale());
-  const lines = [
-    t('ORDER_ALERT_HEADING', { total: formatCurrency(order.totalPrice) }),
-    ...order.orderitems.map((item) => `${item.qty} × ${item.name}`),
-    t('WHATSAPP_ALERT_CONTACT', { contact: `${order.user.name} (${order.user.email})` }),
-    `${SERVER_URL}/order/${order.id}`,
-  ];
-  await Promise.all([
-    settings.notifyEmail && sendOrderAlert(order, getAlertEmails(settings)),
-    settings.notifyWhatsapp && sendOwnerWhatsApp(settings, lines, `order ${order.id}`),
   ]);
 }

@@ -7,7 +7,7 @@ import { getShopLocale } from '@/lib/i18n-server';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
-import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, LISTING_PRICES, productUrl, RELISTABLE, type ListingPlan } from './config';
+import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, productUrl, RELISTABLE, type ListingPlan } from './config';
 import { allCategoryRefs, categoryName, FALLBACK_CATEGORY_SLUG, findCategories, getListingCategories, toProductTranslations } from './catalog';
 import { botText, localeOf } from './messages';
 import { lacksConsent } from './listing-payment';
@@ -15,21 +15,11 @@ import { sendWithTemplateFallback } from './templates';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export interface ListingPayment {
-  submissionId: string;
-  provider: 'Stripe' | 'PayPal';
-  paymentId: string;
-  /** What the payment provider says was paid, as a fixed-2 string. */
-  amountPaid: string;
-}
-
-export type PublishOutcome = 'published' | 'already-published' | 'wrong-amount' | 'not-found';
-
 type SubmissionWithSeller = Submission & { seller: Seller };
 
 /** A fee to book together with the listing going live. */
 interface FeeRecord {
-  method: 'stripe' | 'paypal' | 'bizum' | 'cash';
+  method: 'bizum' | 'cash';
   amount: string;
   recordedBy?: string;
 }
@@ -138,20 +128,6 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
       ),
   ]);
   return product;
-}
-
-/**
- * A paid listing becomes a product. Payment webhooks can arrive twice or together with the
- * PayPal capture, so only the first call publishes and the others report "already-published".
- */
-export async function publishSubmission(payment: ListingPayment): Promise<PublishOutcome> {
-  const submission = await prisma.submission.findUnique({ where: { id: payment.submissionId }, include: { seller: true } });
-  if (!submission) return 'not-found';
-  if (submission.status !== 'AWAITING_PAYMENT') return 'already-published';
-  if (payment.amountPaid !== LISTING_PRICES[(submission.plan ?? 'normal') as ListingPlan]) return 'wrong-amount';
-  const fee: FeeRecord = { method: payment.provider === 'Stripe' ? 'stripe' : 'paypal', amount: payment.amountPaid };
-  const product = await goLive(submission, ['AWAITING_PAYMENT'], `${payment.provider}:${payment.paymentId}`, fee);
-  return product ? 'published' : 'already-published';
 }
 
 export type AdminPaymentOutcome = 'published' | 'no-consent' | 'not-waiting';

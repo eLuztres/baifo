@@ -3,7 +3,6 @@ import type { z } from 'zod';
 import type {
   insertProductSchema,
   insertReviewSchema,
-  shippingAddressSchema,
   signInFormSchema,
 } from '@/lib/validators';
 
@@ -11,14 +10,6 @@ export const signInDefaultValues = {
   email: '',
   password: '',
 } satisfies z.input<typeof signInFormSchema>;
-
-export const shippingAddressDefaultValues = {
-  fullName: '',
-  streetAddress: '',
-  city: '',
-  postalCode: '',
-  country: '',
-} satisfies z.input<typeof shippingAddressSchema>;
 
 export const productDefaultValues = {
   name: '',

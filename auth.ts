@@ -16,15 +16,6 @@ const SESSION_DAYS = 30;
 // Auth endpoints that end with a signed-in user.
 const SIGN_IN_PATHS = ['/sign-in/email', '/sign-up/email', '/callback/'];
 
-// A guest who logs in keeps the cart they filled before.
-async function moveGuestCartToUser(sessionCartId: string | null | undefined, userId: string) {
-  if (!sessionCartId) return;
-  const sessionCart = await prisma.cart.findFirst({ where: { sessionCartId } });
-  if (!sessionCart || sessionCart.userId === userId) return;
-  await prisma.cart.deleteMany({ where: { userId } });
-  await prisma.cart.update({ where: { id: sessionCart.id }, data: { userId } });
-}
-
 export const authServer = betterAuth({
   // Existing shops keep working with their AUTH_SECRET.
   secret: process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_SECRET,
@@ -84,7 +75,6 @@ export const authServer = betterAuth({
     after: createAuthMiddleware(async (ctx) => {
       const newSession = ctx.context.newSession;
       if (!newSession || !SIGN_IN_PATHS.some((path) => ctx.path.startsWith(path))) return;
-      await moveGuestCartToUser(ctx.getCookie('sessionCartId'), newSession.user.id);
       if (ctx.path === '/sign-in/email') await rehashLegacyPassword(newSession.user.id, ctx.body?.password);
     }),
   },

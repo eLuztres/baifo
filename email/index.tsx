@@ -1,12 +1,9 @@
 import { SENDER_EMAIL, APP_NAME, SERVER_URL, CONTACT_EMAIL, ORDER_ALERT_EMAILS } from '@/lib/constants';
-import { Order } from '@/types';
 import { EmailService, type SendResult } from './email-service';
-import PurchaseReceiptEmail from './purchase-receipt';
 import NotificationEmail, { type NotificationEmailProps } from './templates/notification-email';
 import WelcomeEmail from './templates/welcome-email';
 import { getShopLocale } from './shop-locale';
 import { getTranslator, type Locale } from '@/lib/i18n';
-import { formatCurrency, paymentMethodLabel } from '@/lib/utils';
 
 export { EmailService } from './email-service';
 export type { EmailMessage, EmailUser, SendResult } from './email-service';
@@ -59,60 +56,6 @@ export const sendWelcomeEmail = async (
   if (result.success) console.info(`[email] Welcome email sent to ${user.email}`);
   else console.error(`[email] Welcome email to ${user.email} not sent: ${result.error}`);
   return result;
-};
-
-/** Sent when an order is paid, in the buyer's language when known. */
-export const sendPurchaseReceipt = async ({
-  order,
-  locale = getShopLocale(),
-}: {
-  order: Order;
-  locale?: Locale;
-}): Promise<SendResult> => {
-  const result = await emailService.send({
-    to: order.user,
-    subject: getTranslator(locale)('RECEIPT_SUBJECT', { id: order.id }),
-    react: <PurchaseReceiptEmail order={order} locale={locale} />,
-    tags: [{ name: 'type', value: 'purchase-receipt' }],
-  });
-  if (!result.success) console.error(`[email] Receipt for ${order.id} not sent: ${result.error}`);
-  return result;
-};
-
-/**
- * Tells the shop owner about every new order (paid online, or placed with cash on delivery),
- * so nobody has to watch the admin page. Written in the shop's default language.
- */
-export const sendOrderAlert = async (order: Order, to = ORDER_ALERT_EMAILS) => {
-  if (to.length === 0) return;
-
-  const locale = getShopLocale();
-  const t = getTranslator(locale);
-  const total = formatCurrency(order.totalPrice);
-  const method = paymentMethodLabel(t, order.paymentMethod);
-  const { fullName, streetAddress, postalCode, city, country } = order.shippingAddress;
-
-  const result = await emailService.send({
-    to,
-    // Hitting reply writes straight to the buyer.
-    replyTo: order.user,
-    subject: t('ORDER_ALERT_SUBJECT', { total, name: order.user.name }),
-    react: (
-      <NotificationEmail
-        lang={locale}
-        heading={t('ORDER_ALERT_HEADING', { total })}
-        paragraphs={[
-          order.isPaid ? t('ORDER_ALERT_PAID', { method }) : t('ORDER_ALERT_UNPAID', { method }),
-          ...order.orderitems.map((item) => `${item.qty} × ${item.name} · ${formatCurrency(item.price)}`),
-          t('ORDER_ALERT_CUSTOMER', { name: order.user.name, email: order.user.email }),
-          t('ORDER_ALERT_SHIP_TO', { address: `${fullName}, ${streetAddress}, ${postalCode} ${city}, ${country}` }),
-        ]}
-        action={{ label: t('ORDER_ALERT_ACTION'), url: `${SERVER_URL}/order/${order.id}` }}
-      />
-    ),
-    tags: [{ name: 'type', value: 'order-alert' }],
-  });
-  if (!result.success) console.error(`[email] Order alert for ${order.id} not sent: ${result.error}`);
 };
 
 /** Tells the shop owner that a customer reserved a ring, or (showcase mode, no `reservedUntil`) is interested in one.
@@ -179,7 +122,7 @@ export const sendUserNotification = (
     ...content
   }: Omit<NotificationEmailProps, 'name' | 'action'> & {
     subject: string;
-    /** `path` is relative to the site, e.g. `/user/orders`. */
+    /** `path` is relative to the site, e.g. `/user/profile`. */
     action?: { label: string; path: string };
   }
 ) =>

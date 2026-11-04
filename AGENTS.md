@@ -41,7 +41,7 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
   - an env var read in `lib/brand.ts` (brand/look) or `lib/constants` (shop rules)
   - documented in `.env.example`
   - with a sensible default
-- Client components can't read non-`NEXT_PUBLIC_` env vars. Pass the value down from a server component, as `payment-method/page.tsx` does.
+- Client components can't read non-`NEXT_PUBLIC_` env vars. Pass the value down from a server component, as `app/(root)/publicar/[token]/page.tsx` does.
 
 ## Styling
 
@@ -83,5 +83,6 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 ## Working in a customer repo (updates)
 
 - Pull updates with `git fetch upstream && git merge upstream/main`. Then run `npm install` and `npx prisma migrate deploy`.
+- **Baifo has no payments on purpose (2026-11-04):** no Stripe, PayPal, cart, checkout or orders, only the Bizum and cash listing fee. When merging from `custom`, keep them out, even though the template's code otherwise wins. The tables stay in the database.
 - When resolving conflicts, the template's code wins. The customer's `.env`, `public/brand/` and `brand/messages/` win.
 - If a customer needs a change that isn't configurable yet, make it configurable **in the template**, then merge it down. Don't fork the code in the customer repo.

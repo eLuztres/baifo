@@ -1,24 +1,19 @@
 import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
-import { paypal } from '@/lib/paypal';
 import { isRateLimited } from '@/lib/rate-limit';
-import { enableListing, publishConfirmed, publishSubmission, takeDown } from '@/lib/marketplace/publish';
+import { enableListing, publishConfirmed, takeDown } from '@/lib/marketplace/publish';
 import {
-  captureListingPayPalOrder,
   changeSellerPhone,
   claimListingPayment,
   manageListing,
   confirmListing,
-  createListingPayPalOrder,
   saveSellerName,
-  startStripeCheckout,
 } from '@/lib/marketplace/checkout.actions';
 
-jest.mock('@/lib/paypal', () => ({ paypal: { createOrder: jest.fn(), capturePayment: jest.fn() } }));
 jest.mock('next/headers', () => ({ headers: jest.fn() }));
 jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
-jest.mock('@/lib/marketplace/publish', () => ({ enableListing: jest.fn(), publishConfirmed: jest.fn(), publishSubmission: jest.fn(), takeDown: jest.fn() }));
+jest.mock('@/lib/marketplace/publish', () => ({ enableListing: jest.fn(), publishConfirmed: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ HOUSE_SELLER: 'baifo', LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
 jest.mock('@/lib/marketplace/listing-payment', () => ({ isLinkExpired: () => false, recordConsent: jest.fn() }));
 jest.mock('@/db/prisma', () => {
@@ -34,7 +29,6 @@ jest.mock('@/db/prisma', () => {
 const db = prisma as unknown as { submission: Record<'findFirst' | 'update' | 'delete', jest.Mock>; seller: { upsert: jest.Mock }; product: Record<'update' | 'delete', jest.Mock> };
 const TOKEN = 'ff25bd1e-d82d-4561-8ca2-337545aa373e';
 const mockLimited = isRateLimited as jest.Mock;
-const mockPaypal = paypal as unknown as Record<'createOrder' | 'capturePayment', jest.Mock>;
 
 // Only the limit for the given action is used up.
 const limitReached = (action: string) => mockLimited.mockImplementation(async (limit: { action: string }) => limit.action === action);
@@ -209,17 +203,12 @@ describe('rate limits on the /publicar buttons', () => {
     expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'listing-link' }), TOKEN);
   });
 
-  it.each(['listing-page', 'listing-link'])('stops confirm, Stripe, PayPal and "I paid" once %s is used up', async (action) => {
+  it.each(['listing-page', 'listing-link'])('stops confirm and "I paid" once %s is used up', async (action) => {
     limitReached(action);
     expect((await confirmListing(CHOICE)).success).toBe(false);
-    expect((await startStripeCheckout(CHOICE)).success).toBe(false);
-    expect((await createListingPayPalOrder(CHOICE)).success).toBe(false);
     expect((await claimListingPayment(TOKEN, 'bizum')).success).toBe(false);
-    expect((await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).success).toBe(false);
     expect(db.submission.findFirst).not.toHaveBeenCalled();
     expect(db.submission.update).not.toHaveBeenCalled();
-    expect(mockPaypal.createOrder).not.toHaveBeenCalled();
-    expect(mockPaypal.capturePayment).not.toHaveBeenCalled();
   });
 
   it('does not count a request with an invalid token', async () => {
@@ -239,21 +228,5 @@ describe('rate limits on the /publicar buttons', () => {
     db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type: 'PRODUCT', status: 'LIVE', productId: null });
     await manageListing(TOKEN, 'hide');
     expect(mockLimited).toHaveBeenCalledWith(expect.objectContaining({ action: 'close-listing-link', max: 5 }), TOKEN);
-  });
-});
-
-describe('captureListingPayPalOrder', () => {
-  it('only takes the money of a listing that still waits for its fee', async () => {
-    db.submission.findFirst.mockResolvedValue(null);
-    expect((await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).success).toBe(false);
-    expect(db.submission.findFirst.mock.calls[0][0].where).toEqual({ payToken: TOKEN, status: 'AWAITING_PAYMENT' });
-    expect(mockPaypal.capturePayment).not.toHaveBeenCalled();
-  });
-
-  it('captures and publishes a waiting listing', async () => {
-    mockPaypal.capturePayment.mockResolvedValue({ id: 'CAP-1', status: 'COMPLETED', purchase_units: [{ payments: { captures: [{ amount: { value: '5.00' } }] } }] });
-    (publishSubmission as jest.Mock).mockResolvedValue('published');
-    expect(await captureListingPayPalOrder(TOKEN, 'PAYPAL-1')).toEqual({ success: true });
-    expect(publishSubmission).toHaveBeenCalledWith(expect.objectContaining({ submissionId: 'sub-1', amountPaid: '5.00' }));
   });
 });

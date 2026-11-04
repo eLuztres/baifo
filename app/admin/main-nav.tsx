@@ -9,7 +9,6 @@ import {
   List,
   MapPin,
   Plus,
-  Receipt,
   Shapes,
   SlidersHorizontal,
   Sparkles,
@@ -42,12 +41,6 @@ const links: { title: TranslationKey; href: string; icon: LucideIcon; isSalesOnl
     title: 'ADMIN_OVERVIEW',
     href: '/admin/overview',
     icon: LayoutDashboard,
-    isSalesOnly: true,
-  },
-  {
-    title: 'ORDERS_TITLE',
-    href: '/admin/orders',
-    icon: Receipt,
     isSalesOnly: true,
   },
   {
@@ -85,7 +78,7 @@ interface NavLink {
 }
 
 interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
-  /** Showcase shops sell nothing online, so sales figures and orders stay out of the menu. */
+  /** Showcase shops don't show the overview page in the menu. */
   isShowcase: boolean;
   /** Whether the shop has an OpenAI key; without one there are no AI costs to show. */
   isAiEnabled: boolean;

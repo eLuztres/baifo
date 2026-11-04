@@ -6,7 +6,6 @@ test.describe('storefront navigation', () => {
     await page.goto('/');
 
     expect(await page.title()).not.toBe('');
-    await expect(page.getByRole('link', { name: new RegExp(`${t('NAV_CART')} \\(\\d+\\)`) })).toBeVisible();
   });
 
   test('header links reach the showroom', async ({ page }) => {

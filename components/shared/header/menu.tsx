@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { MenuIcon } from 'lucide-react';
@@ -9,7 +8,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { OFFERS_PATH, SHOWCASE_MODE } from '@/lib/constants';
+import { OFFERS_PATH } from '@/lib/constants';
 import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { getRunningOffers } from '@/lib/offers';
@@ -17,7 +16,6 @@ import UserButton from './user-button';
 import LanguageSwitcher from './language-switcher';
 import ModeToggle from './mode-toggle';
 import MenuAccount, { MENU_ROW_CLASS } from './menu-account';
-import CartButton, { CartLink } from './cart-button';
 import { getNavLinks } from './nav-items';
 
 // The shop, admin and account headers all render it, so it translates its own links and labels.
@@ -26,16 +24,9 @@ const Menu = async () => {
   const navLinks = getNavLinks(t);
   const hasOffers = offers.length > 0;
   const menuLabel = t('NAV_MENU');
-  const cartLabel = t('NAV_CART');
 
   return (
     <div className='flex items-center gap-2'>
-      {!SHOWCASE_MODE && (
-        <Suspense fallback={<CartLink label={cartLabel} />}>
-          <CartButton label={cartLabel} />
-        </Suspense>
-      )}
-
       <div className='hidden lg:block'>
         <UserButton />
       </div>

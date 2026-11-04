@@ -1,6 +1,6 @@
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
-import { enableListing, publishByAdmin, publishPaidByAdmin, publishSubmission, renewPaidByAdmin } from '@/lib/marketplace/publish';
+import { enableListing, publishByAdmin, publishPaidByAdmin, renewPaidByAdmin } from '@/lib/marketplace/publish';
 import { expireListings } from '@/lib/marketplace/expiry';
 import { RELISTABLE } from '@/lib/marketplace/config';
 
@@ -47,8 +47,6 @@ const SUBMISSION = {
   seller: { waId: '34600111222', name: 'Ana' },
 };
 
-const payment = (amountPaid = '10.00') => ({ submissionId: SUBMISSION.id, provider: 'Stripe' as const, paymentId: 'pi_1', amountPaid });
-
 beforeEach(() => {
   jest.clearAllMocks();
   db.submission.findUnique.mockResolvedValue(SUBMISSION);
@@ -56,9 +54,17 @@ beforeEach(() => {
   db.product.create.mockResolvedValue({ id: 'product-1', slug: 'bici-de-paseo-abcdef' });
 });
 
-describe('publishSubmission', () => {
-  it('turns a paid listing into a featured product with the seller contact', async () => {
-    expect(await publishSubmission(payment())).toBe('published');
+describe('a paid listing going live', () => {
+  const agreed = { ...SUBMISSION, consentAt: new Date('2026-10-28T09:00:00Z') };
+  const FEE = { method: 'bizum' as const, amount: '10.00' };
+
+  beforeEach(() => {
+    db.submission.findFirst.mockResolvedValue(agreed);
+    db.submission.update.mockResolvedValue(agreed);
+  });
+
+  it('turns it into a featured product with the seller contact', async () => {
+    expect(await publishPaidByAdmin(SUBMISSION.id, 'big', FEE)).toBe('published');
 
     expect(db.product.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -78,22 +84,11 @@ describe('publishSubmission', () => {
     expect(sendText).toHaveBeenCalledWith('34600111222', expect.stringContaining('online'));
   });
 
-  it('refuses a payment that does not match the plan price', async () => {
-    expect(await publishSubmission(payment('5.00'))).toBe('wrong-amount');
-    expect(db.product.create).not.toHaveBeenCalled();
-  });
-
-  it('publishes only once when two payments arrive together', async () => {
+  it('publishes only once when two taps arrive together', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 0 });
 
-    expect(await publishSubmission(payment())).toBe('already-published');
+    await publishPaidByAdmin(SUBMISSION.id, 'big', FEE);
     expect(db.product.create).not.toHaveBeenCalled();
-  });
-
-  it('ignores a listing that is no longer waiting for payment', async () => {
-    db.submission.findUnique.mockResolvedValue({ ...SUBMISSION, status: 'LIVE' });
-
-    expect(await publishSubmission(payment())).toBe('already-published');
   });
 });
 

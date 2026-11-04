@@ -28,16 +28,16 @@ export const LISTING_PRICES: Record<ListingPlan, string> = {
 /** The cheapest listing as texts say it, e.g. "from 5 euros". */
 export const LISTING_FROM_PRICE = formatNumber(Number(LISTING_PRICES.normal));
 
-export type PaymentMethod = 'stripe' | 'paypal' | 'bizum' | 'cash';
+export type PaymentMethod = 'bizum' | 'cash';
 
 /** The number people send the listing fee to by Bizum; empty: no Bizum. */
 export const BIZUM_PHONE = env('BIZUM_PHONE');
 
-/** How people can pay the listing fee on their private page, e.g. "bizum,cash" (card payments need legal papers first). */
+/** How people can pay the listing fee on their private page, e.g. "bizum,cash". */
 export const LISTING_PAYMENT_METHODS = (env('LISTING_PAYMENT_METHODS') ?? 'bizum,cash')
   .split(',')
   .map((method) => method.trim())
-  .filter((method): method is PaymentMethod => ['stripe', 'paypal', 'bizum', 'cash'].includes(method))
+  .filter((method): method is PaymentMethod => ['bizum', 'cash'].includes(method))
   .filter((method) => method !== 'bizum' || Boolean(BIZUM_PHONE));
 
 /** Off (default): the fee is asked for in the first WhatsApp message, so the private page shows no price and only asks for the OK. */

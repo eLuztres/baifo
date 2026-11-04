@@ -6,9 +6,8 @@ jest.mock('better-auth/cookies', () => ({
   getSessionCookie: (req: NextRequest) => req.cookies.get('better-auth.session_token')?.value ?? null,
 }));
 
-function request(path: string, { method = 'GET', cartCookie = true, signedIn = false } = {}) {
+function request(path: string, { method = 'GET', signedIn = false } = {}) {
   const req = new NextRequest(`http://localhost:3000${path}`, { method });
-  if (cartCookie) req.cookies.set('sessionCartId', 'cart-1');
   if (signedIn) req.cookies.set('better-auth.session_token', 'token.signature');
   return req;
 }
@@ -17,12 +16,7 @@ const isSignInRedirect = (res: NextResponse) => res.headers.get('location')?.inc
 
 describe('middleware', () => {
   it.each([
-    '/shipping-address',
-    '/payment-method',
-    '/place-order',
     '/user/profile',
-    '/user/orders',
-    '/order/abc',
     '/admin/overview',
   ])('sends guests on %s to sign-in', (path) => {
     const res = middleware(request(path));
@@ -31,15 +25,15 @@ describe('middleware', () => {
     expect(res.headers.get('location')).toBe(`http://localhost:3000/sign-in?callbackUrl=${encodeURIComponent(path)}`);
   });
 
-  it.each(['/', '/store', '/cart', '/product/lamp', '/sign-in'])('lets guests view %s', (path) => {
+  it.each(['/', '/store', '/product/lamp', '/sign-in'])('lets guests view %s', (path) => {
     expect(isSignInRedirect(middleware(request(path)))).toBe(false);
   });
 
   it('keeps the query string in the callback URL', () => {
-    const res = middleware(request('/order/abc?paid=1'));
+    const res = middleware(request('/user/profile?tab=1'));
 
     expect(res.headers.get('location')).toBe(
-      `http://localhost:3000/sign-in?callbackUrl=${encodeURIComponent('/order/abc?paid=1')}`
+      `http://localhost:3000/sign-in?callbackUrl=${encodeURIComponent('/user/profile?tab=1')}`
     );
   });
 
@@ -48,20 +42,18 @@ describe('middleware', () => {
   });
 
   it('lets signed-in users through protected pages', () => {
-    expect(isSignInRedirect(middleware(request('/place-order', { signedIn: true })))).toBe(false);
+    expect(isSignInRedirect(middleware(request('/user/profile', { signedIn: true })))).toBe(false);
   });
 
   it('redirects guest POSTs to sign-in with a 303 and callback URL', () => {
-    const res = middleware(request('/place-order', { method: 'POST' }));
+    const res = middleware(request('/user/profile', { method: 'POST' }));
 
     expect(res.status).toBe(303);
-    expect(res.headers.get('location')).toBe('http://localhost:3000/sign-in?callbackUrl=%2Fplace-order');
+    expect(res.headers.get('location')).toBe('http://localhost:3000/sign-in?callbackUrl=%2Fuser%2Fprofile');
   });
 
-  it('gives new visitors a session cart cookie', () => {
-    const res = middleware(request('/', { cartCookie: false }));
-
-    expect(res.cookies.get('sessionCartId')?.value).toMatch(/^[0-9a-f-]{36}$/);
+  it.each(['/cart', '/shipping-address', '/payment-method', '/place-order', '/order/abc', '/user/orders'])('sends old links to %s home', (path) => {
+    expect(middleware(request(path)).headers.get('location')).toBe('http://localhost:3000/');
   });
 
   // NextResponse.next({ request: { headers } }) hands overridden request headers on with this prefix.

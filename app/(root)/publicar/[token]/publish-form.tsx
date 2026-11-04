@@ -4,22 +4,17 @@ import { type ReactNode, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Banknote, Check, CheckCircle2, Copy, Loader2, MapPin, MessageCircle, Smartphone } from 'lucide-react';
-import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
-  captureListingPayPalOrder,
   claimListingPayment,
   confirmListing,
-  createListingPayPalOrder,
-  startStripeCheckout,
   type ListingChoice,
 } from '@/lib/marketplace/checkout.actions';
 import type { ListingPlan, PaymentMethod } from '@/lib/marketplace/config';
 import { fill, type PublishPageTexts } from '@/lib/marketplace/page-texts';
-import { CURRENCY } from '@/lib/constants/currency';
 import { cn, formatCurrency } from '@/lib/utils';
 
 /** How the person can pay, as the server settings allow it. */
@@ -53,7 +48,6 @@ interface PublishFormProps {
   /** What the person chose before, when they come back to the page. */
   initial: { isConfirmed: boolean; claimedMethod: ManualPayMethod | null };
   payment: PaymentOptions;
-  paypalClientId: string;
   /** The way back into the shop, shown once the person has chosen how to pay. */
   shopTeaser: ReactNode;
   /** Paying again for a listing that was online: no steps to show, it was confirmed long ago. */
@@ -64,7 +58,7 @@ interface PublishFormProps {
 
 const OPTION_CLASS = 'flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-card p-4 has-[:checked]:border-primary';
 
-export default function PublishForm({ token, texts, prices, days, initial, payment, paypalClientId, shopTeaser, isRenewal = false, hasPayment = true }: PublishFormProps) {
+export default function PublishForm({ token, texts, prices, days, initial, payment, shopTeaser, isRenewal = false, hasPayment = true }: PublishFormProps) {
   const router = useRouter();
   // Premium is shown but not offered yet, so the plan is always the normal one.
   const plan: ListingPlan = 'normal';
@@ -86,33 +80,6 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
     }
     setError('');
     return { token, plan, hasContactConsent: true };
-  };
-
-  const payWithCard = () => {
-    const input = choice();
-    if (!input) return;
-    startTransition(async () => {
-      const result = await startStripeCheckout(input);
-      if (result.url) window.location.assign(result.url);
-      else setError(texts.error);
-    });
-  };
-
-  const createPayPalOrder = async () => {
-    const input = choice();
-    const result = input ? await createListingPayPalOrder(input) : null;
-    if (!result?.orderId) {
-      if (input) setError(texts.error);
-      // Throwing closes the PayPal window instead of leaving it waiting.
-      throw new Error('No PayPal order');
-    }
-    return result.orderId;
-  };
-
-  const approvePayPalOrder = async ({ orderID }: { orderID: string }) => {
-    const result = await captureListingPayPalOrder(token, orderID);
-    if (result.success) router.push(`?pagado=1`);
-    else setError(texts.error);
   };
 
   const confirm = () => {
@@ -262,25 +229,6 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
             {isPending ? <Loader2 className='animate-spin' /> : <Check />}
             {method === 'bizum' ? texts.payBizumDone : texts.payCashDone}
           </Button>
-        )}
-        {payment.methods.includes('stripe') && (
-          <Button onClick={payWithCard} disabled={isPending} className='h-12 w-full rounded-full text-base'>
-            {isPending && <Loader2 className='animate-spin' />}
-            {fill(texts.payStripe, { price })}
-          </Button>
-        )}
-        {payment.methods.includes('paypal') && (
-          <div className='space-y-2'>
-            <p className='text-center text-sm text-muted-foreground'>{texts.payPaypal}</p>
-            <PayPalScriptProvider options={{ clientId: paypalClientId, currency: CURRENCY }}>
-              <PayPalButtons
-                key={plan}
-                style={{ layout: 'horizontal', tagline: false }}
-                createOrder={createPayPalOrder}
-                onApprove={approvePayPalOrder}
-              />
-            </PayPalScriptProvider>
-          </div>
         )}
         <Button variant='ghost' className='w-full rounded-full text-muted-foreground' onClick={() => setIsLater(true)}>
           {texts.payLater}

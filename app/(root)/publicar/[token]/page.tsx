@@ -202,7 +202,6 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
               days={LISTING_DAYS}
               initial={{ isConfirmed: Boolean(listing.consentAt), claimedMethod: listing.payClaimedMethod === 'cash' ? 'cash' : listing.payClaimedMethod === 'bizum' ? 'bizum' : null }}
               payment={payment}
-              paypalClientId={process.env.PAYPAL_CLIENT_ID || 'sb'}
               shopTeaser={<ShopTeaser texts={texts} />}
               hasPayment={false}
             />

@@ -7,15 +7,11 @@ export const SERVER_URL =
 // Where admins land after signing in without a specific target (e.g. /admin/studio).
 export const ADMIN_HOME_PATH = process.env.ADMIN_HOME_PATH || '/admin/overview';
 
-// Comma-separated env lists, e.g. "PayPal, Stripe"; blank entries are ignored.
+// Comma-separated env lists, e.g. "admin, user"; blank entries are ignored.
 const envList = (key: string, fallback: string[]) => {
   const values = (process.env[key] ?? '').split(',').map((value) => value.trim()).filter(Boolean);
   return values.length > 0 ? values : fallback;
 };
-
-export const PAYMENT_METHODS = envList('PAYMENT_METHODS', ['PayPal', 'Stripe', 'CashOnDelivery']);
-export const DEFAULT_PAYMENT_METHOD =
-  process.env.DEFAULT_PAYMENT_METHOD || PAYMENT_METHODS[0];
 
 export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 
@@ -132,11 +128,6 @@ export const CONTACT_LIMIT = {
   max: envNumber('CONTACT_LIMIT_MAX', 30),
   windowMs: envNumber('CONTACT_LIMIT_MINUTES', 10) * 60 * 1000,
 };
-
-// Pricing rules used by the cart; set per shop in .env.
-export const TAX_RATE = envNumber('TAX_RATE', 0);
-export const SHIPPING_PRICE = envNumber('SHIPPING_PRICE', 10);
-export const FREE_SHIPPING_THRESHOLD = envNumber('FREE_SHIPPING_THRESHOLD', 100);
 
 export interface PriceClass {
   name: string;

@@ -1,12 +1,9 @@
 'use server';
 
 import {
-  allowedPaymentMethodSchema,
   idSchema,
-  shippingAddressSchema,
   signInFormSchema,
   signUpFormSchema,
-  paymentMethodSchema,
   updateProfileSchema,
   updateUserSchema,
   userRoleSchema,
@@ -16,12 +13,10 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/db/prisma';
 import { formatError } from '@/lib/utils';
-import { ShippingAddress } from '@/types';
 import { z } from 'zod';
-import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, PAYMENT_METHODS, SIGN_UP_BY_INVITE, SIGN_UP_LIMIT, USER_ROLES } from '@/lib/constants';
+import { GOOGLE_AUTH_ENABLED, PAGE_SIZE, SIGN_UP_BY_INVITE, SIGN_UP_LIMIT, USER_ROLES } from '@/lib/constants';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
-import { getMyCart } from './cart.actions';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getSession, getSessionUserId, isAdmin } from '@/lib/auth-guard';
 import { cookies, headers } from 'next/headers';
@@ -97,12 +92,6 @@ export async function signInWithGoogle(formData: FormData) {
 
 // Sign user out
 export async function signOutUser() {
-  // Delete the cart so it does not carry over to the next person on this device
-  const currentCart = await getMyCart();
-
-  if (currentCart?.id) {
-    await prisma.cart.delete({ where: { id: currentCart.id } });
-  }
   await authServer.api.signOut({ headers: await headers() });
   redirect('/');
 }
@@ -168,51 +157,6 @@ export async function getUserById(userId: string) {
   if (!callerId || !isAllowed || !idSchema.safeParse(userId).success) return null;
 
   return prisma.user.findUnique({ where: { id: userId }, select: ACCOUNT_SELECT });
-}
-
-// Update the user's address
-export async function updateUserAddress(data: ShippingAddress) {
-  try {
-    const userId = await getSessionUserId();
-    if (!userId) {
-      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
-    }
-
-    const address = shippingAddressSchema.parse(data);
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { address },
-    });
-
-    return { success: true, message: 'ACCOUNT_SAVED' satisfies TranslationKey };
-  } catch (error) {
-    return { success: false, message: formatError(error) };
-  }
-}
-
-// Update user's payment method
-export async function updateUserPaymentMethod(
-  data: z.infer<typeof paymentMethodSchema>
-) {
-  try {
-    const userId = await getSessionUserId();
-    if (!userId) {
-      return { success: false, message: 'AUTH_SIGN_IN_AGAIN' satisfies TranslationKey };
-    }
-
-    const { type } = paymentMethodSchema.parse(data);
-    allowedPaymentMethodSchema(PAYMENT_METHODS).parse(type);
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { paymentMethod: type },
-    });
-
-    return { success: true, message: 'ACCOUNT_SAVED' satisfies TranslationKey };
-  } catch (error) {
-    return { success: false, message: formatError(error) };
-  }
 }
 
 // Update the user profile (only the name: the email is the login)

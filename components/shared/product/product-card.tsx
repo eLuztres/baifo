@@ -4,8 +4,6 @@ import Link from 'next/link';
 import ProductPrice from './product-price';
 import { Product } from '@/types';
 import ProductMedia from "@/components/ProductMedia";
-import AddToCartButton from './addToCartButton';
-import BuyNowButton from "@/components/shared/product/buyNowButton";
 import { useI18n } from "@/components/i18n-provider";
 import { isReservationActive } from '@/lib/reservation';
 
@@ -56,14 +54,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
                 </div>
 
                 <ProductPrice value={Number(product.price)} className='mt-auto' />
-
-                {/* A reserved ring can't be ordered; the card can't tell whose reservation it is, the product page can. */}
-                {inStock && !isReserved && (
-                    <div className='grid grid-cols-2 gap-2'>
-                        <AddToCartButton product={product} className='rounded-full' />
-                        <BuyNowButton product={product} className='rounded-full' />
-                    </div>
-                )}
             </div>
         </article>
     );

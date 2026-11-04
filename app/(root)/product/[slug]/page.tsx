@@ -7,7 +7,6 @@ import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
-import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
@@ -111,7 +110,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const isMine = isReserved && product.reservedById === session?.user?.id;
   const reservedUntil = product.reservedUntil?.toISOString() ?? '';
   // Only what the buttons need goes to the browser (not e.g. who reserved the ring).
-  const buyProduct = { id: product.id, stock: product.stock };
   const nextRing = findNextRing(orderByCategory(categories, visibleRings), slug, categoryId);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
@@ -346,7 +344,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                   )}
                 </div>
 
-                {/* Quiet "reserve" on the left, gold "buy" (the main action) on the right, side by side. */}
                 {inStock && !isReserved && (
                   <div className='flex gap-3'>
                     <ReserveButton
@@ -357,7 +354,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       variant='outline'
                       className='flex-1 border-primary/40 bg-background text-foreground hover:bg-background hover:text-primary'
                     />
-                    <BuyNowButton product={buyProduct} className='h-11 flex-1 rounded-full' />
                   </div>
                 )}
 
@@ -367,7 +363,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
                 {isMine && (
                   <div className='space-y-2'>
-                    <BuyNowButton product={buyProduct} className='h-14 w-full rounded-full text-base' />
                     <CancelReservationButton productId={product.id} className='w-full' />
                   </div>
                 )}

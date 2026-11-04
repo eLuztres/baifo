@@ -16,7 +16,6 @@ shared by Preview and Production, so a branch preview would write to the product
 | Own database | Neon database created for this project only; `vercel-build` migrates it |
 | Password | `PREVIEW_PASSWORD`: every page asks for it (any user name) |
 | Hidden from Google | `PREVIEW_PASSWORD` also sets `X-Robots-Tag: noindex`, a noindex meta tag and a robots.txt that disallows all |
-| Payments | Stripe test keys (`pk_test_`/`sk_test_`) and `PAYPAL_API_URL=https://api-m.sandbox.paypal.com`, or none |
 | No WhatsApp | No `WHATSAPP_*` variables: nothing can be sent |
 | No emails | No `RESEND_API_KEY`: the email service only logs |
 
