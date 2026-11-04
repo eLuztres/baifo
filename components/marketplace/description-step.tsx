@@ -40,7 +40,7 @@ import { pictureOf } from '@/lib/video';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
-import type { CategoryOption, EditorLanguage } from './editor-types';
+import type { CategoryOption, EditorLanguage, MercadilloOption } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -50,6 +50,8 @@ interface DescriptionStepProps {
   shopLanguage: EditorLanguage;
   /** The store's categories; the AI suggests one, the admin decides on one or more. */
   categories: CategoryOption[];
+  /** The Mercadillos it can join, on "Más". */
+  mercadillos: MercadilloOption[];
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
@@ -65,7 +67,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, categories, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   // "Enviar por WhatsApp" belongs to the contact: only there, and not while the AI writes.
   const isSendShown = isOnContact && listing.status === 'COLLECTING';
@@ -123,6 +125,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   );
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
+  const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
     status === 'SOLD' && listing.type !== 'PRODUCT' ? texts[`status_SOLD_${listing.type}`] : texts[`status_${status}`];
@@ -211,6 +214,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
+        mercadilloId,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
@@ -234,6 +238,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       startsAt: isEvent ? filled.startsAt : '',
       address: isEvent ? address : '',
       textMode,
+      mercadilloId,
       sellerPhone: sellerPhone.trim(),
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
       hasConsent: hasConsent && !listing.consentAt,
@@ -619,6 +624,21 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
                 </Button>
               )}
             </div>
+            {mercadillos.length > 0 && (
+              <div className='space-y-1'>
+                <Label htmlFor='listing-mercadillo' className='px-1 text-xs text-muted-foreground'>
+                  {texts.mercadilloLabel}
+                </Label>
+                <select id='listing-mercadillo' value={mercadilloId} disabled={isWriting} onChange={(event) => setMercadilloId(event.target.value)} className={SELECT_CLASS}>
+                  <option value=''>{texts.mercadilloNone}</option>
+                  {mercadillos.map((mercadillo) => (
+                    <option key={mercadillo.id} value={mercadillo.id}>
+                      {mercadillo.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 

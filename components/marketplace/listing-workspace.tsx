@@ -8,7 +8,7 @@ import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.acti
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
-import type { CategoryOption, EditorLanguage } from './editor-types';
+import type { CategoryOption, EditorLanguage, MercadilloOption } from './editor-types';
 import LeaveGuard from './leave-guard';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
@@ -21,6 +21,8 @@ interface ListingWorkspaceProps {
   languages: EditorLanguage[];
   /** The shop's own language, the first tab in the editor. */
   shopLanguage: EditorLanguage;
+  /** The Mercadillos it can join, on "Más". */
+  mercadillos: MercadilloOption[];
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
@@ -31,7 +33,7 @@ interface ListingWorkspaceProps {
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, mercadillos, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -125,6 +127,7 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
         languages={languages}
         shopLanguage={shopLanguage}
         categories={categories}
+        mercadillos={mercadillos}
         listingDays={listingDays}
         maxCategories={maxCategories}
         texts={texts}

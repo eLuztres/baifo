@@ -6,6 +6,12 @@ export interface EditorLanguage {
   label: string;
 }
 
+/** A Mercadillo the listing can join, its name in the admin's language. */
+export interface MercadilloOption {
+  id: string;
+  name: string;
+}
+
 /** A store category the listing can go in, its name in the admin's language. */
 export interface CategoryOption {
   slug: string;

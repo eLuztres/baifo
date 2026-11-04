@@ -18,17 +18,19 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
+import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
+import MercadilloRow, { MercadilloRowItem } from '@/components/shared/mercadillo-row';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
 import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated). `c` is the older link to one category. */
-  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; c?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated), `mercadillo` one Mercadillo's listings. `c` is the older link to one category. */
+  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -58,12 +60,13 @@ const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, categoria, c }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
+  const [{ q = '', tipo, categoria, mercadillo, c }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
     getInStockRings(),
     getVisitorPlaceIds(),
+    getMercadillos(),
   ]);
   // Older links keep working (the listing's way back, and ?c=eventos from the former Eventos category).
   if (c) redirect(listingTypeOf(c) && !categories.some((category) => category.slug === c) ? `/explore?tipo=${c}` : `/explore?categoria=${c}`);
@@ -95,7 +98,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   const words = queryWords(q);
-  const found = words.length > 0 ? mainMatches(listings, searchTextOf, words) : listings;
+  const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
+  const inScope = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
+  const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
   const types = chosenFilters.flatMap((filter) => filter.types);
   // A link can name a category that's gone; it counts as not chosen.
@@ -103,6 +108,15 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const ofType = types.length ? found.filter((listing) => types.includes(listing.type)) : found;
   const categoryIds = categories.filter((category) => slugs.includes(category.slug)).map((category) => category.id);
   const shown = categoryIds.length ? ofType.filter((listing) => listing.categoryIds.some((id) => categoryIds.includes(id))) : ofType;
+
+  // Only the plain list has rows: a search or filter shows every match in the grid.
+  const isPlainList = !chosenMercadillo && words.length === 0 && types.length === 0 && categoryIds.length === 0;
+  const rows = isPlainList
+    ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
+    : [];
+  const gridListings = isPlainList ? shown.filter((listing) => !listing.mercadilloId) : shown;
+  const rowSpots = pickRowSpots(gridListings.length, rows.length);
+  const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 
   const filled = categories
     .map((category) => ({ category, count: ofType.filter((listing) => listing.categoryIds.includes(category.id)).length }))
@@ -147,7 +161,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const hosts = await getCorralHosts((name) => t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME }));
 
-  const renderCard = (listing: Listing) => {
+  const renderCard = (listing: Listing, sizes = '(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw') => {
     const name = localizeProduct(listing, locale).name;
     const labels = feedCardLabels(listing, t, locale, now);
     const hasNoAmount = (labels.priceLabel || labels.badge) && Number(listing.price) === 0;
@@ -162,7 +176,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         className='group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card transition max-sm:rounded-2xl hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10'
       >
         <div className='relative aspect-[3/4] bg-muted'>
-          <ProductMedia src={listing.images[0]} alt={name} fill sizes='(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw' playsWhenVisible />
+          <ProductMedia src={listing.images[0]} alt={name} fill sizes={sizes} playsWhenVisible />
           {pictureLabel && (
             <span className='absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-xl bg-background/90 px-2.5 py-1 text-xs font-medium shadow sm:bottom-3 sm:left-3'>
               {pictureLabel}
@@ -187,13 +201,35 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     );
   };
 
+  // A full-width line of the grid: the Mercadillo's heading, then its listings to swipe through.
+  const renderRow = (row: (typeof rows)[number]) => {
+    const name = localize(row.mercadillo.name, locale);
+    return (
+      <li key={row.mercadillo.id} className='col-span-full'>
+        <MercadilloRow
+          heading={t('MERCADILLO_NAMED', { name })}
+          text={localize(row.mercadillo.text, locale)}
+          href={`/explore?mercadillo=${row.mercadillo.slug}`}
+          seeAllLabel={t('MERCADILLO_SEE_ALL')}
+          pageLabel={t('MERCADILLO_PAGE')}
+          backLabel={t('MERCADILLO_SCROLL_BACK')}
+          nextLabel={t('MERCADILLO_SCROLL_NEXT')}
+        >
+          {row.listings.map((listing) => (
+            <MercadilloRowItem key={listing.id}>{renderCard(listing, '(min-width: 1280px) 20vw, (min-width: 768px) 27vw, 62vw')}</MercadilloRowItem>
+          ))}
+        </MercadilloRow>
+      </li>
+    );
+  };
+
   // The way back home is the pull up at the top of the page; its arrow is only for screen readers.
   const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
 
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
     <div className='mx-auto w-full max-w-7xl space-y-5 px-1 pb-10 max-sm:-mt-4 sm:space-y-8' data-feed-page=''>
-      <h1 className='sr-only'>{q.trim() || t('EXPLORE_TITLE')}</h1>
+      <h1 className='sr-only'>{q.trim() || (chosenMercadillo && localize(chosenMercadillo.name, locale)) || t('EXPLORE_TITLE')}</h1>
       <div className='sr-only'>{pullUpHome}</div>
 
       {listings.length === 0 && allListings.length > 0 ? (
@@ -238,15 +274,25 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               </div>
             </StickyFilterRow>
 
+            {chosenMercadillo && (
+              <div className='space-y-1 px-2'>
+                <p className='text-xs font-medium uppercase tracking-wider text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
+                <p className='font-display text-3xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
+                <p className='max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base'>{localize(chosenMercadillo.text, locale)}</p>
+                <Link href='/explore' className='inline-block text-sm text-primary underline-offset-4 hover:underline'>
+                  {t('MERCADILLO_SEE_ALL_LISTINGS')}
+                </Link>
+              </div>
+            )}
+
             {shown.length === 0 ? (
               <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>
                 {words.length > 0 ? t('EXPLORE_SEARCH_NONE', { query: q.trim() }) : texts.empty}
               </p>
             ) : (
               <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
-                {shown.map((listing) => (
-                  <li key={listing.id}>{renderCard(listing)}</li>
-                ))}
+                {gridListings.map((listing, index) => [...rowsAt(index).map(renderRow), <li key={listing.id}>{renderCard(listing)}</li>])}
+                {rowsAt(gridListings.length).map(renderRow)}
               </ul>
             )}
           </div>

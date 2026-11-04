@@ -58,6 +58,9 @@ model Product {
   // Where it is handed over or offered; visitors filter the shop by places.
   placeId        String?   @db.Uuid
   place          Place?    @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  // The Mercadillo it belongs to, if any: /explore shows those together in one row.
+  mercadilloId   String?     @db.Uuid
+  mercadillo     Mercadillo? @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
   // A service's kind of offer: class, service or support (SERVICE_TYPES).
   serviceType    String?
   // An event: when it starts (it leaves the shop after that day) and where it is.
@@ -104,6 +107,18 @@ model Corral {
   email     String?
   createdAt DateTime @default(now()) @db.Timestamp(6)
   updatedAt DateTime @updatedAt
+}
+
+// One seller or shop offering several listings together, e.g. Magma; the name and text are per language.
+model Mercadillo {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String       @unique
+  name        Json
+  text        Json         @default("{}")
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  products    Product[]
+  submissions Submission[]
 }
 
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
@@ -369,6 +384,9 @@ model Submission {
   // Its place; the product it becomes takes it over.
   placeId           String?          @db.Uuid
   place             Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  // Its Mercadillo; the product it becomes takes it over.
+  mercadilloId      String?          @db.Uuid
+  mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
   // A service's kind of offer and an event's start and address; the product it becomes takes them over.
   serviceType       String?
   startsAt          DateTime?        @db.Timestamp(6)

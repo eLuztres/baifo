@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle, Store } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
@@ -32,7 +32,7 @@ import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
-import { localizeProduct } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/category';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
@@ -128,6 +128,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       : undefined;
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
+  const mercadilloName = product.mercadillo && localize(product.mercadillo.name, locale);
   const sellerMessage = hasSellerContact ? getContactMessage(product, seller?.name) : undefined;
   // The category the visitor came through, else the listing's own: the strip and the way back open with it.
   const focusCategory =
@@ -204,8 +205,16 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
               </div>
             </div>
-            {(condition || serviceKey || isEvent) && (
+            {(condition || serviceKey || isEvent || mercadilloName) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
+                {mercadilloName && (
+                  <Link
+                    href={`/explore?mercadillo=${product.mercadillo?.slug}`}
+                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/50'
+                  >
+                    <Store className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{t('MERCADILLO_NAMED', { name: mercadilloName })}</span>
+                  </Link>
+                )}
                 {condition && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(condition)}</p>}
                 {serviceKey && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(serviceKey)}</p>}
                 {isEvent && product.startsAt && (

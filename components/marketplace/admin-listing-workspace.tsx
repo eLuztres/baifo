@@ -8,6 +8,7 @@ import { getAdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { getListingCategories } from '@/lib/marketplace/catalog';
 import { LISTING_DAYS } from '@/lib/marketplace/config';
+import { getMercadillos } from '@/lib/mercadillos';
 
 interface AdminListingWorkspaceProps {
   id: string;
@@ -19,7 +20,7 @@ interface AdminListingWorkspaceProps {
 export default async function AdminListingWorkspace({ id, locale, texts }: AdminListingWorkspaceProps) {
   const listing = await getAdminListing(id);
   if (!listing) notFound();
-  const categories = await getListingCategories();
+  const [categories, mercadillos] = await Promise.all([getListingCategories(), getMercadillos()]);
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });
   // The shop language's text is the listing's own; every other language gets its own title and description.
@@ -33,6 +34,7 @@ export default async function AdminListingWorkspace({ id, locale, texts }: Admin
         initial={listing}
         // "Parent · Child": a subcategory's own name may not say where it belongs.
         categories={categories.map(({ slug, name, parent }) => ({ slug, name: [parent?.name, name].filter(Boolean).map((text) => localize(text, locale)).join(' · ') }))}
+        mercadillos={mercadillos.map(({ id, name }) => ({ id, name: localize(name, locale) }))}
         languages={languages}
         shopLanguage={languageOf(shopLocale)}
         listingDays={LISTING_DAYS}

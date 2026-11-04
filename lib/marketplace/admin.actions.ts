@@ -96,6 +96,12 @@ const eventStartSchema = z
   })
   .optional();
 const eventAddressSchema = z.string().trim().max(200).transform((value) => value || null).optional();
+// Empty: in no Mercadillo; missing: it stays as it is.
+const mercadilloIdSchema = z
+  .union([z.string().uuid(), z.literal('')])
+  .transform((value) => value || null)
+  .optional();
+const mercadilloExists = async (id: string) => Boolean(await prisma.mercadillo.findUnique({ where: { id }, select: { id: true } }));
 
 const draftSchema = z.object({
   notes: z.string().trim().min(1).max(2000),
@@ -178,6 +184,7 @@ const descriptionSchema = z.object({
   address: eventAddressSchema,
   // The categories' slugs as the admin left them (the AI's choice, maybe changed).
   categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES).default([]),
+  mercadilloId: mercadilloIdSchema,
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
   isHidden: z.boolean().default(false),
   onlineUntil: z
@@ -194,7 +201,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil } =
+  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil, mercadilloId } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
@@ -211,6 +218,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   const categories = findCategories(await getListingCategories(), categorySlugs);
   if (categories.length === 0) return { success: false, message: 'Elige una de las categorías' };
+  if (mercadilloId && !(await mercadilloExists(mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
   if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
@@ -237,6 +245,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
       categories: categories.map((category) => category.slug),
+      mercadilloId,
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
@@ -307,6 +316,7 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
+  mercadilloId: mercadilloIdSchema,
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
   // This listing's name; missing: it stays as it is.
@@ -339,6 +349,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
+  if (parsed.data.mercadilloId && !(await mercadilloExists(parsed.data.mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, hasConsent, ...fields } = parsed.data;
@@ -371,7 +382,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, shortTitle, description, price, images, placeId, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, placeId, mercadilloId, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -388,6 +399,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         priceMode,
         images,
         placeId,
+        mercadilloId,
         category: categoryName(categories[0], getShopLocale()),
         categories: { set: allCategoryRefs(categories) },
       },

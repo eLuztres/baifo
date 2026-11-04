@@ -1,4 +1,5 @@
 [
   {"href": "/admin/listings", "after": "/admin/studio", "icon": "grid", "label": {"es": "Anuncios", "en": "Listings", "it": "Annunci", "fr": "Annonces", "de": "Anzeigen"}},
-  {"href": "/admin/places", "after": "/admin/offers", "icon": "map-pin", "label": {"es": "Corrales", "en": "Corrales", "it": "Corrales", "fr": "Corrales", "de": "Corrales"}}
+  {"href": "/admin/places", "after": "/admin/offers", "icon": "map-pin", "label": {"es": "Corrales", "en": "Corrales", "it": "Corrales", "fr": "Corrales", "de": "Corrales"}},
+  {"href": "/admin/mercadillos", "after": "/admin/places", "icon": "store", "label": {"es": "Mercadillos", "en": "Mercadillos", "it": "Mercadillos", "fr": "Mercadillos", "de": "Mercadillos"}}
 ]

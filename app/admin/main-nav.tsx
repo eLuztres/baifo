@@ -13,6 +13,7 @@ import {
   Shapes,
   SlidersHorizontal,
   Sparkles,
+  Store,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -72,7 +73,7 @@ const links: { title: TranslationKey; href: string; icon: LucideIcon; isSalesOnl
 ];
 
 // The icons a shop's own admin page can name in brand/admin-links.json.
-const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, list: List, 'map-pin': MapPin };
+const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, list: List, 'map-pin': MapPin, store: Store };
 
 interface NavLink {
   key: string;

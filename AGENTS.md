@@ -73,6 +73,7 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 - Add listings through the shop's own form, on localhost first, and on baifo.es only after my OK.
 - Texts say only what I give you or the pictures show. No comments on condition unless I give the wording. Owners' names on tags stay out of the pictures and texts.
 - Products from a shop carry that shop's badge at the bottom right of every picture (Magma: "Se puede ver en persona en la tienda Magma, en Lajares." in the text too).
+- A shop's or one seller's set of products goes in its Mercadillo ("Más" in the listing editor).
 
 ## Creating shops
 

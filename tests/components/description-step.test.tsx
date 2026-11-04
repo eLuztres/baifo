@@ -73,6 +73,7 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         listing={shown}
         languages={[{ id: 'en', label: 'EN' }]}
         shopLanguage={{ id: 'es', label: 'ES' }}
+        mercadillos={[]}
         categories={[
           { slug: 'musica', name: 'Música' },
           { slug: 'hogar', name: 'Hogar' },

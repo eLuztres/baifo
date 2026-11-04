@@ -49,6 +49,8 @@ export interface CollectionRing {
   description: string;
   /** Server only: where it is, for the visitor's place filter. */
   placeId: string | null;
+  /** Server only: the Mercadillo it belongs to, for its row in the list. */
+  mercadilloId: string | null;
 }
 
 /** Only the rings in the visitor's places; one without a place stays, so nothing disappears unnoticed. */
@@ -80,6 +82,7 @@ const RING_SELECT = {
   serviceType: true,
   startsAt: true,
   placeId: true,
+  mercadilloId: true,
   // The shop's order: the first one sorts a listing in the feed and labels it in the search.
   categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
   expiresAt: true,
