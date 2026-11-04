@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import productStyles from '@/app/(root)/product/[slug]/product-view.module.css';
 import ProductMedia from '@/components/ProductMedia';
 import FilterDropdown from '@/components/admin/filter-dropdown';
 import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
@@ -134,7 +136,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     .filter(({ category, count }) => count > 0 || slugs.includes(category.slug))
     .sort((a, b) => b.count - a.count);
 
-  const hrefOf = (listing: Listing) => `/product/${listing.slug}`;
+  // From a Mercadillo's page, the listing's way back leads to that page.
+  const hrefOf = (listing: Listing) => `/product/${listing.slug}${chosenMercadillo ? `?mercadillo=${chosenMercadillo.slug}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
     const category = categoryById.get(listing.categoryIds[0]);
@@ -233,6 +236,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     );
   };
 
+  // A Mercadillo's page is long on a phone: the way back is at its top and at its end.
+  const backToList = (
+    <Link href='/explore' aria-label={t('MERCADILLO_SEE_ALL_LISTINGS')} className={cn(productStyles.backButton, productStyles.backButtonInPage)}>
+      <ArrowLeft strokeWidth={2.4} aria-hidden />
+    </Link>
+  );
+
   // The way back home is the pull up at the top of the page; its arrow is only for screen readers.
   const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
 
@@ -290,13 +300,15 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             </StickyFilterRow>
 
             {chosenMercadillo && (
-              <div className='space-y-1 px-2'>
-                <p className='text-xs font-medium uppercase tracking-wider text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
-                <p className='font-display text-3xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
+              <div className='space-y-2 px-2'>
+                <div className='flex items-center gap-4'>
+                  {backToList}
+                  <div className='min-w-0'>
+                    <p className='text-xs font-medium uppercase tracking-wider text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
+                    <p className='truncate font-display text-3xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
+                  </div>
+                </div>
                 <p className='max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base'>{localize(chosenMercadillo.text, locale)}</p>
-                <Link href='/explore' className='inline-block text-sm text-primary underline-offset-4 hover:underline'>
-                  {t('MERCADILLO_SEE_ALL_LISTINGS')}
-                </Link>
               </div>
             )}
 
@@ -310,6 +322,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                 {rowsAt(gridListings.length).map(renderRow)}
               </ul>
             )}
+            {chosenMercadillo && <div className='flex justify-center'>{backToList}</div>}
           </div>
 
           {/* A clear end instead of a void, with an invitation to sell or offer something. */}

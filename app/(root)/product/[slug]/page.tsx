@@ -51,8 +51,8 @@ const getProduct = cache(
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
-  /** The store category the visitor is going through (`c`), for the next ring and the way back to it. */
-  searchParams: Promise<{ c?: string }>;
+  /** The store category the visitor is going through (`c`), for the next ring and the way back to it; `mercadillo` the Mercadillo's page they came from. */
+  searchParams: Promise<{ c?: string; mercadillo?: string }>;
 }
 
 // "Second hand" only where the seller's condition says so: a new or handmade item must not be called used.
@@ -89,7 +89,7 @@ export async function generateMetadata(props: ProductPageProps) {
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
-  const [{ slug }, { c: categoryId }] = await Promise.all([props.params, props.searchParams]);
+  const [{ slug }, { c: categoryId, mercadillo: fromMercadillo }] = await Promise.all([props.params, props.searchParams]);
 
   // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
   const [product, session, { t, locale }, summaries, [ownRing], categories, placeIds] = await Promise.all([
@@ -143,7 +143,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
     categories.find((category) => ownRing?.categoryIds.includes(category.id));
-  const feedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
+  const categoryFeedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
+  const feedHref = fromMercadillo && fromMercadillo === product.mercadillo?.slug ? `/explore?mercadillo=${fromMercadillo}` : categoryFeedHref;
   // Phones put the description in a pop-up beside the contact button; without that row it stays on the page.
   const hasInfoRow = !isOver && (SHOWCASE_MODE || isService || isEvent);
   const phoneOnlyOnBig = hasInfoRow && 'max-sm:hidden';

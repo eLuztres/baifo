@@ -40,6 +40,14 @@
   transition: transform 0.2s ease;
 }
 
+/* The same button in a page's own flow, where there's no photo to sit on. */
+.backButtonInPage {
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
+}
+
 .backButton::before,
 .backButton::after {
   content: '';
