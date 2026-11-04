@@ -4,6 +4,7 @@ import { SHOWCASE_MODE, SHOWS_PRICES, type ListingType, type PriceMode } from '@
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/category';
 import { coverPicture } from '@/lib/video';
+import { sellerIdentity } from '@/lib/marketplace/seller';
 import { startOfShopDay } from '@/lib/event-date';
 
 // How many listings a page of the feed brings when it asks for none in particular.
@@ -121,6 +122,15 @@ async function findInStockRings({ where, take, cursor }: RingQuery = {}): Promis
     select: RING_SELECT,
   });
   return products.map(toCollectionRing);
+}
+
+/** The name each listing's page shows ("Ofrecido por …"), for lists of listings; a listing without one has none. */
+export async function getSellerNames(ids: string[]) {
+  const rows = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, submission: { select: { sellerName: true, sellerLocale: true, seller: { select: { waId: true, name: true } } } } },
+  });
+  return new Map(rows.map(({ id, submission }) => [id, submission && sellerIdentity(submission).name]));
 }
 
 /** The rings in stock that have a photo, in the admin's order; `where` narrows them (e.g. to a few ids), no cap.

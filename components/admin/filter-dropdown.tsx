@@ -24,10 +24,12 @@ interface FilterDropdownProps {
   param: string;
   options: FilterOption[];
   selected: string[];
+  /** Phones: only the choice, or the label while nothing is chosen, so a row of filters fits on one line. */
+  isCompact?: boolean;
 }
 
 /** A multi-select filter kept in the page's link; nothing chosen means all. */
-const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInLink }: FilterDropdownProps) => {
+const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInLink, isCompact }: FilterDropdownProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -58,11 +60,12 @@ const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInL
       <DropdownMenuTrigger
         className={cn(
           'flex max-w-full items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm transition hover:border-primary/50 data-[state=open]:border-primary',
-          selected.length ? 'border-primary/60 bg-primary/10' : 'border-border bg-card'
+          selected.length ? 'border-primary/60 bg-primary/10' : 'border-border bg-card',
+          isCompact && 'min-w-0 max-sm:gap-1 max-sm:px-3'
         )}
       >
-        <span className='text-muted-foreground'>{label}</span>
-        <span className='truncate font-medium'>{summary}</span>
+        <span className={cn('text-muted-foreground', isCompact && selected.length > 0 && 'max-sm:sr-only')}>{label}</span>
+        <span className={cn('truncate font-medium', isCompact && selected.length === 0 && 'max-sm:hidden')}>{summary}</span>
         <ChevronDown className='size-4 shrink-0 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='min-w-56 rounded-2xl p-1.5'>

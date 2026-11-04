@@ -131,11 +131,11 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
   const activeOption = showsList ? options[activeIndex] : undefined;
 
   return (
-    <form role='search' onSubmit={submit} className='relative mx-auto w-full max-w-2xl'>
+    <form role='search' onSubmit={submit} className='@container relative min-w-11 flex-1'>
       <label htmlFor={`${listboxId}-input`} className='sr-only'>
         {t('EXPLORE_SEARCH_LABEL')}
       </label>
-      <Search className='pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground' aria-hidden />
+      <Search className='pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' aria-hidden />
       <input
         ref={inputRef}
         id={`${listboxId}-input`}
@@ -148,7 +148,7 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
         autoComplete='off'
         enterKeyHint='search'
         value={query}
-        placeholder={t('EXPLORE_SEARCH_PLACEHOLDER')}
+        placeholder={t('ADMIN_SEARCH_PLACEHOLDER')}
         onChange={(event) => {
           setQuery(event.target.value);
           setActiveIndex(-1);
@@ -157,16 +157,16 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
         onFocus={() => setIsOpen(true)}
         onBlur={() => setIsOpen(false)}
         onKeyDown={handleKeyDown}
-        className='h-12 w-full rounded-full border border-border bg-card pl-12 pr-12 text-base shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30 sm:h-14 [&::-webkit-search-cancel-button]:hidden'
+        className='h-full min-h-10 w-full rounded-full border border-border bg-card pl-8 pr-7 text-base shadow-sm outline-none transition placeholder:text-muted-foreground @max-[7.5rem]:placeholder:text-transparent focus:border-primary focus:ring-2 focus:ring-primary/30 sm:text-sm [&::-webkit-search-cancel-button]:hidden'
       />
       {query && (
         <button
           type='button'
           onClick={clear}
           aria-label={t('EXPLORE_SEARCH_CLEAR')}
-          className='absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground sm:size-10'
+          className='absolute right-0.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground'
         >
-          <X className='size-5' aria-hidden />
+          <X className='size-4' aria-hidden />
         </button>
       )}
       {showsList && (
@@ -202,7 +202,7 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
                 )}
               </span>
               <span className='min-w-0 flex-1'>
-                <span className='block truncate'>{option.isAll ? option.label : <Highlighted text={option.label} words={words} />}</span>
+                <span className={cn('block', !option.isAll && 'truncate')}>{option.isAll ? option.label : <Highlighted text={option.label} words={words} />}</span>
                 {option.category && <span className='block truncate text-xs text-muted-foreground'>{option.category}</span>}
               </span>
               {option.count !== undefined && <span className='shrink-0 text-xs text-muted-foreground'>{option.count}</span>}

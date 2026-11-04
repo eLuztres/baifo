@@ -1,30 +1,37 @@
 import type { Metadata } from 'next';
-import FeedCard from '@/components/shared/product/feed-card';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import ProductMedia from '@/components/ProductMedia';
+import FilterDropdown from '@/components/admin/filter-dropdown';
+import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
 import { Button, buttonVariants } from '@/components/ui/button';
 import CorralHostsButton from '@/components/shared/home/corral-hosts-button';
 import { getCorralHosts } from '@/components/shared/home/corral-hosts';
-import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
+import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME, LISTING_TYPE_KEYS, listingTypeOf, NEW_LISTING_HOURS } from '@/lib/constants';
+import { APP_NAME, LISTING_TYPE_KEYS, LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, type ListingType } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
+import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
-import CategoryRail, { type RailCategory } from '@/components/shared/category-rail';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, queryWords, searchScore, type SearchableText } from '@/lib/search-text';
-import { cn, timeAgo } from '@/lib/utils';
-import styles from './explore.module.css';
+import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `c` a category (its slug), `tipo` a kind of listing (e.g. eventos). None: everything. */
-  searchParams: Promise<{ q?: string; c?: string; tipo?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated). `c` is the older link to one category. */
+  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; c?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
+
+// A suggestion only needs the start of a long description.
+const SUGGESTION_TEXT_LENGTH = 400;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -37,20 +44,24 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Every language's text, so a visitor finds a listing by the words of any of them.
 const allTexts = (value: unknown) => Object.values((value ?? {}) as Record<string, string>).filter(Boolean);
+const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
-/** The whole marketplace in one scroll, with the categories on top; a search, category or kind shows its matches first. */
+/** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', c: categorySlug, tipo }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
+  const [{ q = '', tipo, categoria, c }, { t, locale }, categories, allListings, placeIds] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
     getInStockRings(),
     getVisitorPlaceIds(),
   ]);
-  const listings = inPlaces(allListings, placeIds);
+  // Older links keep working (the listing's way back, and ?c=eventos from the former Eventos category).
+  if (c) redirect(listingTypeOf(c) && !categories.some((category) => category.slug === c) ? `/explore?tipo=${c}` : `/explore?categoria=${c}`);
+
+  const texts = adminTexts(locale);
   const now = new Date();
-  const inCategory = (categoryId: string) => listings.filter((listing) => listing.categoryIds.includes(categoryId));
-  const filledCategories = categories.filter((category) => inCategory(category.id).length > 0);
+  const listings = inPlaces(allListings, placeIds);
+  const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
   const categoryById = new Map(categories.map((category) => [category.id, category]));
 
   // A listing is found by its names, and by its description, its categories' names and its kind.
@@ -74,90 +85,112 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   const words = queryWords(q);
-  const focus = filledCategories.find((category) => category.slug === categorySlug);
-  // Old links to the former Eventos category (?c=eventos) open the events.
-  const kind = listingTypeOf(tipo) ?? (!focus ? listingTypeOf(categorySlug) : undefined);
-  const results =
+  const found =
     words.length > 0
       ? listings
           .map((listing) => ({ listing, score: searchScore(searchTextOf(listing), words) }))
           .filter(({ score }) => score > 0)
           .sort((a, b) => b.score - a.score)
           .map(({ listing }) => listing)
-      : focus
-        ? inCategory(focus.id)
-        : kind
-          ? listings.filter((listing) => listing.type === kind)
-          : undefined;
-  const filterLabel = words.length > 0 ? q.trim() : focus ? localize(focus.name, locale) : kind ? t(LISTING_TYPE_KEYS[kind]) : '';
-  // After the matches the feed goes on with everything else, so there is always something to scroll.
-  const others = results ? listings.filter((listing) => !results.includes(listing)) : listings;
+      : listings;
+  const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
+  // A link can name a category that's gone; it counts as not chosen.
+  const slugs = listParam(categoria).filter((slug) => categories.some((category) => category.slug === slug));
+  const ofType = types.length ? found.filter((listing) => types.includes(listing.type)) : found;
+  const categoryIds = categories.filter((category) => slugs.includes(category.slug)).map((category) => category.id);
+  const shown = categoryIds.length ? ofType.filter((listing) => listing.categoryIds.some((id) => categoryIds.includes(id))) : ofType;
+
+  const filled = categories
+    .map((category) => ({ category, count: ofType.filter((listing) => listing.categoryIds.includes(category.id)).length }))
+    // A chosen category stays, even when the type or search leaves it empty, so its name can still show and be undone.
+    .filter(({ category, count }) => count > 0 || slugs.includes(category.slug))
+    .sort((a, b) => b.count - a.count);
+
+  const hrefOf = (listing: Listing) => `/product/${listing.slug}`;
+  const searchListings: SearchListing[] = listings.map((listing) => {
+    const text = searchTextOf(listing);
+    const category = categoryById.get(listing.categoryIds[0]);
+    return {
+      href: hrefOf(listing),
+      name: localizeProduct(listing, locale).name,
+      image: listing.image,
+      category: category && localize(category.name, locale),
+      text: { names: text.names, rest: text.rest.slice(0, SUGGESTION_TEXT_LENGTH) },
+    };
+  });
+  const searchChoices: SearchChoice[] = [
+    ...LISTING_TYPES.map((type) => ({ type, count: listings.filter((listing) => listing.type === type).length }))
+      .filter(({ count }) => count > 0)
+      .map(({ type, count }) => ({
+        href: `/explore?tipo=${LISTING_TYPE_PARAMS[type]}`,
+        label: t(LISTING_TYPE_KEYS[type]),
+        count,
+        text: { names: foldText(t(LISTING_TYPE_KEYS[type])), rest: '' },
+      })),
+    ...categories
+      .map((category) => ({ category, inIt: listings.filter((listing) => listing.categoryIds.includes(category.id)) }))
+      .filter(({ inIt }) => inIt.length > 0)
+      .map(({ category, inIt }) => ({
+        href: `/explore?categoria=${category.slug}`,
+        label: localize(category.name, locale),
+        image: category.image ?? inIt[0]?.image,
+        count: inIt.length,
+        text: { names: allTexts(category.name).map(foldText).join(' | '), rest: foldText(category.keywords.join(' ')) },
+      })),
+  ];
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
-  // The town on each card only tells something once there's more than one.
-  const placeName = new Map(livePlaces.length > 1 ? livePlaces.map((place) => [place.id, place.name]) : []);
-  const slugOf = new Map(categories.map((category) => [category.id, category.slug]));
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const hosts = await getCorralHosts((name) => t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME }));
-  // The listing's own category, so its page leads back to a feed that opens with similar things.
-  const hrefOf = (listing: Listing) => {
-    const ownSlug = listing.categoryIds.map((id) => slugOf.get(id)).find(Boolean);
-    return ownSlug ? `/product/${listing.slug}?c=${ownSlug}` : `/product/${listing.slug}`;
-  };
-
-  // Every category as a picture, "Todo" first, then the fullest ones.
-  const railCategories: RailCategory[] = filledCategories.map((category) => ({
-    href: `/explore?c=${category.slug}`,
-    label: localize(category.name, locale),
-    image: category.image ?? inCategory(category.id)[0]?.image,
-    count: inCategory(category.id).length,
-    isActive: focus?.id === category.id,
-  })).sort((a, b) => b.count - a.count);
-  const railAll: RailCategory = { href: '/explore', label: t('EXPLORE_ALL'), count: listings.length, isActive: !results };
 
   const renderCard = (listing: Listing) => {
-    // A listing's product is created when it goes live, so createdAt is its publish time.
-    // An event isn't "new" nor old: its card leads with its day and time instead (the "new" counts still include it).
-    const isEvent = listing.type === 'EVENT';
-    const isNew = !isEvent && now.getTime() - listing.createdAt.getTime() < NEW_LISTING_HOURS * 60 * 60 * 1000;
+    const name = localizeProduct(listing, locale).name;
+    const labels = feedCardLabels(listing, t, locale, now);
+    const hasNoAmount = (labels.priceLabel || labels.badge) && Number(listing.price) === 0;
+    const priceTag = listing.price && !hasNoAmount ? formatPriceTag(Number(listing.price)) : labels.priceText;
+    const priceLabel = priceTag && (listing.type === 'WANTED' && labels.priceLabel ? t('PRICE_UP_TO') : labels.priceLabel);
+    const sellerName = sellerNames.get(listing.id);
+    // Without these the card would mislead: when the event is, that it's taken, that the price is a budget.
+    const pictureLabel = listing.isReserved ? t('RESERVE_BADGE') : labels.dateBadge ?? (listing.type === 'WANTED' ? labels.badge : undefined);
     return (
-      <FeedCard
+      <Link
         href={hrefOf(listing)}
-        name={localizeProduct(listing, locale).name}
-        images={listing.images}
-        price={listing.price}
-        {...feedCardLabels(listing, t, locale, now)}
-        aiLabel={listing.isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
-        isReserved={listing.isReserved}
-        reservedLabel={t('RESERVE_BADGE')}
-        newLabel={isNew ? t('EXPLORE_NEW_BADGE') : undefined}
-        listedAgo={[!isEvent && timeAgo(listing.createdAt, locale, now), listing.placeId && placeName.get(listing.placeId)].filter(Boolean).join(' · ')}
-      />
+        className='group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card transition max-sm:rounded-2xl hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10'
+      >
+        <div className='relative aspect-[3/4] bg-muted'>
+          <ProductMedia src={listing.images[0]} alt={name} fill sizes='(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw' playsWhenVisible />
+          {pictureLabel && (
+            <span className='absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-xl bg-background/90 px-2.5 py-1 text-xs font-medium shadow sm:bottom-3 sm:left-3'>
+              {pictureLabel}
+            </span>
+          )}
+        </div>
+        <div className='flex flex-1 flex-col gap-1 p-3 sm:p-4'>
+          <p className='line-clamp-4 text-sm font-medium leading-5 sm:line-clamp-2 sm:text-base'>{name}</p>
+          {/* On one line when both fit; a long name moves below the price. */}
+          <div className='mt-auto flex flex-wrap items-center justify-between gap-x-2'>
+            <div className='flex min-w-0 items-center gap-1.5'>
+              <p className='flex min-w-0 items-baseline gap-1 text-primary tabular-nums'>
+                {priceLabel && <span className='shrink-0 text-xs font-medium sm:text-sm'>{priceLabel}</span>}
+                <span className='truncate text-lg font-bold sm:text-2xl'>{priceTag}</span>
+              </p>
+              {listing.isIllustrative && <AiPictureMark label={t('PRODUCT_ILLUSTRATIVE')} />}
+            </div>
+            {sellerName && <p className='min-w-0 max-w-full truncate text-xs text-muted-foreground'>{sellerName}</p>}
+          </div>
+        </div>
+      </Link>
     );
   };
-
-  const renderTiles = (tiles: Listing[]) => (
-    <ul className={styles.grid}>
-      {tiles.map((listing) => (
-        <li key={listing.id} className={styles.tile}>
-          {renderCard(listing)}
-        </li>
-      ))}
-    </ul>
-  );
 
   // The way back home is the pull up at the top of the page; its arrow is only for screen readers.
   const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
 
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
-    <div className='mx-auto w-full max-w-7xl space-y-6 px-4 py-6 max-sm:pt-0 sm:space-y-8 sm:py-8' data-feed-page=''>
-      <h1 className='sr-only'>{filterLabel || t('EXPLORE_TITLE')}</h1>
+    <div className='mx-auto w-full max-w-7xl space-y-5 px-1 pb-10 max-sm:-mt-4 sm:space-y-8' data-feed-page=''>
+      <h1 className='sr-only'>{q.trim() || t('EXPLORE_TITLE')}</h1>
       <div className='sr-only'>{pullUpHome}</div>
-
-      {listings.length > 0 && (
-        <CategoryRail all={railAll} categories={railCategories} />
-      )}
 
       {listings.length === 0 && allListings.length > 0 ? (
         <div className='space-y-4 py-16 text-center'>
@@ -168,21 +201,43 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : (
         <>
-          {results && (
-            <section className='space-y-3'>
-              <h2 className='text-balance font-display text-xl sm:text-2xl'>
-                {results.length > 0
-                  ? t('EXPLORE_SEARCH_RESULTS', { query: filterLabel, count: results.length })
-                  : t('EXPLORE_SEARCH_NONE', { query: filterLabel })}
-              </h2>
-              {results.length > 0 && renderTiles(results)}
-            </section>
-          )}
-          {others.length > 0 && (
-            <section className='space-y-3'>
-              {results && <h2 className='font-display text-xl sm:text-2xl'>{t('EXPLORE_MORE')}</h2>}
-              {renderTiles(others)}
-            </section>
+          {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
+          <div className='group flex gap-2'>
+            <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
+            <div className='flex min-w-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
+              <FilterDropdown
+                label={texts.typeFilter}
+                allLabel={texts.all}
+                param='tipo'
+                options={LISTING_TYPES.map((value) => ({
+                  value: LISTING_TYPE_PARAMS[value],
+                  label: t(LISTING_TYPE_KEYS[value]),
+                  count: found.filter((listing) => listing.type === value).length,
+                })).filter((option) => option.count > 0 || types.some((value) => LISTING_TYPE_PARAMS[value] === option.value))}
+                selected={types.map((value) => LISTING_TYPE_PARAMS[value])}
+                isCompact
+              />
+              <FilterDropdown
+                label={t('SEARCH_CATEGORY')}
+                allLabel={t('SEARCH_ANY')}
+                param='categoria'
+                options={filled.map(({ category, count }) => ({ value: category.slug, label: localize(category.name, locale), count }))}
+                selected={slugs}
+                isCompact
+              />
+            </div>
+          </div>
+
+          {shown.length === 0 ? (
+            <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>
+              {words.length > 0 ? t('EXPLORE_SEARCH_NONE', { query: q.trim() }) : texts.empty}
+            </p>
+          ) : (
+            <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
+              {shown.map((listing) => (
+                <li key={listing.id}>{renderCard(listing)}</li>
+              ))}
+            </ul>
           )}
 
           {/* A clear end instead of a void, with an invitation to sell or offer something. */}

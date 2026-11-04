@@ -41,8 +41,8 @@ export default async function HomePage() {
 
   return (
     <div className={onePage.onePage}>
-      {/* Down from the goat turns to the category ring; the newspaper (/explore) opens from the ring and the menu. */}
-      <OnePageScroller />
+      {/* Down from the goat opens the list of listings. */}
+      <OnePageScroller belowHomeHref='/explore' />
       <section id={SECTION_IDS.home} className={cn(room.room, onePage.home)}>
         {heroPictures.length > 0 ? (
           <SceneHero pictures={heroPictures} />

@@ -1,65 +1,35 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { t } from './helpers';
 
-const ring = (page: Page) => page.getByRole('navigation', { name: t('EXPLORE_CATEGORY_BUTTON') });
-const chosenName = async (page: Page) => (await ring(page).locator('[aria-current="page"]').getAttribute('aria-label')) ?? '';
-
-test.describe('explore: category ring and rows', () => {
+test.describe('explore: the list of listings', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/explore');
-    test.skip((await page.locator('[data-feed-page] section').count()) === 0, 'No listings in the database');
+    test.skip((await page.locator('[data-feed-page] ul a').count()) === 0, 'No listings in the database');
   });
 
-  test('starts straight with the ring, no visible title and no counts', async ({ page }) => {
-    await expect(ring(page)).toBeVisible();
+  test('search and filters share one line, with no visible title', async ({ page }) => {
+    const search = page.getByRole('combobox', { name: t('EXPLORE_SEARCH_LABEL') });
+    const category = page.getByRole('button', { name: t('SEARCH_CATEGORY') });
     await expect(page.getByRole('heading', { level: 1 })).toHaveClass(/sr-only/);
-    expect(await chosenName(page)).toBe(t('EXPLORE_ALL'));
-    // No "15 listings" anywhere: numbers make no sense on this page.
-    await expect(page.locator('[data-feed-page]')).not.toContainText(/\d+ (listings|products)/);
+    const [fieldBox, filterBox] = await Promise.all([search.boundingBox(), category.boundingBox()]);
+    expect(Math.abs(fieldBox!.y - filterBox!.y)).toBeLessThan(8);
   });
 
-  test('the arrows turn the ring and open the next choice, the round back button returns to everything', async ({ page }) => {
-    await ring(page).getByRole('button', { name: t('EXPLORE_NEXT') }).click();
-    await expect(page).toHaveURL(/\/explore\?(hoy|pronto|tipo=|c=)/);
-    const name = await chosenName(page);
-    // The name shows once, under the ring; the page title is only for screen readers.
-    await expect(page.getByRole('heading', { level: 1, name })).toHaveClass(/sr-only/);
-    await expect(page.locator('[data-feed-page]').getByText(name, { exact: true }).and(page.locator(':not(.sr-only)'))).toHaveCount(1);
+  test('searching narrows the list and clearing brings everything back', async ({ page }) => {
+    const all = await page.locator('[data-feed-page] ul a').count();
+    const search = page.getByRole('combobox', { name: t('EXPLORE_SEARCH_LABEL') });
+    await search.fill('zzzznothinglikethis');
+    await search.press('Enter');
+    await expect(page).toHaveURL(/q=zzzznothinglikethis/);
+    await expect(page.locator('[data-feed-page] ul a')).toHaveCount(0);
 
-    // On a choice the ring holds only the choices; "everything" is the back button.
-    await expect(ring(page).getByRole('link', { name: t('EXPLORE_ALL') })).toHaveCount(1);
-    await ring(page).getByRole('link', { name: t('EXPLORE_ALL') }).click();
+    await page.getByRole('button', { name: t('EXPLORE_SEARCH_CLEAR') }).click();
     await expect(page).toHaveURL(/\/explore$/);
+    await expect(page.locator('[data-feed-page] ul a')).toHaveCount(all);
   });
 
-  test('scrolling down through a category and back up keeps the choice', async ({ page }) => {
-    await ring(page).getByRole('button', { name: t('EXPLORE_NEXT') }).click();
-    await expect(page).not.toHaveURL(/\/explore$/);
-    const url = page.url();
-    const name = await chosenName(page);
-
-    await page.mouse.wheel(0, 3000);
-    await page.mouse.wheel(0, -3000);
-    await expect(page).toHaveURL(url);
-    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-    expect(await chosenName(page)).toBe(name);
-  });
-
-  test('swiping the ring opens the choice that lands in the middle', async ({ page }) => {
-    const track = ring(page).locator('a').first().locator('..');
-    const step = await ring(page).locator('a').first().evaluate((link) => (link as HTMLElement).offsetWidth);
-    await track.evaluate((element, left) => element.scrollBy({ left, behavior: 'smooth' }), step);
-
-    await expect(page).not.toHaveURL(/\/explore$/);
-    expect(await chosenName(page)).not.toBe(t('EXPLORE_ALL'));
-  });
-
-  test('"See all" on a row opens that whole category', async ({ page }) => {
-    const row = page.locator('[data-feed-page] section').first();
-    const title = (await row.getByRole('heading', { level: 2 }).first().textContent())!.trim();
-    await row.getByRole('link', { name: t('EXPLORE_SEE_ALL') }).click();
-
-    await expect(page.getByRole('heading', { level: 1, name: title })).toHaveCount(1);
-    expect(await chosenName(page)).toBe(title);
+  test('older category links keep working', async ({ page }) => {
+    await page.goto('/explore?c=eventos');
+    await expect(page).toHaveURL(/\/explore\?(tipo|categoria)=eventos/);
   });
 });

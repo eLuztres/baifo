@@ -48,6 +48,7 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 - Use theme tokens only (`bg-background`, `bg-card`, `bg-muted`, `border-border`, `text-primary`, …). They come from `assets/styles/globals.css` and are overridden per shop via `BRAND_COLOR_*`.
 - No hardcoded colors like `bg-white/10`, `text-black`, or hex values in components. They break light or dark themes. Dark overlays on photos (`from-black/…`) are the exception.
 - Emails can't use CSS variables. Use `EMAIL_COLORS` from `lib/brand.ts`.
+- **Space is scarce, above all on phones.** Always look for a way to put buttons and filters on one line: a shorter word, the label only until something is chosen, an icon instead of text. Stacking them on several lines is the last resort. Never give a row of controls more lines than it needs.
 
 ## Checking front-end changes
 
