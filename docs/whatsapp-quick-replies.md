@@ -3,6 +3,18 @@
 Para guardar en WhatsApp Business → Herramientas para la empresa → Respuestas rápidas. El atajo va entre paréntesis.
 Cuando el anuncio esté hecho en el admin, **Lista: enviar a la persona** abre WhatsApp con el mensaje y su enlace privado.
 
+## Primer mensaje (`/bienvenida`)
+
+¡Hola! 😊 Qué alegría que quieras estar en Baifo.
+
+Es muy sencillo y no tienes que crear nada: mándame una descripción y hasta 8 fotos o vídeos, y yo me encargo de todo el anuncio. Si alguna foto no te convence o el fondo no queda bien, no pasa nada: puedo retocarla o quitarle el fondo, si tú quieres. El anuncio se traduce a 5 idiomas para que todo el mundo pueda leerlo.
+
+Solo necesito dos cosas:
+1️⃣ Tu OK para poner tu número de WhatsApp en el anuncio, para que quien lo vea te escriba directamente. Puedes quitarlo cuando quieras.
+2️⃣ 5 € por 1 mes online. Ahora, con la oferta especial de lanzamiento, son 3 meses por los mismos 5 €, contados desde el día en que se publica.
+
+¿Te parece bien? Un abrazo fuerte 🤗
+
 ## 0. Bienvenida (`/hola`)
 
 ¡Hola! 👋 Gracias por escribir a Baifo. ¿Qué quieres publicar?
