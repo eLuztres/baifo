@@ -106,10 +106,10 @@ export default function MercadilloRow({ label, name, heading, text, icon, href, 
 }
 
 /** A Mercadillo's round picture; a shop sign until it has one. */
-export function MercadilloIcon({ src, className }: { src: string | null; className?: string }) {
+export function MercadilloIcon({ src, sizes = '3rem', className }: { src: string | null; sizes?: string; className?: string }) {
   return (
     <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-primary', className)}>
-      {src ? <ProductMedia src={src} alt='' fill sizes='3rem' isStill /> : <Store className='size-1/2' aria-hidden />}
+      {src ? <ProductMedia src={src} alt='' fill sizes={sizes} isStill /> : <Store className='size-1/2' aria-hidden />}
     </span>
   );
 }

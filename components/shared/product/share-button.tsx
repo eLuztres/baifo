@@ -11,11 +11,13 @@ interface ShareButtonProps {
   title: string;
   /** What to share, e.g. "/explore?mercadillo=magma"; missing: this page. */
   path?: string;
+  /** A full button saying "Share", for where sharing is one of the main things to do. */
+  isLabeled?: boolean;
   className?: string;
 }
 
 /** Shares the page through the phone's share sheet (WhatsApp, …), or copies its link where there is none (most desktops). */
-export default function ShareButton({ title, path, className }: ShareButtonProps) {
+export default function ShareButton({ title, path, isLabeled, className }: ShareButtonProps) {
   const { t } = useI18n();
   const { toast } = useToast();
 
@@ -34,6 +36,14 @@ export default function ShareButton({ title, path, className }: ShareButtonProps
       toast({ variant: 'destructive', description: t('SHARE_FAILED') });
     }
   };
+
+  if (isLabeled) {
+    return (
+      <Button type='button' variant='outline' onClick={share} className={cn('h-11 rounded-full', className)}>
+        <Share2 /> {t('SHARE')}
+      </Button>
+    );
+  }
 
   return (
     <Button

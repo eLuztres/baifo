@@ -119,6 +119,8 @@ model Mercadillo {
   image       String?
   // The round picture next to its name, and what a shared link shows first.
   icon        String?
+  // Who to write to on WhatsApp, only with their OK to show it; empty: no contact button.
+  contactPhone String?
   sortOrder   Int          @default(0)
   createdAt   DateTime     @default(now()) @db.Timestamp(6)
   products    Product[]

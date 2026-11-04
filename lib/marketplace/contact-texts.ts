@@ -1,4 +1,4 @@
-import { localizeProduct } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/category';
 import { APP_NAME, SERVER_URL, type ListingType } from '@/lib/constants';
 import { getTranslator, type TranslationKey } from '@/lib/i18n';
 import { getShopLocale } from '@/lib/i18n-server';
@@ -27,4 +27,10 @@ export function getContactMessage(listing: ContactListing, sellerName?: string |
   const { name } = localizeProduct(listing, locale);
   const hello = sellerName ? t('CONTACT_MESSAGE_HELLO_NAME', { name: sellerName }) : t('CONTACT_MESSAGE_HELLO');
   return t(MESSAGE_KEYS[listing.type], { hello, name, shop: APP_NAME, url: `${SERVER_URL}/product/${listing.slug}` }).trimEnd() + ROOM_TO_TYPE;
+}
+
+/** The prefilled message to a Mercadillo, in the shop's language. */
+export function getMercadilloContactMessage(mercadillo: { name: unknown; slug: string }): string {
+  const locale = getShopLocale();
+  return getTranslator(locale)('MERCADILLO_CONTACT_MESSAGE', { name: localize(mercadillo.name, locale), shop: APP_NAME, url: `${SERVER_URL}/explore?mercadillo=${mercadillo.slug}` });
 }

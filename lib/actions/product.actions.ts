@@ -38,6 +38,16 @@ export async function getProductContact(productId: string) {
   return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
 }
 
+/** The WhatsApp link of a Mercadillo, under the same rules: fetched on a click and limited per IP. */
+export async function getMercadilloContact(mercadilloId: string) {
+  const id = z.string().uuid().safeParse(mercadilloId);
+  if (!id.success) return null;
+  if (await isRateLimited(CONTACT_LIMIT, clientIp(await headers()))) return { isRateLimited: true } as const;
+  const mercadillo = await prisma.mercadillo.findUnique({ where: { id: id.data }, select: { contactPhone: true } });
+  const digits = mercadillo?.contactPhone?.replace(/\D/g, '');
+  return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
+}
+
 // Get single product by it's ID
 export async function getProductById(productId: string) {
   // Only the admin form uses it, and it returns the seller's number: a server action is callable by anyone.

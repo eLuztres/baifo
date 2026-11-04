@@ -75,7 +75,14 @@ export const categorySchema = z.object({
 
 export const updateCategorySchema = categorySchema.extend({ id: idSchema });
 // A Mercadillo: the same name, text, picture and link name as a category, and its icon.
-export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, text: true, image: true }).extend({ icon: z.string().nullable() });
+export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, text: true, image: true }).extend({
+  icon: z.string().nullable(),
+  // Empty: no contact button.
+  contactPhone: z
+    .string()
+    .trim()
+    .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
+});
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 // A subcategory: only its name per language.
 export const subcategorySchema = z.object({ name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60) });

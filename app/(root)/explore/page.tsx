@@ -20,11 +20,13 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
+import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
 import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import MercadilloRow, { MercadilloIcon, MercadilloRowItem } from '@/components/shared/mercadillo-row';
+import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ShareButton from '@/components/shared/product/share-button';
 import PullUpHome from '@/components/shared/pull-up-home';
@@ -133,8 +135,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
   const inScope = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
-  // Without a picture of its own: not its first listing's, which comes right below.
-  const mercadilloPicture = chosenMercadillo && (chosenMercadillo.image ?? (inScope[1] ?? inScope[0])?.image);
   const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
   const types = chosenFilters.flatMap((filter) => filter.types);
   // A link can name a category that's gone; it counts as not chosen.
@@ -325,29 +325,47 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             </StickyFilterRow>
 
             {chosenMercadillo && (
-              <div className='grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-3xl border border-border bg-card p-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:p-4'>
+              <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
                 <PrepareSharePreview src={`/mercadillo/${chosenMercadillo.slug}/preview.jpg`} />
-                <div className='col-span-2 flex items-center gap-3 sm:col-span-1 sm:col-start-2'>
-                  {backToList}
-                  <MercadilloIcon src={chosenMercadillo.icon} className='size-11 sm:size-14' />
-                  <div className='min-w-0 flex-1'>
-                    <p className='text-xs font-medium uppercase tracking-wider text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
-                    <p className='truncate font-display text-2xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
+                {chosenMercadillo.image ? (
+                  <div aria-hidden className='absolute inset-0'>
+                    <ProductMedia src={chosenMercadillo.image} alt='' fill sizes='(min-width: 1280px) 80rem, 100vw' isStill />
+                    <div className='absolute inset-0 bg-gradient-to-b from-card/70 via-card/85 to-card' />
                   </div>
-                  <ShareButton title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })} path={`/explore?mercadillo=${chosenMercadillo.slug}`} />
-                </div>
-                {mercadilloPicture && (
-                  <div className='relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted sm:col-start-1 sm:row-span-2 sm:row-start-1'>
-                    <ProductMedia src={mercadilloPicture} alt='' fill sizes='(min-width: 640px) 11rem, 7rem' isStill />
-                  </div>
+                ) : (
+                  <div aria-hidden className='absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-primary/20 to-transparent' />
                 )}
-                <div className='space-y-2 sm:col-start-2'>
-                  <p className='max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base'>{localize(chosenMercadillo.text, locale)}</p>
-                  <p className='text-sm font-semibold text-primary sm:text-base'>
+                <div className='absolute left-4 top-4 z-10'>{backToList}</div>
+                <div className='relative flex flex-col items-center gap-4 sm:gap-5'>
+                  <MercadilloIcon
+                    src={chosenMercadillo.icon}
+                    sizes='(min-width: 640px) 11rem, 10rem'
+                    className='size-40 shadow-2xl shadow-primary/25 ring-4 ring-background sm:size-44'
+                  />
+                  <div className='space-y-1'>
+                    <p className='text-xs font-medium uppercase tracking-[0.25em] text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
+                    <p className='text-balance font-display text-5xl leading-none sm:text-6xl'>{localize(chosenMercadillo.name, locale)}</p>
+                  </div>
+                  <p className='max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:text-lg'>{localize(chosenMercadillo.text, locale)}</p>
+                  <p className='rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground'>
                     {inScope.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: inScope.length })}
                   </p>
+                  <div className='flex w-full max-w-md gap-3'>
+                    {/* In its own box, so its padding doesn't make it wider than the contact button. */}
+                    <div className='min-w-0 flex-1'>
+                      <ShareButton
+                        title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })}
+                        path={`/explore?mercadillo=${chosenMercadillo.slug}`}
+                        isLabeled
+                        className='w-full'
+                      />
+                    </div>
+                    {chosenMercadillo.contactPhone && (
+                      <ContactSellerButton mercadilloId={chosenMercadillo.id} message={getMercadilloContactMessage(chosenMercadillo)} className='min-w-0 flex-1' />
+                    )}
+                  </div>
                 </div>
-              </div>
+              </section>
             )}
 
             {shown.length === 0 ? (

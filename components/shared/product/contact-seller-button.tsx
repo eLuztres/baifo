@@ -4,12 +4,14 @@ import { useState, useTransition } from 'react';
 import { Loader2, MessageCircle } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
-import { getProductContact } from '@/lib/actions/product.actions';
+import { getMercadilloContact, getProductContact } from '@/lib/actions/product.actions';
 import { cn } from '@/lib/utils';
 import { whatsappAppUrl, whatsappLinkUrl, whatsappWebUrl } from '@/lib/whatsapp-chat';
 
 interface ContactSellerButtonProps {
-  productId: string;
+  /** The listing to contact; or `mercadilloId`, a Mercadillo. */
+  productId?: string;
+  mercadilloId?: string;
   /** The prefilled WhatsApp message, in the listing's language. */
   message: string;
   className?: string;
@@ -33,7 +35,7 @@ function openInApp(phone: string, message: string) {
 
 /** Classifieds: one tap opens WhatsApp with the message written.
     The seller's number is fetched on the tap, so it isn't in the page for scrapers. */
-export default function ContactSellerButton({ productId, message, className }: ContactSellerButtonProps) {
+export default function ContactSellerButton({ productId, mercadilloId, message, className }: ContactSellerButtonProps) {
   const { t } = useI18n();
   const [problem, setProblem] = useState<ContactProblem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -43,7 +45,7 @@ export default function ContactSellerButton({ productId, message, className }: C
     // Computers: opened inside the tap, because after waiting for the number browsers would block it as a pop-up.
     const chat = isOnPhone ? null : window.open('', WHATSAPP_TAB);
     startTransition(async () => {
-      const contact = await getProductContact(productId);
+      const contact = mercadilloId ? await getMercadilloContact(mercadilloId) : productId ? await getProductContact(productId) : null;
       if (!contact || 'isRateLimited' in contact) {
         chat?.close();
         setProblem(contact ? 'tooMany' : 'unavailable');

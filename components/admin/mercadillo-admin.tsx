@@ -30,6 +30,7 @@ export interface EditableMercadillo {
   text: LocalizedText;
   image: string | null;
   icon: string | null;
+  contactPhone: string | null;
   productCount: number;
 }
 
@@ -47,7 +48,7 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
   const { toast } = useToast();
   const form = useForm<z.infer<typeof mercadilloSchema>>({
     resolver: zodResolver(mercadilloSchema),
-    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, image: mercadillo?.image ?? null, icon: mercadillo?.icon ?? null },
+    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, image: mercadillo?.image ?? null, icon: mercadillo?.icon ?? null, contactPhone: mercadillo?.contactPhone ?? '' },
   });
   const fields = useGroupFields(form, { locales, group: mercadillo });
   const icon = form.watch('icon');
@@ -102,6 +103,20 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
                 </Button>
               )}
             </div>
+            <FormField
+              control={form.control}
+              name='contactPhone'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('MERCADILLO_CONTACT_PHONE')}</FormLabel>
+                  <FormControl>
+                    <Input type='tel' inputMode='tel' placeholder='+34 600 000 000' {...field} />
+                  </FormControl>
+                  <p className='text-xs text-muted-foreground'>{t('MERCADILLO_CONTACT_PHONE_HINT')}</p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='slug'
