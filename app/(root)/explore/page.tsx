@@ -158,8 +158,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     .filter(({ category, count }) => count > 0 || slugs.includes(category.slug))
     .sort((a, b) => b.count - a.count);
 
-  // From a Mercadillo's page, the listing's way back leads to that page.
-  const hrefOf = (listing: Listing) => `/product/${listing.slug}${chosenMercadillo ? `?mercadillo=${chosenMercadillo.slug}` : ''}`;
+  // A listing's way back returns to these same filters.
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
     const category = categoryById.get(listing.categoryIds[0]);

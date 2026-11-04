@@ -52,8 +52,8 @@ const getProduct = cache(
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
-  /** The store category the visitor is going through (`c`), for the next ring and the way back to it; `mercadillo` the Mercadillo's page they came from. */
-  searchParams: Promise<{ c?: string; mercadillo?: string }>;
+  /** The store category the visitor is going through (`c`), for the next ring; `from` the filters of the listings page they came from, for the way back. */
+  searchParams: Promise<{ c?: string; from?: string }>;
 }
 
 // "Second hand" only where the seller's condition says so: a new or handmade item must not be called used.
@@ -90,7 +90,7 @@ export async function generateMetadata(props: ProductPageProps) {
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
-  const [{ slug }, { c: categoryId, mercadillo: fromMercadillo }] = await Promise.all([props.params, props.searchParams]);
+  const [{ slug }, { c: categoryId, from: fromFilters }] = await Promise.all([props.params, props.searchParams]);
 
   // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
   const [product, session, { t, locale }, summaries, [ownRing], categories, placeIds] = await Promise.all([
@@ -140,12 +140,12 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const seller = product.submission && sellerIdentity(product.submission);
   const mercadilloName = product.mercadillo && localize(product.mercadillo.name, locale);
   const sellerMessage = hasSellerContact ? getContactMessage(product, seller?.name) : undefined;
-  // The category the visitor came through, else the listing's own: the strip and the way back open with it.
+  // The category the visitor came through, else the listing's own: the strip opens with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
     categories.find((category) => ownRing?.categoryIds.includes(category.id));
-  const categoryFeedHref = focusCategory ? `/explore?c=${focusCategory.slug}` : '/explore';
-  const feedHref = fromMercadillo && fromMercadillo === product.mercadillo?.slug ? `/explore?mercadillo=${fromMercadillo}` : categoryFeedHref;
+  // The way back restores the visitor's own filters: opening a listing never sets one.
+  const feedHref = fromFilters ? `/explore?${fromFilters}` : '/explore';
   // Phones put the description in a pop-up beside the contact button; without that row it stays on the page.
   const hasInfoRow = !isOver && (SHOWCASE_MODE || isService || isEvent);
   const phoneOnlyOnBig = hasInfoRow && 'max-sm:hidden';
@@ -188,7 +188,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         />
       ))}
       {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
-      {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
+      {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}${fromFilters ? `&from=${encodeURIComponent(fromFilters)}` : ''}`} />}
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}
