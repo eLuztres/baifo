@@ -13,8 +13,9 @@ import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME, LISTING_TYPE_KEYS, LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, type ListingType } from '@/lib/constants';
+import { APP_NAME, LISTING_TYPE_KEYS, listingTypeOf, type ListingType } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
+import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
@@ -35,6 +36,13 @@ type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
 
 // A suggestion only needs the start of a long description.
 const SUGGESTION_TEXT_LENGTH = 400;
+
+// The three things a listing can be. Services count as offers; the first param is the link's, older links keep working.
+const TYPE_FILTERS: { params: string[]; labelKey: TranslationKey; types: ListingType[] }[] = [
+  { params: ['ofrezco', 'productos', 'servicios'], labelKey: 'EXPLORE_TYPE_OFFER', types: ['PRODUCT', 'SERVICE'] },
+  { params: ['busco'], labelKey: 'EXPLORE_TYPE_WANTED', types: ['WANTED'] },
+  { params: ['eventos'], labelKey: 'EXPLORE_TYPE_EVENT', types: ['EVENT'] },
+];
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -89,7 +97,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   const words = queryWords(q);
   const found = words.length > 0 ? mainMatches(listings, searchTextOf, words) : listings;
-  const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
+  const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
+  const types = chosenFilters.flatMap((filter) => filter.types);
   // A link can name a category that's gone; it counts as not chosen.
   const slugs = listParam(categoria).filter((slug) => categories.some((category) => category.slug === slug));
   const ofType = types.length ? found.filter((listing) => types.includes(listing.type)) : found;
@@ -115,13 +124,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     };
   });
   const searchChoices: SearchChoice[] = [
-    ...LISTING_TYPES.map((type) => ({ type, count: listings.filter((listing) => listing.type === type).length }))
+    ...TYPE_FILTERS.map((filter) => ({ filter, count: listings.filter((listing) => filter.types.includes(listing.type)).length }))
       .filter(({ count }) => count > 0)
-      .map(({ type, count }) => ({
-        href: `/explore?tipo=${LISTING_TYPE_PARAMS[type]}`,
-        label: t(LISTING_TYPE_KEYS[type]),
+      .map(({ filter, count }) => ({
+        href: `/explore?tipo=${filter.params[0]}`,
+        label: t(filter.labelKey),
         count,
-        text: { names: foldText(t(LISTING_TYPE_KEYS[type])), rest: '' },
+        text: { names: foldText(t(filter.labelKey)), rest: '' },
       })),
     ...categories
       .map((category) => ({ category, inIt: listings.filter((listing) => listing.categoryIds.includes(category.id)) }))
@@ -202,18 +211,20 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
             <StickyFilterRow className='group flex gap-2'>
               <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
-              <div className='flex min-w-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
+              <div className='flex shrink-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
                 <FilterDropdown
                   label={texts.typeFilter}
                   allLabel={texts.all}
                   param='tipo'
-                  options={LISTING_TYPES.map((value) => ({
-                    value: LISTING_TYPE_PARAMS[value],
-                    label: t(LISTING_TYPE_KEYS[value]),
-                    count: found.filter((listing) => listing.type === value).length,
-                  })).filter((option) => option.count > 0 || types.some((value) => LISTING_TYPE_PARAMS[value] === option.value))}
-                  selected={types.map((value) => LISTING_TYPE_PARAMS[value])}
+                  options={TYPE_FILTERS.map((filter) => ({
+                    value: filter.params[0],
+                    label: t(filter.labelKey),
+                    count: found.filter((listing) => filter.types.includes(listing.type)).length,
+                  })).filter((option) => option.count > 0 || chosenFilters.some((filter) => filter.params[0] === option.value))}
+                  selected={chosenFilters.map((filter) => filter.params[0])}
                   isCompact
+                  isSingleChoice
+                  className='w-24 sm:w-40 lg:w-44'
                 />
                 <FilterDropdown
                   label={t('SEARCH_CATEGORY')}
@@ -222,6 +233,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   options={filled.map(({ category, count }) => ({ value: category.slug, label: localize(category.name, locale), count }))}
                   selected={slugs}
                   isCompact
+                  isSingleChoice
+                  className='w-26 sm:w-60 lg:w-76'
                 />
               </div>
             </StickyFilterRow>

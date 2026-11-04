@@ -24,12 +24,16 @@ interface FilterDropdownProps {
   param: string;
   options: FilterOption[];
   selected: string[];
-  /** Phones: only the choice, or the label while nothing is chosen, so a row of filters fits on one line. */
+  /** Only the choice once there is one and, on phones, only the label until then, so a row of filters fits on one line. */
   isCompact?: boolean;
+  /** One choice at a time: a tap chooses it and closes the menu; tapping the chosen one undoes it. */
+  isSingleChoice?: boolean;
+  /** Sets the button's width, so it stays the same whatever is chosen. */
+  className?: string;
 }
 
 /** A multi-select filter kept in the page's link; nothing chosen means all. */
-const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInLink, isCompact }: FilterDropdownProps) => {
+const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInLink, isCompact, isSingleChoice, className }: FilterDropdownProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -46,7 +50,7 @@ const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInL
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
   const toggle = (value: string) =>
-    choose(selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]);
+    choose(selected.includes(value) ? selected.filter((item) => item !== value) : isSingleChoice ? [value] : [...selected, value]);
 
   const summary =
     selected.length === 0
@@ -61,16 +65,17 @@ const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInL
         className={cn(
           'flex max-w-full items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm transition hover:border-primary/50 data-[state=open]:border-primary',
           selected.length ? 'border-primary/60 bg-primary/10' : 'border-border bg-card',
-          isCompact && 'min-w-0 max-sm:gap-1 max-sm:px-3'
+          isCompact && 'min-w-0 max-sm:gap-1 max-sm:px-2.5',
+          className
         )}
       >
-        <span className={cn('text-muted-foreground', isCompact && selected.length > 0 && 'max-sm:sr-only')}>{label}</span>
+        <span className={cn('text-muted-foreground', isCompact && selected.length > 0 && 'sr-only')}>{label}</span>
         <span className={cn('truncate font-medium', isCompact && selected.length === 0 && 'max-sm:hidden')}>{summary}</span>
-        <ChevronDown className='size-4 shrink-0 text-muted-foreground' />
+        <ChevronDown className='ml-auto size-4 shrink-0 text-muted-foreground' />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start' className='min-w-56 rounded-2xl p-1.5'>
         {/* Several choices stay open: the menu closes on a tap outside. */}
-        <DropdownMenuCheckboxItem checked={selected.length === 0} onSelect={(event) => { event.preventDefault(); choose([]); }} className='rounded-xl'>
+        <DropdownMenuCheckboxItem checked={selected.length === 0} onSelect={(event) => { if (!isSingleChoice) event.preventDefault(); choose([]); }} className='rounded-xl'>
           {allLabel}
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
@@ -79,7 +84,7 @@ const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInL
             key={option.value}
             checked={selected.includes(option.value)}
             onSelect={(event) => {
-              event.preventDefault();
+              if (!isSingleChoice) event.preventDefault();
               toggle(option.value);
             }}
             className='rounded-xl'
