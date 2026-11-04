@@ -80,7 +80,8 @@ const RING_SELECT = {
   serviceType: true,
   startsAt: true,
   placeId: true,
-  categories: { select: { id: true } },
+  // The shop's order: the first one sorts a listing in the feed and labels it in the search.
+  categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
   expiresAt: true,
   submission: { select: { rawImages: true, expiresAt: true } },
 } satisfies Prisma.ProductSelect;
@@ -164,7 +165,7 @@ export async function getRingSummaries(): Promise<RingSummary[]> {
   const products = await prisma.product.findMany({
     where: inStockWhere(),
     orderBy: PAGE_ORDER,
-    select: { id: true, slug: true, createdAt: true, placeId: true, categories: { select: { id: true } } },
+    select: { id: true, slug: true, createdAt: true, placeId: true, categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
   });
   return products.map(({ categories, ...product }) => ({ ...product, categoryIds: categories.map((category) => category.id) }));
 }

@@ -336,8 +336,8 @@ model Submission {
   description       String?
   // Title, description and short title in the shop's other languages: { "en": { "title": "…", "description": "…", "short": "…" } }.
   translations      Json             @default("{}")
-  // The store category's slug, as the AI recognized it or the admin chose it.
-  category          String?
+  // The store categories' slugs: the one the AI recognized, or the ones the admin chose.
+  categories        String[]         @default([])
   // How the item is, as the AI saw it (PRODUCT_CONDITIONS); the product takes it over.
   condition         String?
   price             Decimal?         @db.Decimal(12, 2)

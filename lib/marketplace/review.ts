@@ -2,7 +2,7 @@ import type { Seller, Submission } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import { formatCurrency } from '@/lib/utils';
 import { sendButtons, sendText } from '@/lib/whatsapp-cloud/client';
-import { categoryName, findCategory, getListingCategories } from './catalog';
+import { categoryName, findCategories, findCategory, getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, HOUSE_SELLER, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { markSent } from './listing-payment';
@@ -43,7 +43,7 @@ type SubmissionWithSeller = Submission & { seller: Seller };
 export async function sendForReview(submission: SubmissionWithSeller) {
   const reviewer = ADMIN_WHATSAPP_NUMBER;
   if (!reviewer) throw new Error('ADMIN_WHATSAPP_NUMBER is missing in .env');
-  const category = categoryName(findCategory(await getListingCategories(), submission.category), 'es');
+  const category = findCategories(await getListingCategories(), submission.categories).map((item) => categoryName(item, 'es')).join(', ');
   const buttons = [
     { id: `approve:${submission.id}`, title: '✅ Aprobar' },
     { id: `edit:${submission.id}`, title: '✏️ Editar' },
@@ -176,7 +176,7 @@ export async function handleAdminText(text: string, adminWaId: string) {
   }
   const updated = await prisma.submission.update({
     where: { id: submission.id },
-    data: { [edit.field]: value },
+    data: edit.field === 'category' ? { categories: [value] } : { [edit.field]: value },
     include: { seller: true },
   });
   return sendForReview(updated);

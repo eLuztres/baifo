@@ -103,7 +103,7 @@ export async function updateCategory(data: z.infer<typeof updateCategorySchema>)
     const { id, ...category } = updateCategorySchema.parse(data);
     const before = await prisma.category.findUnique({
       where: { id },
-      select: { scene: true, sceneVariants: true, products: { select: { id: true } } },
+      select: { scene: true, sceneVariants: true, products: { select: { id: true, categories: { orderBy: { sortOrder: 'asc' }, take: 1, select: { id: true } } } } },
     });
     if (!before) return { success: false, message: 'ERROR_NOT_FOUND' satisfies TranslationKey };
 
@@ -115,7 +115,8 @@ export async function updateCategory(data: z.infer<typeof updateCategorySchema>)
     return {
       success: true,
       message: 'CATEGORY_UPDATED' satisfies TranslationKey,
-      ringIds: isSceneChanged ? before.products.map((product) => product.id) : [],
+      // A picture takes the scene of its first category, so only those rings change.
+      ringIds: isSceneChanged ? before.products.filter((product) => product.categories[0]?.id === id).map((product) => product.id) : [],
     };
   } catch (error) {
     return { success: false, message: formatError(error) };

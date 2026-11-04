@@ -67,7 +67,7 @@ describe('category actions', () => {
 
   it('returns the rings to redo only when the scene changed', async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    db.findUnique.mockResolvedValue({ ...CATEGORY, products: [{ id: 'p1' }, { id: 'p2' }] });
+    db.findUnique.mockResolvedValue({ ...CATEGORY, products: [{ id: 'p1', categories: [{ id: CATEGORY_ID }] }, { id: 'p2', categories: [{ id: CATEGORY_ID }] }, { id: 'p3', categories: [{ id: 'first-elsewhere' }] }] });
 
     const sameScene = await updateCategory({ ...CATEGORY, id: CATEGORY_ID, name: { es: 'Carbono puro' } });
     expect(sameScene).toMatchObject({ success: true, ringIds: [] });

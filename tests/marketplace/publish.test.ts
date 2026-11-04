@@ -35,7 +35,7 @@ const SUBMISSION = {
   title: 'Bici de paseo',
   description: 'Bici cómoda.',
   translations: { en: { title: 'City bike', description: 'Comfy bike.' } },
-  category: 'bicis',
+  categories: ['bicis'],
   price: '70.00',
   images: ['https://utfs.io/f/bike.jpg'],
   rawImages: [],

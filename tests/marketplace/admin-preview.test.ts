@@ -15,7 +15,7 @@ const LISTING = {
   shortTitle: 'Guitarra',
   description: 'Bastante usada.',
   translations: { en: { title: 'Classical guitar', description: 'Well used.' } },
-  category: 'musica',
+  categories: ['musica'],
   images: ['https://x.ufs.sh/f/guitar.jpg'],
   rawImages: [],
   price: { toString: () => '40' },

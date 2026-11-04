@@ -34,6 +34,15 @@ export function findCategory<T extends { slug: string; name: unknown }>(categori
   );
 }
 
+/** The categories the values stand for, in the shop's order; the first gives a listing's category text. */
+export const findCategories = <T extends { slug: string; name: unknown }>(categories: T[], values: string[]) =>
+  categories.filter((category) => values.some((value) => findCategory([category], value)));
+
+/** What a product in several categories is linked to; a parent can come up twice. */
+export const allCategoryRefs = (categories: { id: string; parentId: string | null }[]) => [
+  ...new Map(categories.flatMap(categoryRefs).map((ref) => [ref.id, ref])).values(),
+];
+
 /** The category's name in a language, for the product's own category text and the admin's messages. */
 export const categoryName = (category: { name: unknown } | undefined, locale: Locale) => (category ? localize(category.name, locale) : '');
 

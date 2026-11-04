@@ -1,4 +1,4 @@
-import { categoryRefs, findCategory, toProductTranslations } from '@/lib/marketplace/catalog';
+import { allCategoryRefs, categoryRefs, findCategories, findCategory, toProductTranslations } from '@/lib/marketplace/catalog';
 import { correctText, translateText, writeListing } from '@/lib/marketplace/ai';
 import { draftText } from '@/lib/studio/openai.mjs';
 
@@ -223,6 +223,17 @@ describe('translateText', () => {
   it('asks nothing when the shop has no other language', async () => {
     expect(await translateText(TEXTS.es, 'es', [])).toEqual({});
     expect(draft).not.toHaveBeenCalled();
+  });
+});
+
+describe('several categories', () => {
+  it("finds them in the shop's order and drops the unknown", () => {
+    const shop = [{ slug: 'hogar', name: {} }, { slug: 'ocio', name: {} }, { slug: 'cultura', name: {} }];
+    expect(findCategories(shop, ['cultura', 'gone', 'hogar']).map((category) => category.slug)).toEqual(['hogar', 'cultura']);
+  });
+
+  it('links a parent once, even when it and its subcategory are both chosen', () => {
+    expect(allCategoryRefs([{ id: 'p1', parentId: null }, { id: 's1', parentId: 'p1' }])).toEqual([{ id: 'p1' }, { id: 's1' }]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import ListingWorkspace from '@/components/marketplace/listing-workspace';
 import { localize } from '@/lib/category';
+import { MAX_LISTING_CATEGORIES } from '@/lib/constants';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
 import { getAdminListing } from '@/lib/marketplace/admin.actions';
@@ -35,6 +36,7 @@ export default async function AdminListingWorkspace({ id, locale, texts }: Admin
         languages={languages}
         shopLanguage={languageOf(shopLocale)}
         listingDays={LISTING_DAYS}
+        maxCategories={MAX_LISTING_CATEGORIES}
         texts={texts}
       />
     </>

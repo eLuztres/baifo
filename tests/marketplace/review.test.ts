@@ -3,7 +3,7 @@ import { handleAdminText, handleReviewButton } from '@/lib/marketplace/review';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn(), sendButtons: jest.fn() }));
-jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => []), findCategory: jest.fn(), categoryName: jest.fn(() => '') }));
+jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => []), findCategory: jest.fn(), findCategories: jest.fn(() => []), categoryName: jest.fn(() => '') }));
 jest.mock('@/db/prisma', () => ({
   prisma: { submission: { findFirst: jest.fn(), update: jest.fn(), updateMany: jest.fn(), count: jest.fn(async () => 0) } },
 }));

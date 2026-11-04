@@ -44,6 +44,7 @@ const db = (prisma as unknown as { submission: Record<'findUnique' | 'update' | 
 const WANTED = {
   id: 'sub-1',
   status: 'PROCESSING',
+  categories: [] as string[],
   mediaIds: [],
   rawImages: [],
   images: [],
@@ -194,7 +195,7 @@ describe('processSubmission without a photo', () => {
     await processSubmission('sub-1');
 
     expect((writeListing as jest.Mock).mock.calls.at(-1)[4]).toBe('PRODUCT');
-    expect(textUpdate()).toMatchObject({ type: 'SERVICE', category: 'deporte', priceMode: 'FROM', startsAt: null });
+    expect(textUpdate()).toMatchObject({ type: 'SERVICE', categories: ['deporte'], priceMode: 'FROM', startsAt: null });
   });
 
   it('still refuses a WhatsApp item for sale without a photo', async () => {

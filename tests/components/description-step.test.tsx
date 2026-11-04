@@ -40,6 +40,7 @@ const listing = {
   id: 'abc',
   type: 'PRODUCT',
   status: 'COLLECTING',
+  categories: [],
   rawText: '',
   textMode: 'ai',
   originalTitle: null,
@@ -57,7 +58,7 @@ const listing = {
 } as unknown as AdminListing;
 
 // "Crear descripción" already ran.
-const drafted = { ...listing, rawText: 'Bici, 80€', category: 'hogar', title: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { title: 'City bike', description: 'Comfy bike.' } } } as AdminListing;
+const drafted = { ...listing, rawText: 'Bici, 80€', categories: ['hogar'], title: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { title: 'City bike', description: 'Comfy bike.' } } } as AdminListing;
 
 // The workspace's step bar, as plain buttons.
 function Steps({ shown = listing }: { shown?: AdminListing }) {
@@ -75,8 +76,10 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         categories={[
           { slug: 'musica', name: 'Música' },
           { slug: 'hogar', name: 'Hogar' },
+          { slug: 'deporte', name: 'Deporte' },
         ]}
         listingDays={90}
+        maxCategories={2}
         texts={texts}
         onSent={jest.fn()}
         step={step}
@@ -124,7 +127,7 @@ describe('DescriptionStep', () => {
   it('publishes the admin\'s own texts, letting the AI translate only the languages left empty', async () => {
     (translateListingText as jest.Mock).mockResolvedValue({ success: true, translations: { en: { title: 'My bike', description: 'Comfy bike.' } } });
     mockDescribe.mockResolvedValue({ success: true });
-    renderStep({ ...listing, category: 'hogar' } as AdminListing);
+    renderStep({ ...listing, categories: ['hogar'] } as AdminListing);
 
     fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'Mi bici' } });
     fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici cómoda.' } });
@@ -136,7 +139,7 @@ describe('DescriptionStep', () => {
     expect(mockDraft).not.toHaveBeenCalled();
     expect(mockDescribe).toHaveBeenCalledWith(
       'abc',
-      expect.objectContaining({ texts: { es: { title: 'Mi bici', description: 'Bici cómoda.' }, en: { title: 'My bike', description: 'Comfy bike.' } }, category: 'hogar' })
+      expect.objectContaining({ texts: { es: { title: 'Mi bici', description: 'Bici cómoda.' }, en: { title: 'My bike', description: 'Comfy bike.' } }, categories: ['hogar'] })
     );
   });
 
@@ -149,7 +152,7 @@ describe('DescriptionStep', () => {
     fillContact();
     fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
-    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ category: 'hogar', texts: expect.objectContaining({ en: { title: 'Bike', description: 'Comfy.' } }) })));
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ categories: ['hogar'], texts: expect.objectContaining({ en: { title: 'Bike', description: 'Comfy.' } }) })));
   });
 
   it('corrects by default, writes every language on "Crear descripción", and takes the price the AI read', async () => {
@@ -168,19 +171,23 @@ describe('DescriptionStep', () => {
     expect(screen.getByLabelText('titleLabel')).toHaveValue('Bike');
   });
 
-  it('takes the category the AI chose into an empty field, lets the admin change it, and publishes it', async () => {
+  it('takes the category the AI chose into an empty field, lets the admin add another, and publishes both', async () => {
     mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Pedal', description: 'Pedal de loops.' }, en: { title: 'Pedal', description: 'Loop pedal.' } }, category: 'musica' });
     mockDescribe.mockResolvedValue({ success: true });
     renderStep();
 
     fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'pedal looper' } });
     fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
-    await waitFor(() => expect(screen.getByLabelText('categoryLabel')).toHaveValue('musica'));
-    fireEvent.change(screen.getByLabelText('categoryLabel'), { target: { value: 'hogar' } });
+    await waitFor(() => expect(screen.getByLabelText('categoryLabel')).toHaveTextContent('Música'));
+    fireEvent.keyDown(screen.getByLabelText('categoryLabel'), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Hogar' }));
+    // The limit is reached: the rest can't be ticked until one is taken off.
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Deporte' })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fillContact();
     fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
-    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ category: 'hogar' })));
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ categories: ['musica', 'hogar'] })));
   });
 
   it('publishes the texts as edited, with the number, the name, the OK and the price', async () => {
@@ -377,7 +384,7 @@ describe('DescriptionStep', () => {
       fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
 
       await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/product/vista-abc'));
-      expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici azul', category: 'hogar', sellerPhone: '+34612345678' }));
+      expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici azul', categories: ['hogar'], sellerPhone: '+34612345678' }));
       expect(updateAdminListing).not.toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: expect.anything() }));
       expect(hideAdminListing).toHaveBeenCalledWith('abc');
     });

@@ -137,7 +137,8 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
       description: own?.description,
       translations: others,
       textVersions: { [submission.textMode]: text.texts },
-      category: text.category,
+      // What the admin chose stays: writing the text again must not take a listing out of them.
+      categories: submission.categories.length > 0 ? submission.categories : [text.category],
       type,
       placeId,
       price,

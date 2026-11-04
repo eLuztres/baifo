@@ -23,13 +23,15 @@ interface ListingWorkspaceProps {
   shopLanguage: EditorLanguage;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
+  /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
+  maxCategories: number;
   texts: AdminTexts;
 }
 
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -124,6 +126,7 @@ export default function ListingWorkspace({ initial, categories, languages, shopL
         shopLanguage={shopLanguage}
         categories={categories}
         listingDays={listingDays}
+        maxCategories={maxCategories}
         texts={texts}
         onSent={(next, forPerson = false) => {
           setListing(next);

@@ -5,13 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { LISTING_TYPES, PRICE_MODES } from '@/lib/constants';
+import { LISTING_TYPES, MAX_LISTING_CATEGORIES, PRICE_MODES } from '@/lib/constants';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
 import { sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
-import { categoryName, categoryRefs, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
+import { allCategoryRefs, categoryName, categoryRefs, findCategories, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
 import { getDefaultPlaceId } from '@/lib/places';
 import { loadAddresses } from './address-search';
@@ -150,7 +150,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
       price: written.price?.toString() ?? null,
       startsAt: written.startsAt ? toShopDateTime(written.startsAt) : null,
       address: written.address,
-      category: written.category,
+      category: written.categories[0],
     };
   } catch (error) {
     console.error(`Text of listing ${id} not written`, error);
@@ -176,8 +176,8 @@ const descriptionSchema = z.object({
   price: amountSchema,
   startsAt: eventStartSchema,
   address: eventAddressSchema,
-  // The category's slug as the admin left it (the AI's choice, maybe changed).
-  category: z.string().trim().max(60).optional(),
+  // The categories' slugs as the admin left them (the AI's choice, maybe changed).
+  categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES).default([]),
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
   isHidden: z.boolean().default(false),
   onlineUntil: z
@@ -194,7 +194,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, category: categorySlug, isHidden, onlineUntil } =
+  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
@@ -209,8 +209,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // An event goes online only with its date (a database rule too).
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
-  const category = categorySlug ? findCategory(await getListingCategories(), categorySlug) : undefined;
-  if (!category) return { success: false, message: 'Elige una de las categorías' };
+  const categories = findCategories(await getListingCategories(), categorySlugs);
+  if (categories.length === 0) return { success: false, message: 'Elige una de las categorías' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
   if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
@@ -236,7 +236,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
-      category: category.slug,
+      categories: categories.map((category) => category.slug),
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
@@ -281,7 +281,7 @@ const editSchema = z.object({
   description: z.string().trim().max(3000),
   // The other shop languages; the shop language's text is title and description.
   translations: z.record(z.string(), textSchema),
-  category: z.string().trim().max(60),
+  categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES),
   // How the price reads; an event always has a set entry (0: free).
   priceMode: z.enum(PRICE_MODES).optional(),
   // Empty: none, only right with "no price".
@@ -334,8 +334,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   if (priceMode !== 'NONE' && !parsed.data.price) return { success: false, message: 'Escribe el precio o elige «Sin precio»' };
   if (isEvent && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
-  const category = findCategory(await getListingCategories(), parsed.data.category);
-  if (!category) return { success: false, message: 'Elige una de las categorías' };
+  const categories = findCategories(await getListingCategories(), parsed.data.categories);
+  if (categories.length === 0) return { success: false, message: 'Elige una de las categorías' };
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
@@ -367,7 +367,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, translations, category: category.slug, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, translations, categories: categories.map((category) => category.slug), textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
@@ -388,8 +388,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         priceMode,
         images,
         placeId,
-        category: categoryName(category, getShopLocale()),
-        categories: { set: categoryRefs(category) },
+        category: categoryName(categories[0], getShopLocale()),
+        categories: { set: allCategoryRefs(categories) },
       },
     });
     revalidatePath('/');
@@ -455,7 +455,7 @@ export async function setAdminListingCategory(id: string, slug: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const category = findCategory(await getListingCategories(), slug);
   if (!category) return { success: false, message: 'Elige una de las categorías' };
-  const submission = await prisma.submission.update({ where: { id }, data: { category: category.slug } });
+  const submission = await prisma.submission.update({ where: { id }, data: { categories: [category.slug] } });
   if (submission.productId) {
     await prisma.product.update({
       where: { id: submission.productId },
