@@ -8,6 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import CorralHostsButton from '@/components/shared/home/corral-hosts-button';
 import { getCorralHosts } from '@/components/shared/home/corral-hosts';
 import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
+import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { getStoreCategories } from '@/lib/actions/category.actions';
 import { BRAND } from '@/lib/brand';
@@ -17,6 +18,7 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
+import SettleIntoView from '@/components/shared/settle-into-view';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import PullUpHome from '@/components/shared/pull-up-home';
@@ -202,44 +204,47 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : (
         <>
-          {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
-          <StickyFilterRow className='group flex gap-2'>
-            <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
-            <div className='flex min-w-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
-              <FilterDropdown
-                label={texts.typeFilter}
-                allLabel={texts.all}
-                param='tipo'
-                options={LISTING_TYPES.map((value) => ({
-                  value: LISTING_TYPE_PARAMS[value],
-                  label: t(LISTING_TYPE_KEYS[value]),
-                  count: found.filter((listing) => listing.type === value).length,
-                })).filter((option) => option.count > 0 || types.some((value) => LISTING_TYPE_PARAMS[value] === option.value))}
-                selected={types.map((value) => LISTING_TYPE_PARAMS[value])}
-                isCompact
-              />
-              <FilterDropdown
-                label={t('SEARCH_CATEGORY')}
-                allLabel={t('SEARCH_ANY')}
-                param='categoria'
-                options={filled.map(({ category, count }) => ({ value: category.slug, label: localize(category.name, locale), count }))}
-                selected={slugs}
-                isCompact
-              />
-            </div>
-          </StickyFilterRow>
+          {/* Its own box, so the search row stops following at the list's end and never covers what comes after. */}
+          <div className='space-y-5 sm:space-y-8'>
+            {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
+            <StickyFilterRow className='group flex gap-2'>
+              <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
+              <div className='flex min-w-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
+                <FilterDropdown
+                  label={texts.typeFilter}
+                  allLabel={texts.all}
+                  param='tipo'
+                  options={LISTING_TYPES.map((value) => ({
+                    value: LISTING_TYPE_PARAMS[value],
+                    label: t(LISTING_TYPE_KEYS[value]),
+                    count: found.filter((listing) => listing.type === value).length,
+                  })).filter((option) => option.count > 0 || types.some((value) => LISTING_TYPE_PARAMS[value] === option.value))}
+                  selected={types.map((value) => LISTING_TYPE_PARAMS[value])}
+                  isCompact
+                />
+                <FilterDropdown
+                  label={t('SEARCH_CATEGORY')}
+                  allLabel={t('SEARCH_ANY')}
+                  param='categoria'
+                  options={filled.map(({ category, count }) => ({ value: category.slug, label: localize(category.name, locale), count }))}
+                  selected={slugs}
+                  isCompact
+                />
+              </div>
+            </StickyFilterRow>
 
-          {shown.length === 0 ? (
-            <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>
-              {words.length > 0 ? t('EXPLORE_SEARCH_NONE', { query: q.trim() }) : texts.empty}
-            </p>
-          ) : (
-            <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
-              {shown.map((listing) => (
-                <li key={listing.id}>{renderCard(listing)}</li>
-              ))}
-            </ul>
-          )}
+            {shown.length === 0 ? (
+              <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>
+                {words.length > 0 ? t('EXPLORE_SEARCH_NONE', { query: q.trim() }) : texts.empty}
+              </p>
+            ) : (
+              <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
+                {shown.map((listing) => (
+                  <li key={listing.id}>{renderCard(listing)}</li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {/* A clear end instead of a void, with an invitation to sell or offer something. */}
           <div className='flex flex-col items-center gap-3 py-12 text-center sm:py-16'>
@@ -259,6 +264,10 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               </Button>
             )}
           </div>
+
+          <SettleIntoView>
+            <WorkshopSection />
+          </SettleIntoView>
         </>
       )}
     </div>
