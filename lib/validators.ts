@@ -74,8 +74,8 @@ export const categorySchema = z.object({
 });
 
 export const updateCategorySchema = categorySchema.extend({ id: idSchema });
-// A Mercadillo: the same name, text and link name as a category.
-export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, text: true });
+// A Mercadillo: the same name, text, picture and link name as a category, and its icon.
+export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, text: true, image: true }).extend({ icon: z.string().nullable() });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 // A subcategory: only its name per language.
 export const subcategorySchema = z.object({ name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60) });

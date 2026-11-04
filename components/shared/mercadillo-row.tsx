@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import ProductMedia from '@/components/ProductMedia';
+import ShareButton from '@/components/shared/product/share-button';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -10,9 +12,14 @@ import { cn } from '@/lib/utils';
 const ROW_CARD_CLASS = 'w-[62%] shrink-0 sm:w-[38%] md:w-[27%] xl:w-[19%]';
 
 interface MercadilloRowProps {
+  /** "Mercadillo", above its name. */
+  label: string;
+  name: string;
+  /** The two together, for the share sheet and screen readers. */
   heading: string;
   /** Its few words, under the heading. */
   text: string;
+  icon: string | null;
   /** Where the heading leads: all of its listings. */
   href: string;
   seeAllLabel: string;
@@ -26,7 +33,7 @@ interface MercadilloRowProps {
 
 /** One Mercadillo in a line of its own, built like Amazon's rows: a heading that leads to all of it, then the cards,
     moved by swiping or, with a mouse, by page with the arrows on both sides. */
-export default function MercadilloRow({ heading, text, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
+export default function MercadilloRow({ label, name, heading, text, icon, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
   const scroller = useRef<HTMLUListElement>(null);
   const [position, setPosition] = useState({ page: 1, pages: 1, canGoBack: false, canGoNext: false });
 
@@ -53,17 +60,24 @@ export default function MercadilloRow({ heading, text, href, seeAllLabel, pageLa
   return (
     <section aria-label={heading} className='space-y-3 border-y border-border py-4 sm:space-y-4 sm:py-6'>
       <div className='space-y-1 px-1'>
-        <div className='flex items-baseline justify-between gap-3'>
-          <Link href={href} className='group flex min-w-0 items-baseline gap-2'>
-            <h2 className='truncate font-display text-xl leading-tight group-hover:underline sm:text-3xl'>{heading}</h2>
-            <span className='hidden shrink-0 text-sm text-primary sm:inline'>{seeAllLabel}</span>
+        <div className='flex items-center justify-between gap-3'>
+          <Link href={href} className='group flex min-w-0 items-center gap-2 sm:gap-3'>
+            <MercadilloIcon src={icon} className='size-10 sm:size-12' />
+            <span className='min-w-0'>
+              <span className='block text-xs font-medium uppercase tracking-wider text-primary'>{label}</span>
+              <h2 className='truncate font-display text-2xl leading-tight group-hover:underline sm:text-3xl'>{name}</h2>
+            </span>
+            <span className='hidden shrink-0 self-end pb-1 text-sm text-primary sm:inline'>{seeAllLabel}</span>
             <ArrowRight className='size-5 shrink-0 self-center sm:hidden' aria-label={seeAllLabel} />
           </Link>
-          {hasPages && (
-            <p className='hidden shrink-0 text-sm text-muted-foreground tabular-nums sm:block'>
-              {pageLabel.replace('{page}', String(position.page)).replace('{pages}', String(position.pages))}
-            </p>
-          )}
+          <div className='flex shrink-0 items-center gap-2'>
+            {hasPages && (
+              <p className='hidden shrink-0 text-sm text-muted-foreground tabular-nums sm:block'>
+                {pageLabel.replace('{page}', String(position.page)).replace('{pages}', String(position.pages))}
+              </p>
+            )}
+            <ShareButton title={heading} path={href} />
+          </div>
         </div>
         {text && <p className='line-clamp-3 max-w-3xl text-sm text-muted-foreground'>{text}</p>}
       </div>
@@ -88,6 +102,15 @@ export default function MercadilloRow({ heading, text, href, seeAllLabel, pageLa
         )}
       </div>
     </section>
+  );
+}
+
+/** A Mercadillo's round picture; a shop sign until it has one. */
+export function MercadilloIcon({ src, className }: { src: string | null; className?: string }) {
+  return (
+    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-primary', className)}>
+      {src ? <ProductMedia src={src} alt='' fill sizes='3rem' isStill /> : <Store className='size-1/2' aria-hidden />}
+    </span>
   );
 }
 

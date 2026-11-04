@@ -9,17 +9,19 @@ import { cn } from '@/lib/utils';
 interface ShareButtonProps {
   /** The product's or service's name, shown in the share sheet. */
   title: string;
+  /** What to share, e.g. "/explore?mercadillo=magma"; missing: this page. */
+  path?: string;
   className?: string;
 }
 
 /** Shares the page through the phone's share sheet (WhatsApp, …), or copies its link where there is none (most desktops). */
-export default function ShareButton({ title, className }: ShareButtonProps) {
+export default function ShareButton({ title, path, className }: ShareButtonProps) {
   const { t } = useI18n();
   const { toast } = useToast();
 
   const share = async () => {
     // Without ?c=…: the category someone came through means nothing to the person it is sent to.
-    const url = `${window.location.origin}${window.location.pathname}`;
+    const url = `${window.location.origin}${path ?? window.location.pathname}`;
     if (navigator.share) {
       // Closing the share sheet rejects too; that is not an error.
       await navigator.share({ title, url }).catch(() => {});

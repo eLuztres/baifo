@@ -7,7 +7,7 @@ import { isAdminPreviewSlug, previewSubmissionId } from './preview-slug';
 export async function getAdminProductPreview(slug: string) {
   const id = previewSubmissionId(slug);
   if (!isAdminPreviewSlug(slug) || !(await isAdmin())) return null;
-  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, mercadillo: { select: { slug: true, name: true } } } });
+  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, mercadillo: { select: { slug: true, name: true, icon: true } } } });
   if (!submission?.title) return null;
   const { title, shortTitle, description, images, rawImages, price, priceMode, type, condition, serviceType, startsAt, address, placeId } = submission;
   return {

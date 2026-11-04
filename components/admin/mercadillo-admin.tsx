@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ImageIcon, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import GroupFields, { useGroupFields } from '@/components/admin/group-fields';
 import { useI18n } from '@/components/i18n-provider';
 import DeleteDialog from '@/components/shared/delete-dialog';
+import { MercadilloIcon } from '@/components/shared/mercadillo-row';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -18,6 +19,8 @@ import { useToast } from '@/hooks/use-toast';
 import { createMercadillo, deleteMercadillo, updateMercadillo } from '@/lib/actions/mercadillo.actions';
 import { localize, type LocalizedText } from '@/lib/category';
 import { translateMessage, type Locale } from '@/lib/i18n-core';
+import { preparePhotos } from '@/lib/prepare-photos';
+import { useUploadThing } from '@/lib/uploadthing';
 import { mercadilloSchema } from '@/lib/validators';
 
 export interface EditableMercadillo {
@@ -25,6 +28,8 @@ export interface EditableMercadillo {
   slug: string;
   name: LocalizedText;
   text: LocalizedText;
+  image: string | null;
+  icon: string | null;
   productCount: number;
 }
 
@@ -42,9 +47,19 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
   const { toast } = useToast();
   const form = useForm<z.infer<typeof mercadilloSchema>>({
     resolver: zodResolver(mercadilloSchema),
-    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {} },
+    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, image: mercadillo?.image ?? null, icon: mercadillo?.icon ?? null },
   });
   const fields = useGroupFields(form, { locales, group: mercadillo });
+  const icon = form.watch('icon');
+  const iconInput = useRef<HTMLInputElement>(null);
+  const { startUpload: uploadIcon, isUploading: isUploadingIcon } = useUploadThing('imageUploader', {
+    onClientUploadComplete: (files) => {
+      if (files[0]) form.setValue('icon', files[0].ufsUrl, { shouldDirty: true });
+    },
+    onUploadError: () => {
+      toast({ variant: 'destructive', description: t('STUDIO_UPLOAD_FAILED') });
+    },
+  });
 
   const handleSubmit = async () => {
     await fields.translateBeforeSave();
@@ -64,7 +79,29 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className='space-y-5'>
-            <GroupFields fields={fields} descriptionHint={t('MERCADILLO_DESCRIPTION_HINT')} hasCover={false} />
+            <GroupFields fields={fields} descriptionHint={t('MERCADILLO_DESCRIPTION_HINT')} />
+            <div className='flex items-center gap-3'>
+              <MercadilloIcon src={icon} className='size-14' />
+              <input
+                ref={iconInput}
+                type='file'
+                accept='image/*'
+                hidden
+                onChange={async (event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  event.target.value = '';
+                  if (files.length > 0) await uploadIcon(await preparePhotos(files));
+                }}
+              />
+              <Button type='button' variant='outline' size='sm' className='rounded-full' disabled={isUploadingIcon} onClick={() => iconInput.current?.click()}>
+                {isUploadingIcon ? <Loader2 className='animate-spin' /> : <ImageIcon />} {t('MERCADILLO_ICON_UPLOAD')}
+              </Button>
+              {icon && (
+                <Button type='button' variant='ghost' size='sm' className='rounded-full' onClick={() => form.setValue('icon', null, { shouldDirty: true })}>
+                  {t('MERCADILLO_ICON_REMOVE')}
+                </Button>
+              )}
+            </div>
             <FormField
               control={form.control}
               name='slug'
@@ -83,7 +120,7 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
                 {t('DELETE_DIALOG_CANCEL')}
               </Button>
               {/* Keeps the focus: leaving a text field starts a translation, which would disable this button mid-click. */}
-              <Button type='submit' onMouseDown={(event) => event.preventDefault()} disabled={form.formState.isSubmitting || fields.isBusy}>
+              <Button type='submit' onMouseDown={(event) => event.preventDefault()} disabled={form.formState.isSubmitting || fields.isBusy || isUploadingIcon}>
                 {form.formState.isSubmitting && <Loader2 className='animate-spin' />}
                 {t('MERCADILLO_SAVE')}
               </Button>
@@ -120,6 +157,7 @@ export default function MercadilloAdmin({ locale, locales, mercadillos }: Mercad
         <ul className='space-y-3'>
           {mercadillos.map((mercadillo) => (
             <li key={mercadillo.id} className='flex items-center gap-3 rounded-2xl border border-border bg-card p-3'>
+              <MercadilloIcon src={mercadillo.icon} className='size-12' />
               <Link href={`/explore?mercadillo=${mercadillo.slug}`} className='min-w-0 flex-1 hover:underline'>
                 <p className='truncate font-medium'>{localize(mercadillo.name, locale)}</p>
                 <p className='text-sm text-muted-foreground'>{mercadillo.productCount === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: mercadillo.productCount })}</p>

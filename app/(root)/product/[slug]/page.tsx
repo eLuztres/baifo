@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle, Store } from 'lucide-react';
+import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle } from 'lucide-react';
 import { getProductBySlug } from '@/lib/actions/product.actions';
 import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
@@ -11,6 +11,7 @@ import BuyNowButton from '@/components/shared/product/buyNowButton';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ShareButton from '@/components/shared/product/share-button';
+import { MercadilloIcon } from '@/components/shared/mercadillo-row';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ListingInfoButton from '@/components/shared/product/listing-info-button';
 import AdminEditButton from '@/components/shared/admin-edit-button';
@@ -234,9 +235,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {mercadilloName && (
                   <Link
                     href={`/explore?mercadillo=${product.mercadillo?.slug}`}
-                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1 rounded-full border border-border bg-muted px-3 py-1 text-sm transition hover:border-primary/50'
+                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted py-1 pl-1.5 pr-3 text-sm transition hover:border-primary/50'
                   >
-                    <Store className='size-3.5 shrink-0 text-primary' aria-hidden /> <span className='truncate'>{t('MERCADILLO_NAMED', { name: mercadilloName })}</span>
+                    <MercadilloIcon src={product.mercadillo?.icon ?? null} className='size-5' /> <span className='truncate'>{t('MERCADILLO_NAMED', { name: mercadilloName })}</span>
                   </Link>
                 )}
                 {condition && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(condition)}</p>}

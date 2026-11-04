@@ -13,9 +13,9 @@ import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/h
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { getStoreCategories } from '@/lib/actions/category.actions';
-import { BRAND } from '@/lib/brand';
+import { absoluteUrl, BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME, LISTING_TYPE_KEYS, listingTypeOf, type ListingType } from '@/lib/constants';
+import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS, listingTypeOf, type ListingType } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
 import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
@@ -24,7 +24,9 @@ import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
-import MercadilloRow, { MercadilloRowItem } from '@/components/shared/mercadillo-row';
+import MercadilloRow, { MercadilloIcon, MercadilloRowItem } from '@/components/shared/mercadillo-row';
+import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
+import ShareButton from '@/components/shared/product/share-button';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
@@ -48,7 +50,25 @@ const TYPE_FILTERS: { params: string[]; labelKey: TranslationKey; types: Listing
 ];
 
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
-  const [{ q, tipo, categoria, mercadillo }, { t, locale }, categories] = await Promise.all([searchParams, getT(), getStoreCategories()]);
+  const [{ q, tipo, categoria, mercadillo }, { t, locale }, categories, mercadillos] = await Promise.all([searchParams, getT(), getStoreCategories(), getMercadillos()]);
+  // A shared Mercadillo shows its own name, words and picture.
+  const shared = !q && !tipo && !categoria && mercadillos.find((option) => option.slug === mercadillo);
+  if (shared) {
+    const title = t('MERCADILLO_NAMED', { name: localize(shared.name, locale) });
+    const description = metaDescription(localize(shared.text, locale)) || undefined;
+    return {
+      title,
+      description,
+      alternates: await pageAlternates(`/explore?mercadillo=${shared.slug}`),
+      openGraph: {
+        siteName: BRAND.name,
+        title,
+        description,
+        locale,
+        images: [{ url: absoluteUrl(`/mercadillo/${shared.slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+      },
+    };
+  }
   // One category alone is a page of its own for search engines; any other mix of filters points back to the feed.
   const chosen = !q && !tipo && !mercadillo && categories.find((option) => option.slug === categoria);
   if (chosen) {
@@ -113,6 +133,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
   const inScope = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
+  // Without a picture of its own: not its first listing's, which comes right below.
+  const mercadilloPicture = chosenMercadillo && (chosenMercadillo.image ?? (inScope[1] ?? inScope[0])?.image);
   const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
   const types = chosenFilters.flatMap((filter) => filter.types);
   // A link can name a category that's gone; it counts as not chosen.
@@ -220,8 +242,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     return (
       <li key={row.mercadillo.id} className='col-span-full'>
         <MercadilloRow
+          label={t('MERCADILLO_LABEL')}
+          name={name}
           heading={t('MERCADILLO_NAMED', { name })}
           text={localize(row.mercadillo.text, locale)}
+          icon={row.mercadillo.icon}
           href={`/explore?mercadillo=${row.mercadillo.slug}`}
           seeAllLabel={t('MERCADILLO_SEE_ALL')}
           pageLabel={t('MERCADILLO_PAGE')}
@@ -300,15 +325,28 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             </StickyFilterRow>
 
             {chosenMercadillo && (
-              <div className='space-y-2 px-2'>
-                <div className='flex items-center gap-4'>
+              <div className='grid grid-cols-[7rem_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-3xl border border-border bg-card p-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:grid-rows-[auto_1fr] sm:p-4'>
+                <PrepareSharePreview src={`/mercadillo/${chosenMercadillo.slug}/preview.jpg`} />
+                <div className='col-span-2 flex items-center gap-3 sm:col-span-1 sm:col-start-2'>
                   {backToList}
-                  <div className='min-w-0'>
+                  <MercadilloIcon src={chosenMercadillo.icon} className='size-11 sm:size-14' />
+                  <div className='min-w-0 flex-1'>
                     <p className='text-xs font-medium uppercase tracking-wider text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
-                    <p className='truncate font-display text-3xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
+                    <p className='truncate font-display text-2xl leading-tight sm:text-4xl'>{localize(chosenMercadillo.name, locale)}</p>
                   </div>
+                  <ShareButton title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })} path={`/explore?mercadillo=${chosenMercadillo.slug}`} />
                 </div>
-                <p className='max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base'>{localize(chosenMercadillo.text, locale)}</p>
+                {mercadilloPicture && (
+                  <div className='relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted sm:col-start-1 sm:row-span-2 sm:row-start-1'>
+                    <ProductMedia src={mercadilloPicture} alt='' fill sizes='(min-width: 640px) 11rem, 7rem' isStill />
+                  </div>
+                )}
+                <div className='space-y-2 sm:col-start-2'>
+                  <p className='max-w-2xl text-pretty text-sm text-muted-foreground sm:text-base'>{localize(chosenMercadillo.text, locale)}</p>
+                  <p className='text-sm font-semibold text-primary sm:text-base'>
+                    {inScope.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: inScope.length })}
+                  </p>
+                </div>
               </div>
             )}
 

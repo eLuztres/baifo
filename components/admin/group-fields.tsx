@@ -26,7 +26,7 @@ export interface GroupFormValues {
   slug: string;
   name: LocalizedText;
   text: LocalizedText;
-  image?: string | null;
+  image: string | null;
 }
 
 interface GroupFieldsOptions {
@@ -159,12 +159,10 @@ interface GroupFieldsProps {
   fields: ReturnType<typeof useGroupFields>;
   /** Under the description: where it shows. */
   descriptionHint: string;
-  /** A category has a cover, a Mercadillo doesn't. */
-  hasCover?: boolean;
 }
 
 /** The cover, name, description and other languages of a category or Mercadillo, inside the editor's form. */
-export default function GroupFields({ fields, descriptionHint, hasCover = true }: GroupFieldsProps) {
+export default function GroupFields({ fields, descriptionHint }: GroupFieldsProps) {
   const { t } = useI18n();
   const {
     form,
@@ -209,50 +207,48 @@ export default function GroupFields({ fields, descriptionHint, hasCover = true }
 
   return (
     <>
-    <div className={cn('grid gap-5', hasCover && 'sm:grid-cols-[9rem_minmax(0,1fr)]')}>
-      {hasCover && (
-        <div className='flex flex-col items-center gap-2'>
-          <div className='relative aspect-[3/4] w-36 overflow-hidden rounded-xl border border-border bg-muted'>
-            {image ? (
-              <ProductMedia src={image} alt={t('CATEGORY_FORM_COVER')} fill sizes='9rem' className='object-cover' />
-            ) : (
-              <span className='flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted-foreground'>
-                <ImageIcon className='size-7' aria-hidden /> {t('CATEGORY_FORM_COVER_EMPTY')}
-              </span>
-            )}
-            {isMakingCover && (
-              <span className='absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm'>
-                <Loader2 className='size-6 animate-spin text-primary' />
-              </span>
-            )}
-          </div>
-          <Button type='button' variant={image ? 'outline' : 'default'} size='sm' className='h-auto min-h-8 w-36 whitespace-normal rounded-full py-1.5' disabled={isMakingCover || !shopName} onClick={makeCover}>
-            {isMakingCover ? <Loader2 className='animate-spin' /> : <Sparkles />}
-            {t(isMakingCover ? 'CATEGORY_FORM_COVER_WORKING' : image ? 'CATEGORY_FORM_COVER_AGAIN' : 'CATEGORY_FORM_COVER_AI')}
-          </Button>
-          <p className='w-36 text-center text-[0.7rem] leading-4 text-muted-foreground'>{t('CATEGORY_FORM_COVER_HINT')}</p>
-          {/* Your own picture is the exception, so it is a quiet link under the AI button. */}
-          <input
-            ref={coverInput}
-            type='file'
-            accept='image/*'
-            hidden
-            onChange={async (event) => {
-              const files = Array.from(event.target.files ?? []);
-              event.target.value = '';
-              if (files.length > 0) await startUpload(await preparePhotos(files));
-            }}
-          />
-          <button
-            type='button'
-            disabled={isUploading || isMakingCover}
-            onClick={() => coverInput.current?.click()}
-            className='inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-primary underline-offset-4 hover:underline disabled:opacity-60'
-          >
+    <div className='grid gap-5 sm:grid-cols-[9rem_minmax(0,1fr)]'>
+      <div className='flex flex-col items-center gap-2'>
+        <div className='relative aspect-[3/4] w-36 overflow-hidden rounded-xl border border-border bg-muted'>
+          {image ? (
+            <ProductMedia src={image} alt={t('CATEGORY_FORM_COVER')} fill sizes='9rem' className='object-cover' />
+          ) : (
+            <span className='flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted-foreground'>
+              <ImageIcon className='size-7' aria-hidden /> {t('CATEGORY_FORM_COVER_EMPTY')}
+            </span>
+          )}
+          {isMakingCover && (
+            <span className='absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm'>
+              <Loader2 className='size-6 animate-spin text-primary' />
+            </span>
+          )}
+        </div>
+        <Button type='button' variant={image ? 'outline' : 'default'} size='sm' className='h-auto min-h-8 w-36 whitespace-normal rounded-full py-1.5' disabled={isMakingCover || !shopName} onClick={makeCover}>
+          {isMakingCover ? <Loader2 className='animate-spin' /> : <Sparkles />}
+          {t(isMakingCover ? 'CATEGORY_FORM_COVER_WORKING' : image ? 'CATEGORY_FORM_COVER_AGAIN' : 'CATEGORY_FORM_COVER_AI')}
+        </Button>
+        <p className='w-36 text-center text-[0.7rem] leading-4 text-muted-foreground'>{t('CATEGORY_FORM_COVER_HINT')}</p>
+        {/* Your own picture is the exception, so it is a quiet link under the AI button. */}
+        <input
+          ref={coverInput}
+          type='file'
+          accept='image/*'
+          hidden
+          onChange={async (event) => {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            if (files.length > 0) await startUpload(await preparePhotos(files));
+          }}
+        />
+        <button
+          type='button'
+          disabled={isUploading || isMakingCover}
+          onClick={() => coverInput.current?.click()}
+          className='inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-primary underline-offset-4 hover:underline disabled:opacity-60'
+        >
           {isUploading && <Loader2 className='size-3.5 animate-spin' />} {t('CATEGORY_FORM_COVER_UPLOAD')}
         </button>
       </div>
-      )}
 
       <div className='space-y-4'>
         <FormField
