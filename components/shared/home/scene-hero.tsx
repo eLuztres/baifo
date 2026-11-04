@@ -40,7 +40,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       </div>
 
       <div className={styles.buttons}>
-        <Link href={sectionHref(SECTION_IDS.showroom)} className={styles.cta}>
+        <Link href='/explore' className={styles.cta}>
           {t('HOME_SCENE_READ')}
         </Link>
       </div>
