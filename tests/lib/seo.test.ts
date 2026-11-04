@@ -1,4 +1,4 @@
-import { listingJsonLd, metaDescription, jsonLd } from '@/lib/seo';
+import { breadcrumbJsonLd, eventJsonLd, listingJsonLd, listingMetaDescription, localizedPath, metaDescription, jsonLd } from '@/lib/seo';
 
 jest.mock('next/headers', () => ({ headers: jest.fn(), cookies: jest.fn() }));
 
@@ -24,6 +24,49 @@ describe('metaDescription', () => {
 
     expect(text.length).toBeLessThanOrEqual(156);
     expect(text).toMatch(/palabra…$/);
+  });
+});
+
+describe('listingMetaDescription', () => {
+  it('always keeps the closing line and stays within a snippet', () => {
+    const suffix = 'Anuncio en Fuerteventura.';
+    const text = listingMetaDescription('palabra '.repeat(40), suffix);
+
+    expect(text.endsWith(suffix)).toBe(true);
+    expect(text.length).toBeLessThanOrEqual(156);
+  });
+
+  it('is only the closing line for a listing without a text', () => {
+    expect(listingMetaDescription('', 'Fin.')).toBe('Fin.');
+  });
+});
+
+describe('localizedPath', () => {
+  it('adds the language after a query the path already has', () => {
+    expect(localizedPath('/explore?categoria=deporte', 'zz')).toBe('/explore?categoria=deporte&lang=zz');
+    expect(localizedPath('/explore', 'zz')).toBe('/explore?lang=zz');
+  });
+});
+
+describe('eventJsonLd', () => {
+  it('describes an event with its date and place', () => {
+    const event = { name: 'Taller', description: 'Cerámica', images: [], path: '/product/taller', startsAt: new Date('2026-12-01T18:00:00Z'), address: 'Lajares', price: '35' };
+
+    expect(eventJsonLd(event)).toMatchObject({
+      '@type': 'Event',
+      startDate: '2026-12-01T18:00:00.000Z',
+      location: { name: 'Lajares' },
+      offers: { price: '35.00' },
+    });
+  });
+});
+
+describe('breadcrumbJsonLd', () => {
+  it('numbers the steps from one', () => {
+    const { itemListElement } = breadcrumbJsonLd([{ name: 'Anuncios', path: '/explore' }, { name: 'Bici', path: '/product/bici' }]);
+
+    expect(itemListElement[1]).toMatchObject({ position: 2, name: 'Bici' });
+    expect(itemListElement[1].item.endsWith('/product/bici')).toBe(true);
   });
 });
 

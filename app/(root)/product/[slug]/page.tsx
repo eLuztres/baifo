@@ -27,7 +27,7 @@ import {
 } from '@/components/shared/product/reserve-button';
 import { getSession } from '@/lib/auth-guard';
 import { absoluteUrl, BRAND } from '@/lib/brand';
-import { APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
+import { ANY_CONDITION, APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
@@ -36,7 +36,8 @@ import { localize, localizeProduct } from '@/lib/category';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
-import { jsonLd, listingJsonLd, metaDescription, pageAlternates } from '@/lib/seo';
+import { breadcrumbJsonLd, eventJsonLd, jsonLd, listingJsonLd, listingMetaDescription, metaDescription, pageAlternates } from '@/lib/seo';
+import type { TranslationKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
 import { coverPicture } from '@/lib/video';
@@ -54,6 +55,14 @@ interface ProductPageProps {
   searchParams: Promise<{ c?: string }>;
 }
 
+// "Second hand" only where the seller's condition says so: a new or handmade item must not be called used.
+function seoTitleKey({ type, condition }: { type: string; condition: string | null }): TranslationKey {
+  if (type === 'SERVICE') return 'SERVICE_SEO_TITLE';
+  if (type === 'EVENT') return 'EVENT_SEO_TITLE';
+  const isUsed = type === 'PRODUCT' && condition && condition !== 'new' && condition !== ANY_CONDITION;
+  return isUsed ? 'PRODUCT_USED_SEO_TITLE' : 'PRODUCT_SEO_TITLE';
+}
+
 export async function generateMetadata(props: ProductPageProps) {
   const { slug } = await props.params;
   const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
@@ -63,8 +72,8 @@ export async function generateMetadata(props: ProductPageProps) {
   if (isAdminPreviewSlug(slug)) return { title: name, robots: { index: false } };
   const cover = coverPicture(product.images);
   return {
-    title: t(product.type === 'SERVICE' ? 'SERVICE_SEO_TITLE' : 'PRODUCT_SEO_TITLE', { name }),
-    description: metaDescription(description) || undefined,
+    title: t(seoTitleKey(product), { name }),
+    description: listingMetaDescription(description, t('PRODUCT_SEO_SUFFIX')) || undefined,
     alternates: await pageAlternates(`/product/${slug}`),
     // A shared link shows the listing's own photo; openGraph replaces the layout's whole block, so it repeats the rest.
     ...(cover && {
@@ -140,28 +149,42 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const phoneOnlyOnBig = hasInfoRow && 'max-sm:hidden';
   const mapHref = product.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`;
 
+  const path = `/product/${slug}`;
+  const price = SHOWS_PRICES ? product.price?.toString() : undefined;
+  const pageSchema =
+    isEvent && product.startsAt
+      ? eventJsonLd({ name, description, images: product.images, path, startsAt: product.startsAt, address: product.address, price })
+      : listingJsonLd({
+          name,
+          description,
+          images: product.images,
+          category: product.category,
+          path,
+          isService: isService || isEvent,
+          price,
+          condition: product.condition,
+          isAvailable: SHOWCASE_MODE || inStock,
+        });
+  const searchSchemas = [
+    // A wanted ad isn't for sale: described as a product, Google would show its budget as a price.
+    ...(product.type === 'WANTED' ? [] : [pageSchema]),
+    breadcrumbJsonLd([
+      { name: t('EXPLORE_TITLE'), path: '/explore' },
+      ...(focusCategory ? [{ name: localize(focusCategory.name, locale), path: `/explore?categoria=${focusCategory.slug}` }] : []),
+      { name, path },
+    ]),
+  ];
+
   return (
     <section className={cn(styles.view, 'flex flex-col gap-3 sm:gap-5')}>
-      <script
-        type='application/ld+json'
-        // Safe: jsonLd escapes `<`, so the listing's own text can't end the script tag.
-        dangerouslySetInnerHTML={{
-          __html: jsonLd(
-            listingJsonLd({
-              name,
-              description,
-              images: product.images,
-              category: product.category,
-              path: `/product/${slug}`,
-              // No product offer for an event; a schema.org Event could come later.
-              isService: isService || isEvent,
-              price: SHOWS_PRICES ? product.price?.toString() : undefined,
-              condition: product.condition,
-              isAvailable: SHOWCASE_MODE || inStock,
-            })
-          ),
-        }}
-      />
+      {searchSchemas.map((schema, index) => (
+        <script
+          key={index}
+          type='application/ld+json'
+          // Safe: jsonLd escapes `<`, so the listing's own text can't end the script tag.
+          dangerouslySetInnerHTML={{ __html: jsonLd(schema) }}
+        />
+      ))}
       {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}`} />}
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}

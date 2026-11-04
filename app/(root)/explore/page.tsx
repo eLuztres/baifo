@@ -45,8 +45,18 @@ const TYPE_FILTERS: { params: string[]; labelKey: TranslationKey; types: Listing
   { params: ['eventos'], labelKey: 'EXPLORE_TYPE_EVENT', types: ['EVENT'] },
 ];
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { t } = await getT();
+export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
+  const [{ q, tipo, categoria, mercadillo }, { t, locale }, categories] = await Promise.all([searchParams, getT(), getStoreCategories()]);
+  // One category alone is a page of its own for search engines; any other mix of filters points back to the feed.
+  const chosen = !q && !tipo && !mercadillo && categories.find((option) => option.slug === categoria);
+  if (chosen) {
+    const category = localize(chosen.name, locale);
+    return {
+      title: t('EXPLORE_CATEGORY_SEO_TITLE', { category }),
+      description: metaDescription(t('EXPLORE_CATEGORY_SEO_DESCRIPTION', { category })),
+      alternates: await pageAlternates(`/explore?categoria=${chosen.slug}`),
+    };
+  }
   return {
     title: t('EXPLORE_SEO_TITLE'),
     description: metaDescription(t('EXPLORE_SEO_DESCRIPTION', { shop: APP_NAME })),
@@ -229,7 +239,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   return (
     // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
     <div className='mx-auto w-full max-w-7xl space-y-5 px-1 pb-10 max-sm:-mt-4 sm:space-y-8' data-feed-page=''>
-      <h1 className='sr-only'>{q.trim() || (chosenMercadillo && localize(chosenMercadillo.name, locale)) || t('EXPLORE_TITLE')}</h1>
+      <h1 className='sr-only'>
+        {q.trim() ||
+          (chosenMercadillo && localize(chosenMercadillo.name, locale)) ||
+          (slugs.length === 1 && t('EXPLORE_CATEGORY_SEO_TITLE', { category: localize(categories.find((category) => category.slug === slugs[0])?.name, locale) })) ||
+          t('EXPLORE_SEO_TITLE')}
+      </h1>
       <div className='sr-only'>{pullUpHome}</div>
 
       {listings.length === 0 && allListings.length > 0 ? (

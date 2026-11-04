@@ -12,10 +12,9 @@ describe('brand slogan', () => {
     expect(slogan).not.toContain('{shop}');
   });
 
-  it('is the same slogan as the home page title', () => {
+  it('keeps the shop name in the home page title, which now leads with what people search for', () => {
     for (const { id } of LOCALES) {
-      const t = getTranslator(id);
-      expect(t('BRAND_SLOGAN', { shop: 'Baifo' })).toBe(`${t('HOME_SEO_TITLE', { shop: 'Baifo' })}.`);
+      expect(getTranslator(id)('HOME_SEO_TITLE', { shop: 'Baifo' })).toMatch(/ \| Baifo$/);
     }
   });
 });
