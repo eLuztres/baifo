@@ -18,6 +18,7 @@ import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
+import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, queryWords, searchScore, type SearchableText } from '@/lib/search-text';
@@ -202,7 +203,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       ) : (
         <>
           {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
-          <div className='group flex gap-2'>
+          <StickyFilterRow className='group flex gap-2'>
             <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
             <div className='flex min-w-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
               <FilterDropdown
@@ -226,7 +227,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                 isCompact
               />
             </div>
-          </div>
+          </StickyFilterRow>
 
           {shown.length === 0 ? (
             <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>

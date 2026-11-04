@@ -6,8 +6,9 @@ import { type RefObject, useEffect, useState } from 'react';
 const DIRECTION_PX = 8;
 
 /** Hidden while the visitor scrolls the window down, shown again on a small scroll up and always at the top of the page.
-    A bar stays while one of its menus is open or it has keyboard focus, and while `isInPlace` says it's where it belongs. */
-export function useHideOnScroll(barRef: RefObject<HTMLElement | null>, isInPlace?: () => boolean) {
+    A bar stays while one of its menus is open or it has keyboard focus, and while `isInPlace` says it's where it belongs.
+    `isOnlyAtTop`: scrolling up doesn't bring it back, only the top of the page does. */
+export function useHideOnScroll(barRef: RefObject<HTMLElement | null>, isInPlace?: () => boolean, isOnlyAtTop = false) {
   const [isHidden, setIsHidden] = useState(false);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function useHideOnScroll(barRef: RefObject<HTMLElement | null>, isInPlace
         travel = 0;
         return setIsHidden(false);
       }
+      if (isOnlyAtTop) return setIsHidden(true);
       travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta;
       if (travel > DIRECTION_PX) setIsHidden(true);
       else if (travel < -DIRECTION_PX) setIsHidden(false);
@@ -34,7 +36,7 @@ export function useHideOnScroll(barRef: RefObject<HTMLElement | null>, isInPlace
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [barRef, isInPlace]);
+  }, [barRef, isInPlace, isOnlyAtTop]);
 
   return { isHidden, show: () => setIsHidden(false) };
 }
