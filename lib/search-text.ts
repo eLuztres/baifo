@@ -14,7 +14,15 @@ const wordForms = (word: string) => {
   return word.endsWith('s') ? [word, word.slice(0, -1)] : [word];
 };
 
-const hasWord = (folded: string, word: string) => wordForms(word).some((form) => folded.includes(form));
+// Only at the start of a word: "iman" finds "imanes", never "dimanche"; "bici" still finds "bicicleta" while typing.
+function wordStartIndex(folded: string, form: string) {
+  for (let index = folded.indexOf(form); index >= 0; index = folded.indexOf(form, index + 1)) {
+    if (index === 0 || !/[\p{L}\p{N}]/u.test(folded[index - 1])) return index;
+  }
+  return -1;
+}
+
+const hasWord = (folded: string, word: string) => wordForms(word).some((form) => wordStartIndex(folded, form) >= 0);
 
 /** Whether every typed word shows up somewhere in the (folded) text. */
 export const matchesWords = (folded: string, words: string[]) => words.length > 0 && words.every((word) => hasWord(folded, word));
@@ -34,11 +42,22 @@ export function searchScore({ names, rest }: SearchableText, words: string[]) {
   return 1 + inNames * 2 + (startsName ? 3 : 0);
 }
 
+/** The best matches, best first. When some hold every word in their names only those count: a mention in a description is not what was looked for.
+    With none, the descriptions, categories and kinds are searched. */
+export function mainMatches<T>(items: T[], textOf: (item: T) => SearchableText, words: string[]) {
+  const found = items
+    .map((item) => ({ item, text: textOf(item), score: searchScore(textOf(item), words) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score);
+  const named = found.filter(({ text }) => matchesWords(text.names, words));
+  return (named.length > 0 ? named : found).map(({ item }) => item);
+}
+
 /** Where the first typed word sits in a name, for showing it in bold; null when the name doesn't hold it. */
 export function matchRange(name: string, words: string[]) {
   const folded = foldText(name);
   for (const form of words.length > 0 ? wordForms(words[0]) : []) {
-    const start = folded.indexOf(form);
+    const start = wordStartIndex(folded, form);
     if (start >= 0) return { start, end: start + form.length };
   }
   return null;

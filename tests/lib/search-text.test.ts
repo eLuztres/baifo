@@ -1,4 +1,4 @@
-import { foldText, matchRange, matchesWords, queryWords, searchScore } from '@/lib/search-text';
+import { foldText, mainMatches, matchRange, matchesWords, queryWords, searchScore } from '@/lib/search-text';
 
 describe('search text', () => {
   it('folds case and accents without moving any letter', () => {
@@ -27,6 +27,24 @@ describe('search text', () => {
     expect(inMiddle).toBeGreaterThan(inText);
     expect(inText).toBeGreaterThan(0);
     expect(searchScore({ names: 'neopreno', rest: '' }, ['surf'])).toBe(0);
+  });
+
+  it('matches at the start of a word only, also in other languages', () => {
+    expect(matchesWords('imanes para la nevera', ['iman'])).toBe(true);
+    expect(matchesWords('🧲 imanes', ['iman'])).toBe(true);
+    expect(matchesWords('dimanche 8 novembre', ['iman'])).toBe(false);
+    expect(matchesWords('da una settimana a 3 mesi', ['iman'])).toBe(false);
+    expect(matchRange('Dimanche, imanes', ['iman'])).toEqual({ start: 10, end: 14 });
+  });
+
+  it('shows only listings named so when there are any, else the ones that mention it', () => {
+    const textOf = (text: { names: string; rest: string }) => text;
+    const named = { names: 'imanes de nevera', rest: '' };
+    const mentioned = { names: 'taller de manualidades', rest: 'hacemos imanes' };
+    const other = { names: 'neopreno', rest: 'talla m' };
+    expect(mainMatches([mentioned, other, named], textOf, ['iman'])).toEqual([named]);
+    expect(mainMatches([mentioned, other], textOf, ['iman'])).toEqual([mentioned]);
+    expect(mainMatches([other], textOf, ['iman'])).toEqual([]);
   });
 
   it('finds where the first word sits in a name with accents', () => {

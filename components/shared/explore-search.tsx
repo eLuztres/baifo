@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LayoutGrid, Search, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
-import { matchRange, queryWords, searchScore, type SearchableText } from '@/lib/search-text';
+import { mainMatches, matchRange, queryWords, type SearchableText } from '@/lib/search-text';
 import { cn } from '@/lib/utils';
 
 /** A listing as the field suggests it. */
@@ -51,13 +51,7 @@ interface Option {
 const MAX_CHOICES = 4;
 const MAX_LISTINGS = 6;
 
-const best = <T extends { text: SearchableText }>(items: T[], words: string[], max: number) =>
-  items
-    .map((item) => ({ item, score: searchScore(item.text, words) }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, max)
-    .map(({ item }) => item);
+const best = <T extends { text: SearchableText }>(items: T[], words: string[], max: number) => mainMatches(items, (item) => item.text, words).slice(0, max);
 
 /** The first typed word in bold where it shows in the name. */
 function Highlighted({ text, words }: { text: string; words: string[] }) {

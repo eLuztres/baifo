@@ -23,7 +23,7 @@ import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import PullUpHome from '@/components/shared/pull-up-home';
 import { metaDescription, pageAlternates } from '@/lib/seo';
-import { foldText, queryWords, searchScore, type SearchableText } from '@/lib/search-text';
+import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
 import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
@@ -88,14 +88,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   const words = queryWords(q);
-  const found =
-    words.length > 0
-      ? listings
-          .map((listing) => ({ listing, score: searchScore(searchTextOf(listing), words) }))
-          .filter(({ score }) => score > 0)
-          .sort((a, b) => b.score - a.score)
-          .map(({ listing }) => listing)
-      : listings;
+  const found = words.length > 0 ? mainMatches(listings, searchTextOf, words) : listings;
   const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
   // A link can name a category that's gone; it counts as not chosen.
   const slugs = listParam(categoria).filter((slug) => categories.some((category) => category.slug === slug));
