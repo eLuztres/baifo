@@ -1,6 +1,7 @@
 import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES, type ListingType } from '@/lib/constants';
 import { getEnabledLocales, getShopLocale } from '@/lib/i18n-server';
+import type { Locale } from '@/lib/i18n-core';
 import { aiErrorCode } from '@/lib/ai-errors';
 import { fromShopDateTime } from '@/lib/event-date';
 import { getShopPlaces } from '@/lib/places';
@@ -107,10 +108,18 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
 }
 
 /** The AI's title, descriptions, category, condition and price, from the first photo and the seller's words; once. */
-async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null) {
-  if (submission.title) return;
+/** How "Crear descripción" asks: the language the admin wrote in (the base the others come from), and the shop's
+    hashtags the AI may pick one of. */
+interface DraftOptions {
+  base?: Locale;
+  hashtags?: string[];
+}
+
+async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null, { base, hashtags }: DraftOptions = {}) {
+  if (submission.title) return null;
   const shopLocale = getShopLocale();
-  const locales = [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)];
+  const first = base ?? shopLocale;
+  const locales = [first, ...getEnabledLocales().filter((locale) => locale !== first)];
   // 'original': the admin's own words stay; the AI only translates them and still reads type, category and price.
   // 'corrected': the same, with their spelling and grammar fixed first.
   const kept =
@@ -119,7 +128,9 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
       : { title: submission.originalTitle ?? undefined, description: submission.rawText, isCorrected: submission.textMode === 'corrected' };
   const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
   const livePlaces = places.filter((place) => place.isLive);
-  const text = await writeListing(firstPhoto, submission.rawText, categories, locales, submission.type, kept, livePlaces);
+  // Improving takes the admin's title too; the other modes keep it apart.
+  const words = submission.textMode === 'ai' && submission.originalTitle ? `${submission.originalTitle}\n${submission.rawText}` : submission.rawText;
+  const text = await writeListing(firstPhoto, words, categories, locales, submission.type, kept, livePlaces, hashtags);
   // A place the admin already set stays; else the town the AI read. None named stays empty, unless there's only one.
   const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
@@ -148,15 +159,18 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null)
       address: submission.address ?? (type === 'EVENT' ? text.address : null),
     },
   });
+  return text;
 }
 
-/** "Crear descripción" on a new listing: the text written again now from its words, its type and the first photo. */
-export async function writeDraftText(submissionId: string) {
+/** "Crear descripción": the text written again now from its words, its type and the first photo, starting from `base`.
+    Also the one hashtag the AI picked, if any. */
+export async function writeDraftText(submissionId: string, options: DraftOptions = {}) {
   const submission = await findSubmission(submissionId);
   if (!submission) return null;
   const [firstPhotoUrl] = photosOf(submission.rawImages);
-  await writeText({ ...submission, title: null }, firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null);
-  return findSubmission(submissionId);
+  const text = await writeText({ ...submission, title: null }, firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null, options);
+  const written = await findSubmission(submissionId);
+  return written && { ...written, hashtag: text?.hashtag ?? null };
 }
 
 /** The shop pictures: from the photos (or video stills), else drawn from the admin's idea or the listing's words. */

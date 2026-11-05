@@ -6,11 +6,14 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { aiErrorText } from '@/lib/ai-errors';
 import { useVoiceRecorder, type VoiceError } from '@/hooks/use-voice-recorder';
+import type { Locale } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
 
 interface VoiceInputButtonProps {
   /** Gets the spoken text, to put into a field where it can still be corrected. */
   onText: (text: string) => void;
+  /** The language spoken; missing: the page's. */
+  language?: Locale;
   className?: string;
 }
 
@@ -19,11 +22,11 @@ const ERROR_KEYS = { NO_MIC: 'VOICE_NO_MIC', FAILED: 'VOICE_FAILED' } as const s
 const formatSeconds = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** Tap to speak, tap again to stop: the words come back as text. Admin fields only (/api/transcribe). */
-export default function VoiceInputButton({ onText, className }: VoiceInputButtonProps) {
+export default function VoiceInputButton({ onText, language, className }: VoiceInputButtonProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { state, seconds, start, stop } = useVoiceRecorder({
-    language: locale,
+    language: language ?? locale,
     onText,
     onError: (error, aiCode) => toast({ variant: 'destructive', description: aiErrorText(t, aiCode) ?? t(ERROR_KEYS[error]) }),
   });

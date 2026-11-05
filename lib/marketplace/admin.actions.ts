@@ -10,6 +10,7 @@ import { uniqueHashtags } from '@/lib/hashtag-text';
 import { findOrCreateHashtags } from '@/lib/hashtags';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
+import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
 import { listingContactsSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
@@ -116,6 +117,9 @@ const setListingHashtags = async (id: string, names: string[]) => {
 
 const draftSchema = z.object({
   notes: z.string().trim().min(1).max(2000),
+  title: z.string().trim().max(120).optional(),
+  // The tab the admin wrote in: the base every other language is made from.
+  language: z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]).optional(),
   textMode: z.enum(TEXT_MODES),
   isWanted: z.boolean().optional(),
   priceMode: z.enum(PRICE_MODES).optional(),
@@ -125,13 +129,14 @@ const draftSchema = z.object({
   address: eventAddressSchema,
 });
 
-/** "Crear descripción": the AI writes title and description in every language from the admin's words (improved,
-    corrected or only translated) and reads the category and, unless the admin set one, the price. Nothing goes online. */
+/** "Crear descripción": the AI writes title and description in every language from the admin's words in one language
+    (improved, corrected or only translated) and reads the category, one existing hashtag and, unless the admin set one,
+    the price. Nothing goes online. */
 export async function draftAdminListingText(id: string, input: z.input<typeof draftSchema>) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = draftSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Escribe la descripción' };
-  const { notes, textMode, isWanted, priceMode, price, startsAt, address } = parsed.data;
+  const { notes, title, language, textMode, isWanted, priceMode, price, startsAt, address } = parsed.data;
   const current = await prisma.submission.findUnique({ where: { id }, select: { type: true } });
   if (!current) return NOT_ALLOWED;
   const type = current.type === 'EVENT' ? 'EVENT' : isWanted ? 'WANTED' : 'PRODUCT';
@@ -142,7 +147,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
     data: {
       rawText: notes,
       textMode,
-      originalTitle: null,
+      originalTitle: title || null,
       type,
       price: hasOwnPrice ? (price ?? null) : null,
       priceMode: hasOwnPrice ? priceMode : null,
@@ -152,7 +157,8 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   try {
-    const written = await writeDraftText(id);
+    const hashtags = (await prisma.hashtag.findMany({ select: { name: true } })).map(({ name }) => name);
+    const written = await writeDraftText(id, { base: language && getEnabledLocales().includes(language) ? language : undefined, hashtags });
     if (!written?.title) return { success: false, message: 'La IA no pudo escribir la descripción. Inténtalo otra vez.' };
     const texts: ListingTexts = {
       ...(written.translations as ListingTexts),
@@ -168,6 +174,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
       startsAt: written.startsAt ? toShopDateTime(written.startsAt) : null,
       address: written.address,
       category: written.categories[0],
+      hashtag: written.hashtag,
     };
   } catch (error) {
     console.error(`Text of listing ${id} not written`, error);

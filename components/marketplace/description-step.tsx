@@ -85,7 +85,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     setIsWanted(wanted);
     if (!price) setPriceMode(wanted ? 'UP_TO' : 'FIXED');
   };
-  const [notes, setNotes] = useState(listing.rawText);
   // An existing listing (online, hidden, sold, waiting …) is edited with the same steps and saved, not published.
   const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING';
   const router = useRouter();
@@ -110,16 +109,18 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   const isContactWrong = (kind: ContactExtra) => !CLEAN_CONTACT[kind](contacts[kind]);
   // An unchosen way is saved empty, so taking it away removes it from the listing.
   const sentContacts = () => Object.fromEntries(CONTACT_EXTRAS.map((kind) => [kind, chosenContacts.includes(kind) ? contacts[kind] : ''])) as ListingContacts;
-  const notesInput = useRef<HTMLTextAreaElement>(null);
+  const descriptionInput = useRef<HTMLTextAreaElement>(null);
   // How "Crear descripción" treats the words: improved, corrected (the default) or only translated; always into every language.
   const [textMode, setTextMode] = useState<TextMode>(listing.title ? (listing.textMode as TextMode) : 'corrected');
   const isOriginal = textMode === 'original';
-  // The texts "Crear descripción" made, in every language, as the admin edits them; empty until it ran.
+  // The texts in every language, as the admin writes or edits them; a person's own words (WhatsApp) start in the shop's.
   const textLanguages = [shopLanguage, ...languages];
   const [draft, setDraft] = useState<ListingTexts>(() =>
     listing.title
       ? { ...(listing.translations as ListingTexts), [shopLanguage.id]: { title: listing.title, description: listing.description ?? '', short: listing.shortTitle ?? '' } }
-      : {}
+      : listing.rawText
+        ? { [shopLanguage.id]: { title: listing.originalTitle ?? '', description: listing.rawText } }
+        : {}
   );
   // Complete: a title and a description in every shop language, the AI's or the admin's own.
   const isTextsComplete = (made: ListingTexts) => textLanguages.every(({ id }) => Boolean(made[id]?.title.trim() && made[id]?.description.trim()));
@@ -130,6 +131,14 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   const shownText = draft[textLanguage] ?? { title: '', description: '' };
   const setShownText = (name: 'title' | 'description') => (value: string) =>
     setDraft((current) => ({ ...current, [textLanguage]: { ...(current[textLanguage] ?? { title: '', description: '' }), [name]: value } }));
+  // Spoken words land after what is there, where they can still be corrected.
+  const addSpokenText = (name: 'title' | 'description') => (text: string) =>
+    setDraft((current) => {
+      const shown = current[textLanguage] ?? { title: '', description: '' };
+      return { ...current, [textLanguage]: { ...shown, [name]: shown[name].trim() ? `${shown[name].trimEnd()} ${text}` : text } };
+    });
+  // The words the listing is made from: the selected tab's, the base for every other language.
+  const notes = shownText.description;
   // Optional: a kind of price and its amount; an event only has its entry.
   const [priceMode, setPriceMode] = useState<PriceMode>(listing.priceMode ?? DEFAULT_PRICE_MODES[listing.type]);
   const [price, setPrice] = useState(listing.price ?? '');
@@ -193,7 +202,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       // An existing listing has its texts already; the shop's own listings may stay without a WhatsApp (and so need no OK).
       const isHouseListing = isEditing && !/^\d+$/.test(listing.seller.waId);
       const hasPhone = Boolean(sentPhone);
-      // Texts: every language set, or the AI fills what's missing from the shop language or from "Cuéntamelo todo".
+      // Texts: every language set, or the AI fills what's missing from the shop language or from the selected tab.
       const hasSomeText = hasOwnText || Boolean(notes.trim());
       const tellMissing = (missing: ({ step: number; text: string } | false)[]) => {
         const shown = missing.filter((item) => item !== false);
@@ -308,23 +317,34 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     return result;
   };
 
-  // The AI writes the texts now, in every language; a price the AI read fills an empty one.
+  // The AI writes the texts now from the selected tab, into every language; a price, category or hashtag it read fills an empty one.
   const createDescription = async (): Promise<FilledTexts | null> => {
     if (!notes.trim()) {
-      notesInput.current?.focus();
+      descriptionInput.current?.focus();
       setError(fillText(texts.missingToPublish, { items: texts.missingText }));
       return null;
     }
     setError('');
     setIsDrafting(true);
-    const result = await draftAdminListingText(listing.id, { notes, textMode, ...(!isEvent && { isWanted }), priceMode, price, ...(isEvent && { startsAt, address }) });
+    const result = await draftAdminListingText(listing.id, {
+      notes,
+      title: shownText.title,
+      language: textLanguage,
+      textMode,
+      ...(!isEvent && { isWanted }),
+      priceMode,
+      price,
+      ...(isEvent && { startsAt, address }),
+    });
     setIsDrafting(false);
     if (!('texts' in result && result.texts)) {
       setError(result.message);
       return null;
     }
     setDraft(result.texts);
-    setTextLanguage(shopLanguage.id);
+    // One existing hashtag at most, and only one the admin hasn't set: the rest are theirs.
+    const { hashtag } = result;
+    if (hashtag) setHashtags((current) => (current.includes(hashtag) || current.length >= maxHashtags ? current : [...current, hashtag]));
     // What the AI read only fills what the admin left empty.
     const filledPrice = price || (result.price && result.priceMode ? result.price : '');
     if (!price && result.price && result.priceMode) {
@@ -339,7 +359,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   };
 
   // Publicar / Guardar: every language as it is when complete; else the AI translates the missing ones from the shop
-  // language, or writes them all from "Cuéntamelo todo" when there is no text yet.
+  // language, or writes them all from the selected tab when the shop language has no text yet.
   const fillMissingTexts = async (): Promise<FilledTexts | null> => {
     const current = { texts: draft, categories: categorySlugs, startsAt, price };
     if (isTextsComplete(draft)) return current;
@@ -395,43 +415,67 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
           </div>
         )}
 
-        <div hidden={step !== 1} className='space-y-3 rounded-3xl border border-border bg-card p-4 sm:p-5'>
-          <div className='flex items-center justify-between gap-3'>
-            <Label htmlFor='notes' className='font-display text-xl'>
-              {texts.tellLabel}
-            </Label>
-            {/* Spoken words land in the field, where they can still be corrected before sending. */}
-            {!isWriting && <VoiceInputButton onText={(text) => setNotes((current) => (current.trim() ? `${current.trimEnd()} ${text}` : text))} />}
+        {/* The only place for the text: one tab per language; the selected tab is the base "Crear descripción" works from. */}
+        <fieldset hidden={step !== 1} disabled={isDrafting || isWriting} className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'>
+          <div role='tablist' aria-label={texts.languagesLabel} className='flex flex-wrap gap-1'>
+            {textLanguages.map(({ id, label }) => (
+              <button
+                key={id}
+                type='button'
+                role='tab'
+                aria-selected={id === textLanguage}
+                onClick={() => setTextLanguage(id)}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                  id === textLanguage ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <Textarea
-            ref={notesInput}
-            id='notes'
-            rows={4}
-            value={notes}
-            readOnly={isWriting}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder={placeholder}
-            className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
-          />
-          <div className='grid gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_auto]'>
-            <select
-              aria-label={texts.textModeQuestion}
-              value={textMode}
-              disabled={isWriting || isDrafting}
-              onChange={(event) => setTextMode(event.target.value as TextMode)}
-              className={SELECT_CLASS}
-            >
+          <div className='space-y-1'>
+            <div className='flex items-end justify-between gap-2'>
+              <Label htmlFor='draft-title' className='px-1 pb-1 text-xs text-muted-foreground'>
+                {texts.titleLabel}
+              </Label>
+              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('title')} className='h-9' />}
+            </div>
+            <Input id='draft-title' value={shownText.title} onChange={(event) => setShownText('title')(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
+          </div>
+          <div className='space-y-1'>
+            <div className='flex items-end justify-between gap-2'>
+              <Label htmlFor='draft-description' className='px-1 pb-1 text-xs text-muted-foreground'>
+                {texts.descriptionLabel}
+              </Label>
+              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('description')} className='h-9' />}
+            </div>
+            <Textarea
+              ref={descriptionInput}
+              id='draft-description'
+              rows={4}
+              value={shownText.description}
+              onChange={(event) => setShownText('description')(event.target.value)}
+              placeholder={placeholder}
+              className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
+            />
+          </div>
+          <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
+            <select aria-label={texts.textModeQuestion} value={textMode} onChange={(event) => setTextMode(event.target.value as TextMode)} className={cn(SELECT_CLASS, 'bg-background')}>
               {(['ai', 'corrected', 'original'] as const).map((mode) => (
                 <option key={mode} value={mode}>
                   {texts[`textModeChoice_${mode}`]}
                 </option>
               ))}
             </select>
-            <Button className='h-12 rounded-full px-4' disabled={isWriting || isDrafting} onClick={createDescription}>
-              {isDrafting ? <Loader2 className='animate-spin' /> : <Sparkles />} {texts.createDescription}
+            <Button className='h-12 rounded-full px-4' onClick={createDescription}>
+              {isDrafting ? <Loader2 className='animate-spin' /> : <Sparkles />}
+              {/* Phones: the word alone, so the choice next to it stays readable. */}
+              <span className='min-[400px]:hidden'>{texts.createShort}</span>
+              <span className='max-[399px]:hidden'>{texts.createDescription}</span>
             </Button>
           </div>
-        </div>
+        </fieldset>
 
         {step === 1 && (
           <div className='grid grid-cols-2 gap-2'>
@@ -549,49 +593,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
             <p className='px-1 text-xs text-muted-foreground'>{texts.hashtagsHint}</p>
           </div>
         )}
-
-        {/* Always there, so nothing jumps: usable once "Crear descripción" wrote the texts. */}
-        <fieldset
-          hidden={step !== 1}
-          disabled={isDrafting || isWriting}
-          className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'
-        >
-          <div role='tablist' aria-label={texts.languagesLabel} className='flex flex-wrap gap-1'>
-            {textLanguages.map(({ id, label }) => (
-              <button
-                key={id}
-                type='button'
-                role='tab'
-                aria-selected={id === textLanguage}
-                onClick={() => setTextLanguage(id)}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
-                  id === textLanguage ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className='space-y-1'>
-            <Label htmlFor='draft-title' className='px-1 text-xs text-muted-foreground'>
-              {texts.titleLabel}
-            </Label>
-            <Input id='draft-title' value={shownText.title} onChange={(event) => setShownText('title')(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
-          </div>
-          <div className='space-y-1'>
-            <Label htmlFor='draft-description' className='px-1 text-xs text-muted-foreground'>
-              {texts.descriptionLabel}
-            </Label>
-            <Textarea
-              id='draft-description'
-              rows={4}
-              value={shownText.description}
-              onChange={(event) => setShownText('description')(event.target.value)}
-              className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
-            />
-          </div>
-        </fieldset>
 
         {isOnContact && (
           <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>

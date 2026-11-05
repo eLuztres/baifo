@@ -53,7 +53,7 @@ jest.mock('@/db/prisma', () => ({
     seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
     product: { update: jest.fn(), delete: jest.fn(() => 'delete-product') },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
-    hashtag: { upsert: jest.fn(async ({ where }: { where: { slug: string } }) => ({ id: `tag-${where.slug}` })) },
+    hashtag: { upsert: jest.fn(async ({ where }: { where: { slug: string } }) => ({ id: `tag-${where.slug}` })), findMany: jest.fn(async () => [{ name: 'surf' }]) },
     $transaction: jest.fn(async (writes: unknown[]) => writes),
   },
 }));
@@ -515,6 +515,18 @@ describe('draftAdminListingText', () => {
 
     await draftAdminListingText(ID, { notes: 'busco bici', textMode: 'ai', isWanted: true, priceMode: 'UP_TO', price: '90' });
     expect(db.submission.updateMany.mock.calls[1][0].data).toMatchObject({ type: 'WANTED', price: '90.00', priceMode: 'UP_TO' });
+  });
+
+  it('writes from the tab the admin wrote in, with its title, and lets the AI pick only among the shop\'s hashtags', async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT' });
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+    (writeDraftText as jest.Mock).mockResolvedValue({ categories: ['motor'], title: 'Bici', description: 'Bici.', translations: {}, type: 'PRODUCT', hashtag: 'surf' });
+
+    const result = await draftAdminListingText(ID, { notes: 'comfy bike', title: 'bike', language: 'en', textMode: 'corrected' });
+
+    expect(db.submission.updateMany.mock.calls[0][0].data).toMatchObject({ rawText: 'comfy bike', originalTitle: 'bike' });
+    expect(writeDraftText).toHaveBeenCalledWith(ID, { base: 'en', hashtags: ['surf'] });
+    expect(result).toMatchObject({ success: true, hashtag: 'surf' });
   });
 
   it('needs words to write from', async () => {

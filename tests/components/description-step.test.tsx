@@ -147,12 +147,12 @@ describe('DescriptionStep', () => {
     );
   });
 
-  it('lets the AI write every language from "Cuéntamelo todo" when the language box is empty', async () => {
+  it('lets the AI write every language from the selected tab when the shop language has no text', async () => {
     mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy.' } }, category: 'hogar' });
     mockDescribe.mockResolvedValue({ success: true });
     renderStep();
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'bici 80 euros' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'bici 80 euros' } });
     fillContact();
     fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
 
@@ -164,7 +164,7 @@ describe('DescriptionStep', () => {
     renderStep();
 
     expect(screen.getByRole('combobox', { name: 'textModeQuestion' })).toHaveValue('corrected');
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'bici 80 euros' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'bici 80 euros' } });
     fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
 
     await waitFor(() => expect(screen.getByLabelText('titleLabel')).toHaveValue('Bici'));
@@ -175,12 +175,28 @@ describe('DescriptionStep', () => {
     expect(screen.getByLabelText('titleLabel')).toHaveValue('Bike');
   });
 
+  it('makes the selected tab the base, sending its title and language, and takes the one hashtag the AI picked', async () => {
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy bike.' } }, hashtag: 'surf' });
+    renderStep();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'EN' }));
+    fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'bike' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'comfy bike 80 euros' } });
+    fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
+
+    await waitFor(() => expect(screen.getByLabelText('titleLabel')).toHaveValue('Bike'));
+    expect(mockDraft).toHaveBeenCalledWith('abc', expect.objectContaining({ notes: 'comfy bike 80 euros', title: 'bike', language: 'en' }));
+    // Still on the tab the admin wrote in.
+    expect(screen.getByRole('tab', { name: 'EN' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('#surf')).toBeInTheDocument();
+  });
+
   it('takes the category the AI chose into an empty field, lets the admin add another, and publishes both', async () => {
     mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Pedal', description: 'Pedal de loops.' }, en: { title: 'Pedal', description: 'Loop pedal.' } }, category: 'musica' });
     mockDescribe.mockResolvedValue({ success: true });
     renderStep();
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'pedal looper' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'pedal looper' } });
     fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
     await waitFor(() => expect(screen.getByLabelText('categoryLabel')).toHaveTextContent('Música'));
     fireEvent.keyDown(screen.getByLabelText('categoryLabel'), { key: 'Enter' });
@@ -208,7 +224,8 @@ describe('DescriptionStep', () => {
     expect(mockDescribe).toHaveBeenCalledWith(
       'abc',
       expect.objectContaining({
-        notes: 'Bici, 80€',
+        // The words the listing comes from: the selected tab's description.
+        notes: 'Bici cómoda.',
         sellerPhone: '612345678',
         sellerName: 'Lula',
         hasConsent: true,
@@ -255,7 +272,7 @@ describe('DescriptionStep', () => {
     mockDescribe.mockResolvedValue({ success: true });
     renderStep({ ...listing, type: 'EVENT' } as AdminListing);
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Bachata gratis el jueves a las 19h en la plaza de Lajares' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bachata gratis el jueves a las 19h en la plaza de Lajares' } });
     fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
     await waitFor(() => expect(screen.getByLabelText('eventStartsLabel')).toHaveValue('2026-11-26T19:00'));
     expect(screen.getByLabelText('addressLabel')).toHaveValue('Plaza de Lajares');
@@ -320,12 +337,12 @@ describe('DescriptionStep', () => {
   it('goes back to the description with everything written kept', () => {
     renderStep();
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Bici, 80€' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici, 80€' } });
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     fireEvent.change(screen.getByLabelText('sellerNameLabel'), { target: { value: 'Lula' } });
     fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
 
-    expect(screen.getByLabelText('tellLabel')).toHaveValue('Bici, 80€');
+    expect(screen.getByLabelText('descriptionLabel')).toHaveValue('Bici, 80€');
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     expect(screen.getByLabelText('sellerNameLabel')).toHaveValue('Lula');
   });
@@ -333,7 +350,7 @@ describe('DescriptionStep', () => {
   it('fills the WhatsApp with the number written in the description, unless one is already there', () => {
     renderStep();
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Concierto a las 20:00. Info: 628 111 222' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Concierto a las 20:00. Info: 628 111 222' } });
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('628 111 222');
 
@@ -346,7 +363,7 @@ describe('DescriptionStep', () => {
   it('leaves the WhatsApp empty when the description has no number', () => {
     renderStep();
 
-    fireEvent.change(screen.getByLabelText('tellLabel'), { target: { value: 'Bici, 180 euros' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici, 180 euros' } });
     fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
 
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('');

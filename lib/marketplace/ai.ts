@@ -63,6 +63,8 @@ const listingSchema = z.object({
   // Only an event's start ("2026-11-29T19:00" on the island) and address.
   startsAt: z.string().nullable().default(null),
   address: z.string().nullable().default(null),
+  // Only asked on "Crear descripción": one of the shop's hashtags that fits, never a new one.
+  hashtag: z.string().nullable().default(null),
 });
 
 export type ListingText = z.infer<typeof listingSchema>;
@@ -153,6 +155,18 @@ const withPlace = <T extends { properties: object; required: string[] }>(schema:
         properties: { ...schema.properties, place: { type: ['string', 'null'], enum: [...places.map(({ slug }) => slug), null] } },
         required: [...schema.required, 'place'],
       };
+
+// Hashtags come from people: the AI may only pick one that already exists.
+const withHashtag = <T extends { properties: object; required: string[] }>(schema: T, hashtags: string[]) =>
+  hashtags.length === 0
+    ? schema
+    : { ...schema, properties: { ...schema.properties, hashtag: { type: ['string', 'null'], enum: [...hashtags, null] } }, required: [...schema.required, 'hashtag'] };
+
+const hashtagRule = (hashtags: string[]) =>
+  hashtags.length === 0
+    ? ''
+    : `- hashtag: the ONE hashtag from this list that clearly fits the listing, or null if none does. Never more than one, ` +
+      `never one that is not in the list: ${hashtags.join(', ')}.\n`;
 
 const placeRule = (places: ListingPlace[]) =>
   places.length < 2
@@ -332,10 +346,10 @@ const picturePrompt = ({ title, description }: { title: string; description: str
 export const createPicture = (text: { title: string; description: string }, type: ListingType, wish?: string | null) =>
   generateImage(withWish(picturePrompt(text, type, ITEM_SCENE), wish), { size: LISTING_PHOTO_SIZE });
 
-/** Title and description in every shop language (the first one is the shop's), the category, the type and the price.
+/** Title and description in every shop language (the first one is the text's own: the base), the category, the type and the price.
     With `kept`, the admin's own text stays as it is (or only corrected) and is translated. Without a photo the AI goes
     by the text alone. An Anuncio (PRODUCT) may come back as SERVICE or WANTED; the other types stay as chosen. With
-    several live `places`, it also names the town. */
+    several live `places`, it also names the town; with `hashtags`, it may pick one of them. */
 export async function writeListing(
   photo: Buffer | null,
   sellerText: string,
@@ -343,7 +357,8 @@ export async function writeListing(
   locales: Locale[],
   type: ListingType = 'PRODUCT',
   kept?: KeptText,
-  places: ListingPlace[] = []
+  places: ListingPlace[] = [],
+  hashtags: string[] = []
 ): Promise<Omit<ListingText, 'type'> & { type: ListingType }> {
   const slugs = categories.map((category) => category.slug);
   const isService = type === 'SERVICE';
@@ -356,14 +371,15 @@ export async function writeListing(
         : listingPrompt(sellerText, categories, locales)) +
     (type === 'WANTED' ? WANTED_ONLY_RULE : '') +
     (photo ? '' : NO_PHOTO_RULE) +
-    placeRule(places);
+    placeRule(places) +
+    hashtagRule(hashtags);
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
       isWebSearch: Boolean(photo) && !isService && !isEvent,
-      schema: withPlace(
-        isService ? serviceJsonSchema(locales, slugs) : isEvent ? eventJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs),
-        places
+      schema: withHashtag(
+        withPlace(isService ? serviceJsonSchema(locales, slugs) : isEvent ? eventJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs), places),
+        hashtags
       ),
     })
   );
@@ -375,7 +391,8 @@ export async function writeListing(
   const resolvedType = type === 'PRODUCT' ? (result.type ?? 'PRODUCT') : type;
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   const category = slugs.includes(result.category) ? result.category : slugs.includes(FALLBACK_CATEGORY_SLUG) ? FALLBACK_CATEGORY_SLUG : slugs[0];
-  return { ...result, category, type: resolvedType };
+  const hashtag = result.hashtag && hashtags.includes(result.hashtag) ? result.hashtag : null;
+  return { ...result, category, type: resolvedType, hashtag };
 }
 
 const fieldsSchema = listingSchema.omit({ texts: true, type: true });
