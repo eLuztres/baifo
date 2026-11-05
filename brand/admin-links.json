@@ -1,5 +1,6 @@
 [
   {"href": "/admin/listings", "after": "/admin/studio", "icon": "grid", "label": {"es": "Anuncios", "en": "Listings", "it": "Annunci", "fr": "Annonces", "de": "Anzeigen"}},
   {"href": "/admin/places", "after": "/admin/offers", "icon": "map-pin", "label": {"es": "Corrales", "en": "Corrales", "it": "Corrales", "fr": "Corrales", "de": "Corrales"}},
-  {"href": "/admin/mercadillos", "after": "/admin/places", "icon": "store", "label": {"es": "Mercadillos", "en": "Mercadillos", "it": "Mercadillos", "fr": "Mercadillos", "de": "Mercadillos"}}
+  {"href": "/admin/mercadillos", "after": "/admin/places", "icon": "store", "label": {"es": "Mercadillos", "en": "Mercadillos", "it": "Mercadillos", "fr": "Mercadillos", "de": "Mercadillos"}},
+  {"href": "/admin/hashtags", "chooserOf": "/admin/products", "icon": "hash", "label": {"es": "Hashtags", "en": "Hashtags", "it": "Hashtag", "fr": "Hashtags", "de": "Hashtags"}, "hint": {"es": "Todos los de Baifo y sus anuncios", "en": "All of Baifo's and their listings", "it": "Tutti quelli di Baifo e i loro annunci", "fr": "Tous ceux de Baifo et leurs annonces", "de": "Alle von Baifo und ihre Anzeigen"}}
 ]

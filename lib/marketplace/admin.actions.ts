@@ -5,11 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { LISTING_TYPES, MAX_LISTING_CATEGORIES, PRICE_MODES } from '@/lib/constants';
+import { LISTING_TYPES, MAX_LISTING_CATEGORIES, MAX_LISTING_HASHTAGS, PRICE_MODES } from '@/lib/constants';
+import { uniqueHashtags } from '@/lib/hashtag-text';
+import { findOrCreateHashtags } from '@/lib/hashtags';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { aiErrorText } from '@/lib/ai-errors';
-import { sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
+import { listingContactsSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { allCategoryRefs, categoryName, categoryRefs, findCategories, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
@@ -101,7 +103,15 @@ const mercadilloIdSchema = z
   .union([z.string().uuid(), z.literal('')])
   .transform((value) => value || null)
   .optional();
+// As the admin left them, each once; missing: they stay as they are.
+const hashtagsSchema = z.array(z.string().max(60)).max(50).transform(uniqueHashtags).pipe(z.array(z.string()).max(MAX_LISTING_HASHTAGS)).optional();
 const mercadilloExists = async (id: string) => Boolean(await prisma.mercadillo.findUnique({ where: { id }, select: { id: true } }));
+
+// In two steps: Prisma's own order inside one write would let `set` undo a `connectOrCreate`.
+const setListingHashtags = async (id: string, names: string[]) => {
+  const hashtags = await findOrCreateHashtags(names);
+  await prisma.submission.update({ where: { id }, data: { hashtags: { set: hashtags } } });
+};
 
 const draftSchema = z.object({
   notes: z.string().trim().min(1).max(2000),
@@ -164,11 +174,16 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
   }
 }
 
+const CHECK_CONTACTS = 'Revisa el email, la web o el Instagram';
+
+const contactFields = ({ email, web, instagram }: z.output<typeof listingContactsSchema>) => ({ contactEmail: email, contactWeb: web, contactInstagram: instagram });
+
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema.optional(),
   // The name on this listing only, checked like on their own page; empty: none.
   sellerName: sellerNameSchema.optional(),
+  contacts: listingContactsSchema.optional(),
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
   originalTitle: z.string().trim().max(120).optional(),
@@ -185,6 +200,7 @@ const descriptionSchema = z.object({
   // The categories' slugs as the admin left them (the AI's choice, maybe changed).
   categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES).default([]),
   mercadilloId: mercadilloIdSchema,
+  hashtags: hashtagsSchema,
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
   isHidden: z.boolean().default(false),
   onlineUntil: z
@@ -200,8 +216,10 @@ export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
+  if (!parsed.success && parsed.error.issues[0]?.path[0] === 'hashtags') return { success: false, message: `Como mucho ${MAX_LISTING_HASHTAGS} hashtags` };
+  if (!parsed.success && parsed.error.issues[0]?.path[0] === 'contacts') return { success: false, message: CHECK_CONTACTS };
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil, mercadilloId } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil, mercadilloId, hashtags } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131).
   if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
@@ -249,12 +267,14 @@ export async function describeAdminListing(id: string, input: ListingDescription
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
       sellerName,
+      ...(contacts && contactFields(contacts)),
       textMode,
       originalTitle: (textMode !== 'ai' && originalTitle) || null,
       lastError: null,
     },
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  if (hashtags) await setListingHashtags(id, hashtags);
   await recordConsent({ id }, 'admin-confirmed');
   after(() => processSubmission(id));
   // Before the description only the pictures run, so an error then was theirs: they start again too.
@@ -269,7 +289,7 @@ export async function getAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return null;
   const submission = await prisma.submission.findUnique({
     where: { id },
-    include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } } },
+    include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } }, hashtags: { orderBy: { slug: 'asc' }, select: { name: true } } },
   });
   if (!submission) return null;
   const { price, ...rest } = submission;
@@ -317,10 +337,13 @@ const editSchema = z.object({
     .transform((value) => value || undefined)
     .optional(),
   mercadilloId: mercadilloIdSchema,
+  hashtags: hashtagsSchema,
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
   // This listing's name; missing: it stays as it is.
   sellerName: sellerNameSchema.optional(),
+  // The email, web page and Instagram; missing: they stay as they are.
+  contacts: listingContactsSchema.optional(),
   // The admin confirms the person's OK to show their number.
   hasConsent: z.boolean().optional(),
 });
@@ -336,11 +359,13 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerPhone')) return { success: false, message: 'Revisa el teléfono' };
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) return { success: false, message: 'Revisa el nombre' };
+  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'contacts')) return { success: false, message: CHECK_CONTACTS };
   // Everything is checked for the type it is saved as.
   const type = (parsed.success && parsed.data.type) || current?.type;
   const isService = type === 'SERVICE';
   const isEvent = type === 'EVENT';
   const priceMode = isEvent ? 'FIXED' : ((parsed.success && parsed.data.priceMode) || 'FIXED');
+  if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'hashtags')) return { success: false, message: `Como mucho ${MAX_LISTING_HASHTAGS} hashtags` };
   if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   if (priceMode !== 'NONE' && !parsed.data.price) return { success: false, message: 'Escribe el precio o elige «Sin precio»' };
   if (isEvent && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
@@ -352,12 +377,16 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (parsed.data.mercadilloId && !(await mercadilloExists(parsed.data.mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, hasConsent, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, hashtags, ...fields } = parsed.data;
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
   // A person's listing keeps a number to write to; the house's own may stay without one.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
   if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
   if (hasConsent) await recordConsent({ id }, 'admin-confirmed');
+  if (hashtags) {
+    await setListingHashtags(id, hashtags);
+    revalidatePath('/admin/hashtags');
+  }
   // "No price" keeps no amount; an older service's kind of offer stays only while it is a service, an event's date and address only on an event.
   const edit = {
     ...fields,
@@ -367,6 +396,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     startsAt: isEvent ? fields.startsAt : null,
     address: isEvent ? fields.address : null,
     ...(sellerName !== undefined && { sellerName }),
+    ...(contacts && contactFields(contacts)),
   };
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };

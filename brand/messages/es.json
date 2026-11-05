@@ -1,6 +1,7 @@
 {
   "ADMIN": "Panel de admin avanzado",
   "ADMIN_PRODUCTS": "Categorías",
+  "ADMIN_PRODUCTS_HINT": "Los temas de los anuncios",
   "ADMIN_NEW_PRODUCT": "Crear",
   "BRAND_DESCRIPTION": "Baifo es una red orgánica de anuncios en Fuerteventura: segunda mano, compra y venta, servicios y planes entre vecinos, directo por WhatsApp.",
   "BRAND_SLOGAN": "{shop} es una red orgánica.",

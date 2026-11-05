@@ -39,6 +39,7 @@ const LISTING = {
   textMode: 'ai',
   originalTitle: null,
   rawImages: [PHOTO],
+  hashtags: [],
   images: ['https://x.ufs.sh/f/bike-ai.jpg'],
   aiImages: ['https://x.ufs.sh/f/bike-ai.jpg'],
   lastError: null,
@@ -47,7 +48,7 @@ const LISTING = {
 
 const renderWorkspace = (listing: Partial<AdminListing> = {}) =>
   renderWithI18n(
-    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} mercadillos={[]} maxCategories={3} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} listingDays={90} texts={texts} />,
+    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} mercadillos={[]} hashtagOptions={[]} maxHashtags={5} maxCategories={3} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} listingDays={90} texts={texts} />,
   );
 
 

@@ -111,12 +111,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
   const categoryById = new Map(categories.map((category) => [category.id, category]));
 
-  // A listing is found by its names, and by its description, its categories' names and its kind.
+  // A listing is found by its names and hashtags, and by its description, its categories' names and its kind.
   const searchTextOf = (listing: Listing): SearchableText => {
     const translations = Object.values((listing.translations ?? {}) as Record<string, { name?: string; shortName?: string; description?: string }>);
     const ownCategories = listing.categoryIds.map((id) => categoryById.get(id)).filter((category) => category !== undefined);
     return {
-      names: [listing.name, listing.shortName, ...translations.flatMap((text) => [text.name, text.shortName])].filter(Boolean).map((name) => foldText(name!)).join(' | '),
+      names: [listing.name, listing.shortName, ...translations.flatMap((text) => [text.name, text.shortName]), ...listing.hashtags].filter(Boolean).map((name) => foldText(name!)).join(' | '),
       rest: foldText(
         [
           listing.description,

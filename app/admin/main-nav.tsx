@@ -1,9 +1,11 @@
 'use client';
 import Link from 'next/link';
+import ChoiceDialog from '@/components/shared/choice-dialog';
 import CreateChooser from '@/components/shared/create-chooser';
 import {
   BadgePercent,
   ChevronDown,
+  Hash,
   LayoutDashboard,
   LayoutGrid,
   List,
@@ -26,7 +28,7 @@ import type { AdminLink } from '@/lib/brand';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // New product comes first: adding products is what the admin does most.
-const links: { title: TranslationKey; href: string; icon: LucideIcon; isSalesOnly?: boolean; isAiOnly?: boolean; isOffersOnly?: boolean; isAdvanced?: boolean }[] = [
+const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon: LucideIcon; isSalesOnly?: boolean; isAiOnly?: boolean; isOffersOnly?: boolean; isAdvanced?: boolean }[] = [
   {
     title: 'ADMIN_NEW_PRODUCT',
     href: '/admin/studio',
@@ -34,6 +36,7 @@ const links: { title: TranslationKey; href: string; icon: LucideIcon; isSalesOnl
   },
   {
     title: 'ADMIN_PRODUCTS',
+    hint: 'ADMIN_PRODUCTS_HINT',
     href: '/admin/products',
     icon: Shapes,
   },
@@ -66,7 +69,7 @@ const links: { title: TranslationKey; href: string; icon: LucideIcon; isSalesOnl
 ];
 
 // The icons a shop's own admin page can name in brand/admin-links.json.
-const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, list: List, 'map-pin': MapPin, store: Store };
+const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, hash: Hash, list: List, 'map-pin': MapPin, store: Store };
 
 interface NavLink {
   key: string;
@@ -75,6 +78,8 @@ interface NavLink {
   icon?: LucideIcon;
   isActive: boolean;
   isAdvanced?: boolean;
+  hint?: string;
+  chooserOf?: string;
 }
 
 interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
@@ -118,6 +123,9 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
     href: link.href,
     label: link.label,
     icon: link.icon ? EXTRA_ICONS[link.icon] : undefined,
+    isAdvanced: link.isAdvanced,
+    hint: link.hint,
+    chooserOf: link.chooserOf,
     // The shop's own creation flow may sit under one of its links (e.g. /admin/listings/new).
     isActive: pathname.startsWith(link.href) && !isCreating,
   });
@@ -125,13 +133,15 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
   for (const item of links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly) && !(!isOffersEnabled && item.isOffersOnly))) {
     const href = item.href === '/admin/studio' ? newProductHref : item.href;
     const isActive = href === newProductHref ? isCreating : pathname.includes(href);
-    navLinks.push({ key: item.href, href, label: t(item.title), icon: item.icon, isActive, isAdvanced: item.isAdvanced });
+    navLinks.push({ key: item.href, href, label: t(item.title), hint: item.hint && t(item.hint), icon: item.icon, isActive, isAdvanced: item.isAdvanced });
     navLinks.push(...extraLinks.filter((link) => link.after === item.href).map(toNavLink));
   }
   const placedHrefs = new Set(navLinks.map((link) => link.key));
   navLinks.push(...extraLinks.filter((link) => !placedHrefs.has(link.href)).map(toNavLink));
-  const mainLinks = navLinks.filter((link) => !link.isAdvanced);
-  const advancedLinks = navLinks.filter((link) => link.isAdvanced);
+  // A link with chooserOf has no pill of its own: its menu link asks first, as "Crear" does.
+  const choicesOf = (link: NavLink) => navLinks.filter((other) => other.chooserOf === link.href);
+  const mainLinks = navLinks.filter((link) => !link.isAdvanced && !link.chooserOf);
+  const advancedLinks = navLinks.filter((link) => link.isAdvanced && !link.chooserOf);
   const isAdvancedActive = advancedLinks.some((link) => link.isActive);
   return (
     <nav
@@ -139,21 +149,31 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
       className={cn('flex items-center gap-0.5 rounded-full border border-border bg-muted/60 p-1', className)}
       {...props}
     >
-      {mainLinks.map(({ key, href, label, icon: Icon, isActive }) =>
-        href === newProductHref && newProductHref.startsWith('/admin/listings/new') ? (
+      {mainLinks.map((link) => {
+        const { key, href, label, icon: Icon } = link;
+        const choices = choicesOf(link);
+        const isActive = link.isActive || choices.some((choice) => choice.isActive);
+        return href === newProductHref && newProductHref.startsWith('/admin/listings/new') ? (
           <CreateChooser key={key}>
             <button type='button' aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
               {Icon && <Icon />}
               {label}
             </button>
           </CreateChooser>
+        ) : choices.length > 0 ? (
+          <ChoiceDialog key={key} title={t('ADMIN_CHOOSE_TITLE')} choices={[link, ...choices].map((choice) => ({ href: choice.href, icon: choice.icon, title: choice.label, hint: choice.hint }))}>
+            <button type='button' aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
+              {Icon && <Icon />}
+              {label}
+            </button>
+          </ChoiceDialog>
         ) : (
           <Link key={key} href={href} aria-current={isActive ? 'page' : undefined} className={linkClass(variant, isActive)}>
             {Icon && <Icon />}
             {label}
           </Link>
-        )
-      )}
+        );
+      })}
       {advancedLinks.length > 0 && (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger aria-current={isAdvancedActive ? 'page' : undefined} className={linkClass(variant, isAdvancedActive)}>

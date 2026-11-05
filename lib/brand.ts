@@ -181,6 +181,12 @@ export interface AdminLink<Label = string> {
   label: Label;
   after?: string;
   icon?: string;
+  /** Opened seldom: it waits in the Advanced menu. */
+  isAdvanced?: boolean;
+  /** Offered in a pop-up next to this menu link instead of its own (e.g. Hashtags with Categorías). */
+  chooserOf?: string;
+  /** A short line under its name in that pop-up. */
+  hint?: Label;
 }
 
 /** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */

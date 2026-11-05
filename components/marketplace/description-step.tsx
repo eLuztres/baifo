@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
-import { CalendarPlus, Check, ChevronDown, Loader2, MessageCircle, RotateCw, Save, Send, Sparkles, Trash2 } from 'lucide-react';
+import { CalendarPlus, Check, ChevronDown, Globe, Loader2, Mail, MessageCircle, RotateCw, Save, Send, Sparkles, Trash2, X } from 'lucide-react';
+import InstagramIcon from '@/components/shared/icons/instagram-icon';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,6 +32,7 @@ import {
 } from '@/lib/marketplace/admin.actions';
 import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
+import { CLEAN_CONTACT, CONTACT_EXTRAS, webLabel, type ContactExtra, type ListingContacts } from '@/lib/marketplace/contact-ways';
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
@@ -40,7 +42,8 @@ import { pictureOf } from '@/lib/video';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
-import type { CategoryOption, EditorLanguage, MercadilloOption } from './editor-types';
+import HashtagInput from './hashtag-input';
+import type { CategoryOption, EditorLanguage, HashtagOption, MercadilloOption } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -52,6 +55,10 @@ interface DescriptionStepProps {
   categories: CategoryOption[];
   /** The Mercadillos it can join, on "Más". */
   mercadillos: MercadilloOption[];
+  /** The shop's hashtags to suggest on "Más", the most used first. */
+  hashtagOptions: HashtagOption[];
+  /** How many hashtags a listing can have (MAX_LISTING_HASHTAGS). */
+  maxHashtags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
@@ -67,7 +74,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, hashtagOptions, maxHashtags, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   // "Enviar por WhatsApp" belongs to the contact: only there, and not while the AI writes.
   const isSendShown = isOnContact && listing.status === 'COLLECTING';
@@ -88,6 +95,18 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // The name visitors see now: only a changed name is saved on the listing.
   const shownSellerName = isEditing ? (sellerIdentity(listing).name ?? '') : '';
   const [sellerName, setSellerName] = useState(shownSellerName);
+  // Email, web and Instagram besides the WhatsApp: the ones chosen in "Cómo contactar" get a field.
+  const [contacts, setContacts] = useState<ListingContacts>({
+    email: listing.contactEmail ?? '',
+    web: listing.contactWeb ? webLabel(listing.contactWeb) : '',
+    instagram: listing.contactInstagram ? `@${listing.contactInstagram}` : '',
+  });
+  const [chosenContacts, setChosenContacts] = useState<ContactExtra[]>(() => CONTACT_EXTRAS.filter((kind) => contacts[kind]));
+  const [checkedContacts, setCheckedContacts] = useState<ContactExtra[]>([]);
+  const toggleContact = (kind: ContactExtra) => setChosenContacts((current) => (current.includes(kind) ? current.filter((chosen) => chosen !== kind) : [...current, kind]));
+  const isContactWrong = (kind: ContactExtra) => !CLEAN_CONTACT[kind](contacts[kind]);
+  // An unchosen way is saved empty, so taking it away removes it from the listing.
+  const sentContacts = () => Object.fromEntries(CONTACT_EXTRAS.map((kind) => [kind, chosenContacts.includes(kind) ? contacts[kind] : ''])) as ListingContacts;
   const notesInput = useRef<HTMLTextAreaElement>(null);
   // How "Crear descripción" treats the words: improved, corrected (the default) or only translated; always into every language.
   const [textMode, setTextMode] = useState<TextMode>(listing.title ? (listing.textMode as TextMode) : 'corrected');
@@ -126,6 +145,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
   const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
+  const [hashtags, setHashtags] = useState(() => listing.hashtags.map(({ name }) => name));
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
     status === 'SOLD' && listing.type !== 'PRODUCT' ? texts[`status_SOLD_${listing.type}`] : texts[`status_${status}`];
@@ -145,7 +165,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // The person's OK to show their number, confirmed by the admin who creates the listing with them.
   const [hasConsent, setHasConsent] = useState(isEditing && Boolean(listing.consentAt));
   // A "missing" message is old news as soon as something is filled in.
-  useEffect(() => setError(''), [notes, sellerPhone, hasConsent, startsAt]);
+  useEffect(() => setError(''), [notes, sellerPhone, hasConsent, startsAt, contacts, chosenContacts]);
   const hasText = Boolean(listing.title);
   const placeholder = isService
       ? texts.tellServicePlaceholder
@@ -180,11 +200,13 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         setError(fillText(isEditing ? texts.missingToSave : texts.missingToPublish, { items }));
         return true;
       };
+      setCheckedContacts([...CONTACT_EXTRAS]);
       if (
         tellMissing([
           hasNoPhoto && { step: 0, text: texts.missingPicture },
           !isTextsComplete(draft) && !hasSomeText && { step: 1, text: texts.missingText },
           !hasPhone && !isHouseListing && { step: 2, text: texts.missingPhone },
+          chosenContacts.some(isContactWrong) && { step: 2, text: texts.missingContacts },
           !hasConsent && willBeLive && (hasPhone || !isHouseListing) && { step: 2, text: texts.missingConsent },
         ])
       )
@@ -203,6 +225,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         notes,
         sellerPhone: sellerPhone.trim(),
         sellerName,
+        contacts: sentContacts(),
         textMode,
         hasConsent,
         ...(!isEvent && { isWanted }),
@@ -215,6 +238,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
         mercadilloId,
+        hashtags,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
@@ -239,8 +263,10 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       address: isEvent ? address : '',
       textMode,
       mercadilloId,
+      hashtags,
       sellerPhone: sellerPhone.trim(),
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
+      contacts: sentContacts(),
       hasConsent: hasConsent && !listing.consentAt,
     });
     if (!saved.success) return setError(saved.message);
@@ -504,6 +530,22 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
           </div>
         )}
 
+        {/* Next to the category and the texts: they close the description. */}
+        {step === 1 && (
+          <div className='space-y-1'>
+            <div className='flex items-baseline justify-between gap-2 px-1 text-xs text-muted-foreground'>
+              <Label htmlFor='listing-hashtags' className='text-xs text-muted-foreground'>
+                {texts.hashtagsLabel}
+              </Label>
+              <span aria-live='polite'>
+                {hashtags.length}/{maxHashtags}
+              </span>
+            </div>
+            <HashtagInput id='listing-hashtags' value={hashtags} onChange={setHashtags} options={hashtagOptions} max={maxHashtags} isDisabled={isWriting} texts={texts} className='bg-card' />
+            <p className='px-1 text-xs text-muted-foreground'>{texts.hashtagsHint}</p>
+          </div>
+        )}
+
         {/* Always there, so nothing jumps: usable once "Crear descripción" wrote the texts. */}
         <fieldset
           hidden={step !== 1}
@@ -549,8 +591,11 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
 
         {isOnContact && (
           <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>
+            <ContactWaysPicker texts={texts} chosen={chosenContacts} isDisabled={isWriting} onToggle={toggleContact} />
             <div className='space-y-2'>
-              <Label htmlFor='seller'>{texts.servicePhoneLabel}</Label>
+              <Label htmlFor='seller' className='flex items-center gap-2'>
+                <MessageCircle className='size-4 text-muted-foreground' /> {texts.servicePhoneLabel}
+              </Label>
               <Input
                 id='seller'
                 type='tel'
@@ -564,6 +609,19 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
               {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
             </div>
+            {CONTACT_EXTRAS.filter((kind) => chosenContacts.includes(kind)).map((kind) => (
+              <ContactField
+                key={kind}
+                kind={kind}
+                texts={texts}
+                value={contacts[kind]}
+                isWrong={checkedContacts.includes(kind) && isContactWrong(kind)}
+                isDisabled={isWriting}
+                onChange={(value) => setContacts((current) => ({ ...current, [kind]: value }))}
+                onBlur={() => setCheckedContacts((current) => [...current, kind])}
+                onRemove={() => toggleContact(kind)}
+              />
+            ))}
             <div className='space-y-2'>
               <Label htmlFor='seller-name'>{texts.sellerNameLabel}</Label>
               <Input
@@ -690,6 +748,106 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
 interface WorkStateProps {
   isDone: boolean;
   label: string;
+}
+
+const CONTACT_ICONS = { whatsapp: MessageCircle, email: Mail, web: Globe, instagram: InstagramIcon };
+
+const contactTexts = (texts: AdminTexts, kind: ContactExtra) =>
+  ({
+    email: { label: texts.contactEmailLabel, placeholder: texts.contactEmailPlaceholder, invalid: texts.contactEmailInvalid, type: 'email' },
+    web: { label: texts.contactWebLabel, placeholder: texts.contactWebPlaceholder, invalid: texts.contactWebInvalid, type: 'url' },
+    instagram: { label: texts.contactInstagramLabel, placeholder: texts.contactInstagramPlaceholder, invalid: texts.contactInstagramInvalid, type: 'text' },
+  })[kind];
+
+interface ContactWaysPickerProps {
+  texts: AdminTexts;
+  chosen: ContactExtra[];
+  isDisabled: boolean;
+  onToggle: (kind: ContactExtra) => void;
+}
+
+/** "Cómo contactar a la persona": the WhatsApp always, plus any of email, web and Instagram. */
+function ContactWaysPicker({ texts, chosen, isDisabled, onToggle }: ContactWaysPickerProps) {
+  const ways = ['whatsapp' as const, ...CONTACT_EXTRAS.filter((kind) => chosen.includes(kind))];
+  const labelOf = (kind: (typeof ways)[number]) => (kind === 'whatsapp' ? 'WhatsApp' : contactTexts(texts, kind).label);
+  return (
+    <div className='space-y-2'>
+      <Label>{texts.contactWaysLabel}</Label>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild disabled={isDisabled}>
+          <button type='button' className='flex h-12 w-full items-center gap-2 rounded-2xl border border-input bg-background px-3 text-left text-sm'>
+            <span className='flex min-w-0 flex-1 items-center gap-2'>
+              {ways.map((kind) => {
+                const Icon = CONTACT_ICONS[kind];
+                return (
+                  <span key={kind} className='inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs'>
+                    <Icon className='size-3.5' />
+                    {/* Several names don't fit a phone: then only the icons. */}
+                    <span className={cn(ways.length > 2 && 'max-sm:sr-only')}>{labelOf(kind)}</span>
+                  </span>
+                );
+              })}
+            </span>
+            <ChevronDown className='size-4 shrink-0 text-muted-foreground' />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='start' className='w-[var(--radix-dropdown-menu-trigger-width)]'>
+          {/* The WhatsApp is how the person gets their listing's link: always there. */}
+          <DropdownMenuCheckboxItem checked disabled className='gap-2'>
+            <MessageCircle className='size-4' /> WhatsApp
+          </DropdownMenuCheckboxItem>
+          {CONTACT_EXTRAS.map((kind) => {
+            const Icon = CONTACT_ICONS[kind];
+            return (
+              <DropdownMenuCheckboxItem key={kind} checked={chosen.includes(kind)} onCheckedChange={() => onToggle(kind)} onSelect={(event) => event.preventDefault()} className='gap-2'>
+                <Icon className='size-4' /> {contactTexts(texts, kind).label}
+              </DropdownMenuCheckboxItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+interface ContactFieldProps {
+  kind: ContactExtra;
+  texts: AdminTexts;
+  value: string;
+  isWrong: boolean;
+  isDisabled: boolean;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  onRemove: () => void;
+}
+
+function ContactField({ kind, texts, value, isWrong, isDisabled, onChange, onBlur, onRemove }: ContactFieldProps) {
+  const { label, placeholder, invalid, type } = contactTexts(texts, kind);
+  const Icon = CONTACT_ICONS[kind];
+  return (
+    <div className='space-y-2'>
+      <Label htmlFor={`contact-${kind}`} className='flex items-center gap-2'>
+        <Icon className='size-4 text-muted-foreground' /> {label}
+      </Label>
+      <div className='flex items-center gap-2'>
+        <Input
+          id={`contact-${kind}`}
+          type={type}
+          value={value}
+          readOnly={isDisabled}
+          placeholder={placeholder}
+          aria-invalid={isWrong}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          className={cn('h-12 rounded-2xl bg-background', isWrong && 'border-destructive')}
+        />
+        <Button type='button' variant='ghost' size='icon' disabled={isDisabled} onClick={onRemove} className='shrink-0 rounded-full' aria-label={fillText(texts.contactRemove, { name: label })}>
+          <X />
+        </Button>
+      </div>
+      {isWrong && <p className='text-xs text-destructive'>{invalid}</p>}
+    </div>
+  );
 }
 
 // Native selects: on a phone they open the system's own picker.

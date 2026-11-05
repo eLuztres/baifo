@@ -63,7 +63,7 @@ describe('getInStockRings', () => {
     const submissionEnd = new Date('2026-11-01T00:00:00Z');
     const productEnd = new Date('2026-12-01T00:00:00Z');
     findMany.mockResolvedValue([
-      { ...row('seller'), expiresAt: productEnd, submission: { rawImages: [], expiresAt: submissionEnd } },
+      { ...row('seller'), expiresAt: productEnd, submission: { rawImages: [], expiresAt: submissionEnd, hashtags: [] } },
       { ...row('admin'), expiresAt: productEnd },
       row('forever'),
     ]);

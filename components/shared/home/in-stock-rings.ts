@@ -51,6 +51,8 @@ export interface CollectionRing {
   placeId: string | null;
   /** Server only: the Mercadillo it belongs to, for its row in the list. */
   mercadilloId: string | null;
+  /** Server only: its hashtags, for the feed's search. */
+  hashtags: string[];
 }
 
 /** Only the rings in the visitor's places; one without a place stays, so nothing disappears unnoticed. */
@@ -86,7 +88,7 @@ const RING_SELECT = {
   // The shop's order: the first one sorts a listing in the feed and labels it in the search.
   categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
   expiresAt: true,
-  submission: { select: { rawImages: true, expiresAt: true } },
+  submission: { select: { rawImages: true, expiresAt: true, hashtags: { select: { name: true } } } },
 } satisfies Prisma.ProductSelect;
 
 // From the extended client, which hands prices over as strings.
@@ -104,6 +106,7 @@ const toCollectionRing = ({ images, reservedUntil, categories, price, submission
     images,
     isReserved: isReservationActive({ reservedUntil }),
     categoryIds: categories.map((category) => category.id),
+    hashtags: submission?.hashtags.map(({ name }) => name) ?? [],
     // A seller's listing ends with its submission; an admin's service has its own end.
     endsAt: submission?.expiresAt ?? expiresAt,
   };

@@ -9,6 +9,7 @@ import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
+import ContactWaysButton from '@/components/shared/product/contact-ways-button';
 import ShareButton from '@/components/shared/product/share-button';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
@@ -32,6 +33,7 @@ import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
+import { withHashtags } from '@/lib/hashtag-text';
 import { localize, localizeProduct } from '@/lib/category';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
@@ -126,6 +128,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Only an item for sale has a condition: the AI may still read one for a wanted ad or an event.
   const condition = product.type === 'PRODUCT' ? conditionKey(product.condition) : undefined;
   const { name, description } = localizeProduct(product, locale);
+  const shownDescription = withHashtags(description, product.submission?.hashtags);
   // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.
   // Writing to the place's Corral instead is parked for now (#131).
   const shopChatUrl =
@@ -138,6 +141,13 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const seller = product.submission && sellerIdentity(product.submission);
   const mercadilloName = product.mercadillo && localize(product.mercadillo.name, locale);
   const sellerMessage = hasSellerContact ? getContactMessage(product, seller?.name) : undefined;
+  // Email, web and Instagram besides the WhatsApp; only whether there is an email goes to the browser.
+  const contactWays = product.submission && {
+    hasEmail: Boolean(product.submission.contactEmail),
+    web: product.submission.contactWeb,
+    instagram: product.submission.contactInstagram,
+  };
+  const hasContactWays = Boolean(contactWays && (contactWays.hasEmail || contactWays.web || contactWays.instagram));
   // The category the visitor came through, else the listing's own: the strip opens with it.
   const focusCategory =
     categories.find((category) => category.slug === categoryId) ??
@@ -264,7 +274,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'
                 boxClassName={cn(phoneOnlyOnBig)}
               >
-                {description}
+                {shownDescription}
               </ScrollText>
             )}
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
@@ -296,9 +306,11 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                         {serviceKey && <span className='rounded-full border border-border bg-muted px-3 py-1'>{t(serviceKey)}</span>}
                       </span>
                     )}
-                    {description && <span className='block whitespace-pre-line'>{description}</span>}
+                    {description && <span className='block whitespace-pre-line'>{shownDescription}</span>}
                   </ListingInfoButton>
-                  {sellerMessage ? (
+                  {contactWays && hasContactWays ? (
+                    <ContactWaysButton productId={product.id} message={sellerMessage} sellerName={seller?.name} {...contactWays} className='flex-1 shrink-0' />
+                  ) : sellerMessage ? (
                     <ContactSellerButton
                       productId={product.id}
                       message={sellerMessage}

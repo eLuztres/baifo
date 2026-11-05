@@ -127,6 +127,15 @@ model Mercadillo {
   submissions Submission[]
 }
 
+// A word a listing is found by; "música" and "musica" are one (same slug). Listings own them, so hiding or selling one keeps them.
+model Hashtag {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String       @unique
+  name        String
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  submissions Submission[]
+}
+
 // A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
 // Every listing is exactly one of these (LISTING_TYPES); WANTED is "Busco …", someone looking for something.
 // CHECK constraints in the migrations: serviceType only on SERVICE, an EVENT product has startsAt.
@@ -370,6 +379,10 @@ model Submission {
   hasContactConsent Boolean          @default(false)
   // The name buyers see ("Ofrecido por …"), any nickname; this listing's alone, whatever others with the same number say. Empty: none.
   sellerName        String?
+  // More ways to reach the person besides their WhatsApp, shown on the listing; empty: none.
+  contactEmail      String?
+  contactWeb        String?
+  contactInstagram  String?
   // The language a buyer's WhatsApp message to the seller is written in; empty: the language of the seller's number.
   sellerLocale      String?
   // Secret part of the seller's /publicar link.
@@ -393,6 +406,8 @@ model Submission {
   // Its Mercadillo; the product it becomes takes it over.
   mercadilloId      String?          @db.Uuid
   mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
+  // Shown at the end of the description, and found by the search.
+  hashtags          Hashtag[]
   // A service's kind of offer and an event's start and address; the product it becomes takes them over.
   serviceType       String?
   startsAt          DateTime?        @db.Timestamp(6)

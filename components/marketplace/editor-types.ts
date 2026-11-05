@@ -12,6 +12,12 @@ export interface MercadilloOption {
   name: string;
 }
 
+/** A hashtag the editor can suggest, with how many listings use it. */
+export interface HashtagOption {
+  name: string;
+  count: number;
+}
+
 /** A store category the listing can go in, its name in the admin's language. */
 export interface CategoryOption {
   slug: string;

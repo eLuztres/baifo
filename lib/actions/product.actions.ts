@@ -19,7 +19,7 @@ export async function getProductBySlug(slug: string) {
     // Showcase mode: the price is never read, so no page can send it.
     omit: { price: !SHOWS_PRICES },
     // Baifo: the seller's name and language for "Offered by" and the message to them; their number stays out.
-    include: { submission: { select: { id: true, sellerName: true, sellerLocale: true, seller: { select: { waId: true, name: true } } } }, mercadillo: { select: { slug: true, name: true, icon: true } } },
+    include: { submission: { select: { id: true, sellerName: true, sellerLocale: true, contactEmail: true, contactWeb: true, contactInstagram: true, seller: { select: { waId: true, name: true } }, hashtags: { orderBy: { slug: 'asc' }, select: { name: true } } } }, mercadillo: { select: { slug: true, name: true, icon: true } } },
   });
 }
 
@@ -36,6 +36,19 @@ export async function getProductContact(productId: string) {
   });
   const digits = product?.contactPhone?.replace(/\D/g, '');
   return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
+}
+
+/** The email of a listing's person, under the same rules as the number: fetched on a click and limited per IP. */
+export async function getProductEmail(productId: string) {
+  const id = z.string().uuid().safeParse(productId);
+  if (!id.success) return null;
+  if (await isRateLimited(CONTACT_LIMIT, clientIp(await headers()))) return { isRateLimited: true } as const;
+  const product = await prisma.product.findFirst({
+    where: { id: id.data, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    select: { submission: { select: { contactEmail: true } } },
+  });
+  const email = product?.submission?.contactEmail;
+  return email ? { email } : null;
 }
 
 /** The WhatsApp link of a Mercadillo, under the same rules: fetched on a click and limited per IP. */

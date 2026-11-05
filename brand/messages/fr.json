@@ -1,6 +1,7 @@
 {
   "ADMIN": "Panneau d'administration avancé",
   "ADMIN_PRODUCTS": "Catégories",
+  "ADMIN_PRODUCTS_HINT": "Les thèmes des annonces",
   "ADMIN_NEW_PRODUCT": "Créer",
   "BRAND_DESCRIPTION": "Baifo est un réseau organique de petites annonces à Fuerteventura : occasion, achat et vente, services et sorties entre voisins, en direct sur WhatsApp.",
   "BRAND_SLOGAN": "{shop} est un réseau organique.",

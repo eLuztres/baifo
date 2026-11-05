@@ -17,7 +17,7 @@ export default async function AdminLayout({
 }>) {
   const [locale, { t }] = await Promise.all([getLocale(), getT()]);
   const navProps = { isShowcase: SHOWCASE_MODE, isAiEnabled: IS_STUDIO_ENABLED, isOffersEnabled: OFFERS_ENABLED, newProductHref: NEW_PRODUCT_PATH };
-  const extraLinks = ADMIN_LINKS.map((link) => ({ ...link, label: localize(link.label, locale) }));
+  const extraLinks = ADMIN_LINKS.map((link) => ({ ...link, label: localize(link.label, locale), hint: link.hint && localize(link.hint, locale) }));
   return (
     <>
       <div className='flex flex-col'>

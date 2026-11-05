@@ -49,6 +49,7 @@ describe('groupByCategory', () => {
     type: 'PRODUCT' as const,
     placeId: null,
     mercadilloId: null,
+    hashtags: [],
     categoryIds,
     createdAt: new Date(0),
     condition: null,

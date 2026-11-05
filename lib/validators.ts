@@ -3,6 +3,7 @@ import { formatNumberWithDecimal } from './utils';
 import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
 import { OFFER_ICONS } from './constants';
 import { fromShopDateTime } from './event-date';
+import { CLEAN_CONTACT, type ContactExtra } from './marketplace/contact-ways';
 
 // Messages are translation keys (checked here at compile time); FormMessage and the Toaster
 // translate them. No env-based config is imported, because client forms use these schemas too.
@@ -224,6 +225,19 @@ export const sellerPhoneSchema = z
   .string()
   .transform((value) => value.replace(/\D/g, '').replace(/^00/, ''))
   .refine((digits) => digits === '' || (digits.length >= 9 && digits.length <= 15));
+
+const contactField = (kind: ContactExtra) =>
+  z
+    .string()
+    .max(200)
+    .transform((value, context) => {
+      const clean = CLEAN_CONTACT[kind](value);
+      if (clean === null) context.addIssue({ code: 'custom', message: `Invalid ${kind}` });
+      return clean || null;
+    });
+
+// A listing's email, web page and Instagram besides the WhatsApp; empty: none.
+export const listingContactsSchema = z.object({ email: contactField('email'), web: contactField('web'), instagram: contactField('instagram') });
 
 /** The language buyers write to the seller in; empty is null, so the language of their number counts. */
 export const sellerLocaleSchema = z

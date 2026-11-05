@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 import { Loader2, MessageCircle } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,9 @@ interface ContactSellerButtonProps {
   /** The prefilled WhatsApp message, in the listing's language. */
   message: string;
   className?: string;
+  /** In the list of several contacts: the row's own look and words instead of "Contact". */
+  buttonClassName?: string;
+  children?: ReactNode;
 }
 
 type ContactProblem = 'unavailable' | 'tooMany';
@@ -35,7 +38,7 @@ function openInApp(phone: string, message: string) {
 
 /** Classifieds: one tap opens WhatsApp with the message written.
     The seller's number is fetched on the tap, so it isn't in the page for scrapers. */
-export default function ContactSellerButton({ productId, mercadilloId, message, className }: ContactSellerButtonProps) {
+export default function ContactSellerButton({ productId, mercadilloId, message, className, buttonClassName, children }: ContactSellerButtonProps) {
   const { t } = useI18n();
   const [problem, setProblem] = useState<ContactProblem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -71,8 +74,12 @@ export default function ContactSellerButton({ productId, mercadilloId, message, 
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <Button onClick={openChat} disabled={isPending} className='h-11 rounded-full'>
-        {isPending ? <Loader2 className='animate-spin' /> : <MessageCircle />} {t('CONTACT_SELLER')}
+      <Button onClick={openChat} disabled={isPending} className={cn('h-11 rounded-full', buttonClassName)}>
+        {children ?? (
+          <>
+            {isPending ? <Loader2 className='animate-spin' /> : <MessageCircle />} {t('CONTACT_SELLER')}
+          </>
+        )}
       </Button>
       {problem === 'tooMany' && (
         // The button stays, so the visitor can try again after the wait.

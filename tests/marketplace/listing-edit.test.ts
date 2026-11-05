@@ -53,6 +53,7 @@ jest.mock('@/db/prisma', () => ({
     seller: { upsert: jest.fn(async () => ({ id: 'seller-1' })) },
     product: { update: jest.fn(), delete: jest.fn(() => 'delete-product') },
     category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'motor', name: { es: 'Bicis y motor' }, keywords: [] }]) },
+    hashtag: { upsert: jest.fn(async ({ where }: { where: { slug: string } }) => ({ id: `tag-${where.slug}` })) },
     $transaction: jest.fn(async (writes: unknown[]) => writes),
   },
 }));
@@ -61,6 +62,7 @@ const db = prisma as unknown as {
   submission: Record<'findUnique' | 'findFirst' | 'update' | 'updateMany' | 'create' | 'delete', jest.Mock>;
   seller: Record<'upsert', jest.Mock>;
   product: Record<'update' | 'delete', jest.Mock>;
+  hashtag: Record<'upsert', jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -82,6 +84,30 @@ beforeEach(() => {
 });
 
 describe('updateAdminListing', () => {
+  it('sets the hashtags as the admin left them: each once, made when new', async () => {
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT' });
+    expect((await updateAdminListing(ID, { ...EDIT, hashtags: ['#Música', 'musica', 'surf'] })).success).toBe(true);
+    expect(db.hashtag.upsert).toHaveBeenCalledTimes(2);
+    expect(db.hashtag.upsert).toHaveBeenCalledWith({ where: { slug: 'musica' }, update: {}, create: { slug: 'musica', name: 'música' }, select: { id: true } });
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: ID }, data: { hashtags: { set: [{ id: 'tag-musica' }, { id: 'tag-surf' }] } } });
+    // The strings never reach the listing's own fields.
+    expect(db.submission.update.mock.calls.at(-1)?.[0].data).not.toHaveProperty('hashtags');
+  });
+
+  it('refuses more hashtags than a listing can have, and makes none', async () => {
+    const result = await updateAdminListing(ID, { ...EDIT, hashtags: ['a', 'b', 'c', 'd', 'e', 'f'] });
+    expect(result).toEqual({ success: false, message: 'Como mucho 5 hashtags' });
+    expect(db.hashtag.upsert).not.toHaveBeenCalled();
+  });
+
+  it('leaves the hashtags alone when they are not in the edit, and removes them on an empty list', async () => {
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT' });
+    await updateAdminListing(ID, EDIT);
+    expect(db.submission.update.mock.calls.some(([call]) => 'hashtags' in call.data)).toBe(false);
+    await updateAdminListing(ID, { ...EDIT, hashtags: [] });
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: ID }, data: { hashtags: { set: [] } } });
+  });
+
   it('keeps the languages the editor did not show and updates the live product', async () => {
     expect(await updateAdminListing(ID, EDIT)).toEqual({ success: true, message: 'Guardado' });
 

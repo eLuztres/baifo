@@ -45,6 +45,7 @@ const listing = {
   textMode: 'ai',
   originalTitle: null,
   rawImages: [],
+  hashtags: [],
   images: ['https://x.ufs.sh/f/bike.jpg'],
   usesAi: false,
   lastError: null,
@@ -74,6 +75,8 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         languages={[{ id: 'en', label: 'EN' }]}
         shopLanguage={{ id: 'es', label: 'ES' }}
         mercadillos={[]}
+        hashtagOptions={[]}
+        maxHashtags={5}
         categories={[
           { slug: 'musica', name: 'Música' },
           { slug: 'hogar', name: 'Hogar' },
@@ -279,6 +282,15 @@ describe('DescriptionStep', () => {
 
     await waitFor(() => expect(mockDescribe).toHaveBeenCalledWith('abc', expect.objectContaining({ isHidden: true, onlineUntil: '2026-12-24' })));
     jest.useRealTimers();
+  });
+
+  it('sets the hashtags in Descripción, under the category, not in Más', () => {
+    renderStep(drafted);
+
+    fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
+    expect(screen.getByLabelText('hashtagsLabel')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+    expect(screen.queryByLabelText('hashtagsLabel')).not.toBeInTheDocument();
   });
 
   it('shows an event online until its day is over, not as a choice', () => {

@@ -53,3 +53,15 @@ describe('search text', () => {
     expect(matchRange('Bici', ['surf'])).toBeNull();
   });
 });
+
+describe('finding a listing by its hashtag', () => {
+  // The feed keeps hashtags with the names, so a mention in another listing's name can't hide them.
+  const surfBoard = { id: 'board', text: { names: 'tabla | surf_lessons | musica', rest: '' } };
+  const other = { id: 'other', text: { names: 'silla', rest: '' } };
+
+  it('finds it with or without the # and the accent', () => {
+    for (const query of ['música', '#musica', '#MUSICA']) {
+      expect(mainMatches([other, surfBoard], (item) => item.text, queryWords(query)).map((item) => item.id)).toEqual(['board']);
+    }
+  });
+});
