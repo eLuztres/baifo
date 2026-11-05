@@ -19,6 +19,7 @@ import { getDefaultPlaceId } from '@/lib/places';
 import { loadAddresses } from './address-search';
 import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
+import { hasContactExtra } from './contact-ways';
 import { toWaId } from './seller';
 import { moveListingToNumber } from './seller-number';
 import { fetchImage, uploadImage } from './media';
@@ -212,7 +213,7 @@ const descriptionSchema = z.object({
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 
 /** "Publicar": the AI writes the listing from the description (as the admin chose) and it goes online once it is done.
-    A picture, the description, the person's WhatsApp and their OK to show it are needed. */
+    A picture, the description, a way to reach the person (WhatsApp, email, web or Instagram) and their OK to show it are needed. */
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
@@ -221,9 +222,9 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
   const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil, mercadilloId, hashtags } =
     parsed.data;
-  // Buyers write to the person directly: "through the Corral" is parked for now (#131).
-  if (!sellerPhone) return { success: false, message: 'Escribe su WhatsApp' };
-  if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su número' };
+  // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
+  if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
+  if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su contacto' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true } });
   // Published only with a title and description in every shop language: the AI's or the admin's own.
   const shopLocale = getShopLocale();
@@ -243,7 +244,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // A video without a still counts as no photo; a picture made from words counts.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
-  // Their OK to show the number comes later, from them.
+  // Their OK to show the number comes later, from them. Without a number the listing stays the house's, with its other contacts.
   const waId = toWaId(sellerPhone);
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Also while the AI still makes the pictures: the text is written at the same time.
@@ -379,8 +380,10 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, hashtags, ...fields } = parsed.data;
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
-  // A person's listing keeps a number to write to; the house's own may stay without one.
-  if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER) return { success: false, message: 'Escribe su WhatsApp' };
+  // A person's listing keeps a way to reach them: a number, or else an email, web or Instagram. The house's own may have none.
+  if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER && !hasContactExtra(contacts)) {
+    return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
+  }
   if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
   if (hasConsent) await recordConsent({ id }, 'admin-confirmed');
   if (hashtags) {

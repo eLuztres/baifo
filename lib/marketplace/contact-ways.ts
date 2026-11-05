@@ -5,6 +5,9 @@ export type ContactExtra = (typeof CONTACT_EXTRAS)[number];
 
 export type ListingContacts = Record<ContactExtra, string>;
 
+/** Whether the person can be reached some way besides WhatsApp, which then becomes optional. */
+export const hasContactExtra = (contacts?: Partial<Record<ContactExtra, string | null>>) => Boolean(contacts && CONTACT_EXTRAS.some((kind) => contacts[kind]));
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const INSTAGRAM_USER = /^[a-z0-9._]{1,30}$/i;
 

@@ -161,8 +161,11 @@ describe('updateAdminListing', () => {
   it('refuses a broken number, and taking a person\'s number away; a house listing may stay without one', async () => {
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', seller: { waId: '34600111222', name: null } });
     expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '12' })).message).toBe('Revisa el teléfono');
-    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '' })).message).toBe('Escribe su WhatsApp');
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '' })).message).toBe('Escribe su WhatsApp u otra forma de contacto');
     expect(db.submission.update).not.toHaveBeenCalled();
+    // WhatsApp is optional when the person can be reached another way.
+    expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '', contacts: { email: 'ana@example.com', web: '', instagram: '' } })).success).toBe(true);
+    jest.clearAllMocks();
 
     db.submission.findUnique.mockResolvedValue({ translations: {}, type: 'PRODUCT', seller: { waId: 'baifo', name: null } });
     expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '' })).success).toBe(true);
@@ -425,7 +428,7 @@ describe('describeAdminListing', () => {
   it('needs the description and the person\'s OK to show their number, and records that OK', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
-    expect(await describeAdminListing(ID, { notes: 'Bici', sellerPhone: '612345678' })).toEqual({ success: false, message: 'Falta su permiso para mostrar su número' });
+    expect(await describeAdminListing(ID, { notes: 'Bici', sellerPhone: '612345678' })).toEqual({ success: false, message: 'Falta su permiso para mostrar su contacto' });
     expect(db.submission.updateMany).not.toHaveBeenCalled();
 
     expect((await describeAdminListing(ID, { notes: 'Bici', hasConsent: true, texts: DRAFT, categories: ['motor'], sellerPhone: '612345678' })).success).toBe(true);

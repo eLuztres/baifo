@@ -76,8 +76,6 @@ interface DescriptionStepProps {
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
 export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, hashtagOptions, maxHashtags, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
-  // "Enviar por WhatsApp" belongs to the contact: only there, and not while the AI writes.
-  const isSendShown = isOnContact && listing.status === 'COLLECTING';
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
   // "Ofrezco | Busco" on an Anuncio: the admin says it, the AI doesn't guess it.
@@ -92,6 +90,11 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING';
   const router = useRouter();
   const [sellerPhone, setSellerPhone] = useState(isEditing && /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '');
+  // WhatsApp is one way of several: a new listing starts with it, an existing one keeps it only if it has a number.
+  const [hasWhatsapp, setHasWhatsapp] = useState(!isEditing || Boolean(sellerPhone));
+  const sentPhone = hasWhatsapp ? sellerPhone.trim() : '';
+  // "Enviar por WhatsApp" belongs to the contact: only there, with a number, and not while the AI writes.
+  const isSendShown = isOnContact && listing.status === 'COLLECTING' && hasWhatsapp;
   // The name visitors see now: only a changed name is saved on the listing.
   const shownSellerName = isEditing ? (sellerIdentity(listing).name ?? '') : '';
   const [sellerName, setSellerName] = useState(shownSellerName);
@@ -189,7 +192,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       // Everything missing in one message, and the first step it is on opens.
       // An existing listing has its texts already; the shop's own listings may stay without a WhatsApp (and so need no OK).
       const isHouseListing = isEditing && !/^\d+$/.test(listing.seller.waId);
-      const hasPhone = Boolean(sellerPhone.trim());
+      const hasPhone = Boolean(sentPhone);
       // Texts: every language set, or the AI fills what's missing from the shop language or from "Cuéntamelo todo".
       const hasSomeText = hasOwnText || Boolean(notes.trim());
       const tellMissing = (missing: ({ step: number; text: string } | false)[]) => {
@@ -205,7 +208,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         tellMissing([
           hasNoPhoto && { step: 0, text: texts.missingPicture },
           !isTextsComplete(draft) && !hasSomeText && { step: 1, text: texts.missingText },
-          !hasPhone && !isHouseListing && { step: 2, text: texts.missingPhone },
+          hasWhatsapp && !hasPhone && !isHouseListing && { step: 2, text: texts.missingPhone },
+          !hasWhatsapp && chosenContacts.length === 0 && !isHouseListing && { step: 2, text: texts.missingContactWay },
           chosenContacts.some(isContactWrong) && { step: 2, text: texts.missingContacts },
           !hasConsent && willBeLive && (hasPhone || !isHouseListing) && { step: 2, text: texts.missingConsent },
         ])
@@ -223,7 +227,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       if (isEditing) return saveChanges(filled);
       const result = await describeAdminListing(listing.id, {
         notes,
-        sellerPhone: sellerPhone.trim(),
+        sellerPhone: sentPhone,
         sellerName,
         contacts: sentContacts(),
         textMode,
@@ -264,7 +268,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       textMode,
       mercadilloId,
       hashtags,
-      sellerPhone: sellerPhone.trim(),
+      sellerPhone: sentPhone,
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
       contacts: sentContacts(),
       hasConsent: hasConsent && !listing.consentAt,
@@ -591,24 +595,33 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
 
         {isOnContact && (
           <div className='space-y-4 rounded-3xl border border-border bg-card p-4 sm:p-5'>
-            <ContactWaysPicker texts={texts} chosen={chosenContacts} isDisabled={isWriting} onToggle={toggleContact} />
-            <div className='space-y-2'>
-              <Label htmlFor='seller' className='flex items-center gap-2'>
-                <MessageCircle className='size-4 text-muted-foreground' /> {texts.servicePhoneLabel}
-              </Label>
-              <Input
-                id='seller'
-                type='tel'
-                value={sellerPhone}
-                readOnly={isWriting}
-                onChange={(event) => setSellerPhone(event.target.value)}
-                placeholder={texts.sellerPlaceholder}
-                className='h-12 rounded-2xl bg-background'
-              />
-              {/* Wanted ads and events have no seller: the number is the person behind them. */}
-              <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
-              {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
-            </div>
+            <ContactWaysPicker
+              texts={texts}
+              chosen={chosenContacts}
+              hasWhatsapp={hasWhatsapp}
+              isDisabled={isWriting}
+              onToggle={toggleContact}
+              onToggleWhatsapp={() => setHasWhatsapp((current) => !current)}
+            />
+            {hasWhatsapp && (
+              <div className='space-y-2'>
+                <Label htmlFor='seller' className='flex items-center gap-2'>
+                  <MessageCircle className='size-4 text-muted-foreground' /> {texts.servicePhoneLabel}
+                </Label>
+                <Input
+                  id='seller'
+                  type='tel'
+                  value={sellerPhone}
+                  readOnly={isWriting}
+                  onChange={(event) => setSellerPhone(event.target.value)}
+                  placeholder={texts.sellerPlaceholder}
+                  className='h-12 rounded-2xl bg-background'
+                />
+                {/* Wanted ads and events have no seller: the number is the person behind them. */}
+                <p className='text-xs text-muted-foreground'>{isService || isWanted ? texts.servicePhoneHint : listing.type === 'EVENT' ? texts.eventPhoneHint : texts.sellerHint}</p>
+                {isWanted && <p className='text-xs text-muted-foreground'>{texts.wantedContactNote}</p>}
+              </div>
+            )}
             {CONTACT_EXTRAS.filter((kind) => chosenContacts.includes(kind)).map((kind) => (
               <ContactField
                 key={kind}
@@ -762,13 +775,15 @@ const contactTexts = (texts: AdminTexts, kind: ContactExtra) =>
 interface ContactWaysPickerProps {
   texts: AdminTexts;
   chosen: ContactExtra[];
+  hasWhatsapp: boolean;
   isDisabled: boolean;
   onToggle: (kind: ContactExtra) => void;
+  onToggleWhatsapp: () => void;
 }
 
-/** "Cómo contactar a la persona": the WhatsApp always, plus any of email, web and Instagram. */
-function ContactWaysPicker({ texts, chosen, isDisabled, onToggle }: ContactWaysPickerProps) {
-  const ways = ['whatsapp' as const, ...CONTACT_EXTRAS.filter((kind) => chosen.includes(kind))];
+/** "Cómo contactar a la persona": any of WhatsApp, email, web and Instagram; nobody has to give their WhatsApp. */
+function ContactWaysPicker({ texts, chosen, hasWhatsapp, isDisabled, onToggle, onToggleWhatsapp }: ContactWaysPickerProps) {
+  const ways = [...(hasWhatsapp ? ['whatsapp' as const] : []), ...CONTACT_EXTRAS.filter((kind) => chosen.includes(kind))];
   const labelOf = (kind: (typeof ways)[number]) => (kind === 'whatsapp' ? 'WhatsApp' : contactTexts(texts, kind).label);
   return (
     <div className='space-y-2'>
@@ -777,6 +792,7 @@ function ContactWaysPicker({ texts, chosen, isDisabled, onToggle }: ContactWaysP
         <DropdownMenuTrigger asChild disabled={isDisabled}>
           <button type='button' className='flex h-12 w-full items-center gap-2 rounded-2xl border border-input bg-background px-3 text-left text-sm'>
             <span className='flex min-w-0 flex-1 items-center gap-2'>
+              {ways.length === 0 && <span className='text-muted-foreground first-letter:uppercase'>{texts.missingContactWay}</span>}
               {ways.map((kind) => {
                 const Icon = CONTACT_ICONS[kind];
                 return (
@@ -792,8 +808,7 @@ function ContactWaysPicker({ texts, chosen, isDisabled, onToggle }: ContactWaysP
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start' className='w-[var(--radix-dropdown-menu-trigger-width)]'>
-          {/* The WhatsApp is how the person gets their listing's link: always there. */}
-          <DropdownMenuCheckboxItem checked disabled className='gap-2'>
+          <DropdownMenuCheckboxItem checked={hasWhatsapp} onCheckedChange={onToggleWhatsapp} onSelect={(event) => event.preventDefault()} className='gap-2'>
             <MessageCircle className='size-4' /> WhatsApp
           </DropdownMenuCheckboxItem>
           {CONTACT_EXTRAS.map((kind) => {
