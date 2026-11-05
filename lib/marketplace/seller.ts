@@ -5,14 +5,14 @@ import { localeOf } from './messages';
 interface ListingSeller {
   sellerName: string | null;
   sellerLocale: string | null;
-  seller: { waId: string; name: string | null };
+  seller: { waId: string };
 }
 
-/** Who buyers see and write to: the seller's own name and language, else their WhatsApp name and their number's language. */
+/** Who buyers see and write to: the listing's own name, and its language or else their number's. */
 export function sellerIdentity({ sellerName, sellerLocale, seller }: ListingSeller): { name: string | null; locale: Locale | null } {
   const isPerson = seller.waId !== HOUSE_SELLER;
   return {
-    name: (sellerName ?? (isPerson ? seller.name : null)) || null,
+    name: sellerName || null,
     locale: isLocale(sellerLocale) ? sellerLocale : isPerson ? localeOf(seller.waId) : null,
   };
 }

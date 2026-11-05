@@ -391,7 +391,7 @@ describe('DescriptionStep', () => {
     });
 
     it('shows the name in use and saves it once changed', async () => {
-      renderStep({ ...live, sellerName: null } as AdminListing);
+      renderStep(live as AdminListing);
       fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
 
       const name = screen.getByLabelText('sellerNameLabel');

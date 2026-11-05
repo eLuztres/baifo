@@ -116,7 +116,7 @@ describe('updateAdminListing', () => {
     expect(db.seller.upsert).not.toHaveBeenCalled();
 
     expect((await updateAdminListing(ID, { ...EDIT, sellerName: '' })).success).toBe(true);
-    expect(db.submission.update.mock.calls[1][0].data.sellerName).toBe('');
+    expect(db.submission.update.mock.calls[1][0].data.sellerName).toBeNull();
 
     expect((await updateAdminListing(ID, { ...EDIT, sellerName: 'https://example.com' })).message).toBe('Revisa el nombre');
   });
@@ -127,7 +127,7 @@ describe('updateAdminListing', () => {
     db.submission.findUnique.mockResolvedValue(live);
 
     expect((await updateAdminListing(ID, { ...EDIT, sellerPhone: '0049 151 1234 5678' })).success).toBe(true);
-    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ where: { waId: '4915112345678' }, create: { waId: '4915112345678', name: 'Ana' } });
+    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ where: { waId: '4915112345678' }, create: { waId: '4915112345678' } });
     expect(db.submission.update.mock.calls[0][0]).toEqual({ where: { id: ID }, data: { sellerId: 'seller-1' } });
     expect(db.product.update.mock.calls[0][0].data).toEqual({ sellerId: 'seller-1', contactPhone: '+4915112345678' });
   });
@@ -435,14 +435,16 @@ describe('describeAdminListing', () => {
     expect(db.seller.upsert.mock.calls.map((call) => call[0].where)).toEqual([{ waId: '34612345678' }, { waId: '34612345678' }]);
   });
 
-  it('saves the person\'s name, and keeps the one they have when none is given', async () => {
+  it('saves the name on this listing only, never on the person behind the number', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
 
     await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, categories: ['motor'], sellerPhone: '612345678', sellerName: ' Lula ' });
     await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, categories: ['motor'], sellerPhone: '612345678', sellerName: '' });
 
-    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ update: { name: 'Lula' }, create: { waId: '34612345678', name: 'Lula' } });
-    expect(db.seller.upsert.mock.calls[1][0].update).toEqual({ name: undefined });
+    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ update: {}, create: { waId: '34612345678' } });
+    expect(db.seller.upsert.mock.calls[0][0].create).not.toHaveProperty('name');
+    const names = db.submission.updateMany.mock.calls.map(([{ data }]) => data).filter((data) => 'sellerName' in data).map((data) => data.sellerName);
+    expect(names).toEqual(['Lula', null]);
   });
 
   it('refuses a name with a phone number in it', async () => {

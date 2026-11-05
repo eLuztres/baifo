@@ -368,7 +368,7 @@ model Submission {
   crossPostFacebook Boolean          @default(false)
   crossPostWallapop Boolean          @default(false)
   hasContactConsent Boolean          @default(false)
-  // The name buyers see ("Ofrecido por …"), any nickname; empty: the seller's WhatsApp profile name.
+  // The name buyers see ("Ofrecido por …"), any nickname; this listing's alone, whatever others with the same number say. Empty: none.
   sellerName        String?
   // The language a buyer's WhatsApp message to the seller is written in; empty: the language of the seller's number.
   sellerLocale      String?

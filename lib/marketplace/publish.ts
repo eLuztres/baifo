@@ -61,7 +61,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         category: categoryName(categories[0], getShopLocale()) || 'Varios',
         condition: submission.condition,
         images: submission.images.length > 0 ? submission.images : submission.rawImages,
-        brand: submission.seller.name ?? 'Particular',
+        brand: submission.sellerName || 'Particular',
         description: submission.description ?? '',
         translations: toProductTranslations(submission.translations),
         stock: 1,

@@ -210,7 +210,7 @@ export const inviteNoteSchema = z.string().trim().max(80);
 const NAME_LINK = /(https?:|www\.|@|\.(com|es|net|org|eu|io|me|ly|app|info|link|de|it|fr|uk)\b)/i;
 const NAME_PHONE = /(\d\D?){5}/;
 
-/** A seller's name or nickname on their listing; empty is null, so their WhatsApp name shows. */
+/** A seller's name or nickname on one listing; empty is null: no name. */
 export const sellerNameSchema = z
   .string()
   .trim()

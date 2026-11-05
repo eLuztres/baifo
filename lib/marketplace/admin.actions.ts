@@ -167,7 +167,7 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
 const descriptionSchema = z.object({
   notes: z.string().trim().max(2000),
   sellerPhone: sellerPhoneSchema.optional(),
-  // The person's name or nickname, checked like on their own page; empty: the one they have stays.
+  // The name on this listing only, checked like on their own page; empty: none.
   sellerName: sellerNameSchema.optional(),
   // 'original': the notes are the description as they are, only translated; 'corrected': the same with their mistakes fixed.
   textMode: z.enum(TEXT_MODES).default('ai'),
@@ -227,8 +227,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
   // Their OK to show the number comes later, from them.
   const waId = toWaId(sellerPhone);
-  const name = sellerName ?? undefined;
-  const seller = await prisma.seller.upsert({ where: { waId }, update: { name }, create: { waId, name } });
+  const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Also while the AI still makes the pictures: the text is written at the same time.
   const { count } = await prisma.submission.updateMany({
     where: { id, status: 'COLLECTING', createdByAdmin: true },
@@ -249,6 +248,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
+      sellerName,
       textMode,
       originalTitle: (textMode !== 'ai' && originalTitle) || null,
       lastError: null,
@@ -366,8 +366,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     serviceType: isService ? undefined : null,
     startsAt: isEvent ? fields.startsAt : null,
     address: isEvent ? fields.address : null,
-    // Emptied stays empty: no name on this listing, not the person's WhatsApp name again.
-    ...(sellerName !== undefined && { sellerName: sellerName ?? '' }),
+    ...(sellerName !== undefined && { sellerName }),
   };
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };

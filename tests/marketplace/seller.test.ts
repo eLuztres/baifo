@@ -7,8 +7,8 @@ describe('sellerIdentity', () => {
     expect(sellerIdentity({ sellerName: 'Lula', sellerLocale: 'fr', seller: person })).toEqual({ name: 'Lula', locale: 'fr' });
   });
 
-  it('falls back to the WhatsApp name and the language of the number', () => {
-    expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: person })).toEqual({ name: 'Lula Müller', locale: 'de' });
+  it('never takes the name from the number, only its language', () => {
+    expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: person })).toEqual({ name: null, locale: 'de' });
   });
 
   it('shows no name once the admin emptied it on the listing', () => {
@@ -16,7 +16,7 @@ describe('sellerIdentity', () => {
   });
 
   it('has nothing for the house seller unless the admin names one', () => {
-    expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: { waId: 'baifo', name: null } })).toEqual({ name: null, locale: null });
-    expect(sellerIdentity({ sellerName: 'Baifo', sellerLocale: 'es', seller: { waId: 'baifo', name: null } })).toEqual({ name: 'Baifo', locale: 'es' });
+    expect(sellerIdentity({ sellerName: null, sellerLocale: null, seller: { waId: 'baifo' } })).toEqual({ name: null, locale: null });
+    expect(sellerIdentity({ sellerName: 'Baifo', sellerLocale: 'es', seller: { waId: 'baifo' } })).toEqual({ name: 'Baifo', locale: 'es' });
   });
 });

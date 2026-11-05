@@ -156,7 +156,7 @@ describe('changeSellerPhone', () => {
   it('moves the listing and its product to the new number, which buyers then write to', async () => {
     listing();
     expect(await changeSellerPhone(TOKEN, '612 34 56 78', '699 111 222')).toEqual({ success: true, phoneEnd: '222' });
-    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ where: { waId: '34699111222' }, create: { waId: '34699111222', name: 'Lula' } });
+    expect(db.seller.upsert.mock.calls[0][0]).toMatchObject({ where: { waId: '34699111222' }, create: { waId: '34699111222' } });
     expect(db.submission.update.mock.calls[0][0].data).toEqual({ sellerId: 'seller-2' });
     expect(db.product.update.mock.calls[0][0].data).toEqual({ sellerId: 'seller-2', contactPhone: '+34699111222' });
   });

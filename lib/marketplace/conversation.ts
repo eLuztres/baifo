@@ -65,12 +65,12 @@ export interface SellerReply {
 }
 
 // The photos of an album arrive in parallel webhooks; the lock keeps them from opening two submissions.
-async function openSubmission(sellerId: string) {
+async function openSubmission({ id: sellerId, name: sellerName }: { id: string; name: string | null }) {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${sellerId}))`;
     return (
       (await tx.submission.findFirst({ where: { sellerId, status: 'COLLECTING' }, orderBy: { createdAt: 'desc' } })) ??
-      tx.submission.create({ data: { sellerId } })
+      tx.submission.create({ data: { sellerId, sellerName } })
     );
   });
 }
@@ -117,7 +117,7 @@ export async function handleSellerMessage(message: InboundMessage): Promise<Sell
   const choice = (message.type === 'button' ? tappedChoice(message.buttonId) : undefined) ?? typedChoice;
 
   if (choice) {
-    const submission = await openSubmission(seller.id);
+    const submission = await openSubmission(seller);
     // More than the bare choice ("busco una tabla de surf") is already the start of the description.
     const isDescription = typedChoice !== undefined && (message.text ?? '').trim().split(/\s+/).length > 1;
     const updated = await prisma.submission.update({
@@ -135,7 +135,7 @@ export async function handleSellerMessage(message: InboundMessage): Promise<Sell
     return {};
   }
 
-  const submission = open ?? (await openSubmission(seller.id));
+  const submission = open ?? (await openSubmission(seller));
   const hasPhotos = hasPhotosIn(submission);
 
   if (message.type === 'image' && message.mediaId) {
