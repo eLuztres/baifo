@@ -30,13 +30,15 @@ import ContactSellerButton from '@/components/shared/product/contact-seller-butt
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ShareButton from '@/components/shared/product/share-button';
 import PullUpHome from '@/components/shared/pull-up-home';
+import ExploreScrollKeeper from '@/components/shared/explore-scroll-keeper';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
+import { hashtagSlug } from '@/lib/hashtag-text';
 import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
   /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated), `mercadillo` one Mercadillo's listings. `c` is the older link to one category. */
-  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string }>;
+  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string; hashtag?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -94,7 +96,7 @@ const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, categoria, mercadillo, c }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
+  const [{ q = '', tipo, categoria, mercadillo, c, hashtag }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
@@ -133,7 +135,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   const words = queryWords(q);
   const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
-  const inScope = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
+  const inMercadillo = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
+  // A chosen hashtag shows exactly the listings that carry it; "musica" also finds "#música".
+  const chosenHashtag = hashtag ? hashtagSlug(hashtag) : '';
+  const hasHashtag = (listing: Listing) => listing.hashtags.some((name) => hashtagSlug(name) === chosenHashtag);
+  const inScope = chosenHashtag ? inMercadillo.filter(hasHashtag) : inMercadillo;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
   const types = chosenFilters.flatMap((filter) => filter.types);
@@ -144,7 +150,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const shown = categoryIds.length ? ofType.filter((listing) => listing.categoryIds.some((id) => categoryIds.includes(id))) : ofType;
 
   // Only the plain list has rows: a search or filter shows every match in the grid.
-  const isPlainList = !chosenMercadillo && words.length === 0 && types.length === 0 && categoryIds.length === 0;
+  const isPlainList = !chosenMercadillo && !chosenHashtag && words.length === 0 && types.length === 0 && categoryIds.length === 0;
   const rows = isPlainList
     ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
     : [];
@@ -159,7 +165,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     .sort((a, b) => b.count - a.count);
 
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo, hashtag }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
@@ -192,6 +198,19 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         text: { names: allTexts(category.name).map(foldText).join(' | '), rest: foldText(category.keywords.join(' ')) },
       })),
   ];
+  // Every hashtag on a listing, once, with how many listings carry it.
+  const hashtagCounts = new Map<string, { name: string; count: number }>();
+  for (const name of listings.flatMap((listing) => listing.hashtags)) {
+    const slug = hashtagSlug(name);
+    hashtagCounts.set(slug, { name: hashtagCounts.get(slug)?.name ?? name, count: (hashtagCounts.get(slug)?.count ?? 0) + 1 });
+  }
+  const searchHashtags: SearchChoice[] = [...hashtagCounts].map(([slug, { name, count }]) => ({
+    href: `/explore?hashtag=${encodeURIComponent(slug)}`,
+    label: `#${name}`,
+    count,
+    text: { names: foldText(name), rest: '' },
+  }));
+  const shownHashtag = chosenHashtag ? `#${hashtagCounts.get(chosenHashtag)?.name ?? chosenHashtag}` : '';
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
@@ -282,6 +301,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           t('EXPLORE_SEO_TITLE')}
       </h1>
       <div className='sr-only'>{pullUpHome}</div>
+      <ExploreScrollKeeper />
 
       {listings.length === 0 && allListings.length > 0 ? (
         <div className='space-y-4 py-16 text-center'>
@@ -296,7 +316,14 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           <div className='space-y-5 sm:space-y-8'>
             {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
             <StickyFilterRow className='group flex gap-2'>
-              <ExploreSearch key={q} listings={searchListings} choices={searchChoices} value={q} isFiltered={words.length > 0} />
+              <ExploreSearch
+                key={q || shownHashtag}
+                listings={searchListings}
+                choices={searchChoices}
+                hashtags={searchHashtags}
+                value={q || shownHashtag}
+                isFiltered={words.length > 0 || Boolean(chosenHashtag)}
+              />
               <div className='flex shrink-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
                 <FilterDropdown
                   label={texts.typeFilter}

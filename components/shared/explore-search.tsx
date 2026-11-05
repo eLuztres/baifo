@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutGrid, Search, X } from 'lucide-react';
+import { Hash, LayoutGrid, Search, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
 import { mainMatches, matchRange, queryWords, type SearchableText } from '@/lib/search-text';
@@ -30,6 +30,8 @@ export interface SearchChoice {
 interface ExploreSearchProps {
   listings: SearchListing[];
   choices: SearchChoice[];
+  /** The listings' hashtags ("#surf"), suggested only while typing: there can be many. */
+  hashtags: SearchChoice[];
   /** What the feed shows now: the query typed, or the chosen category's name. */
   value: string;
   /** Whether the feed is narrowed, so clearing the field opens everything again. */
@@ -46,6 +48,7 @@ interface Option {
   /** How many listings a category or kind has. */
   count?: number;
   isAll?: boolean;
+  isHashtag?: boolean;
 }
 
 const MAX_CHOICES = 4;
@@ -67,7 +70,7 @@ function Highlighted({ text, words }: { text: string; words: string[] }) {
 }
 
 /** The feed's search: suggests categories and listings while typing (by name, category or description); Enter shows every match. */
-export default function ExploreSearch({ listings, choices, value, isFiltered }: ExploreSearchProps) {
+export default function ExploreSearch({ listings, choices, hashtags, value, isFiltered }: ExploreSearchProps) {
   const { t } = useI18n();
   const router = useRouter();
   const listboxId = useId();
@@ -84,9 +87,10 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
     return [
       { id: searchHref, href: searchHref, label: t('EXPLORE_SEARCH_ALL', { query: query.trim() }), isAll: true },
       ...best(choices, words, MAX_CHOICES).map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count })),
+      ...best(hashtags, words, MAX_CHOICES).map((tag) => ({ id: tag.href, href: tag.href, label: tag.label, count: tag.count, isHashtag: true })),
       ...best(listings, words, MAX_LISTINGS).map((listing) => ({ id: listing.href, href: listing.href, label: listing.name, image: listing.image, category: listing.category })),
     ];
-  }, [choices, listings, query, t, words]);
+  }, [choices, hashtags, listings, query, t, words]);
 
   const go = (href: string) => {
     setIsOpen(false);
@@ -189,6 +193,8 @@ export default function ExploreSearch({ listings, choices, value, isFiltered }: 
               <span className='relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted'>
                 {option.isAll ? (
                   <Search className='size-4' aria-hidden />
+                ) : option.isHashtag ? (
+                  <Hash className='size-4 text-primary' aria-hidden />
                 ) : option.image ? (
                   <ProductMedia src={option.image} alt='' fill sizes='40px' isStill />
                 ) : (
