@@ -55,7 +55,9 @@ export default function MercadilloRow({ label, name, heading, text, icon, href, 
 
   const go = (direction: 1 | -1) => scroller.current?.scrollBy({ left: direction * scroller.current.clientWidth, behavior: 'smooth' });
   const hasPages = position.pages > 1;
-  const arrowClass = 'absolute top-1/2 hidden h-12 w-9 -translate-y-1/2 rounded-xl sm:inline-flex';
+  // A tall teal pill, so the arrows are easy to notice beside the pictures.
+  const arrowClass =
+    'absolute top-1/2 hidden h-24 w-9 -translate-y-1/2 rounded-full shadow-[0_6px_16px_-6px_var(--primary)] transition-transform hover:scale-105 active:scale-95 sm:inline-flex [&_svg]:size-5';
 
   return (
     <section aria-label={heading} className='space-y-3 border-y border-border py-4 sm:space-y-4 sm:py-6'>
@@ -92,11 +94,11 @@ export default function MercadilloRow({ label, name, heading, text, icon, href, 
         </ul>
         {hasPages && (
           <>
-            <Button type='button' variant='outline' size='icon' aria-label={backLabel} disabled={!position.canGoBack} onClick={() => go(-1)} className={cn(arrowClass, 'left-0')}>
-              <ChevronLeft />
+            <Button type='button' size='icon' aria-label={backLabel} disabled={!position.canGoBack} onClick={() => go(-1)} className={cn(arrowClass, 'left-0')}>
+              <ChevronLeft strokeWidth={3} />
             </Button>
-            <Button type='button' variant='outline' size='icon' aria-label={nextLabel} disabled={!position.canGoNext} onClick={() => go(1)} className={cn(arrowClass, 'right-0')}>
-              <ChevronRight />
+            <Button type='button' size='icon' aria-label={nextLabel} disabled={!position.canGoNext} onClick={() => go(1)} className={cn(arrowClass, 'right-0')}>
+              <ChevronRight strokeWidth={3} />
             </Button>
           </>
         )}
