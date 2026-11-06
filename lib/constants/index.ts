@@ -116,6 +116,11 @@ export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 // How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
 export const MAX_LISTING_TAGS = envNumber('MAX_LISTING_TAGS', 5);
+// Where the explore view's price ranges split (in the shop's currency): "Hasta 10", "10 – 25" … "Más de 500".
+export const PRICE_FILTER_STEPS = (process.env.PRICE_FILTER_STEPS ?? '10,25,50,100,250,500')
+  .split(',')
+  .map(Number)
+  .filter((step) => step > 0);
 // Listings that go offline within this many days show in the feed's "Ending soon"; set per shop in .env.
 export const ENDING_SOON_DAYS = envNumber('ENDING_SOON_DAYS', 3);
 // "Contact seller" reveals per visitor IP within the window, so seller numbers can't be collected in bulk.

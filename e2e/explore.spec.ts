@@ -75,4 +75,34 @@ test.describe('explore: the list of listings', () => {
     await expect(page).toHaveURL(/\/explore\?etiqueta=/);
     await expect(page.locator('[data-feed-page] ul a').first()).toBeVisible();
   });
+
+  test('a price range narrows the list, its count matches, it goes in the link and "All" undoes it', async ({ page }) => {
+    const price = page.getByRole('button', { name: t('SEARCH_PRICE') });
+    test.skip((await price.count()) === 0, 'The shop shows no prices');
+    const all = await page.locator('[data-feed-page] ul a').count();
+    await price.click();
+    const option = page.getByRole('menuitemcheckbox').nth(1);
+    const count = Number(await option.locator('span').last().textContent());
+    await option.click();
+
+    await expect(page).toHaveURL(/precio=\d+-\d*/);
+    await expect(page.locator('[data-feed-page] ul a')).toHaveCount(count);
+
+    await page.getByRole('button', { name: t('SEARCH_PRICE') }).click();
+    await page.getByRole('menuitemcheckbox').first().click();
+    await expect(page).not.toHaveURL(/precio=/);
+    await expect(page.locator('[data-feed-page] ul a')).toHaveCount(all);
+  });
+
+  test('a price range keeps working together with the kind and a shared link', async ({ page, browser }) => {
+    await page.goto('/explore?tipo=ofrezco&precio=0-10');
+    const count = await page.locator('[data-feed-page] ul a').count();
+    const other = await browser.newPage();
+    await other.goto('/explore?precio=0-10&tipo=ofrezco');
+    await expect(other.locator('[data-feed-page] ul a')).toHaveCount(count);
+    await other.close();
+    // An unknown range shows everything, as if none was chosen.
+    await page.goto('/explore?precio=1-2');
+    await expect(page.locator('[data-feed-page] ul a').first()).toBeVisible();
+  });
 });

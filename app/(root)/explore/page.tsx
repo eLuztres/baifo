@@ -14,7 +14,7 @@ import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import { absoluteUrl, BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/localize';
-import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS } from '@/lib/constants';
+import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS, PRICE_FILTER_STEPS, SHOWS_PRICES } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
@@ -35,17 +35,21 @@ import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/se
 import TagBadges from '@/components/shared/product/tag-badges';
 import { findTagByParam, tagHref, tagNameIn } from '@/lib/tag-names';
 import { chosenTypeFilters, currentExploreLink, inScopeOf, ofTypes, TYPE_FILTERS } from '@/lib/explore-filters';
-import { cn, formatPriceTag } from '@/lib/utils';
+import { isInPriceRange, parsePriceRange, priceRanges } from '@/lib/price-ranges';
+import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing (comma separated), `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
-  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
+  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
 
 // A suggestion only needs the start of a long description.
 const SUGGESTION_TEXT_LENGTH = 400;
+
+// Without prices on show there is nothing to filter by.
+const PRICE_RANGES = SHOWS_PRICES ? priceRanges(PRICE_FILTER_STEPS) : [];
 
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
   const [{ q, tipo, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
@@ -83,7 +87,7 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, categoria, mercadillo, c, etiqueta }, { t, locale }, allListings, placeIds, mercadillos] = await Promise.all([
+  const [{ q = '', tipo, precio, categoria, mercadillo, c, etiqueta }, { t, locale }, allListings, placeIds, mercadillos] = await Promise.all([
     searchParams,
     getT(),
     getInStockRings(),
@@ -123,10 +127,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = chosenTypeFilters(tipo);
   const types = chosenFilters.flatMap((filter) => filter.types);
-  const shown = ofTypes(found, types);
+  const ofType = ofTypes(found, types);
+  const chosenRange = parsePriceRange(PRICE_RANGES, precio);
+  const shown = chosenRange ? ofType.filter((listing) => isInPriceRange(listing.price, chosenRange)) : ofType;
 
   // Only the plain list has rows: a search or filter shows every match in the grid.
-  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0;
+  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && !chosenRange;
   const rows = isPlainList
     ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
     : [];
@@ -135,7 +141,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
@@ -164,6 +170,20 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     text: { names: Object.values(tag.names).filter(Boolean).map((name) => foldText(name!)).join(' | '), rest: '' },
   }));
   const shownTag = chosenTag ? tagNameIn(chosenTag.names, locale) : '';
+  // Each range with how many of the listings left by the other filters it holds; empty ones hide, the chosen one stays.
+  const priceOptions = PRICE_RANGES.map((range) => ({
+    value: range.value,
+    label:
+      range.min === 0
+        ? t('PRICE_RANGE_UP_TO', { max: formatPriceTag(range.max!) })
+        : range.max === undefined
+          ? t('PRICE_RANGE_OVER', { min: formatPriceTag(range.min) })
+          : t('PRICE_RANGE_BETWEEN', { min: formatNumber(range.min), max: formatPriceTag(range.max) }),
+    // The button has room for "100–250 €" and "+500 €" on a phone.
+    shortLabel:
+      range.min === 0 ? undefined : range.max === undefined ? `+${formatPriceTag(range.min)}` : `${formatNumber(range.min)}–${formatPriceTag(range.max)}`,
+    count: ofType.filter((listing) => isInPriceRange(listing.price, range)).length,
+  })).filter((option) => option.count > 0 || option.value === chosenRange?.value);
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
@@ -293,6 +313,18 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   isSingleChoice
                   className='w-24 sm:w-40 lg:w-44'
                 />
+                {priceOptions.length > 0 && (
+                  <FilterDropdown
+                    label={t('SEARCH_PRICE')}
+                    allLabel={texts.all}
+                    param='precio'
+                    options={priceOptions}
+                    selected={chosenRange ? [chosenRange.value] : []}
+                    isCompact
+                    isSingleChoice
+                    className='w-28 sm:w-44 lg:w-48'
+                  />
+                )}
               </div>
             </StickyFilterRow>
 

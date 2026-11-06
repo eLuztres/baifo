@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 interface FilterOption {
   value: string;
   label: string;
+  /** What the button shows once chosen, when the label is too long for it. */
+  shortLabel?: string;
   count?: number;
 }
 
@@ -52,12 +54,16 @@ const FilterDropdown = ({ label, allLabel, param, options, selected: selectedInL
   const toggle = (value: string) =>
     choose(selected.includes(value) ? selected.filter((item) => item !== value) : isSingleChoice ? [value] : [...selected, value]);
 
+  const shortLabelOf = (value: string) => {
+    const option = options.find((item) => item.value === value);
+    return option?.shortLabel ?? option?.label;
+  };
   const summary =
     selected.length === 0
       ? allLabel
       : selected.length === 1
-        ? options.find((option) => option.value === selected[0])?.label
-        : `${options.find((option) => option.value === selected[0])?.label} +${selected.length - 1}`;
+        ? shortLabelOf(selected[0])
+        : `${shortLabelOf(selected[0])} +${selected.length - 1}`;
 
   return (
     <DropdownMenu modal={false}>

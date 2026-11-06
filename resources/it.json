@@ -663,5 +663,9 @@
   "VALIDATION_OFFER_TITLE": "Il titolo deve avere almeno 2 caratteri",
   "VALIDATION_OFFER_TEXT": "Scrivi un testo per l'offerta",
   "VALIDATION_OFFER_LINK": "Il link deve iniziare con / o https://",
-  "VALIDATION_OFFER_DATES": "Indica quando inizia e finisce; la fine viene dopo l’inizio"
+  "VALIDATION_OFFER_DATES": "Indica quando inizia e finisce; la fine viene dopo l’inizio",
+  "SEARCH_PRICE": "Prezzo",
+  "PRICE_RANGE_UP_TO": "Fino a {max}",
+  "PRICE_RANGE_BETWEEN": "{min} – {max}",
+  "PRICE_RANGE_OVER": "Oltre {min}"
 }
