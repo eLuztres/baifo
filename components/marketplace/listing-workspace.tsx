@@ -8,7 +8,7 @@ import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.acti
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
-import type { CategoryOption, EditorLanguage, HashtagOption, MercadilloOption } from './editor-types';
+import type { CategoryOption, EditorLanguage, MercadilloOption, TagOption } from './editor-types';
 import LeaveGuard from './leave-guard';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
@@ -23,10 +23,10 @@ interface ListingWorkspaceProps {
   shopLanguage: EditorLanguage;
   /** The Mercadillos it can join, on "Más". */
   mercadillos: MercadilloOption[];
-  /** The shop's hashtags to suggest on "Más", the most used first. */
-  hashtagOptions: HashtagOption[];
-  /** How many hashtags a listing can have (MAX_LISTING_HASHTAGS). */
-  maxHashtags: number;
+  /** The shop's etiquetas to offer under the texts. */
+  tagOptions: TagOption[];
+  /** How many etiquetas a listing can have (MAX_LISTING_TAGS). */
+  maxTags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
@@ -37,7 +37,7 @@ interface ListingWorkspaceProps {
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, mercadillos, hashtagOptions, maxHashtags, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, categories, mercadillos, tagOptions, maxTags, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -132,8 +132,8 @@ export default function ListingWorkspace({ initial, categories, mercadillos, has
         shopLanguage={shopLanguage}
         categories={categories}
         mercadillos={mercadillos}
-        hashtagOptions={hashtagOptions}
-        maxHashtags={maxHashtags}
+        tagOptions={tagOptions}
+        maxTags={maxTags}
         listingDays={listingDays}
         maxCategories={maxCategories}
         texts={texts}

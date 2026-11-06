@@ -127,11 +127,10 @@ model Mercadillo {
   submissions Submission[]
 }
 
-// A word a listing is found by; "música" and "musica" are one (same slug). Listings own them, so hiding or selling one keeps them.
-model Hashtag {
+// An etiqueta: one thing with a name per language ({ "es": "Música", "en": "Music" }); a missing language isn't translated yet.
+model Tag {
   id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug        String       @unique
-  name        String
+  names       Json         @default("{}")
   createdAt   DateTime     @default(now()) @db.Timestamp(6)
   submissions Submission[]
 }
@@ -407,7 +406,7 @@ model Submission {
   mercadilloId      String?          @db.Uuid
   mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
   // Shown at the end of the description, and found by the search.
-  hashtags          Hashtag[]
+  tags              Tag[]
   // A service's kind of offer and an event's start and address; the product it becomes takes them over.
   serviceType       String?
   startsAt          DateTime?        @db.Timestamp(6)

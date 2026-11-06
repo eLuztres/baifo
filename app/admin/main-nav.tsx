@@ -5,7 +5,6 @@ import CreateChooser from '@/components/shared/create-chooser';
 import {
   BadgePercent,
   ChevronDown,
-  Hash,
   LayoutDashboard,
   LayoutGrid,
   List,
@@ -17,6 +16,7 @@ import {
   Store,
   Users,
   type LucideIcon,
+  Tag,
 } from 'lucide-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -69,7 +69,7 @@ const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon:
 ];
 
 // The icons a shop's own admin page can name in brand/admin-links.json.
-const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, hash: Hash, list: List, 'map-pin': MapPin, store: Store };
+const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, list: List, 'map-pin': MapPin, store: Store, tag: Tag };
 
 interface NavLink {
   key: string;

@@ -33,7 +33,8 @@ import { getT } from '@/lib/i18n-server';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
-import { withHashtags } from '@/lib/hashtag-text';
+import TagBadges from '@/components/shared/product/tag-badges';
+import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/category';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
@@ -128,7 +129,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Only an item for sale has a condition: the AI may still read one for a wanted ad or an event.
   const condition = product.type === 'PRODUCT' ? conditionKey(product.condition) : undefined;
   const { name, description } = localizeProduct(product, locale);
-  const shownDescription = withHashtags(description, product.submission?.hashtags);
   // No seller number (older listings): buyers write to the shop's WhatsApp, with the listing's name and link ready.
   // Writing to the place's Corral instead is parked for now (#131).
   const shopChatUrl =
@@ -238,6 +238,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
               </div>
             </div>
+            <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
             {(condition || serviceKey || isEvent || mercadilloName) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
                 {mercadilloName && (
@@ -274,7 +275,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 className='text-sm leading-6 text-foreground/85 sm:text-base sm:leading-7'
                 boxClassName={cn(phoneOnlyOnBig)}
               >
-                {shownDescription}
+                {description}
               </ScrollText>
             )}
             {/* Showcase mode and services: no stock or buying, only a way to reach the maker, the seller or the person offering it. */}
@@ -306,7 +307,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                         {serviceKey && <span className='rounded-full border border-border bg-muted px-3 py-1'>{t(serviceKey)}</span>}
                       </span>
                     )}
-                    {description && <span className='block whitespace-pre-line'>{shownDescription}</span>}
+                    {description && <span className='block whitespace-pre-line'>{description}</span>}
                   </ListingInfoButton>
                   {contactWays && hasContactWays ? (
                     <ContactWaysButton productId={product.id} message={sellerMessage} sellerName={seller?.name} {...contactWays} className='flex-1 shrink-0' />

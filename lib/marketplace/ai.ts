@@ -63,8 +63,8 @@ const listingSchema = z.object({
   // Only an event's start ("2026-11-29T19:00" on the island) and address.
   startsAt: z.string().nullable().default(null),
   address: z.string().nullable().default(null),
-  // Only asked on "Crear descripción": one of the shop's hashtags that fits, never a new one.
-  hashtag: z.string().nullable().default(null),
+  // Only asked on "Crear descripción": one of the shop's etiquetas that fits, never a new one.
+  tag: z.string().nullable().default(null),
 });
 
 export type ListingText = z.infer<typeof listingSchema>;
@@ -156,17 +156,17 @@ const withPlace = <T extends { properties: object; required: string[] }>(schema:
         required: [...schema.required, 'place'],
       };
 
-// Hashtags come from people: the AI may only pick one that already exists.
-const withHashtag = <T extends { properties: object; required: string[] }>(schema: T, hashtags: string[]) =>
-  hashtags.length === 0
+// Etiquetas come from people: the AI may only pick one that already exists.
+const withTag = <T extends { properties: object; required: string[] }>(schema: T, tags: string[]) =>
+  tags.length === 0
     ? schema
-    : { ...schema, properties: { ...schema.properties, hashtag: { type: ['string', 'null'], enum: [...hashtags, null] } }, required: [...schema.required, 'hashtag'] };
+    : { ...schema, properties: { ...schema.properties, tag: { type: ['string', 'null'], enum: [...tags, null] } }, required: [...schema.required, 'tag'] };
 
-const hashtagRule = (hashtags: string[]) =>
-  hashtags.length === 0
+const tagRule = (tags: string[]) =>
+  tags.length === 0
     ? ''
-    : `- hashtag: the ONE hashtag from this list that clearly fits the listing, or null if none does. Never more than one, ` +
-      `never one that is not in the list: ${hashtags.join(', ')}.\n`;
+    : `- tag: the ONE tag from this list that clearly fits the listing, or null if none does. Never more than one, ` +
+      `never one that is not in the list: ${tags.join(', ')}.\n`;
 
 const placeRule = (places: ListingPlace[]) =>
   places.length < 2
@@ -349,7 +349,7 @@ export const createPicture = (text: { title: string; description: string }, type
 /** Title and description in every shop language (the first one is the text's own: the base), the category, the type and the price.
     With `kept`, the admin's own text stays as it is (or only corrected) and is translated. Without a photo the AI goes
     by the text alone. An Anuncio (PRODUCT) may come back as SERVICE or WANTED; the other types stay as chosen. With
-    several live `places`, it also names the town; with `hashtags`, it may pick one of them. */
+    several live `places`, it also names the town; with `tags`, it may pick one of them. */
 export async function writeListing(
   photo: Buffer | null,
   sellerText: string,
@@ -358,7 +358,7 @@ export async function writeListing(
   type: ListingType = 'PRODUCT',
   kept?: KeptText,
   places: ListingPlace[] = [],
-  hashtags: string[] = []
+  tags: string[] = []
 ): Promise<Omit<ListingText, 'type'> & { type: ListingType }> {
   const slugs = categories.map((category) => category.slug);
   const isService = type === 'SERVICE';
@@ -372,14 +372,14 @@ export async function writeListing(
     (type === 'WANTED' ? WANTED_ONLY_RULE : '') +
     (photo ? '' : NO_PHOTO_RULE) +
     placeRule(places) +
-    hashtagRule(hashtags);
+    tagRule(tags);
   const result = listingSchema.parse(
     await draftText(photo, sellerText, null, {
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
       isWebSearch: Boolean(photo) && !isService && !isEvent,
-      schema: withHashtag(
+      schema: withTag(
         withPlace(isService ? serviceJsonSchema(locales, slugs) : isEvent ? eventJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs), places),
-        hashtags
+        tags
       ),
     })
   );
@@ -391,8 +391,8 @@ export async function writeListing(
   const resolvedType = type === 'PRODUCT' ? (result.type ?? 'PRODUCT') : type;
   // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
   const category = slugs.includes(result.category) ? result.category : slugs.includes(FALLBACK_CATEGORY_SLUG) ? FALLBACK_CATEGORY_SLUG : slugs[0];
-  const hashtag = result.hashtag && hashtags.includes(result.hashtag) ? result.hashtag : null;
-  return { ...result, category, type: resolvedType, hashtag };
+  const tag = result.tag && tags.includes(result.tag) ? result.tag : null;
+  return { ...result, category, type: resolvedType, tag };
 }
 
 const fieldsSchema = listingSchema.omit({ texts: true, type: true });
@@ -444,6 +444,30 @@ export async function correctText(text: { title: string; description: string; sh
 }
 
 /** The same title and description (and a listing's short title) in other languages, translated, not rewritten. */
+/** The etiquetas' names translated from one language into the others: short labels, one per name, in the same order. */
+export async function translateTagNames(names: string[], from: Locale, locales: Locale[]) {
+  if (names.length === 0 || locales.length === 0) return [];
+  const result = await draftText(null, '', null, {
+    prompt:
+      `Translate these short labels (tags of a local marketplace listing) from ${LANGUAGE_NAMES[from]} into ` +
+      `${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}. Keep each as short as the original, ` +
+      'capitalized like a label, and keep names and brands as they are. Return JSON with one entry per label, in the same order.\n' +
+      names.map((name, index) => `${index + 1}. ${name}`).join('\n'),
+    schema: {
+      type: 'object',
+      properties: {
+        tags: {
+          type: 'array',
+          items: { type: 'object', properties: Object.fromEntries(locales.map((locale) => [locale, { type: 'string' }])), required: locales, additionalProperties: false },
+        },
+      },
+      required: ['tags'],
+      additionalProperties: false,
+    },
+  });
+  return z.object({ tags: z.array(z.record(z.string(), z.string())) }).parse(result).tags as Partial<Record<Locale, string>>[];
+}
+
 export async function translateText(text: { title: string; description: string; short?: string }, from: Locale, locales: Locale[]) {
   if (locales.length === 0) return {};
   const hasShort = text.short !== undefined;

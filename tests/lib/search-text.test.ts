@@ -54,13 +54,13 @@ describe('search text', () => {
   });
 });
 
-describe('finding a listing by its hashtag', () => {
-  // The feed keeps hashtags with the names, so a mention in another listing's name can't hide them.
-  const surfBoard = { id: 'board', text: { names: 'tabla | surf_lessons | musica', rest: '' } };
+describe('finding a listing by its etiqueta', () => {
+  // The feed keeps etiquetas with the names, in every language, so a mention in another listing's text can't hide them.
+  const surfBoard = { id: 'board', text: { names: 'tabla | segunda mano | musica | music', rest: '' } };
   const other = { id: 'other', text: { names: 'silla', rest: '' } };
 
-  it('finds it with or without the # and the accent', () => {
-    for (const query of ['música', '#musica', '#MUSICA']) {
+  it('finds it in any of its languages, with or without the accent', () => {
+    for (const query of ['música', 'MUSIC', 'segunda mano']) {
       expect(mainMatches([other, surfBoard], (item) => item.text, queryWords(query)).map((item) => item.id)).toEqual(['board']);
     }
   });

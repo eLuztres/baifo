@@ -5,6 +5,7 @@ import DescriptionStep from '@/components/marketplace/description-step';
 import { describeAdminListing, draftAdminListingText, translateListingText, extendAdminListing, getAdminListing, hideAdminListing, updateAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 
+jest.mock('@/lib/actions/tag.actions', () => ({ translateTags: jest.fn() }));
 jest.mock('@/lib/marketplace/admin.actions', () => ({
   describeAdminListing: jest.fn(),
   draftAdminListingText: jest.fn(),
@@ -45,7 +46,7 @@ const listing = {
   textMode: 'ai',
   originalTitle: null,
   rawImages: [],
-  hashtags: [],
+  tags: [],
   images: ['https://x.ufs.sh/f/bike.jpg'],
   usesAi: false,
   lastError: null,
@@ -75,8 +76,8 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         languages={[{ id: 'en', label: 'EN' }]}
         shopLanguage={{ id: 'es', label: 'ES' }}
         mercadillos={[]}
-        hashtagOptions={[]}
-        maxHashtags={5}
+        tagOptions={[{ id: 'surf', names: { es: 'Surf', en: 'Surfing' }, count: 2 }]}
+        maxTags={5}
         categories={[
           { slug: 'musica', name: 'Música' },
           { slug: 'hogar', name: 'Hogar' },
@@ -175,8 +176,8 @@ describe('DescriptionStep', () => {
     expect(screen.getByLabelText('titleLabel')).toHaveValue('Bike');
   });
 
-  it('makes the selected tab the base, sending its title and language, and takes the one hashtag the AI picked', async () => {
-    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy bike.' } }, hashtag: 'surf' });
+  it('makes the selected tab the base, sending its title and language, and takes the one etiqueta the AI picked', async () => {
+    mockDraft.mockResolvedValue({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy bike.' } }, tag: 'surf' });
     renderStep();
 
     fireEvent.click(screen.getByRole('tab', { name: 'EN' }));
@@ -188,7 +189,7 @@ describe('DescriptionStep', () => {
     expect(mockDraft).toHaveBeenCalledWith('abc', expect.objectContaining({ notes: 'comfy bike 80 euros', title: 'bike', language: 'en' }));
     // Still on the tab the admin wrote in.
     expect(screen.getByRole('tab', { name: 'EN' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('#surf')).toBeInTheDocument();
+    expect(screen.getByText('Surfing')).toBeInTheDocument();
   });
 
   it('takes the category the AI chose into an empty field, lets the admin add another, and publishes both', async () => {
@@ -301,13 +302,13 @@ describe('DescriptionStep', () => {
     jest.useRealTimers();
   });
 
-  it('sets the hashtags in Descripción, under the category, not in Más', () => {
+  it('sets the etiquetas under the texts, in Descripción, not in Más', () => {
     renderStep(drafted);
 
     fireEvent.click(screen.getByRole('button', { name: /stepDetails/ }));
-    expect(screen.getByLabelText('hashtagsLabel')).toBeInTheDocument();
+    expect(screen.getByLabelText('tagsLabel')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
-    expect(screen.queryByLabelText('hashtagsLabel')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('tagsLabel')).not.toBeVisible();
   });
 
   it('shows an event online until its day is over, not as a choice', () => {

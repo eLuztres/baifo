@@ -183,7 +183,7 @@ export interface AdminLink<Label = string> {
   icon?: string;
   /** Opened seldom: it waits in the Advanced menu. */
   isAdvanced?: boolean;
-  /** Offered in a pop-up next to this menu link instead of its own (e.g. Hashtags with Categorías). */
+  /** Offered in a pop-up next to this menu link instead of its own (e.g. Etiquetas with Categorías). */
   chooserOf?: string;
   /** A short line under its name in that pop-up. */
   hint?: Label;

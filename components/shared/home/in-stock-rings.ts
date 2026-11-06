@@ -6,6 +6,7 @@ import { RING_ORDER } from '@/lib/category';
 import { coverPicture } from '@/lib/video';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { startOfShopDay } from '@/lib/event-date';
+import type { TagNames } from '@/lib/tag-names';
 
 // How many listings a page of the feed brings when it asks for none in particular.
 const PAGE_SIZE = 24;
@@ -51,8 +52,8 @@ export interface CollectionRing {
   placeId: string | null;
   /** Server only: the Mercadillo it belongs to, for its row in the list. */
   mercadilloId: string | null;
-  /** Server only: its hashtags, for the feed's search. */
-  hashtags: string[];
+  /** Server only: its etiquetas, for the feed's search and its cards. */
+  tags: { id: string; names: TagNames }[];
 }
 
 /** Only the rings in the visitor's places; one without a place stays, so nothing disappears unnoticed. */
@@ -88,7 +89,7 @@ const RING_SELECT = {
   // The shop's order: the first one sorts a listing in the feed and labels it in the search.
   categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
   expiresAt: true,
-  submission: { select: { rawImages: true, expiresAt: true, hashtags: { select: { name: true } } } },
+  submission: { select: { rawImages: true, expiresAt: true, tags: { select: { id: true, names: true } } } },
 } satisfies Prisma.ProductSelect;
 
 // From the extended client, which hands prices over as strings.
@@ -106,7 +107,7 @@ const toCollectionRing = ({ images, reservedUntil, categories, price, submission
     images,
     isReserved: isReservationActive({ reservedUntil }),
     categoryIds: categories.map((category) => category.id),
-    hashtags: submission?.hashtags.map(({ name }) => name) ?? [],
+    tags: submission?.tags.map(({ id, names }) => ({ id, names: names as TagNames })) ?? [],
     // A seller's listing ends with its submission; an admin's service has its own end.
     endsAt: submission?.expiresAt ?? expiresAt,
   };

@@ -42,8 +42,8 @@ import { pictureOf } from '@/lib/video';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
-import HashtagInput from './hashtag-input';
-import type { CategoryOption, EditorLanguage, HashtagOption, MercadilloOption } from './editor-types';
+import TagInput from './tag-input';
+import type { CategoryOption, EditorLanguage, EditorTag, MercadilloOption, TagOption } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -55,10 +55,10 @@ interface DescriptionStepProps {
   categories: CategoryOption[];
   /** The Mercadillos it can join, on "Más". */
   mercadillos: MercadilloOption[];
-  /** The shop's hashtags to suggest on "Más", the most used first. */
-  hashtagOptions: HashtagOption[];
-  /** How many hashtags a listing can have (MAX_LISTING_HASHTAGS). */
-  maxHashtags: number;
+  /** The shop's etiquetas to offer under the texts. */
+  tagOptions: TagOption[];
+  /** How many etiquetas a listing can have (MAX_LISTING_TAGS). */
+  maxTags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
@@ -74,7 +74,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, hashtagOptions, maxHashtags, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, tagOptions, maxTags, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -157,7 +157,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
   const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
-  const [hashtags, setHashtags] = useState(() => listing.hashtags.map(({ name }) => name));
+  const [tags, setTags] = useState<EditorTag[]>(() => listing.tags);
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
     status === 'SOLD' && listing.type !== 'PRODUCT' ? texts[`status_SOLD_${listing.type}`] : texts[`status_${status}`];
@@ -251,7 +251,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
         mercadilloId,
-        hashtags,
+        tags,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
@@ -276,7 +276,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       address: isEvent ? address : '',
       textMode,
       mercadilloId,
-      hashtags,
+      tags,
       sellerPhone: sentPhone,
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
       contacts: sentContacts(),
@@ -317,7 +317,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     return result;
   };
 
-  // The AI writes the texts now from the selected tab, into every language; a price, category or hashtag it read fills an empty one.
+  // The AI writes the texts now from the selected tab, into every language; a price, category or etiqueta it read fills an empty one.
   const createDescription = async (): Promise<FilledTexts | null> => {
     if (!notes.trim()) {
       descriptionInput.current?.focus();
@@ -342,9 +342,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       return null;
     }
     setDraft(result.texts);
-    // One existing hashtag at most, and only one the admin hasn't set: the rest are theirs.
-    const { hashtag } = result;
-    if (hashtag) setHashtags((current) => (current.includes(hashtag) || current.length >= maxHashtags ? current : [...current, hashtag]));
+    // One existing etiqueta at most, and only one the admin hasn't set: the rest are theirs.
+    const picked = tagOptions.find((option) => option.id === result.tag);
+    if (picked) setTags((current) => (current.some((tag) => tag.id === picked.id) || current.length >= maxTags ? current : [...current, picked]));
     // What the AI read only fills what the admin left empty.
     const filledPrice = price || (result.price && result.priceMode ? result.price : '');
     if (!price && result.price && result.priceMode) {
@@ -458,6 +458,29 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
               onChange={(event) => setShownText('description')(event.target.value)}
               placeholder={placeholder}
               className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
+            />
+          </div>
+          {/* In the selected tab's language: chosen or made in it, and translated from it. */}
+          <div className='space-y-1'>
+            <div className='flex items-baseline justify-between gap-2 px-1 text-xs text-muted-foreground'>
+              <Label htmlFor='listing-tags' className='text-xs text-muted-foreground'>
+                {texts.tagsLabel}
+              </Label>
+              <span aria-live='polite'>
+                {tags.length}/{maxTags}
+              </span>
+            </div>
+            <TagInput
+              id='listing-tags'
+              value={tags}
+              onChange={setTags}
+              options={tagOptions}
+              language={textLanguage}
+              languages={textLanguages.map(({ id }) => id)}
+              max={maxTags}
+              isDisabled={isWriting}
+              texts={texts}
+              onError={setError}
             />
           </div>
           <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
@@ -575,22 +598,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        )}
-
-        {/* Next to the category and the texts: they close the description. */}
-        {step === 1 && (
-          <div className='space-y-1'>
-            <div className='flex items-baseline justify-between gap-2 px-1 text-xs text-muted-foreground'>
-              <Label htmlFor='listing-hashtags' className='text-xs text-muted-foreground'>
-                {texts.hashtagsLabel}
-              </Label>
-              <span aria-live='polite'>
-                {hashtags.length}/{maxHashtags}
-              </span>
-            </div>
-            <HashtagInput id='listing-hashtags' value={hashtags} onChange={setHashtags} options={hashtagOptions} max={maxHashtags} isDisabled={isWriting} texts={texts} className='bg-card' />
-            <p className='px-1 text-xs text-muted-foreground'>{texts.hashtagsHint}</p>
           </div>
         )}
 

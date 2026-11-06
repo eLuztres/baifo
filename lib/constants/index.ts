@@ -120,7 +120,7 @@ export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
 // So one listing can't fill every category in the feed's filter.
 export const MAX_LISTING_CATEGORIES = envNumber('MAX_LISTING_CATEGORIES', 3);
-export const MAX_LISTING_HASHTAGS = envNumber('MAX_LISTING_HASHTAGS', 5);
+export const MAX_LISTING_TAGS = envNumber('MAX_LISTING_TAGS', 5);
 // Listings that go offline within this many days show in the feed's "Ending soon"; set per shop in .env.
 export const ENDING_SOON_DAYS = envNumber('ENDING_SOON_DAYS', 3);
 // "Contact seller" reveals per visitor IP within the window, so seller numbers can't be collected in bulk.

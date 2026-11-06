@@ -109,13 +109,13 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
 
 /** The AI's title, descriptions, category, condition and price, from the first photo and the seller's words; once. */
 /** How "Crear descripción" asks: the language the admin wrote in (the base the others come from), and the shop's
-    hashtags the AI may pick one of. */
+    etiquetas the AI may pick one of (their names in `base`). */
 interface DraftOptions {
   base?: Locale;
-  hashtags?: string[];
+  tags?: string[];
 }
 
-async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null, { base, hashtags }: DraftOptions = {}) {
+async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null, { base, tags }: DraftOptions = {}) {
   if (submission.title) return null;
   const shopLocale = getShopLocale();
   const first = base ?? shopLocale;
@@ -130,7 +130,7 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null,
   const livePlaces = places.filter((place) => place.isLive);
   // Improving takes the admin's title too; the other modes keep it apart.
   const words = submission.textMode === 'ai' && submission.originalTitle ? `${submission.originalTitle}\n${submission.rawText}` : submission.rawText;
-  const text = await writeListing(firstPhoto, words, categories, locales, submission.type, kept, livePlaces, hashtags);
+  const text = await writeListing(firstPhoto, words, categories, locales, submission.type, kept, livePlaces, tags);
   // A place the admin already set stays; else the town the AI read. None named stays empty, unless there's only one.
   const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
@@ -163,14 +163,14 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null,
 }
 
 /** "Crear descripción": the text written again now from its words, its type and the first photo, starting from `base`.
-    Also the one hashtag the AI picked, if any. */
+    Also the one etiqueta the AI picked, if any. */
 export async function writeDraftText(submissionId: string, options: DraftOptions = {}) {
   const submission = await findSubmission(submissionId);
   if (!submission) return null;
   const [firstPhotoUrl] = photosOf(submission.rawImages);
   const text = await writeText({ ...submission, title: null }, firstPhotoUrl ? await fetchImage(firstPhotoUrl) : null, options);
   const written = await findSubmission(submissionId);
-  return written && { ...written, hashtag: text?.hashtag ?? null };
+  return written && { ...written, tag: text?.tag ?? null };
 }
 
 /** The shop pictures: from the photos (or video stills), else drawn from the admin's idea or the listing's words. */

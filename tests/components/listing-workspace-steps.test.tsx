@@ -6,6 +6,7 @@ import { getAdminListing, saveAdminListingPictures, type AdminListing } from '@/
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { renderWithI18n } from '../utils/render-with-i18n';
 
+jest.mock('@/lib/actions/tag.actions', () => ({ translateTags: jest.fn() }));
 jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh: jest.fn(), push: jest.fn() }) }));
 jest.mock('@/lib/marketplace/admin.actions', () => ({
   createAdminListingPicture: jest.fn(),
@@ -39,7 +40,7 @@ const LISTING = {
   textMode: 'ai',
   originalTitle: null,
   rawImages: [PHOTO],
-  hashtags: [],
+  tags: [],
   images: ['https://x.ufs.sh/f/bike-ai.jpg'],
   aiImages: ['https://x.ufs.sh/f/bike-ai.jpg'],
   lastError: null,
@@ -48,7 +49,7 @@ const LISTING = {
 
 const renderWorkspace = (listing: Partial<AdminListing> = {}) =>
   renderWithI18n(
-    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} mercadillos={[]} hashtagOptions={[]} maxHashtags={5} maxCategories={3} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} listingDays={90} texts={texts} />,
+    <ListingWorkspace initial={{ ...LISTING, ...listing } as AdminListing} categories={[]} mercadillos={[]} tagOptions={[]} maxTags={5} maxCategories={3} languages={[]} shopLanguage={{ id: 'es', label: 'ES' }} listingDays={90} texts={texts} />,
   );
 
 

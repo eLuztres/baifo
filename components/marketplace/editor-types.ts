@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n-core';
+import type { TagNames } from '@/lib/tag-names';
 
 /** A shop language, with its short label for the tabs (ES, EN, IT). */
 export interface EditorLanguage {
@@ -12,9 +13,15 @@ export interface MercadilloOption {
   name: string;
 }
 
-/** A hashtag the editor can suggest, with how many listings use it. */
-export interface HashtagOption {
-  name: string;
+/** An etiqueta on the listing: a new one has no id yet and is made on save. */
+export interface EditorTag {
+  id?: string;
+  names: TagNames;
+}
+
+/** An etiqueta the editor offers, with how many listings use it. */
+export interface TagOption extends EditorTag {
+  id: string;
   count: number;
 }
 

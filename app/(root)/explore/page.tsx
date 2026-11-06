@@ -33,12 +33,13 @@ import PullUpHome from '@/components/shared/pull-up-home';
 import ExploreScrollKeeper from '@/components/shared/explore-scroll-keeper';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
-import { hashtagSlug } from '@/lib/hashtag-text';
+import TagBadges from '@/components/shared/product/tag-badges';
+import { tagNameIn } from '@/lib/tag-names';
 import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
   /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated), `mercadillo` one Mercadillo's listings. `c` is the older link to one category. */
-  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string; hashtag?: string }>;
+  searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -96,7 +97,7 @@ const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, categoria, mercadillo, c, hashtag }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
+  const [{ q = '', tipo, categoria, mercadillo, c, etiqueta }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
     searchParams,
     getT(),
     getStoreCategories(),
@@ -113,12 +114,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
   const categoryById = new Map(categories.map((category) => [category.id, category]));
 
-  // A listing is found by its names and hashtags, and by its description, its categories' names and its kind.
+  // A listing is found by its names and etiquetas (in every language), and by its description, its categories' names and its kind.
   const searchTextOf = (listing: Listing): SearchableText => {
     const translations = Object.values((listing.translations ?? {}) as Record<string, { name?: string; shortName?: string; description?: string }>);
     const ownCategories = listing.categoryIds.map((id) => categoryById.get(id)).filter((category) => category !== undefined);
     return {
-      names: [listing.name, listing.shortName, ...translations.flatMap((text) => [text.name, text.shortName]), ...listing.hashtags].filter(Boolean).map((name) => foldText(name!)).join(' | '),
+      names: [listing.name, listing.shortName, ...translations.flatMap((text) => [text.name, text.shortName]), ...listing.tags.flatMap((tag) => Object.values(tag.names))].filter(Boolean).map((name) => foldText(name!)).join(' | '),
       rest: foldText(
         [
           listing.description,
@@ -136,10 +137,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const words = queryWords(q);
   const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
   const inMercadillo = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
-  // A chosen hashtag shows exactly the listings that carry it; "musica" also finds "#música".
-  const chosenHashtag = hashtag ? hashtagSlug(hashtag) : '';
-  const hasHashtag = (listing: Listing) => listing.hashtags.some((name) => hashtagSlug(name) === chosenHashtag);
-  const inScope = chosenHashtag ? inMercadillo.filter(hasHashtag) : inMercadillo;
+  // A chosen etiqueta shows exactly the listings that carry it.
+  const chosenTag = etiqueta ? listings.flatMap((listing) => listing.tags).find((tag) => tag.id === etiqueta) : undefined;
+  const inScope = chosenTag ? inMercadillo.filter((listing) => listing.tags.some((tag) => tag.id === chosenTag.id)) : inMercadillo;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
   const types = chosenFilters.flatMap((filter) => filter.types);
@@ -150,7 +150,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const shown = categoryIds.length ? ofType.filter((listing) => listing.categoryIds.some((id) => categoryIds.includes(id))) : ofType;
 
   // Only the plain list has rows: a search or filter shows every match in the grid.
-  const isPlainList = !chosenMercadillo && !chosenHashtag && words.length === 0 && types.length === 0 && categoryIds.length === 0;
+  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && categoryIds.length === 0;
   const rows = isPlainList
     ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
     : [];
@@ -165,7 +165,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     .sort((a, b) => b.count - a.count);
 
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo, hashtag }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
@@ -198,19 +198,16 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         text: { names: allTexts(category.name).map(foldText).join(' | '), rest: foldText(category.keywords.join(' ')) },
       })),
   ];
-  // Every hashtag on a listing, once, with how many listings carry it.
-  const hashtagCounts = new Map<string, { name: string; count: number }>();
-  for (const name of listings.flatMap((listing) => listing.hashtags)) {
-    const slug = hashtagSlug(name);
-    hashtagCounts.set(slug, { name: hashtagCounts.get(slug)?.name ?? name, count: (hashtagCounts.get(slug)?.count ?? 0) + 1 });
-  }
-  const searchHashtags: SearchChoice[] = [...hashtagCounts].map(([slug, { name, count }]) => ({
-    href: `/explore?hashtag=${encodeURIComponent(slug)}`,
-    label: `#${name}`,
+  // Every etiqueta on a listing, once, with how many listings carry it; found by its name in any language.
+  const tagCounts = new Map<string, { tag: Listing['tags'][number]; count: number }>();
+  for (const tag of listings.flatMap((listing) => listing.tags)) tagCounts.set(tag.id, { tag, count: (tagCounts.get(tag.id)?.count ?? 0) + 1 });
+  const searchTags: SearchChoice[] = [...tagCounts.values()].map(({ tag, count }) => ({
+    href: `/explore?etiqueta=${tag.id}`,
+    label: tagNameIn(tag.names, locale),
     count,
-    text: { names: foldText(name), rest: '' },
+    text: { names: Object.values(tag.names).filter(Boolean).map((name) => foldText(name!)).join(' | '), rest: '' },
   }));
-  const shownHashtag = chosenHashtag ? `#${hashtagCounts.get(chosenHashtag)?.name ?? chosenHashtag}` : '';
+  const shownTag = chosenTag ? tagNameIn(chosenTag.names, locale) : '';
 
   const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
@@ -240,6 +237,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         </div>
         <div className='flex flex-1 flex-col gap-1 p-3 sm:p-4'>
           <p className='line-clamp-4 text-sm font-medium leading-5 sm:line-clamp-2 sm:text-base'>{name}</p>
+          {/* One line at most, whole badges only: the card stays as tall as its neighbours. */}
+          <TagBadges tags={listing.tags} locale={locale} className='max-h-[1.375rem] overflow-hidden' />
           {/* On one line when both fit; a long name moves below the price. */}
           <div className='mt-auto flex flex-wrap items-center justify-between gap-x-2'>
             <div className='flex min-w-0 items-center gap-1.5'>
@@ -317,12 +316,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             {/* Phones: while typing the field takes the whole line, so its suggestions have room. */}
             <StickyFilterRow className='group flex gap-2'>
               <ExploreSearch
-                key={q || shownHashtag}
+                key={q || shownTag}
                 listings={searchListings}
                 choices={searchChoices}
-                hashtags={searchHashtags}
-                value={q || shownHashtag}
-                isFiltered={words.length > 0 || Boolean(chosenHashtag)}
+                tags={searchTags}
+                value={q || shownTag}
+                isFiltered={words.length > 0 || Boolean(chosenTag)}
               />
               <div className='flex shrink-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
                 <FilterDropdown
