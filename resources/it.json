@@ -631,6 +631,8 @@
   "TAG_TRANSLATE_FAILED": "Non è stato possibile tradurre le etichette. Riprova.",
   "TAG_TRANSLATE": "Traduci",
   "TAG_TRANSLATE_FROM": "Traduci da {language} i nomi mancanti",
+  "TAG_NAMES_SHOW": "Vedi i nomi in tutte le lingue",
+  "TAG_NAMES_HINT": "Tocca un nome per scriverlo o cambiarlo; «—» vuol dire non ancora tradotto.",
   "TAG_NO_TITLE": "Senza titolo",
   "MERCADILLOS_ADMIN_TITLE": "Mercadillos",
   "MERCADILLOS_ADMIN_INTRO": "Un Mercadillo riunisce più prodotti di una persona o di un negozio. Si vede come una fila nell'elenco. I prodotti si aggiungono da «Altro» nell'editor di ogni annuncio.",

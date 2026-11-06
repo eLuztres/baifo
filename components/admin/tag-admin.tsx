@@ -3,11 +3,12 @@
 import { Fragment, useMemo, useState, useTransition, type FormEvent, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Languages, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronDown, Globe, Languages, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import { useI18n } from '@/components/i18n-provider';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createTag, deleteTag, setTagName, translateTag } from '@/lib/actions/tag.actions';
@@ -51,6 +52,9 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
   // Per etiqueta, the language whose name was touched last: "Traducir" starts from it.
   const [usedLanguages, setUsedLanguages] = useState<Record<string, Locale>>({});
   const [translatingId, setTranslatingId] = useState<string | null>(null);
+  // Phones: the etiqueta whose names show in the pop-up.
+  const [namesId, setNamesId] = useState<string | null>(null);
+  const namesTag = tags.find((tag) => tag.id === namesId);
   const [isPending, startTransition] = useTransition();
   // New ones are named in the admin's language when the shop has it, else in the shop's own.
   const baseLocale = languages.some((language) => language.id === locale) ? locale : languages[0].id;
@@ -110,7 +114,7 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
         {/* Phones: the number alone, so the name next to it has room. */}
         <span className='md:hidden'>{tag.listings.length}</span>
         <span className='max-md:hidden'>{countText(tag.listings.length)}</span>
-        {tag.listings.length > 0 && <ChevronDown className={cn('size-4 transition-transform', isOpen && 'rotate-180')} aria-hidden />}
+        {tag.listings.length > 0 && <ChevronDown className={cn('size-4 transition-transform max-md:hidden', isOpen && 'rotate-180')} aria-hidden />}
       </button>
     );
   };
@@ -131,10 +135,8 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
     });
   };
 
-  const firstMissing = (tag: TagRow) => languages.find((language) => !tag.names[language.id])?.id;
-
-  // Only while a name is missing; it shows which language it translates from.
-  const translateButton = (tag: TagRow) => {
+  // Only while a name is missing; it shows which language it translates from (on a phone's line, the icon alone).
+  const translateButton = (tag: TagRow, isCompact = false) => {
     const from = baseOf(tag);
     if (!from || languages.every((language) => tag.names[language.id])) return null;
     const fromName = languages.find((language) => language.id === from)?.name ?? from;
@@ -149,7 +151,7 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
         className='h-8 shrink-0 gap-1 rounded-full border-primary px-2 text-primary hover:bg-primary/10 hover:text-primary'
       >
         {translatingId === tag.id ? <Loader2 className='animate-spin' /> : <Languages />}
-        <span className='text-xs font-semibold uppercase'>{from}</span>
+        {!isCompact && <span className='text-xs font-semibold uppercase'>{from}</span>}
       </Button>
     );
   };
@@ -237,32 +239,60 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
             </table>
           </div>
 
-          {/* Phones: one card per etiqueta, its names one under the other. */}
-          <ul className='space-y-2 md:hidden'>
-            {shown.map((tag) => (
-              <li key={tag.id} className='rounded-2xl border border-border bg-card p-2'>
-                {/* The first language's row also holds the count and the bin, so no name shows twice. */}
-                <dl className='grid grid-cols-[2.25rem_minmax(0,1fr)] items-center'>
-                  {languages.map((language, index) => (
-                    <Fragment key={language.id}>
-                      <dt className='pl-2 text-xs font-medium uppercase text-muted-foreground'>{language.id}</dt>
-                      <dd className={cn('flex items-center gap-1', index === 0 && 'font-medium')}>
-                        <div className='min-w-0 flex-1'>
-                          <TagNameCell tag={tag} language={language} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: language.id }))} />
-                        </div>
-                        {/* In the first empty row, where there is room: the first one holds the name, the count and the bin. */}
-                        {language.id === firstMissing(tag) && translateButton(tag)}
-                        {index === 0 && countButton(tag)}
-                        {index === 0 && deleteButton(tag)}
-                      </dd>
-                    </Fragment>
-                  ))}
-                </dl>
-                {openId === tag.id && <div className='mt-1 border-t border-border pt-1'>{listingsOf(tag)}</div>}
-              </li>
-            ))}
+          {/* Phones: one line per etiqueta with its first language's name; the others in a pop-up. */}
+          <ul className='divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card md:hidden'>
+            {shown.map((tag) => {
+              const filled = languages.filter((language) => tag.names[language.id]).length;
+              const isMissing = filled < languages.length;
+              return (
+                <li key={tag.id} className='p-1.5'>
+                  <div className='flex items-center gap-1'>
+                    <div className='min-w-0 flex-1 font-medium'>
+                      <TagNameCell tag={tag} language={languages[0]} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: languages[0].id }))} isWrapped />
+                    </div>
+                    {translateButton(tag, true)}
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => setNamesId(tag.id)}
+                      aria-label={t('TAG_NAMES_SHOW')}
+                      title={t('TAG_NAMES_SHOW')}
+                      className={cn('h-8 shrink-0 gap-1 rounded-full px-2 text-xs tabular-nums', isMissing ? 'text-primary' : 'text-muted-foreground')}
+                    >
+                      <Globe />
+                      {filled}/{languages.length}
+                    </Button>
+                    {countButton(tag)}
+                    {deleteButton(tag)}
+                  </div>
+                  {openId === tag.id && <div className='mt-1 border-t border-border pt-1'>{listingsOf(tag)}</div>}
+                </li>
+              );
+            })}
           </ul>
         </>
+      )}
+
+      {namesTag && (
+        <Dialog open onOpenChange={(isOpen) => !isOpen && setNamesId(null)}>
+          <DialogContent className='max-w-sm'>
+            <DialogHeader>
+              <DialogTitle>{namesTag.names[languages[0].id] ?? Object.values(namesTag.names).find(Boolean)}</DialogTitle>
+              <DialogDescription>{t('TAG_NAMES_HINT')}</DialogDescription>
+            </DialogHeader>
+            <dl className='grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-y-1'>
+              {languages.map((language) => (
+                <Fragment key={language.id}>
+                  <dt className='text-xs font-medium uppercase text-muted-foreground'>{language.id}</dt>
+                  <dd>
+                    <TagNameCell tag={namesTag} language={language} onUse={() => setUsedLanguages((used) => ({ ...used, [namesTag.id]: language.id }))} />
+                  </dd>
+                </Fragment>
+              ))}
+            </dl>
+            <div className='flex justify-end'>{translateButton(namesTag)}</div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -273,10 +303,12 @@ interface TagNameCellProps {
   language: TagLanguage;
   /** Tapped or written: the row's "Traducir" starts from this language. */
   onUse: () => void;
+  /** A long name takes a second line instead of being cut (a phone's line). */
+  isWrapped?: boolean;
 }
 
 /** One name of an etiqueta: "—" until written; a tap turns it into a field, Enter or leaving it saves. */
-function TagNameCell({ tag, language, onUse }: TagNameCellProps) {
+function TagNameCell({ tag, language, onUse, isWrapped }: TagNameCellProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
@@ -333,9 +365,9 @@ function TagNameCell({ tag, language, onUse }: TagNameCellProps) {
         onUse();
         setText(name);
       }}
-      className='flex min-h-9 w-full items-center truncate rounded-lg px-2 text-left hover:bg-muted'
+      className={cn('flex min-h-9 w-full items-center rounded-lg px-2 text-left hover:bg-muted', !isWrapped && 'truncate')}
     >
-      {name ? <span className='truncate'>{name}</span> : <span className='text-muted-foreground'>—</span>}
+      {name ? <span className={cn(isWrapped ? 'min-w-0 hyphens-auto leading-tight [overflow-wrap:anywhere]' : 'truncate')}>{name}</span> : <span className='text-muted-foreground'>—</span>}
     </button>
   );
 }
