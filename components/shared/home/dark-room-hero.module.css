@@ -243,7 +243,7 @@
     /* The page snaps the opening right under the header, so pulling it up would hide its top and show the next part. */
     margin-top: 0;
     padding: 1rem var(--gutter) 1.5rem;
-    /* The category ring's sea reaches up into the opening's last strip; the opening stays on top of it. */
+    /* The opening stays on top of whatever reaches up into its last strip. */
     z-index: 1;
   }
 

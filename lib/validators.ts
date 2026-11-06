@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { formatNumberWithDecimal } from './utils';
 import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
 import { OFFER_ICONS } from './constants';
 import { fromShopDateTime } from './event-date';
@@ -9,74 +8,24 @@ import { CLEAN_CONTACT, type ContactExtra } from './marketplace/contact-ways';
 // translate them. No env-based config is imported, because client forms use these schemas too.
 const message = (key: TranslationKey) => key;
 
-const currency = z
-  .string()
-  .trim()
-  .min(1, message('VALIDATION_PRICE_FORMAT'))
-  .refine(
-    (value) => /^\d+(\.\d{2})?$/.test(formatNumberWithDecimal(Number(value))),
-    message('VALIDATION_PRICE_FORMAT')
-  );
-
 /** Ids of products, orders and users (Postgres uuids), e.g. order ids and payment metadata. */
 export const idSchema = z.string().uuid(message('VALIDATION_ID_INVALID'));
 
-// Schema for inserting products
-export const insertProductSchema = z.object({
-  name: z.string().min(3, message('VALIDATION_NAME_MIN')),
-  // The store's ring row shows it; empty: the name.
-  shortName: z.string().trim().max(40).nullish(),
-  slug: z.string().min(3, message('VALIDATION_SLUG_MIN')),
-  category: z.string().min(3, message('VALIDATION_CATEGORY_MIN')),
-  brand: z.string().min(3, message('VALIDATION_BRAND_MIN')),
-  description: z.string().min(3, message('VALIDATION_DESCRIPTION_MIN')),
-  stock: z.coerce
-    .number()
-    .int(message('VALIDATION_STOCK_INVALID'))
-    .nonnegative(message('VALIDATION_STOCK_INVALID')),
-  images: z.array(z.string()).min(1, message('VALIDATION_IMAGES_REQUIRED')),
-  isFeatured: z.boolean(),
-  banner: z.string().nullable(),
-  price: currency,
-  priceClass: z.string().nullable().optional(),
-  // The maker's photo the AI views are made from.
-  sourceImage: z.string().nullable().optional(),
-  // The store categories the ring shows up in.
-  categoryIds: z.array(z.string().uuid(message('VALIDATION_ID_INVALID'))).optional(),
-});
-
-// Schema for updating products
-export const updateProductSchema = insertProductSchema.extend({
-  id: z.string().min(1, message('VALIDATION_ID_REQUIRED')),
-});
-
-const categoryTextSchema = (key: TranslationKey, max: number) =>
+const groupTextSchema = (key: TranslationKey, max: number) =>
   z
     .record(z.string(), z.string().trim().max(max, message(key)))
     .refine((texts) => Object.values(texts).some(Boolean), message(key));
 
-const sceneTextSchema = z.string().trim().max(600, message('VALIDATION_CATEGORY_SCENE'));
-// Optional: a marketplace category needs no photo scene, but a scene that is there must say something.
-const optionalSceneSchema = sceneTextSchema.refine((scene) => scene === '' || scene.length >= 10, message('VALIDATION_CATEGORY_SCENE'));
-
-// A category of the store's ring; the name and text are given per language.
-export const categorySchema = z.object({
+// A Mercadillo: its link name, name and text per language, picture and icon.
+export const mercadilloSchema = z.object({
   slug: z
     .string()
     .trim()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, message('VALIDATION_SLUG_MIN')),
-  name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60),
-  // Optional: a category can be just a name.
-  text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_CATEGORY_TEXT'))),
+  name: groupTextSchema('VALIDATION_GROUP_NAME', 60),
+  // Optional: a Mercadillo can be just a name.
+  text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_GROUP_TEXT'))),
   image: z.string().nullable(),
-  keywords: z.array(z.string().trim().toLowerCase().min(2).max(40)).max(20),
-  scene: optionalSceneSchema,
-  sceneVariants: z.array(sceneTextSchema.min(3, message('VALIDATION_CATEGORY_SCENE'))).max(6),
-});
-
-export const updateCategorySchema = categorySchema.extend({ id: idSchema });
-// A Mercadillo: the same name, text, picture and link name as a category, and its icon.
-export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, text: true, image: true }).extend({
   icon: z.string().nullable(),
   // Empty: no contact button.
   contactPhone: z
@@ -85,11 +34,6 @@ export const mercadilloSchema = categorySchema.pick({ slug: true, name: true, te
     .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
-// A subcategory: only its name per language.
-export const subcategorySchema = z.object({ name: categoryTextSchema('VALIDATION_CATEGORY_NAME', 60) });
-export const updateSubcategorySchema = subcategorySchema.extend({ id: idSchema });
-// The rings of one category in their new order.
-export const ringOrderSchema = z.array(idSchema).min(2).max(500);
 
 // Lowercased, so sign-in, sign-up and Google logins match the same account.
 const emailSchema = z.string().trim().toLowerCase().email(message('VALIDATION_EMAIL_INVALID'));
@@ -149,20 +93,6 @@ export const insertReviewSchema = z.object({
     .min(1, message('VALIDATION_RATING_RANGE'))
     .max(5, message('VALIDATION_RATING_RANGE')),
 });
-
-export const SEARCH_SORT_ORDERS = ['newest', 'lowest', 'highest', 'rating'] as const;
-
-// Search links are shared and edited by hand, so a bad value falls back instead of failing.
-export const searchParamsSchema = z.object({
-  q: z.string().trim().max(100).catch('all'),
-  category: z.string().trim().max(100).catch('all'),
-  price: z.string().regex(/^(all|\d+-\d+)$/).catch('all'),
-  rating: z.string().regex(/^(all|[1-5])$/).catch('all'),
-  sort: z.enum(SEARCH_SORT_ORDERS).catch('newest'),
-  page: z.coerce.number().int().positive().catch(1),
-});
-
-export type SearchParams = z.infer<typeof searchParamsSchema>;
 
 const RESERVE_CHANNELS = ['whatsapp', 'instagram', 'email', 'phone'] as const;
 export type ReserveChannel = (typeof RESERVE_CHANNELS)[number];

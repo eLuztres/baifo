@@ -2,14 +2,14 @@ import { expect, test } from '@playwright/test';
 import { otherEnabledLocales, t, tIn } from './helpers';
 
 test.describe('mobile header', () => {
-  test('the menu opens and navigates to the showroom', async ({ page }) => {
+  test('the menu opens and its listings link opens the list', async ({ page }) => {
     await page.goto('/');
 
     await page.getByRole('button', { name: t('NAV_MENU') }).click();
     await page.getByRole('dialog').getByRole('link', { name: t('NAV_SHOWROOM') }).click();
 
-    await expect(page).toHaveURL('/#showroom');
-    await expect(page.locator('#showroom')).toBeInViewport();
+    await expect(page).toHaveURL(/\/explore$/);
+    await expect(page.locator('[data-feed-page]')).toBeVisible();
   });
 
   test('the language pills switch language', async ({ page }) => {

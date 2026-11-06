@@ -8,10 +8,6 @@ jest.mock('@/lib/studio/prompts.mjs', () => ({ seedOf: () => 0 }));
 
 const draft = draftText as jest.Mock;
 
-const CATEGORIES = [
-  { id: 'c1', slug: 'musica', name: { es: 'Música', en: 'Music' }, keywords: [], parentId: null, parent: null },
-  { id: 'c2', slug: 'otros', name: { es: 'Otros', en: 'Other' }, keywords: [], parentId: null, parent: null },
-];
 const PLACES = [
   { slug: 'corralejo', name: 'Corralejo' },
   { slug: 'el-cotillo', name: 'El Cotillo' },
@@ -21,14 +17,14 @@ const PLACES = [
 beforeEach(() => jest.clearAllMocks());
 
 describe('readListingFields', () => {
-  it("reads an event's date, town, address, entry and category from the description, and asks for nothing else", async () => {
-    draft.mockResolvedValue({ category: 'musica', price: 0, startsAt: '2026-11-29T19:00', address: 'Bar La Ola, Calle Mayor 3', place: 'el-cotillo' });
+  it("reads an event's date, town, address and entry from the description, and asks for nothing else", async () => {
+    draft.mockResolvedValue({ price: 0, startsAt: '2026-11-29T19:00', address: 'Bar La Ola, Calle Mayor 3', place: 'el-cotillo' });
 
-    const fields = await readListingFields('Concierto gratis el sábado 29 a las 19h en Bar La Ola, El Cotillo', 'EVENT', CATEGORIES, PLACES);
+    const fields = await readListingFields('Concierto gratis el sábado 29 a las 19h en Bar La Ola, El Cotillo', 'EVENT', PLACES);
 
-    expect(fields).toMatchObject({ category: 'musica', price: 0, startsAt: '2026-11-29T19:00', address: 'Bar La Ola, Calle Mayor 3', place: 'el-cotillo' });
+    expect(fields).toMatchObject({ price: 0, startsAt: '2026-11-29T19:00', address: 'Bar La Ola, Calle Mayor 3', place: 'el-cotillo' });
     const { prompt, schema } = draft.mock.calls[0][3];
-    expect(Object.keys(schema.properties).sort()).toEqual(['address', 'category', 'place', 'price', 'startsAt']);
+    expect(Object.keys(schema.properties).sort()).toEqual(['address', 'place', 'price', 'startsAt']);
     // A town the text doesn't name is null, never the first one.
     expect(schema.properties.place.enum).toContain(null);
     expect(prompt).toMatch(/never guess or invent/);
@@ -36,9 +32,9 @@ describe('readListingFields', () => {
   });
 
   it('leaves what the text does not say empty', async () => {
-    draft.mockResolvedValue({ category: 'otros', price: null, priceMode: null });
+    draft.mockResolvedValue({ price: null, priceMode: null });
 
-    expect(await readListingFields('Una mesa de madera', 'PRODUCT', CATEGORIES)).toMatchObject({ price: null, priceMode: null, place: null });
+    expect(await readListingFields('Una mesa de madera', 'PRODUCT')).toMatchObject({ price: null, priceMode: null, place: null });
     const { schema, prompt } = draft.mock.calls[0][3];
     expect(schema.properties.priceMode.enum).toContain(null);
     // One live place: nothing to choose, so the AI isn't asked.
@@ -47,17 +43,12 @@ describe('readListingFields', () => {
   });
 
   it('asks every listing but an event for its price and how it reads', async () => {
-    draft.mockResolvedValue({ category: 'otros', price: 20, priceMode: 'FROM' });
-    expect(await readListingFields('Clases de guitarra desde 20€', 'SERVICE', CATEGORIES)).toMatchObject({ price: 20, priceMode: 'FROM' });
+    draft.mockResolvedValue({ price: 20, priceMode: 'FROM' });
+    expect(await readListingFields('Clases de guitarra desde 20€', 'SERVICE')).toMatchObject({ price: 20, priceMode: 'FROM' });
 
-    draft.mockResolvedValue({ category: 'otros', price: 150, priceMode: 'UP_TO' });
-    await readListingFields('Busco tabla, hasta 150€', 'WANTED', CATEGORIES);
-    expect(Object.keys(draft.mock.calls[1][3].schema.properties).sort()).toEqual(['category', 'price', 'priceMode']);
-  });
-
-  it('gives no category when the AI answers with one that is gone', async () => {
-    draft.mockResolvedValue({ category: 'deleted', price: null, priceMode: null });
-    expect((await readListingFields('Algo', 'PRODUCT', CATEGORIES)).category).toBeNull();
+    draft.mockResolvedValue({ price: 150, priceMode: 'UP_TO' });
+    await readListingFields('Busco tabla, hasta 150€', 'WANTED');
+    expect(Object.keys(draft.mock.calls[1][3].schema.properties).sort()).toEqual(['price', 'priceMode']);
   });
 });
 
@@ -69,6 +60,5 @@ describe('fieldState', () => {
     // The amount only shows while a price is chosen.
     expect(fieldState('price', '', 'PRODUCT')).toBe('needed');
     expect(fieldState('price', '', 'SERVICE')).toBe('needed');
-    expect(fieldState('category', ' ', 'SERVICE')).toBe('needed');
   });
 });

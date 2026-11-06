@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createMercadillo, deleteMercadillo, updateMercadillo } from '@/lib/actions/mercadillo.actions';
-import { localize, type LocalizedText } from '@/lib/category';
+import { localize, type LocalizedText } from '@/lib/localize';
 import { translateMessage, type Locale } from '@/lib/i18n-core';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
@@ -42,7 +42,7 @@ interface MercadilloEditorProps {
   onSaved: () => void;
 }
 
-/** Dialog to make or change a Mercadillo, like a category without its AI scene. */
+/** Dialog to make or change a Mercadillo. */
 function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloEditorProps) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -76,7 +76,7 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
       <DialogContent className='max-h-[90dvh] overflow-y-auto sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>{t(mercadillo ? 'MERCADILLO_EDIT' : 'MERCADILLO_NEW')}</DialogTitle>
-          <DialogDescription>{t('CATEGORY_FORM_INTRO_SIMPLE')}</DialogDescription>
+          <DialogDescription>{t('GROUP_FORM_INTRO_SIMPLE')}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className='space-y-5'>
@@ -122,7 +122,7 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
               name='slug'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('CATEGORY_FORM_SLUG')}</FormLabel>
+                  <FormLabel>{t('GROUP_FORM_SLUG')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>

@@ -8,7 +8,7 @@ import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.acti
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
-import type { CategoryOption, EditorLanguage, MercadilloOption, TagOption } from './editor-types';
+import type { EditorLanguage, MercadilloOption, TagOption } from './editor-types';
 import LeaveGuard from './leave-guard';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
@@ -16,7 +16,6 @@ import PublishedView from './published-view';
 
 interface ListingWorkspaceProps {
   initial: AdminListing;
-  categories: CategoryOption[];
   /** The shop's other languages, each with its own title and description. */
   languages: EditorLanguage[];
   /** The shop's own language, the first tab in the editor. */
@@ -29,15 +28,13 @@ interface ListingWorkspaceProps {
   maxTags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
-  /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
-  maxCategories: number;
   texts: AdminTexts;
 }
 
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, categories, mercadillos, tagOptions, maxTags, languages, shopLanguage, listingDays, maxCategories, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, mercadillos, tagOptions, maxTags, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -130,12 +127,10 @@ export default function ListingWorkspace({ initial, categories, mercadillos, tag
         listing={listing}
         languages={languages}
         shopLanguage={shopLanguage}
-        categories={categories}
         mercadillos={mercadillos}
         tagOptions={tagOptions}
         maxTags={maxTags}
         listingDays={listingDays}
-        maxCategories={maxCategories}
         texts={texts}
         onSent={(next, forPerson = false) => {
           setListing(next);

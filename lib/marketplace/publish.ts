@@ -3,12 +3,11 @@ import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES } from '@/lib/constants';
 import { startOfShopDay } from '@/lib/event-date';
-import { getShopLocale } from '@/lib/i18n-server';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, productUrl, RELISTABLE, type ListingPlan } from './config';
-import { allCategoryRefs, categoryName, FALLBACK_CATEGORY_SLUG, findCategories, getListingCategories, toProductTranslations } from './catalog';
+import { toProductTranslations } from './catalog';
 import { botText, localeOf } from './messages';
 import { lacksConsent } from './listing-payment';
 import { sendWithTemplateFallback } from './templates';
@@ -40,9 +39,6 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const chosenEnd = !submission.paidAt && submission.expiresAt && submission.expiresAt.getTime() > now ? submission.expiresAt : null;
   const expiresAt = eventEnd ?? chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
-  const allCategories = await getListingCategories();
-  const chosen = findCategories(allCategories, submission.categories);
-  const categories = chosen.length > 0 ? chosen : findCategories(allCategories, [FALLBACK_CATEGORY_SLUG]);
   // Listings from before places, or made while none was live, go to the first live place.
   const placeId = submission.placeId ?? (await getDefaultPlaceId());
   const contactPhone = submission.hasContactConsent && isPhoneNumber(submission.seller.waId) ? `+${submission.seller.waId}` : null;
@@ -58,7 +54,6 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         name: title,
         shortName: submission.shortTitle,
         slug: `${slugify(title, { lower: true, strict: true })}-${submission.id.slice(0, 6)}`,
-        category: categoryName(categories[0], getShopLocale()) || 'Varios',
         condition: submission.condition,
         images: submission.images.length > 0 ? submission.images : submission.rawImages,
         brand: submission.sellerName || 'Particular',
@@ -78,7 +73,6 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         contactPhone,
         sellerId: submission.sellerId,
         expiresAt,
-        categories: { connect: allCategoryRefs(categories) },
       },
     });
     await tx.submission.update({ where: { id: submission.id }, data: { productId: created.id } });

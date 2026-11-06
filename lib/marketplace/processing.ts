@@ -8,7 +8,6 @@ import { getShopPlaces } from '@/lib/places';
 import { isVideoUrl, mediaUrl, videoPoster } from '@/lib/video';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { createPicture, enhancePhoto, writeListing } from './ai';
-import { getListingCategories } from './catalog';
 import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { cleanUpVideo } from './video-cleanup';
@@ -107,7 +106,6 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
   });
 }
 
-/** The AI's title, descriptions, category, condition and price, from the first photo and the seller's words; once. */
 /** How "Crear descripción" asks: the language the admin wrote in (the base the others come from), and the shop's
     etiquetas the AI may pick one of (their names in `base`). */
 interface DraftOptions {
@@ -120,17 +118,17 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null,
   const shopLocale = getShopLocale();
   const first = base ?? shopLocale;
   const locales = [first, ...getEnabledLocales().filter((locale) => locale !== first)];
-  // 'original': the admin's own words stay; the AI only translates them and still reads type, category and price.
+  // 'original': the admin's own words stay; the AI only translates them and still reads type and price.
   // 'corrected': the same, with their spelling and grammar fixed first.
   const kept =
     submission.textMode === 'ai'
       ? undefined
       : { title: submission.originalTitle ?? undefined, description: submission.rawText, isCorrected: submission.textMode === 'corrected' };
-  const [categories, places] = await Promise.all([getListingCategories(), getShopPlaces(shopLocale)]);
+  const places = await getShopPlaces(shopLocale);
   const livePlaces = places.filter((place) => place.isLive);
   // Improving takes the admin's title too; the other modes keep it apart.
   const words = submission.textMode === 'ai' && submission.originalTitle ? `${submission.originalTitle}\n${submission.rawText}` : submission.rawText;
-  const text = await writeListing(firstPhoto, words, categories, locales, submission.type, kept, livePlaces, tags);
+  const text = await writeListing(firstPhoto, words, locales, submission.type, kept, livePlaces, tags);
   // A place the admin already set stays; else the town the AI read. None named stays empty, unless there's only one.
   const placeId = submission.placeId ?? (livePlaces.find((place) => place.slug === text.place) ?? (livePlaces.length === 1 ? livePlaces[0] : null))?.id ?? null;
   const { [shopLocale]: own, ...others } = text.texts;
@@ -148,8 +146,6 @@ async function writeText(submission: FoundSubmission, firstPhoto: Buffer | null,
       description: own?.description,
       translations: others,
       textVersions: { [submission.textMode]: text.texts },
-      // What the admin chose stays: writing the text again must not take a listing out of them.
-      categories: submission.categories.length > 0 ? submission.categories : [text.category],
       type,
       placeId,
       price,

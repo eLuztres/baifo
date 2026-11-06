@@ -27,7 +27,6 @@ const VIEWS = [
   { number: 3, group: 'Shop', title: 'Explore', path: '/explore' },
   { number: 4, group: 'Shop', title: 'Search', path: '/search' },
   { number: 5, group: 'Shop', title: 'Offers', path: '/ofertas' },
-  { number: 6, group: 'Shop', title: 'Category', path: (ids) => ids.categorySlug && `/category/${ids.categorySlug}` },
   { number: 7, group: 'Shop', title: 'Product', path: (ids) => ids.productSlug && `/product/${ids.productSlug}` },
   { number: 8, group: 'Shop', title: 'Corral', path: (ids) => ids.corralSlug && `/corral/${ids.corralSlug}` },
   { number: 9, group: 'Shop', title: 'Private listing link', path: (ids) => ids.payToken && `/publicar/${ids.payToken}` },
@@ -79,9 +78,8 @@ async function loadIds(adminEmail) {
   const prisma = new PrismaClient();
   try {
     const admin = await prisma.user.findFirst({ where: { email: { equals: adminEmail, mode: 'insensitive' } }, select: { id: true } });
-    const [product, category, corral, liveListing, listing, order] = await Promise.all([
+    const [product, corral, liveListing, listing, order] = await Promise.all([
       prisma.product.findFirst({ orderBy: { createdAt: 'desc' }, select: { id: true, slug: true } }),
-      prisma.category.findFirst({ select: { slug: true } }),
       prisma.corral.findFirst({ select: { place: { select: { slug: true } } } }),
       prisma.submission.findFirst({ where: { status: 'LIVE' }, orderBy: { createdAt: 'desc' }, select: { payToken: true } }),
       prisma.submission.findFirst({ orderBy: { createdAt: 'desc' }, select: { id: true } }),
@@ -99,7 +97,6 @@ async function loadIds(adminEmail) {
       liveListings,
       productId: product?.id,
       productSlug: product?.slug,
-      categorySlug: category?.slug,
       corralSlug: corral?.place.slug,
       payToken: liveListing?.payToken,
       listingId: listing?.id,

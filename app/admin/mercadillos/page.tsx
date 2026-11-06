@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import MercadilloAdmin from '@/components/admin/mercadillo-admin';
 import { requireAdmin } from '@/lib/auth-guard';
-import type { LocalizedText } from '@/lib/category';
+import type { LocalizedText } from '@/lib/localize';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { getMercadillos } from '@/lib/mercadillos';
 

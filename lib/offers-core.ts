@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { OFFER_ICONS, type OfferIcon } from '@/lib/constants';
-import { localize } from '@/lib/category';
+import { localize } from '@/lib/localize';
 import type { Locale } from '@/lib/i18n-core';
 
 export type OfferStatus = 'running' | 'upcoming' | 'ended' | 'hidden';

@@ -8,7 +8,7 @@ import InstagramIcon from '@/components/shared/icons/instagram-icon';
 import VoiceInputButton from '@/components/shared/voice-input-button';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,7 +43,7 @@ import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
 import TagInput from './tag-input';
-import type { CategoryOption, EditorLanguage, EditorTag, MercadilloOption, TagOption } from './editor-types';
+import type { EditorLanguage, EditorTag, MercadilloOption, TagOption } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -51,8 +51,6 @@ interface DescriptionStepProps {
   languages: EditorLanguage[];
   /** The shop's own language, the first tab of the texts. */
   shopLanguage: EditorLanguage;
-  /** The store's categories; the AI suggests one, the admin decides on one or more. */
-  categories: CategoryOption[];
   /** The Mercadillos it can join, on "Más". */
   mercadillos: MercadilloOption[];
   /** The shop's etiquetas to offer under the texts. */
@@ -61,8 +59,6 @@ interface DescriptionStepProps {
   maxTags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
-  /** How many categories a listing can be in (MAX_LISTING_CATEGORIES). */
-  maxCategories: number;
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   /** isForPerson: "Enviar a la persona", the listing waits for their OK instead of going online. */
@@ -74,7 +70,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, categories, mercadillos, tagOptions, maxTags, listingDays, maxCategories, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, tagOptions, maxTags, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -145,10 +141,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
   // An event's date ("2026-11-29T19:00" on the island's clock) and place; "Crear descripción" fills empty ones from the words.
   const [startsAt, setStartsAt] = useState(listing.startsAt ? toShopDateTime(listing.startsAt) : '');
   const [address, setAddress] = useState(listing.address ?? '');
-  const [categorySlugs, setCategorySlugs] = useState(listing.categories);
-  const chosenCategoryNames = categories.filter((option) => categorySlugs.includes(option.slug)).map((option) => option.name);
-  const toggleCategory = (slug: string, isChosen: boolean) =>
-    setCategorySlugs((current) => (isChosen ? [...current, slug] : current.filter((chosen) => chosen !== slug)));
   // "Más": Online goes live on Publicar, Oculto keeps it ready; an Anuncio shows until the end of "Online hasta".
   const [isHidden, setIsHidden] = useState(false);
   const [onlineUntil, setOnlineUntil] = useState(() =>
@@ -229,7 +221,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       if (
         tellMissing([
           isEvent && !filled.startsAt && { step: 1, text: texts.missingDate },
-          filled.categories.length === 0 && { step: 1, text: texts.missingCategory },
         ])
       )
         return;
@@ -246,7 +237,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
         priceMode: isEvent ? 'FIXED' : priceMode,
         price: filled.price,
         ...(isEvent && { startsAt: filled.startsAt, address }),
-        categories: filled.categories,
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
@@ -268,7 +258,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
       translations: Object.fromEntries(
         Object.entries(others as ListingTexts).map(([id, text]) => [id, { title: text?.title ?? '', description: text?.description ?? '', short: text?.short }])
       ),
-      categories: filled.categories,
       priceMode: isEvent ? 'FIXED' : priceMode,
       price: isEvent ? filled.price || '0' : filled.price,
       images: listing.images.length > 0 ? listing.images : listing.rawImages,
@@ -317,7 +306,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     return result;
   };
 
-  // The AI writes the texts now from the selected tab, into every language; a price, category or etiqueta it read fills an empty one.
+  // The AI writes the texts now from the selected tab, into every language; a price or etiqueta it read fills an empty one.
   const createDescription = async (): Promise<FilledTexts | null> => {
     if (!notes.trim()) {
       descriptionInput.current?.focus();
@@ -353,15 +342,13 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
     }
     if (!startsAt && result.startsAt) setStartsAt(result.startsAt);
     if (!address && result.address) setAddress(result.address);
-    const filledCategories = categorySlugs.length === 0 && result.category ? [result.category] : categorySlugs;
-    setCategorySlugs(filledCategories);
-    return { texts: result.texts, categories: filledCategories, startsAt: startsAt || result.startsAt || '', price: filledPrice };
+    return { texts: result.texts, startsAt: startsAt || result.startsAt || '', price: filledPrice };
   };
 
   // Publicar / Guardar: every language as it is when complete; else the AI translates the missing ones from the shop
   // language, or writes them all from the selected tab when the shop language has no text yet.
   const fillMissingTexts = async (): Promise<FilledTexts | null> => {
-    const current = { texts: draft, categories: categorySlugs, startsAt, price };
+    const current = { texts: draft, startsAt, price };
     if (isTextsComplete(draft)) return current;
     if (!hasOwnText) return createDescription();
     setIsDrafting(true);
@@ -559,45 +546,6 @@ export default function DescriptionStep({ listing, languages, shopLanguage, cate
                 className='h-12 rounded-2xl bg-card text-base md:text-base'
               />
             </div>
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className='space-y-1'>
-            <Label htmlFor='category' className='px-1 text-xs text-muted-foreground'>
-              {texts.categoryLabel}
-            </Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button id='category' type='button' disabled={isWriting} className={cn(SELECT_CLASS, 'flex items-center justify-between gap-2 text-left')}>
-                  {/* One line on a phone: long names would be cut off. */}
-                  <span className='truncate sm:hidden'>
-                    {chosenCategoryNames[0] ?? '–'}
-                    {chosenCategoryNames.length > 1 && ` +${chosenCategoryNames.length - 1}`}
-                  </span>
-                  <span className='hidden truncate sm:inline'>{chosenCategoryNames.join(', ') || '–'}</span>
-                  <ChevronDown className='size-4 shrink-0 opacity-60' aria-hidden />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='start' className='max-h-72 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto'>
-                <DropdownMenuLabel className='text-xs font-normal text-muted-foreground'>{fillText(texts.categoryLimit, { max: maxCategories })}</DropdownMenuLabel>
-                {categories.map((option) => {
-                  const isChosen = categorySlugs.includes(option.slug);
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={option.slug}
-                      checked={isChosen}
-                      disabled={!isChosen && categorySlugs.length >= maxCategories}
-                      onCheckedChange={(checked) => toggleCategory(option.slug, checked === true)}
-                      // Stays open so several can be ticked in a row.
-                      onSelect={(event) => event.preventDefault()}
-                    >
-                      {option.name}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         )}
 
@@ -879,7 +827,6 @@ const SELECT_CLASS = 'h-12 w-full rounded-2xl border border-border bg-card px-3 
 /** The texts in every language and what goes with them, after the AI filled what was missing. */
 interface FilledTexts {
   texts: ListingTexts;
-  categories: string[];
   startsAt: string;
   price: string;
 }

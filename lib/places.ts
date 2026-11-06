@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from '@/db/prisma';
-import { localize } from '@/lib/category';
+import { localize } from '@/lib/localize';
 import type { Locale } from '@/lib/i18n-core';
 import { chosenPlaces, parsePlaceSlugs, PLACES_COOKIE, type ShopPlace } from '@/lib/places-core';
 

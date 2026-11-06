@@ -11,11 +11,9 @@ jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLoc
 jest.mock('@/lib/whatsapp-cloud/client', () => ({ sendText: jest.fn() }));
 jest.mock('@/lib/marketplace/review', () => ({ sendForReview: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ publishByAdmin: jest.fn() }));
-jest.mock('@/lib/marketplace/catalog', () => ({ getListingCategories: jest.fn(async () => [{ slug: 'deporte' }]) }));
 jest.mock('@/lib/marketplace/ai', () => ({
   writeListing: jest.fn(async () => ({
     texts: { es: { title: 'Busco tabla de surf', description: 'Una tabla de 7 pies.' } },
-    category: 'deporte',
     type: 'WANTED',
     price: 150,
     priceMode: 'UP_TO',
@@ -44,7 +42,6 @@ const db = (prisma as unknown as { submission: Record<'findUnique' | 'update' | 
 const WANTED = {
   id: 'sub-1',
   status: 'PROCESSING',
-  categories: [] as string[],
   mediaIds: [],
   rawImages: [],
   images: [],
@@ -110,7 +107,7 @@ describe('processSubmission without a photo', () => {
 
     expect(fetchImage).not.toHaveBeenCalled();
     expect((writeListing as jest.Mock).mock.calls[0][0]).toBeNull();
-    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
+    expect((writeListing as jest.Mock).mock.calls[0][3]).toBe('WANTED');
     expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(enhancePhoto).not.toHaveBeenCalled();
     expect(db.updateMany).toHaveBeenCalledWith({ where: { id: 'sub-1', picturePrompt: null, images: { isEmpty: true } }, data: { images: ['https://x.ufs.sh/f/made.jpg'], lastError: null } });
@@ -133,7 +130,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][6].map((place: { slug: string }) => place.slug)).toEqual(['corralejo', 'el-cotillo']);
+    expect((writeListing as jest.Mock).mock.calls[0][5].map((place: { slug: string }) => place.slug)).toEqual(['corralejo', 'el-cotillo']);
     expect(textUpdate().placeId).toBe('place-cotillo');
   });
 
@@ -174,7 +171,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][5]).toEqual({ title: 'Tabla de surf', description: WANTED.rawText, isCorrected: true });
+    expect((writeListing as jest.Mock).mock.calls[0][4]).toEqual({ title: 'Tabla de surf', description: WANTED.rawText, isCorrected: true });
     expect(Object.keys(textUpdate().textVersions)).toEqual(['corrected']);
   });
 
@@ -184,7 +181,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][5]).toEqual({ title: undefined, description: WANTED.rawText, isCorrected: false });
+    expect((writeListing as jest.Mock).mock.calls[0][4]).toEqual({ title: undefined, description: WANTED.rawText, isCorrected: false });
   });
 
   it('saves the type the AI read, so an Anuncio can turn out to be a service', async () => {
@@ -194,8 +191,8 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls.at(-1)[4]).toBe('PRODUCT');
-    expect(textUpdate()).toMatchObject({ type: 'SERVICE', categories: ['deporte'], priceMode: 'FROM', startsAt: null });
+    expect((writeListing as jest.Mock).mock.calls.at(-1)[3]).toBe('PRODUCT');
+    expect(textUpdate()).toMatchObject({ type: 'SERVICE', priceMode: 'FROM', startsAt: null });
   });
 
   it('still refuses a WhatsApp item for sale without a photo', async () => {
@@ -217,7 +214,7 @@ describe('processSubmission without a photo', () => {
 
     await processSubmission('sub-1');
 
-    expect((writeListing as jest.Mock).mock.calls[0][4]).toBe('WANTED');
+    expect((writeListing as jest.Mock).mock.calls[0][3]).toBe('WANTED');
     expect(createPicture).toHaveBeenCalledWith({ title: '', description: WANTED.rawText }, 'WANTED');
     expect(sendForReview).toHaveBeenCalled();
   });

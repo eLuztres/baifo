@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/db/prisma';
 import { updateUser, getAllUsers } from '@/lib/actions/user.actions';
-import { createProduct, deleteProduct, updateProduct } from '@/lib/actions/product.actions';
+import { deleteProduct } from '@/lib/actions/product.actions';
 
 jest.mock('@/auth', () => ({ auth: jest.fn(), signIn: jest.fn(), signOut: jest.fn() }));
 jest.mock('@/db/prisma', () => {
@@ -39,24 +39,9 @@ const GUEST = null;
 const CUSTOMER = { user: { id: 'u1', role: 'user' } };
 const ADMIN = { user: { id: 'admin-1', role: 'admin' } };
 
-const PRODUCT_INPUT = {
-  name: 'Volcanic Lamp',
-  slug: 'volcanic-lamp',
-  category: 'Lamps',
-  brand: 'Eluztres',
-  description: 'Resin and stone',
-  stock: 3,
-  images: ['/lamp.jpg'],
-  isFeatured: false,
-  banner: null,
-  price: '120.50',
-};
-
 // Each case calls the action and names the DB write it must not reach
 const MUTATIONS: [string, () => Promise<{ success: boolean; message: string }>, () => jest.Mock][] = [
   ['updateUser', () => updateUser({ id: 'u1', name: 'Me', email: 'me@x.com', role: 'admin' }), () => db.user.update],
-  ['createProduct', () => createProduct(PRODUCT_INPUT), () => db.product.create],
-  ['updateProduct', () => updateProduct({ ...PRODUCT_INPUT, id: 'p1' }), () => db.product.update],
   ['deleteProduct', () => deleteProduct('p1'), () => db.product.delete],
 ];
 

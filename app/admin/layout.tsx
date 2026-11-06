@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import MainNav from './main-nav';
 import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, OFFERS_ENABLED, SHOWCASE_MODE } from '@/lib/constants';
 import { ADMIN_LINKS } from '@/lib/brand';
-import { localize } from '@/lib/category';
+import { localize } from '@/lib/localize';
 import { getLocale, getT } from '@/lib/i18n-server';
 
 export default async function AdminLayout({

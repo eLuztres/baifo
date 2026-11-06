@@ -19,8 +19,7 @@ import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { getInStockRings, getRingSummaries, inPlaces } from '@/components/shared/home/in-stock-rings';
-import { findNextRing, orderByCategory } from '@/components/shared/home/materials';
-import { getStoreCategories } from '@/lib/actions/category.actions';
+import { findNextRing } from '@/components/shared/home/materials';
 import {
   CancelReservationButton,
   ReservationNotice,
@@ -35,7 +34,7 @@ import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
 import TagBadges from '@/components/shared/product/tag-badges';
 import type { TagNames } from '@/lib/tag-names';
-import { localize, localizeProduct } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/localize';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
@@ -54,8 +53,8 @@ const getProduct = cache(
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
-  /** The store category the visitor is going through (`c`), for the next ring; `from` the filters of the listings page they came from, for the way back. */
-  searchParams: Promise<{ c?: string; from?: string }>;
+  /** `from`: the filters of the listings page they came from, for the way back. */
+  searchParams: Promise<{ from?: string }>;
 }
 
 // "Second hand" only where the seller's condition says so: a new or handmade item must not be called used.
@@ -92,16 +91,15 @@ export async function generateMetadata(props: ProductPageProps) {
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
-  const [{ slug }, { c: categoryId, from: fromFilters }] = await Promise.all([props.params, props.searchParams]);
+  const [{ slug }, { from: fromFilters }] = await Promise.all([props.params, props.searchParams]);
 
   // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
-  const [product, session, { t, locale }, summaries, [ownRing], categories, placeIds] = await Promise.all([
+  const [product, session, { t, locale }, summaries, [ownRing], placeIds] = await Promise.all([
     getProduct(slug),
     getSession(),
     getT(),
     getRingSummaries(),
     getInStockRings({ slug }),
-    getStoreCategories(),
     getVisitorPlaceIds(),
   ]);
   if (!product) notFound();
@@ -113,7 +111,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const isMine = isReserved && product.reservedById === session?.user?.id;
   const reservedUntil = product.reservedUntil?.toISOString() ?? '';
   // Only what the buttons need goes to the browser (not e.g. who reserved the ring).
-  const nextRing = findNextRing(orderByCategory(categories, visibleRings), slug, categoryId);
+  const nextRing = findNextRing(visibleRings, slug);
   // Only whether there is a number goes to the browser; the number itself is fetched on "Contact seller".
   const hasSellerContact = Boolean(product.contactPhone);
   const isService = product.type === 'SERVICE';
@@ -148,10 +146,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     instagram: product.submission.contactInstagram,
   };
   const hasContactWays = Boolean(contactWays && (contactWays.hasEmail || contactWays.web || contactWays.instagram));
-  // The category the visitor came through, else the listing's own: the strip opens with it.
-  const focusCategory =
-    categories.find((category) => category.slug === categoryId) ??
-    categories.find((category) => ownRing?.categoryIds.includes(category.id));
   // The way back restores the visitor's own filters: opening a listing never sets one.
   const feedHref = fromFilters ? `/explore?${fromFilters}` : '/explore';
   // Phones put the description in a pop-up beside the contact button; without that row it stays on the page.
@@ -168,7 +162,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           name,
           description,
           images: product.images,
-          category: product.category,
           path,
           isService: isService || isEvent,
           price,
@@ -180,7 +173,6 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     ...(product.type === 'WANTED' ? [] : [pageSchema]),
     breadcrumbJsonLd([
       { name: t('EXPLORE_TITLE'), path: '/explore' },
-      ...(focusCategory ? [{ name: localize(focusCategory.name, locale), path: `/explore?categoria=${focusCategory.slug}` }] : []),
       { name, path },
     ]),
   ];
@@ -196,7 +188,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
         />
       ))}
       {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
-      {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing.slug}?c=${nextRing.categoryId}${fromFilters ? `&from=${encodeURIComponent(fromFilters)}` : ''}`} />}
+      {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing}${fromFilters ? `?from=${encodeURIComponent(fromFilters)}` : ''}`} />}
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
         {/* Phones: the photo full width and edge to edge right under the header, the way back floating on it. */}

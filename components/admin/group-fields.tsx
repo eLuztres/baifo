@@ -13,15 +13,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import TextModeSwitch, { type TextModeTexts } from '@/components/marketplace/text-mode-switch';
-import { improveCategory, translateCategory } from '@/lib/actions/category.actions';
-import { generateCategoryCover } from '@/lib/actions/studio.actions';
-import type { LocalizedText } from '@/lib/category';
+import { improveGroupTexts, translateGroupTexts } from '@/lib/actions/group.actions';
+import { generateGroupCover } from '@/lib/actions/studio.actions';
+import type { LocalizedText } from '@/lib/localize';
 import { LOCALES, translateMessage, type Locale } from '@/lib/i18n-core';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 
-/** What a category and a Mercadillo have in common. */
+/** A Mercadillo's cover, name and texts. */
 export interface GroupFormValues {
   slug: string;
   name: LocalizedText;
@@ -74,7 +74,7 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
     const key = JSON.stringify([name, text]);
     if (!name || otherLocales.length === 0 || (!isForced && key === lastTranslated.current)) return;
     setIsTranslating(true);
-    const result = await translateCategory({ name, text });
+    const result = await translateGroupTexts({ name, text });
     setIsTranslating(false);
     if (!result.success || !('texts' in result) || !result.texts) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
     lastTranslated.current = key;
@@ -98,7 +98,7 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
       return translate(true);
     }
     setIsImproving(true);
-    const result = await improveCategory({ name: shopName, text: ownText.current });
+    const result = await improveGroupTexts({ name: shopName, text: ownText.current });
     setIsImproving(false);
     if (!result.success || !('texts' in result) || !result.texts) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
     const improved = result.texts[shopLocale]?.text ?? '';
@@ -123,7 +123,7 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
   const makeCover = async () => {
     setIsMakingCover(true);
     const description = form.getValues(`text.${shopLocale}`)?.trim() || (coverFallback?.() ?? '');
-    const result = await generateCategoryCover(description, form.getValues(`name.${shopLocale}`) ?? '');
+    const result = await generateGroupCover(description, form.getValues(`name.${shopLocale}`) ?? '');
     setIsMakingCover(false);
     if (!result.success || !result.url) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
     form.setValue('image', result.url, { shouldDirty: true });
@@ -161,7 +161,7 @@ interface GroupFieldsProps {
   descriptionHint: string;
 }
 
-/** The cover, name, description and other languages of a category or Mercadillo, inside the editor's form. */
+/** The cover, name, description and other languages of a Mercadillo, inside the editor's form. */
 export default function GroupFields({ fields, descriptionHint }: GroupFieldsProps) {
   const { t } = useI18n();
   const {
@@ -187,13 +187,13 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
   } = fields;
   const image = form.watch('image');
   const textModeTexts: TextModeTexts = {
-    textModeQuestion: t('CATEGORY_TEXT_MODE_QUESTION'),
-    textModeAi: t('CATEGORY_TEXT_MODE_AI'),
-    textModeAiHint: t('CATEGORY_TEXT_MODE_AI_HINT'),
-    textModeOriginal: t('CATEGORY_TEXT_MODE_ORIGINAL'),
-    textModeOriginalHint: t('CATEGORY_TEXT_MODE_ORIGINAL_HINT'),
-    textAiShort: t('CATEGORY_TEXT_MODE_AI'),
-    textOriginalShort: t('CATEGORY_TEXT_MODE_ORIGINAL'),
+    textModeQuestion: t('GROUP_TEXT_MODE_QUESTION'),
+    textModeAi: t('GROUP_TEXT_MODE_AI'),
+    textModeAiHint: t('GROUP_TEXT_MODE_AI_HINT'),
+    textModeOriginal: t('GROUP_TEXT_MODE_ORIGINAL'),
+    textModeOriginalHint: t('GROUP_TEXT_MODE_ORIGINAL_HINT'),
+    textAiShort: t('GROUP_TEXT_MODE_AI'),
+    textOriginalShort: t('GROUP_TEXT_MODE_ORIGINAL'),
   };
 
   // The "at least one language" check belongs to the whole name, not to one language's field.
@@ -211,10 +211,10 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
       <div className='flex flex-col items-center gap-2'>
         <div className='relative aspect-[3/4] w-36 overflow-hidden rounded-xl border border-border bg-muted'>
           {image ? (
-            <ProductMedia src={image} alt={t('CATEGORY_FORM_COVER')} fill sizes='9rem' className='object-cover' />
+            <ProductMedia src={image} alt={t('GROUP_FORM_COVER')} fill sizes='9rem' className='object-cover' />
           ) : (
             <span className='flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted-foreground'>
-              <ImageIcon className='size-7' aria-hidden /> {t('CATEGORY_FORM_COVER_EMPTY')}
+              <ImageIcon className='size-7' aria-hidden /> {t('GROUP_FORM_COVER_EMPTY')}
             </span>
           )}
           {isMakingCover && (
@@ -225,9 +225,9 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
         </div>
         <Button type='button' variant={image ? 'outline' : 'default'} size='sm' className='h-auto min-h-8 w-36 whitespace-normal rounded-full py-1.5' disabled={isMakingCover || !shopName} onClick={makeCover}>
           {isMakingCover ? <Loader2 className='animate-spin' /> : <Sparkles />}
-          {t(isMakingCover ? 'CATEGORY_FORM_COVER_WORKING' : image ? 'CATEGORY_FORM_COVER_AGAIN' : 'CATEGORY_FORM_COVER_AI')}
+          {t(isMakingCover ? 'GROUP_FORM_COVER_WORKING' : image ? 'GROUP_FORM_COVER_AGAIN' : 'GROUP_FORM_COVER_AI')}
         </Button>
-        <p className='w-36 text-center text-[0.7rem] leading-4 text-muted-foreground'>{t('CATEGORY_FORM_COVER_HINT')}</p>
+        <p className='w-36 text-center text-[0.7rem] leading-4 text-muted-foreground'>{t('GROUP_FORM_COVER_HINT')}</p>
         {/* Your own picture is the exception, so it is a quiet link under the AI button. */}
         <input
           ref={coverInput}
@@ -246,7 +246,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
           onClick={() => coverInput.current?.click()}
           className='inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-primary underline-offset-4 hover:underline disabled:opacity-60'
         >
-          {isUploading && <Loader2 className='size-3.5 animate-spin' />} {t('CATEGORY_FORM_COVER_UPLOAD')}
+          {isUploading && <Loader2 className='size-3.5 animate-spin' />} {t('GROUP_FORM_COVER_UPLOAD')}
         </button>
       </div>
 
@@ -257,7 +257,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                {t('CATEGORY_FORM_NAME_SHORT')} · {languageName(shopLocale)}
+                {t('GROUP_FORM_NAME_SHORT')} · {languageName(shopLocale)}
               </FormLabel>
               <FormControl>
                 <Input
@@ -280,7 +280,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
           name={`text.${shopLocale}`}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('CATEGORY_FORM_DESCRIPTION')}</FormLabel>
+              <FormLabel>{t('GROUP_FORM_DESCRIPTION')}</FormLabel>
               <FormControl>
                 <div className='relative'>
                   <Textarea
@@ -301,7 +301,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
                   />
                   {isImproving && (
                     <span className='absolute inset-0 flex items-center justify-center gap-2 rounded-md bg-background/80 text-sm font-medium backdrop-blur-sm'>
-                      <Loader2 className='size-4 animate-spin text-primary' /> {t('CATEGORY_FORM_IMPROVING')}
+                      <Loader2 className='size-4 animate-spin text-primary' /> {t('GROUP_FORM_IMPROVING')}
                     </span>
                   )}
                 </div>
@@ -312,7 +312,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
           )}
         />
         <div className='space-y-2'>
-          <p className='text-sm font-medium'>{t('CATEGORY_TEXT_MODE_QUESTION')}</p>
+          <p className='text-sm font-medium'>{t('GROUP_TEXT_MODE_QUESTION')}</p>
           <TextModeSwitch value={textMode} onChange={chooseTextMode} texts={textModeTexts} disabled={isImproving || isTranslating || !shopName} />
         </div>
       </div>
@@ -321,18 +321,18 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
     {shownLocale && (
       <section className='space-y-3 rounded-2xl border border-border p-3'>
         <div className='flex flex-wrap items-center gap-2'>
-          <span className='mr-auto text-sm font-medium'>{t('CATEGORY_FORM_TRANSLATIONS')}</span>
+          <span className='mr-auto text-sm font-medium'>{t('GROUP_FORM_TRANSLATIONS')}</span>
           {isTranslating ? (
             <span className='flex items-center gap-1.5 text-xs text-muted-foreground' aria-live='polite'>
-              <Loader2 className='size-3.5 animate-spin' /> {t('CATEGORY_FORM_TRANSLATING')}
+              <Loader2 className='size-3.5 animate-spin' /> {t('GROUP_FORM_TRANSLATING')}
             </span>
           ) : (
             <Button type='button' variant='ghost' size='sm' className='h-8 rounded-full' onClick={() => translate(true)}>
-              <Languages /> {t('CATEGORY_FORM_TRANSLATE_AGAIN')}
+              <Languages /> {t('GROUP_FORM_TRANSLATE_AGAIN')}
             </Button>
           )}
         </div>
-        <div role='tablist' aria-label={t('CATEGORY_FORM_TRANSLATIONS')} className='flex flex-wrap gap-1'>
+        <div role='tablist' aria-label={t('GROUP_FORM_TRANSLATIONS')} className='flex flex-wrap gap-1'>
           {otherLocales.map((locale) => (
             <button
               key={locale}
@@ -357,7 +357,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
             name={`name.${shownLocale}`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className='sr-only'>{t('CATEGORY_FORM_NAME', { language: languageName(shownLocale) })}</FormLabel>
+                <FormLabel className='sr-only'>{t('GROUP_FORM_NAME', { language: languageName(shownLocale) })}</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -376,7 +376,7 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
             name={`text.${shownLocale}`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className='sr-only'>{t('CATEGORY_FORM_TEXT', { language: languageName(shownLocale) })}</FormLabel>
+                <FormLabel className='sr-only'>{t('GROUP_FORM_TEXT', { language: languageName(shownLocale) })}</FormLabel>
                 <FormControl>
                   <Textarea
                     rows={2}

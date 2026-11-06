@@ -1,5 +1,5 @@
 // How an etiqueta's names are written and compared, the same in the editor, the actions and the admin page.
-import type { LocalizedText } from '@/lib/category';
+import type { LocalizedText } from '@/lib/localize';
 import type { Locale } from '@/lib/i18n-core';
 import { foldText } from '@/lib/search-text';
 
@@ -30,3 +30,20 @@ export const withMissingNames = (names: TagNames, more: TagNames): TagNames => {
   }
   return merged;
 };
+
+/** An etiqueta's name as it reads in a link: "Hogar, objetos y jardín" becomes "hogar-objetos-y-jardin". */
+export const tagSlug = (name: string) =>
+  foldText(cleanTagName(name))
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-|-$/g, '');
+
+/** The list of one etiqueta's listings, by its name in the visitor's language, so the link can be shared and read. */
+export const tagHref = (names: TagNames, locale: Locale) => `/explore?${new URLSearchParams({ etiqueta: tagSlug(tagNameIn(names, locale)) })}`;
+
+/** The etiqueta a link names: by its name in any language (a link shared from another language works too), or by
+    its id (older links). */
+export function findTagByParam<T extends { id: string; names: TagNames }>(tags: T[], param?: string): T | undefined {
+  if (!param) return undefined;
+  const slug = tagSlug(param);
+  return tags.find((tag) => tag.id === param) ?? tags.find((tag) => Object.values(tag.names).some((name) => name && tagSlug(name) === slug));
+}

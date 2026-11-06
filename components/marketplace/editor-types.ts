@@ -25,8 +25,3 @@ export interface TagOption extends EditorTag {
   count: number;
 }
 
-/** A store category the listing can go in, its name in the admin's language. */
-export interface CategoryOption {
-  slug: string;
-  name: string;
-}

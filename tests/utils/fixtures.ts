@@ -8,7 +8,6 @@ export const PRODUCT: Product = {
   id: 'prod-1',
   name: 'Volcanic Lamp',
   slug: 'volcanic-lamp',
-  category: 'Lamps',
   brand: 'Eluztres',
   description: 'Resin and volcanic stone',
   stock: 3,

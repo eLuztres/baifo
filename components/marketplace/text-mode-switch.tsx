@@ -5,7 +5,7 @@ import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 import { cn } from '@/lib/utils';
 
-/** Only the labels it shows, so the category editor can pass its own; it has no "only fix mistakes". */
+/** Only the labels it shows, so the Mercadillo editor can pass its own; it has no "only fix mistakes". */
 export type TextModeTexts = Pick<
   AdminTexts,
   'textModeQuestion' | 'textModeAi' | 'textModeAiHint' | 'textModeOriginal' | 'textModeOriginalHint' | 'textAiShort' | 'textOriginalShort'

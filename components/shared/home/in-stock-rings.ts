@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import { SHOWCASE_MODE, SHOWS_PRICES, type ListingType, type PriceMode } from '@/lib/constants';
 import { isReservationActive } from '@/lib/reservation';
-import { RING_ORDER } from '@/lib/category';
+import { RING_ORDER } from '@/lib/localize';
 import { coverPicture } from '@/lib/video';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { startOfShopDay } from '@/lib/event-date';
@@ -34,8 +34,6 @@ export interface CollectionRing {
   /** An item whose picture the AI made from words alone (no photo of the real thing): buyers see a note. */
   isIllustrative?: boolean;
   isReserved: boolean;
-  /** Server only: the store categories it shows up in. */
-  categoryIds: string[];
   /** When it went into the shop, for "2 days ago" and the newest first. */
   createdAt: Date;
   /** When it goes offline (its paid time ends), if it does: for the feed's "Ending soon". */
@@ -86,8 +84,6 @@ const RING_SELECT = {
   startsAt: true,
   placeId: true,
   mercadilloId: true,
-  // The shop's order: the first one sorts a listing in the feed and labels it in the search.
-  categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } },
   expiresAt: true,
   submission: { select: { rawImages: true, expiresAt: true, tags: { select: { id: true, names: true } } } },
 } satisfies Prisma.ProductSelect;
@@ -95,7 +91,7 @@ const RING_SELECT = {
 // From the extended client, which hands prices over as strings.
 type RingRow = Prisma.Result<typeof prisma.product, { select: typeof RING_SELECT }, 'findFirstOrThrow'>;
 
-const toCollectionRing = ({ images, reservedUntil, categories, price, submission, expiresAt, ...product }: RingRow): CollectionRing => {
+const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt, ...product }: RingRow): CollectionRing => {
   const { type } = product;
   return {
     ...product,
@@ -106,7 +102,6 @@ const toCollectionRing = ({ images, reservedUntil, categories, price, submission
     image: coverPicture(images) ?? images[0],
     images,
     isReserved: isReservationActive({ reservedUntil }),
-    categoryIds: categories.map((category) => category.id),
     tags: submission?.tags.map(({ id, names }) => ({ id, names: names as TagNames })) ?? [],
     // A seller's listing ends with its submission; an admin's service has its own end.
     endsAt: submission?.expiresAt ?? expiresAt,
@@ -164,17 +159,15 @@ export interface RingSummary {
   slug: string;
   createdAt: Date;
   placeId: string | null;
-  categoryIds: string[];
 }
 
-/** Every ring in stock in the store's order, light: the home shows only a few per category and loads those in full. */
+/** Every ring in stock in the store's order, light: for the swipe to the next one. */
 export async function getRingSummaries(): Promise<RingSummary[]> {
-  const products = await prisma.product.findMany({
+  return prisma.product.findMany({
     where: inStockWhere(),
     orderBy: PAGE_ORDER,
-    select: { id: true, slug: true, createdAt: true, placeId: true, categories: { orderBy: { sortOrder: 'asc' }, select: { id: true } } },
+    select: { id: true, slug: true, createdAt: true, placeId: true },
   });
-  return products.map(({ categories, ...product }) => ({ ...product, categoryIds: categories.map((category) => category.id) }));
 }
 
 /** Slug and date of every ring in stock, for the sitemap. */

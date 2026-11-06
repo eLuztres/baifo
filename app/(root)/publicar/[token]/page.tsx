@@ -7,7 +7,7 @@ import ProductPrice from '@/components/shared/product/product-price';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { Button } from '@/components/ui/button';
 import { absoluteUrl, BRAND } from '@/lib/brand';
-import { localize } from '@/lib/category';
+import { localize } from '@/lib/localize';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS } from '@/lib/marketplace/config';

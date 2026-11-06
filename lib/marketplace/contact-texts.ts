@@ -1,4 +1,4 @@
-import { localize, localizeProduct } from '@/lib/category';
+import { localize, localizeProduct } from '@/lib/localize';
 import { APP_NAME, SERVER_URL, type ListingType } from '@/lib/constants';
 import { getTranslator, type TranslationKey } from '@/lib/i18n';
 import { getShopLocale } from '@/lib/i18n-server';

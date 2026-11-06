@@ -22,7 +22,7 @@ export default function ShareButton({ title, path, isLabeled, className }: Share
   const { toast } = useToast();
 
   const share = async () => {
-    // Without ?c=…: the category someone came through means nothing to the person it is sent to.
+    // Without the query (e.g. the filters someone came through): they mean nothing to the person it is sent to.
     const url = `${window.location.origin}${path ?? window.location.pathname}`;
     if (navigator.share) {
       // Closing the share sheet rejects too; that is not an error.

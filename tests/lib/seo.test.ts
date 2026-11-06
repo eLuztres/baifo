@@ -6,7 +6,6 @@ const listing = {
   name: 'Bici de paseo',
   description: 'Bici turquesa',
   images: ['https://utfs.io/f/bike.jpg'],
-  category: 'Bicis y motor',
   path: '/product/bici',
   isService: false,
   price: '120',
@@ -43,7 +42,7 @@ describe('listingMetaDescription', () => {
 
 describe('localizedPath', () => {
   it('adds the language after a query the path already has', () => {
-    expect(localizedPath('/explore?categoria=deporte', 'zz')).toBe('/explore?categoria=deporte&lang=zz');
+    expect(localizedPath('/explore?tipo=busco', 'zz')).toBe('/explore?tipo=busco&lang=zz');
     expect(localizedPath('/explore', 'zz')).toBe('/explore?lang=zz');
   });
 });

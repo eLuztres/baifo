@@ -1,4 +1,4 @@
-// The feed's search: one way to match a typed query against a listing or category, on the server and in the field.
+// The feed's search: one way to match a typed query against a listing, kind or etiqueta, on the server and in the field.
 
 /** Lowercase and without accents, character by character, so positions in the folded text match the original's. */
 export const foldText = (text: string) =>
@@ -30,7 +30,7 @@ export const matchesWords = (folded: string, words: string[]) => words.length > 
 export interface SearchableText {
   /** Its names, folded: what it is called in every language. */
   names: string;
-  /** Everything else, folded: descriptions, categories, its kind. */
+  /** Everything else, folded: descriptions and its kind. */
   rest: string;
 }
 
@@ -43,7 +43,7 @@ export function searchScore({ names, rest }: SearchableText, words: string[]) {
 }
 
 /** The best matches, best first. When some hold every word in their names only those count: a mention in a description is not what was looked for.
-    With none, the descriptions, categories and kinds are searched. */
+    With none, the descriptions and kinds are searched. */
 export function mainMatches<T>(items: T[], textOf: (item: T) => SearchableText, words: string[]) {
   const found = items
     .map((item) => ({ item, text: textOf(item), score: searchScore(textOf(item), words) }))

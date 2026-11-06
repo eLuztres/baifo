@@ -14,7 +14,6 @@ model Product {
   // A name of 1–3 words for small spaces (the store's ring row); the name shows where it's missing.
   shortName     String?
   slug          String      @unique(map: "product_slug_idx")
-  category      String
   images        String[]
   brand         String
   description   String
@@ -35,8 +34,7 @@ model Product {
   reservedUntil DateTime?   @db.Timestamp(6)
   reservedById  String?     @db.Uuid
   reservedBy    User?       @relation(fields: [reservedById], references: [id], onDelete: SetNull)
-  categories    Category[]
-  // The maker's original photo; the AI views in `images` are regenerated from it when a category's scene changes.
+  // The maker's original photo; the AI views in `images` are regenerated from it.
   sourceImage    String?
   // The images before the last regeneration, so it can be undone.
   previousImages String[]  @default([])
@@ -53,7 +51,7 @@ model Product {
   seller         Seller?   @relation(fields: [sellerId], references: [id], onDelete: SetNull)
   expiresAt      DateTime? @db.Timestamp(6)
   submission     Submission?
-  // Services and events never have a cart, only a contact; any type goes in any category.
+  // Services and events never have a cart, only a contact.
   type           ListingType @default(PRODUCT)
   // Where it is handed over or offered; visitors filter the shop by places.
   placeId        String?   @db.Uuid
@@ -135,7 +133,6 @@ model Tag {
   submissions Submission[]
 }
 
-// A group in the store's category ring; the name and text are per language ({ "es": "…", "en": "…" }).
 // Every listing is exactly one of these (LISTING_TYPES); WANTED is "Busco …", someone looking for something.
 // CHECK constraints in the migrations: serviceType only on SERVICE, an EVENT product has startsAt.
 // How a listing's price reads: FIXED "12 €", FROM "desde 12 €", UP_TO "hasta 12 €", NONE: no price shown.
@@ -151,26 +148,6 @@ enum ListingType {
   WANTED
   SERVICE
   EVENT
-}
-
-model Category {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug          String    @unique
-  name          Json
-  text          Json
-  image         String?
-  // Materials that put a ring in this category, e.g. "madera", "olivo".
-  keywords      String[]  @default([])
-  // The world the AI places this category's rings in; the variants keep neighbouring photos from looking alike.
-  scene         String
-  sceneVariants String[]  @default([])
-  sortOrder     Int       @default(0)
-  createdAt     DateTime  @default(now()) @db.Timestamp(6)
-  products      Product[]
-  // A subcategory; the store's ring only shows categories without a parent.
-  parentId      String?    @db.Uuid
-  parent        Category?  @relation("Subcategories", fields: [parentId], references: [id], onDelete: Cascade)
-  children      Category[] @relation("Subcategories")
 }
 
 model User {
@@ -365,8 +342,6 @@ model Submission {
   description       String?
   // Title, description and short title in the shop's other languages: { "en": { "title": "…", "description": "…", "short": "…" } }.
   translations      Json             @default("{}")
-  // The store categories' slugs: the one the AI recognized, or the ones the admin chose.
-  categories        String[]         @default([])
   // How the item is, as the AI saw it (PRODUCT_CONDITIONS); the product takes it over.
   condition         String?
   price             Decimal?         @db.Decimal(12, 2)

@@ -13,7 +13,6 @@ jest.mock('@/db/prisma', () => {
       submission,
       product,
       listingFee,
-      category: { findMany: jest.fn(async () => [{ id: 'cat-1', slug: 'bicis', name: { es: 'Bicis', en: 'Bikes' }, keywords: [] }]) },
       $transaction: jest.fn((run: (tx: unknown) => unknown) => run({ submission, product, listingFee })),
     },
   };
@@ -35,7 +34,6 @@ const SUBMISSION = {
   title: 'Bici de paseo',
   description: 'Bici cómoda.',
   translations: { en: { title: 'City bike', description: 'Comfy bike.' } },
-  categories: ['bicis'],
   price: '70.00',
   images: ['https://utfs.io/f/bike.jpg'],
   rawImages: [],
@@ -74,11 +72,9 @@ describe('a paid listing going live', () => {
         slug: 'bici-de-paseo-abcdef',
         description: 'Bici cómoda.',
         translations: { en: { name: 'City bike', description: 'Comfy bike.' } },
-        category: 'Bicis',
         isFeatured: true,
         contactPhone: '+34600111222',
         stock: 1,
-        categories: { connect: [{ id: 'cat-1' }] },
       }),
     });
     expect(sendText).toHaveBeenCalledWith('34600111222', expect.stringContaining('online'));

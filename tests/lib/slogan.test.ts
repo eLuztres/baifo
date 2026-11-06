@@ -12,9 +12,12 @@ describe('brand slogan', () => {
     expect(slogan).not.toContain('{shop}');
   });
 
-  it('keeps the shop name in the home page title, which now leads with what people search for', () => {
+  // #534: the tab and Google show only what people search for, e.g. "Anuncios de Fuerteventura".
+  it('gives the home page a title of its own, without the shop name', () => {
     for (const { id } of LOCALES) {
-      expect(getTranslator(id)('HOME_SEO_TITLE', { shop: 'Baifo' })).toMatch(/ \| Baifo$/);
+      const title = getTranslator(id)('HOME_SEO_TITLE', { shop: 'Baifo' });
+      expect(title).toContain('Fuerteventura');
+      expect(title).not.toContain('Baifo');
     }
   });
 });

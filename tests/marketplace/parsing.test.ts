@@ -76,7 +76,7 @@ describe('admin review', () => {
     expect(parseEdit('precio 25')).toEqual({ field: 'price', value: '25.00' });
     expect(parseEdit('Título Mesa de teca')).toEqual({ field: 'title', value: 'Mesa de teca' });
     expect(parseEdit('desc Robusta.\nPoco usada.')).toEqual({ field: 'description', value: 'Robusta.\nPoco usada.' });
-    expect(parseEdit('cat Muebles')).toEqual({ field: 'category', value: 'Muebles' });
+    expect(parseEdit('cat Muebles')).toBeNull();
     expect(parseEdit('precio barato')).toBeNull();
     expect(parseEdit('hola')).toBeNull();
   });

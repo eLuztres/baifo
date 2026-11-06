@@ -39,8 +39,8 @@ export function createWheelGestureGate() {
   };
 }
 
-/** Things that move sideways themselves keep their sideways swipes: the category selector (data-swipe-owner),
-    carousels, scrolling rows and inputs; so does the shop's tree (data-scroll-owner). pan-x only stops native
+/** Things that move sideways themselves keep their sideways swipes: anything marked data-swipe-owner,
+    carousels, scrolling rows and inputs; so does anything marked data-scroll-owner. pan-x only stops native
     up-and-down scrolling of a part. */
 export function isInsideSideMover(target: EventTarget | null) {
   for (let element = target instanceof Element ? target : null; element && element !== document.body; element = element.parentElement) {

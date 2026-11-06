@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
-import { LISTING_TYPES, MAX_LISTING_CATEGORIES, MAX_LISTING_TAGS, PRICE_MODES } from '@/lib/constants';
+import { LISTING_TYPES, MAX_LISTING_TAGS, PRICE_MODES } from '@/lib/constants';
 import { MAX_TAG_LENGTH, type TagNames } from '@/lib/tag-names';
 import { saveEditorTag } from '@/lib/tags';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
@@ -14,7 +14,7 @@ import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
 import { listingContactsSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
-import { allCategoryRefs, categoryName, categoryRefs, findCategories, findCategory, getListingCategories, toProductTranslations, type ListingTranslations } from './catalog';
+import { toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
 import { getDefaultPlaceId } from '@/lib/places';
 import { loadAddresses } from './address-search';
@@ -138,7 +138,7 @@ const draftSchema = z.object({
 });
 
 /** "Crear descripción": the AI writes title and description in every language from the admin's words in one language
-    (improved, corrected or only translated) and reads the category, one existing etiqueta and, unless the admin set one,
+    (improved, corrected or only translated) and reads one existing etiqueta and, unless the admin set one,
     the price. Nothing goes online. */
 export async function draftAdminListingText(id: string, input: z.input<typeof draftSchema>) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
@@ -184,7 +184,6 @@ export async function draftAdminListingText(id: string, input: z.input<typeof dr
       price: written.price?.toString() ?? null,
       startsAt: written.startsAt ? toShopDateTime(written.startsAt) : null,
       address: written.address,
-      category: written.categories[0],
       tag: named.find((tag) => tag.name === written.tag)?.id ?? null,
     };
   } catch (error) {
@@ -216,8 +215,6 @@ const descriptionSchema = z.object({
   price: amountSchema,
   startsAt: eventStartSchema,
   address: eventAddressSchema,
-  // The categories' slugs as the admin left them (the AI's choice, maybe changed).
-  categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES).default([]),
   mercadilloId: mercadilloIdSchema,
   tags: tagsSchema,
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
@@ -238,7 +235,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'tags') return { success: false, message: `Como mucho ${MAX_LISTING_TAGS} etiquetas` };
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'contacts') return { success: false, message: CHECK_CONTACTS };
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, categories: categorySlugs, isHidden, onlineUntil, mercadilloId, tags } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, tags } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
@@ -253,8 +250,6 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // An event goes online only with its date (a database rule too).
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
-  const categories = findCategories(await getListingCategories(), categorySlugs);
-  if (categories.length === 0) return { success: false, message: 'Elige una de las categorías' };
   if (mercadilloId && !(await mercadilloExists(mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
@@ -280,7 +275,6 @@ export async function describeAdminListing(id: string, input: ListingDescription
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
-      categories: categories.map((category) => category.slug),
       mercadilloId,
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
@@ -329,7 +323,6 @@ const editSchema = z.object({
   description: z.string().trim().max(3000),
   // The other shop languages; the shop language's text is title and description.
   translations: z.record(z.string(), textSchema),
-  categories: z.array(z.string().trim().max(60)).max(MAX_LISTING_CATEGORIES),
   // How the price reads; an event always has a set entry (0: free).
   priceMode: z.enum(PRICE_MODES).optional(),
   // Empty: none, only right with "no price".
@@ -388,8 +381,6 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (!parsed.success) return { success: false, message: 'Revisa el título, el precio y las fotos' };
   if (priceMode !== 'NONE' && !parsed.data.price) return { success: false, message: 'Escribe el precio o elige «Sin precio»' };
   if (isEvent && !parsed.data.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
-  const categories = findCategories(await getListingCategories(), parsed.data.categories);
-  if (categories.length === 0) return { success: false, message: 'Elige una de las categorías' };
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
@@ -428,7 +419,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, translations, categories: categories.map((category) => category.slug), textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, translations, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
@@ -450,8 +441,6 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         images,
         placeId,
         mercadilloId,
-        category: categoryName(categories[0], getShopLocale()),
-        categories: { set: allCategoryRefs(categories) },
       },
     });
     revalidatePath('/');
@@ -487,8 +476,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
     if (!texts) {
       const photoUrl = submission.rawImages.map(pictureOf).find(Boolean);
       const photo = photoUrl ? await fetchImage(photoUrl) : null;
-      const categories = await getListingCategories();
-      texts = (await writeListing(photo, submission.rawText, categories, [shopLocale, ...otherLocales], submission.type)).texts;
+      texts = (await writeListing(photo, submission.rawText, [shopLocale, ...otherLocales], submission.type)).texts;
     }
   } catch (error) {
     console.error(`Text of listing ${id} not made`, error);
@@ -510,22 +498,6 @@ export async function translateListingText(id: string, text: { title: string; de
     console.error(`Listing ${id} not translated`, error);
     return { success: false, message: aiErrorText((await getT()).t, error) ?? 'No se pudo traducir. Inténtalo otra vez.' };
   }
-}
-
-/** The category step: the admin confirms or changes what the AI recognized, also while it still makes the pictures. */
-export async function setAdminListingCategory(id: string, slug: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const category = findCategory(await getListingCategories(), slug);
-  if (!category) return { success: false, message: 'Elige una de las categorías' };
-  const submission = await prisma.submission.update({ where: { id }, data: { categories: [category.slug] } });
-  if (submission.productId) {
-    await prisma.product.update({
-      where: { id: submission.productId },
-      data: { category: categoryName(category, getShopLocale()), categories: { set: categoryRefs(category) } },
-    });
-    revalidatePath('/');
-  }
-  return { success: true, message: 'Guardado' };
 }
 
 const picturePromptSchema = z.string().trim().max(500).optional();

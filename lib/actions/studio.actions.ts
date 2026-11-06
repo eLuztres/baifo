@@ -1,7 +1,6 @@
 'use server';
 
 import { z } from 'zod';
-import { revalidatePath } from 'next/cache';
 import { UTApi, UTFile } from 'uploadthing/server';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
@@ -11,43 +10,12 @@ import type { TranslationKey } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
 import { getT } from '@/lib/i18n-server';
 import { formatError } from '@/lib/utils';
-import {
-  KEEP_IDENTICAL,
-  SHOTS,
-  STUDIO_LOOK,
-  STYLE_REFERENCE_NOTE,
-  categoryCoverPrompt,
-  categoryCoverLikeOthersPrompt,
-  categoryLook,
-  seedOf,
-} from '@/lib/studio/prompts.mjs';
-import { draftText, editImage, generateImage } from '@/lib/ai-usage';
-import { idSchema } from '@/lib/validators';
-import { coverPicture } from '@/lib/video';
+import { coverPrompt, coverLikeOthersPrompt } from '@/lib/studio/prompts.mjs';
+import { editImage, generateImage } from '@/lib/ai-usage';
 
-// A URL path on this shop (public/); the CLI studio's STUDIO_STYLE_IMAGE is a file path instead.
-const STYLE_IMAGE_URL = process.env.STUDIO_STYLE_IMAGE_URL || '/brand/studio-style.jpg';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const studioError = (key: TranslationKey) => new Error(key);
-
-// Only photos uploaded through UploadThing, so the server never fetches an arbitrary URL.
-// (No .url(): Zod would still run this refine after it failed, and new URL() throws on a '/brand/…' path.)
-const photoUrlSchema = z
-  .string({ message: 'STUDIO_INVALID_PHOTO' satisfies TranslationKey })
-  .refine((value) => {
-    if (!URL.canParse(value)) return false;
-    const { protocol, hostname } = new URL(value);
-    return protocol === 'https:' && (hostname === 'utfs.io' || hostname.endsWith('.ufs.sh'));
-  }, 'STUDIO_INVALID_PHOTO' satisfies TranslationKey);
-
-// Pictures of older products live in public/brand/; they are fetched from this shop's own server.
-const ringPhotoSchema = z.union([photoUrlSchema, z.string().regex(/^\/brand\/[\w\-/]+\.(jpe?g|png|webp)$/i)], {
-  errorMap: () => ({ message: 'STUDIO_INVALID_PHOTO' satisfies TranslationKey }),
-});
-
-const viewSchema = z.enum(['hero', 'side', 'top']);
-const notesSchema = z.string().max(500, 'STUDIO_NOTES_TOO_LONG' satisfies TranslationKey).optional();
 
 async function download(url: string) {
   const response = await fetch(url);
@@ -62,32 +30,11 @@ async function download(url: string) {
   return image;
 }
 
-// Every view of every ring uses the same mood picture, so it is loaded once per server instance.
-let styleImage: Uint8Array | undefined;
-
-// The mood picture is optional: without it the scene text alone sets the look.
-async function loadStyleImage() {
-  try {
-    styleImage ??= await download(absoluteUrl(STYLE_IMAGE_URL, SERVER_URL));
-    return styleImage;
-  } catch {
-    return null;
-  }
-}
-
 async function requireStudioAccess() {
   if (!(await isAdmin())) throw studioError('ERROR_ADMIN_ONLY');
 }
 
-type View = z.infer<typeof viewSchema>;
-interface Scene {
-  scene: string;
-  sceneVariants: string[];
-}
-
-const VIEWS = viewSchema.options;
-
-// 3:4 portrait, the shape of the shop's ring cards.
+// 3:4 portrait, the shape of the shop's cards.
 const PORTRAIT = { size: '1152x1536', output_format: 'jpeg' };
 
 async function uploadImage(image: Uint8Array, name: string) {
@@ -103,75 +50,17 @@ async function uploadImage(image: Uint8Array, name: string) {
   return upload.data.ufsUrl;
 }
 
-// A category's own scene replaces the salon look and its mood picture; the seed varies it per ring.
-async function makeRingView(photo: Uint8Array, view: View, scene: Scene | null, seed: number) {
-  const style = scene ? null : await loadStyleImage();
-  const look = scene ? categoryLook(scene, seed) : STUDIO_LOOK;
-  const prompt = SHOTS[view] + KEEP_IDENTICAL + ' ' + look + (style ? ' ' + STYLE_REFERENCE_NOTE : '');
-  const image = await editImage(prompt, style ? [photo, style] : [photo], PORTRAIT);
-  return uploadImage(image, `studio-${view}`);
-}
-
-const findScene = (categoryId?: string) =>
-  categoryId
-    ? prisma.category.findUnique({ where: { id: idSchema.parse(categoryId) }, select: { scene: true, sceneVariants: true } })
-    : null;
-
-/** One AI view of the ring in the photo, in the scene of its store category, uploaded to UploadThing. */
-export async function generateRingView(photoUrl: string, view: string, categoryId?: string) {
-  try {
-    await requireStudioAccess();
-    const url = photoUrlSchema.parse(photoUrl);
-    const [photo, scene] = await Promise.all([download(url), findScene(categoryId)]);
-    return { success: true, message: '', url: await makeRingView(photo, viewSchema.parse(view), scene, seedOf(url)) };
-  } catch (error) {
-    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
-  }
-}
-
-/** Redoes all views of a ring in the scene of its first store category; the old pictures are kept for undo. */
-export async function regenerateRingViews(productId: string) {
-  try {
-    await requireStudioAccess();
-    const product = await prisma.product.findUnique({
-      where: { id: idSchema.parse(productId) },
-      select: {
-        slug: true,
-        images: true,
-        sourceImage: true,
-        categories: { orderBy: { sortOrder: 'asc' }, take: 1, select: { scene: true, sceneVariants: true } },
-      },
-    });
-    if (!product) throw studioError('ERROR_NOT_FOUND');
-    const source = product.sourceImage ?? coverPicture(product.images);
-    if (!source) throw studioError('STUDIO_NEED_PHOTO');
-
-    const photo = await download(absoluteUrl(ringPhotoSchema.parse(source), SERVER_URL));
-    const scene = product.categories[0] ?? null;
-    const images = await Promise.all(VIEWS.map((view) => makeRingView(photo, view, scene, seedOf(product.slug))));
-    await prisma.product.update({
-      where: { id: productId },
-      data: { images, previousImages: product.images, sourceImage: source },
-    });
-    revalidatePath('/', 'layout');
-    return { success: true, message: '' };
-  } catch (error) {
-    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
-  }
-}
-
-/** A cover picture for a store category from its scene, not saved until the category is. */
-// Covers of other categories the new one is made to match.
+// Covers of other Mercadillos the new one is made to match.
 const MAX_COVER_REFERENCES = 2;
 
-/** A cover for a category: like the other categories' covers when there are some, else from the words alone. */
-export async function generateCategoryCover(description: string, name = '') {
+/** A cover for a Mercadillo, not saved until it is: like the others' covers when there are some, else from the words alone. */
+export async function generateGroupCover(description: string, name = '') {
   try {
     await requireStudioAccess();
     const text = z.string().trim().max(600).parse(description);
     const title = z.string().trim().max(60).parse(name);
-    if (text.length < 3 && title.length < 2) throw studioError('VALIDATION_CATEGORY_SCENE');
-    const others = await prisma.category.findMany({
+    if (text.length < 3 && title.length < 2) throw studioError('VALIDATION_GROUP_COVER');
+    const others = await prisma.mercadillo.findMany({
       where: { image: { not: null } },
       orderBy: { sortOrder: 'asc' },
       take: MAX_COVER_REFERENCES,
@@ -184,25 +73,9 @@ export async function generateCategoryCover(description: string, name = '') {
     const styles = references.flatMap((image) => (image ? [image] : []));
     const image =
       styles.length > 0
-        ? await editImage(categoryCoverLikeOthersPrompt(title, text), styles, PORTRAIT)
-        : await generateImage(categoryCoverPrompt(text || title), PORTRAIT);
-    return { success: true, message: '', url: await uploadImage(image, 'category') };
-  } catch (error) {
-    return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
-  }
-}
-
-/** Product name and description for the ring in the photo, plus what the optional info photo says. */
-export async function draftRingText(photoUrl: string, notes?: string, infoUrl?: string) {
-  try {
-    await requireStudioAccess();
-    const makerNotes = notesSchema.parse(notes);
-    const [photo, info] = await Promise.all([
-      download(absoluteUrl(ringPhotoSchema.parse(photoUrl), SERVER_URL)),
-      infoUrl ? download(photoUrlSchema.parse(infoUrl)) : null,
-    ]);
-    const text = await draftText(photo, makerNotes, info);
-    return { success: true, message: '', name: text.name ?? '', description: text.description ?? '' };
+        ? await editImage(coverLikeOthersPrompt(title, text), styles, PORTRAIT)
+        : await generateImage(coverPrompt(text || title), PORTRAIT);
+    return { success: true, message: '', url: await uploadImage(image, 'cover') };
   } catch (error) {
     return { success: false, message: aiErrorText((await getT()).t, error) ?? formatError(error) };
   }

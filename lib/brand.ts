@@ -7,8 +7,6 @@
 
 import workshop from '@/brand/workshop.json';
 import adminLinks from '@/brand/admin-links.json';
-import ringFigures from '@/brand/ring-figures.json';
-import ringFlyers from '@/brand/ring-flyers.json';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -127,16 +125,6 @@ export const BRAND = {
   hasSwipeToNext: env('BRAND_SWIPE_TO_NEXT') !== 'false',
   /** On small screens, the slim row of section links that shows briefly when the page moves to another part. */
   hasNavRow: env('BRAND_NAV_ROW') !== 'false',
-  /** The middle of the category ring: the gold band, nothing, or a picture shown as a turning 3D piece. */
-  ringCenter: env('BRAND_RING_CENTER') ?? 'band',
-  /** A picture lying flat under that piece, three times its size and centered on it (e.g. a sea around an island). */
-  ringCenterSea: env('BRAND_RING_CENTER_SEA'),
-  /** A small picture (e.g. a seagull) that three copies of fly in loops above that piece. */
-  ringFlyer: env('BRAND_RING_FLYER'),
-  /** A picture standing on that 3D piece (its foot at the bottom middle), with an optional part turning about its middle. */
-  ringFigure: env('BRAND_RING_FIGURE'),
-  ringFigureSpinner: env('BRAND_RING_FIGURE_SPINNER'),
-  ringFigureAt: readPoint('BRAND_RING_FIGURE_AT') ?? { x: 0.5, y: 0.5 },
   /** A picture (e.g. the logo) instead of the drawn genie lamp; its bottom edge must be the lamp's foot. */
   lampImage: env('BRAND_LAMP_IMAGE'),
   lampSpout: readPoint('BRAND_LAMP_SPOUT'),
@@ -183,7 +171,7 @@ export interface AdminLink<Label = string> {
   icon?: string;
   /** Opened seldom: it waits in the Advanced menu. */
   isAdvanced?: boolean;
-  /** Offered in a pop-up next to this menu link instead of its own (e.g. Etiquetas with Categorías). */
+  /** Offered in a pop-up next to this menu link instead of its own. */
   chooserOf?: string;
   /** A short line under its name in that pop-up. */
   hint?: Label;
@@ -192,12 +180,6 @@ export interface AdminLink<Label = string> {
 /** The shop's own admin pages for the admin menu (brand/admin-links.json), with a label per language. */
 export const ADMIN_LINKS: AdminLink<Record<string, string>>[] = adminLinks;
 
-
-/** More pictures standing on the ring's center piece (brand/ring-figures.json), next to BRAND_RING_FIGURE. */
-export const RING_FIGURES: { image: string; spinner?: string; at: { x: number; y: number }; scale?: number; drift?: boolean }[] = ringFigures;
-
-/** The flyers above the ring's center piece (brand/ring-flyers.json), e.g. gulls with their own wing beats; else BRAND_RING_FLYER. */
-export const RING_FLYERS: string[] = ringFlyers.length > 0 ? ringFlyers : BRAND.ringFlyer ? [BRAND.ringFlyer] : [];
 
 /** Emails can't use CSS variables, so they get plain colors (use hex values in .env). */
 export const EMAIL_COLORS = {

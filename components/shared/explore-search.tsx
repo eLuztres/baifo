@@ -13,12 +13,10 @@ export interface SearchListing {
   href: string;
   name: string;
   image: string;
-  /** Its category, in small letters under the name. */
-  category?: string;
   text: SearchableText;
 }
 
-/** A category or a kind of listing (wanted, services, events), which opens the feed narrowed to it. */
+/** A kind of listing (wanted, services, events) or an etiqueta, which opens the feed narrowed to it. */
 export interface SearchChoice {
   href: string;
   label: string;
@@ -30,9 +28,9 @@ export interface SearchChoice {
 interface ExploreSearchProps {
   listings: SearchListing[];
   choices: SearchChoice[];
-  /** The listings' etiquetas, suggested only while typing: there can be many. */
+  /** The listings' etiquetas: the most used first while the field is empty, the best matches while typing. */
   tags: SearchChoice[];
-  /** What the feed shows now: the query typed, or the chosen category's name. */
+  /** What the feed shows now: the query typed, or the chosen etiqueta's name. */
   value: string;
   /** Whether the feed is narrowed, so clearing the field opens everything again. */
   isFiltered: boolean;
@@ -43,9 +41,7 @@ interface Option {
   href: string;
   label: string;
   image?: string;
-  /** A listing's category, under its name. */
-  category?: string;
-  /** How many listings a category or kind has. */
+  /** How many listings a kind or etiqueta has. */
   count?: number;
   isAll?: boolean;
   isTag?: boolean;
@@ -69,7 +65,7 @@ function Highlighted({ text, words }: { text: string; words: string[] }) {
   );
 }
 
-/** The feed's search: suggests categories and listings while typing (by name, category or description); Enter shows every match. */
+/** The feed's search: suggests kinds, etiquetas and listings while typing (by name, etiqueta or description); Enter shows every match. */
 export default function ExploreSearch({ listings, choices, tags, value, isFiltered }: ExploreSearchProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -80,15 +76,19 @@ export default function ExploreSearch({ listings, choices, tags, value, isFilter
   const [activeIndex, setActiveIndex] = useState(-1);
   const words = useMemo(() => queryWords(query), [query]);
 
-  // Empty: the categories, as a way in. Typed: every match first, then the best categories and listings.
+  // Empty: the kinds and the most used etiquetas, as a way in. Typed: every match first, then the best kinds, etiquetas and listings.
   const options = useMemo<Option[]>(() => {
-    if (words.length === 0) return choices.map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count }));
+    if (words.length === 0)
+      return [
+        ...choices.map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count })),
+        ...[...tags].sort((a, b) => b.count - a.count).map((tag) => ({ id: tag.href, href: tag.href, label: tag.label, count: tag.count, isTag: true })),
+      ];
     const searchHref = `/explore?${new URLSearchParams({ q: query.trim() })}`;
     return [
       { id: searchHref, href: searchHref, label: t('EXPLORE_SEARCH_ALL', { query: query.trim() }), isAll: true },
       ...best(choices, words, MAX_CHOICES).map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count })),
       ...best(tags, words, MAX_CHOICES).map((tag) => ({ id: tag.href, href: tag.href, label: tag.label, count: tag.count, isTag: true })),
-      ...best(listings, words, MAX_LISTINGS).map((listing) => ({ id: listing.href, href: listing.href, label: listing.name, image: listing.image, category: listing.category })),
+      ...best(listings, words, MAX_LISTINGS).map((listing) => ({ id: listing.href, href: listing.href, label: listing.name, image: listing.image })),
     ];
   }, [choices, tags, listings, query, t, words]);
 
@@ -203,7 +203,6 @@ export default function ExploreSearch({ listings, choices, tags, value, isFilter
               </span>
               <span className='min-w-0 flex-1'>
                 <span className={cn('block', !option.isAll && 'truncate')}>{option.isAll ? option.label : <Highlighted text={option.label} words={words} />}</span>
-                {option.category && <span className='block truncate text-xs text-muted-foreground'>{option.category}</span>}
               </span>
               {option.count !== undefined && <span className='shrink-0 text-xs text-muted-foreground'>{option.count}</span>}
             </li>

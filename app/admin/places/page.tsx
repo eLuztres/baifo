@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import type { CorralDraft } from '@/components/admin/corral-form';
 import PlaceAdmin from '@/components/admin/place-admin';
 import { requireAdmin } from '@/lib/auth-guard';
-import { localize } from '@/lib/category';
+import { localize } from '@/lib/localize';
 import { getShopLocale, getT } from '@/lib/i18n-server';
 import { getPlaces, getShopPlaces } from '@/lib/places';
 

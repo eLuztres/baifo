@@ -76,7 +76,6 @@ interface ListingSchema {
   name: string;
   description: string;
   images: string[];
-  category: string;
   path: string;
   isService: boolean;
   /** Missing when the shop shows no prices; 0 means none was given. */
@@ -86,11 +85,11 @@ interface ListingSchema {
 }
 
 /** A listing as a schema.org Product with its offer (Google's product snippet), or a Service. */
-export function listingJsonLd({ name, description, images, category, path, isService, price, condition, isAvailable }: ListingSchema) {
+export function listingJsonLd({ name, description, images, path, isService, price, condition, isAvailable }: ListingSchema) {
   const url = `${SERVER_URL}${path}`;
   const image = images.map((src) => absoluteUrl(src, SERVER_URL));
   if (isService) {
-    return { '@context': SCHEMA, '@type': 'Service', name, description, image, category, url, areaServed: SERVICE_AREA || undefined };
+    return { '@context': SCHEMA, '@type': 'Service', name, description, image, url, areaServed: SERVICE_AREA || undefined };
   }
   const hasPrice = price !== undefined && Number(price) > 0;
   return {
@@ -99,7 +98,6 @@ export function listingJsonLd({ name, description, images, category, path, isSer
     name,
     description,
     image,
-    category,
     url,
     offers: hasPrice
       ? {

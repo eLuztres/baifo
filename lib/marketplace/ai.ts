@@ -1,10 +1,8 @@
 import { z } from 'zod';
-import { localize } from '@/lib/category';
 import { AD_TYPES, PRICE_MODES, type ListingType } from '@/lib/constants';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import { draftText, editImage, generateImage } from '@/lib/ai-usage';
-import { FALLBACK_CATEGORY_SLUG, type ListingCategory } from './catalog';
 
 // One calm studio backdrop in the shop's colors for every item, so the feed looks like one series.
 const ITEM_SCENE =
@@ -52,7 +50,6 @@ const textSchema = z.object({ title: z.string(), description: z.string().transfo
 
 const listingSchema = z.object({
   texts: z.record(z.string(), textSchema),
-  category: z.string(),
   // Only asked for an Anuncio: a thing for sale, a service or a search.
   type: z.enum(AD_TYPES).nullable().default(null),
   price: z.number().nullable().default(null),
@@ -91,47 +88,42 @@ const textsJsonSchema = (locales: Locale[], text: object = textJsonSchema) => ({
   additionalProperties: false,
 });
 
-const serviceJsonSchema = (locales: Locale[], slugs: string[]) => ({
+const serviceJsonSchema = (locales: Locale[]) => ({
   type: 'object',
   properties: {
     texts: textsJsonSchema(locales, listingTextJsonSchema),
-    category: { type: 'string', enum: slugs },
     price: { type: ['number', 'null'] },
     priceMode: { type: 'string', enum: PRICE_MODES },
   },
-  required: ['texts', 'category', 'price', 'priceMode'],
+  required: ['texts', 'price', 'priceMode'],
 });
 
-const eventJsonSchema = (locales: Locale[], slugs: string[]) => ({
+const eventJsonSchema = (locales: Locale[]) => ({
   type: 'object',
   properties: {
     texts: textsJsonSchema(locales, listingTextJsonSchema),
-    category: { type: 'string', enum: slugs },
     price: { type: ['number', 'null'] },
     startsAt: { type: ['string', 'null'] },
     address: { type: ['string', 'null'] },
   },
-  required: ['texts', 'category', 'price', 'startsAt', 'address'],
+  required: ['texts', 'price', 'startsAt', 'address'],
 });
 
-const listingJsonSchema = (locales: Locale[], slugs: string[]) => ({
+const listingJsonSchema = (locales: Locale[]) => ({
   type: 'object',
   properties: {
     texts: textsJsonSchema(locales, listingTextJsonSchema),
-    // An enum of the slugs: the AI can only answer with a category that exists.
-    category: { type: 'string', enum: slugs },
     type: { type: 'string', enum: AD_TYPES },
     price: { type: ['number', 'null'] },
     priceMode: { type: 'string', enum: PRICE_MODES },
   },
-  required: ['texts', 'category', 'type', 'price', 'priceMode'],
+  required: ['texts', 'type', 'price', 'priceMode'],
 });
 
 /** The fields a listing of this type has, as read from its description alone; null: the text doesn't say. */
-const fieldsJsonSchema = (type: ListingType, slugs: string[]) => {
+const fieldsJsonSchema = (type: ListingType) => {
   const amount = { type: ['number', 'null'] };
   const properties = {
-    category: { type: 'string', enum: slugs },
     price: amount,
     ...(type === 'EVENT'
       ? { startsAt: { type: ['string', 'null'] }, address: { type: ['string', 'null'] } }
@@ -174,25 +166,16 @@ const placeRule = (places: ListingPlace[]) =>
     : '- place: the slug of the town where the thing is handed over, the service is offered or the event happens, as ' +
       `written; null if no town is named. The towns: ${places.map(({ slug, name }) => `${slug} (${name})`).join(', ')}.\n`;
 
-const categoryLine = ({ slug, name, keywords }: ListingCategory) =>
-  `  - ${slug}: ${localize(name, 'es')} / ${localize(name, 'en')}` + (keywords.length > 0 ? ` (e.g. ${keywords.join(', ')})` : '');
-
 // The store's ring row has room for a word or three, not a whole title.
 const SHORT_RULE =
   '- short (in every text): the title cut down to 1–3 words, at most 20 characters, naming what it is, e.g. ' +
   '"Boss RC-500", "Cables", "Apple Watch Ultra", "Ana, canguro", "Busco surf".\n';
 
-// The same list for every type: any listing goes in any category.
-const categoryRule = (what: string, categories: ListingCategory[]) =>
-  `- category: the slug of the ONE category a visitor would look in for ${what}. The categories:\n` +
-  categories.map(categoryLine).join('\n') +
-  `\n  Use ${FALLBACK_CATEGORY_SLUG} only if none of the others fits.\n`;
-
 const TYPE_RULE =
   '- type: PRODUCT if a thing is offered (for sale or to give away); SERVICE if a person offers work, lessons, help or ' +
   'care; WANTED if the person is LOOKING FOR a thing or someone (busco, estoy buscando, looking for, cerco, suche …). ' +
   'A WANTED ad: the photo only shows what they want, the title says so (e.g. "Busco tabla de surf", "Busco fontanero"), ' +
-  'the description says what they need and when, and category is where the wanted thing would be found. A SERVICE: the ' +
+  'the description says what they need and when. A SERVICE: the ' +
   'title has the person\'s first name (if stated) and the service, e.g. "Ana, canguro en Corralejo", the description what ' +
   'they offer, where and when, languages, experience; never invent qualifications, places, times or experience.\n';
 
@@ -224,7 +207,7 @@ const eventFieldRules = () =>
   'a weekday without a date is the next one.\n' +
   '- address: where it is (venue, street, town), as stated, or null.\n';
 
-const listingPrompt = (sellerText: string, categories: ListingCategory[], locales: Locale[]) =>
+const listingPrompt = (sellerText: string, locales: Locale[]) =>
   'You write listings for Baifo, a local marketplace in Fuerteventura: a second-hand thing, a service someone offers, ' +
   'or someone looking for something. Return JSON:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–6 words ` +
@@ -234,19 +217,17 @@ const listingPrompt = (sellerText: string, categories: ListingCategory[], locale
   WRITING_RULE +
   PRODUCT_RESEARCH_RULE +
   SHORT_RULE +
-  categoryRule('this listing (decide by what the main thing or service is, not by the background or the props around it)', categories) +
   TYPE_RULE +
   PRICE_RULE +
   (sellerText ? `What the seller wrote (trust it, it may name the item, its condition, price and size): ${sellerText}\n` : 'The seller wrote nothing.\n');
 
-const fieldsPrompt = (type: ListingType, text: string, categories: ListingCategory[]) =>
+const fieldsPrompt = (type: ListingType, text: string) =>
   'Read the fields of a listing on Baifo, a local marketplace in Fuerteventura, from what the admin wrote, and return ' +
   'JSON. Only what the text really says: never guess or invent anything; a field the text does not mention is null.\n' +
-  categoryRule('this listing', categories) +
   (type === 'EVENT' ? eventFieldRules() : PRICE_RULE) +
   `What the admin wrote: ${text}\n`;
 
-const servicePrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
+const servicePrompt = (adminText: string, locales: Locale[]) =>
   'You write service listings for Baifo, a local marketplace in Fuerteventura: a person offers a service (babysitting, ' +
   'gardening, lessons, help with paperwork …). Return JSON from what the admin wrote and the photos:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–7 words ` +
@@ -255,11 +236,10 @@ const servicePrompt = (adminText: string, categories: ListingCategory[], locales
   'language. Never mention a price in the texts, and never invent qualifications, places, times or experience that are not stated.\n' +
   WRITING_RULE +
   SHORT_RULE +
-  categoryRule('this service', categories) +
   PRICE_RULE +
   (adminText ? `What the admin wrote about the person (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
-const eventPrompt = (adminText: string, categories: ListingCategory[], locales: Locale[]) =>
+const eventPrompt = (adminText: string, locales: Locale[]) =>
   'You write event listings for Baifo, a local marketplace in Fuerteventura: an event or workshop (a dance class, a ' +
   'concert, a market …). Look at the poster or photo and what the admin wrote, and return JSON:\n' +
   `- texts: for each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: a title of 2–7 words ` +
@@ -267,7 +247,6 @@ const eventPrompt = (adminText: string, categories: ListingCategory[], locales: 
   'facts in every language. Never invent times, places, prices or names that are not stated.\n' +
   WRITING_RULE +
   SHORT_RULE +
-  categoryRule('this event', categories) +
   eventFieldRules() +
   (adminText ? `What the admin wrote about the event (trust it): ${adminText}\n` : 'The admin wrote nothing.\n');
 
@@ -283,7 +262,7 @@ const CORRECTION_RULE =
   'with only its spelling, grammar and punctuation mistakes fixed: keep their words, style, tone and order, and never ' +
   'rewrite, add or leave out anything';
 
-// Added after the usual prompt, so type, category and price are still read from the text.
+// Added after the usual prompt, so type and price are still read from the text.
 const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   `IMPORTANT: the admin wants their own words, so the texts rule above does not apply. In ${locales[0]}, the ` +
   (kept.title ? `title is ${kept.isCorrected ? '' : 'exactly '}"${kept.title}"` : 'title is 2–6 words taken from their text') +
@@ -291,7 +270,7 @@ const keptTextRule = (kept: KeptText, locales: Locale[]) =>
   ' Every other language gets a faithful translation of that title and description, adding and leaving out nothing.\n';
 
 // Added when the admin started the listing as "Busco": the wanted rule above is the one that applies.
-const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow the WANTED rule for texts, price and category.\n';
+const WANTED_ONLY_RULE = 'IMPORTANT: this IS a wanted ad (type WANTED), follow the WANTED rule for texts and price.\n';
 
 // Without a photo, everything comes from the words; the picture is made from the text afterwards.
 const NO_PHOTO_RULE =
@@ -346,29 +325,27 @@ const picturePrompt = ({ title, description }: { title: string; description: str
 export const createPicture = (text: { title: string; description: string }, type: ListingType, wish?: string | null) =>
   generateImage(withWish(picturePrompt(text, type, ITEM_SCENE), wish), { size: LISTING_PHOTO_SIZE });
 
-/** Title and description in every shop language (the first one is the text's own: the base), the category, the type and the price.
+/** Title and description in every shop language (the first one is the text's own: the base), the type and the price.
     With `kept`, the admin's own text stays as it is (or only corrected) and is translated. Without a photo the AI goes
     by the text alone. An Anuncio (PRODUCT) may come back as SERVICE or WANTED; the other types stay as chosen. With
     several live `places`, it also names the town; with `tags`, it may pick one of them. */
 export async function writeListing(
   photo: Buffer | null,
   sellerText: string,
-  categories: ListingCategory[],
   locales: Locale[],
   type: ListingType = 'PRODUCT',
   kept?: KeptText,
   places: ListingPlace[] = [],
   tags: string[] = []
 ): Promise<Omit<ListingText, 'type'> & { type: ListingType }> {
-  const slugs = categories.map((category) => category.slug);
   const isService = type === 'SERVICE';
   const isEvent = type === 'EVENT';
   const prompt =
     (isService
-      ? servicePrompt(sellerText, categories, locales)
+      ? servicePrompt(sellerText, locales)
       : isEvent
-        ? eventPrompt(sellerText, categories, locales)
-        : listingPrompt(sellerText, categories, locales)) +
+        ? eventPrompt(sellerText, locales)
+        : listingPrompt(sellerText, locales)) +
     (type === 'WANTED' ? WANTED_ONLY_RULE : '') +
     (photo ? '' : NO_PHOTO_RULE) +
     placeRule(places) +
@@ -378,7 +355,7 @@ export async function writeListing(
       prompt: kept ? prompt + keptTextRule(kept, locales) : prompt,
       isWebSearch: Boolean(photo) && !isService && !isEvent,
       schema: withTag(
-        withPlace(isService ? serviceJsonSchema(locales, slugs) : isEvent ? eventJsonSchema(locales, slugs) : listingJsonSchema(locales, slugs), places),
+        withPlace(isService ? serviceJsonSchema(locales) : isEvent ? eventJsonSchema(locales) : listingJsonSchema(locales), places),
         tags
       ),
     })
@@ -389,38 +366,33 @@ export async function writeListing(
     result.texts[locales[0]] = { title: kept.title || own?.title || '', description: kept.description, short: own?.short };
   }
   const resolvedType = type === 'PRODUCT' ? (result.type ?? 'PRODUCT') : type;
-  // The enum already holds it to a slug; this also covers a category deleted while the AI worked.
-  const category = slugs.includes(result.category) ? result.category : slugs.includes(FALLBACK_CATEGORY_SLUG) ? FALLBACK_CATEGORY_SLUG : slugs[0];
   const tag = result.tag && tags.includes(result.tag) ? result.tag : null;
-  return { ...result, category, type: resolvedType, tag };
+  return { ...result, type: resolvedType, tag };
 }
 
 const fieldsSchema = listingSchema.omit({ texts: true, type: true });
 
-// Category null: the AI answered with one deleted meanwhile.
-export type ListingFields = Omit<z.infer<typeof fieldsSchema>, 'category'> & { category: string | null };
+export type ListingFields = z.infer<typeof fieldsSchema>;
 
 /** The editor's fields read again from the listing's title and description, without writing any text: what isn't
     stated comes back null. With several live `places`, also the town. */
-export async function readListingFields(text: string, type: ListingType, categories: ListingCategory[], places: ListingPlace[] = []): Promise<ListingFields> {
-  const slugs = categories.map((category) => category.slug);
-  const fields = fieldsSchema.parse(
-    await draftText(null, text, null, { prompt: fieldsPrompt(type, text, categories) + placeRule(places), schema: withPlace(fieldsJsonSchema(type, slugs), places) })
+export async function readListingFields(text: string, type: ListingType, places: ListingPlace[] = []): Promise<ListingFields> {
+  return fieldsSchema.parse(
+    await draftText(null, text, null, { prompt: fieldsPrompt(type, text) + placeRule(places), schema: withPlace(fieldsJsonSchema(type), places) })
   );
-  return { ...fields, category: slugs.includes(fields.category) ? fields.category : null };
 }
 
-const categoryTextPrompt = (locales: Locale[]) =>
-  'Write the description of a category of Baifo, a local marketplace in Fuerteventura, from what the admin wrote. ' +
-  `For each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: the title is the category ` +
+const groupTextPrompt = (locales: Locale[]) =>
+  'Write the description of a Mercadillo of Baifo (a group of listings) in Fuerteventura, from what the admin wrote. ' +
+  `For each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: the title is the ` +
   `name (in ${locales[0]} exactly as the admin wrote it, translated naturally for the others) and the description is one ` +
   'or two short, inviting sentences, at most 200 characters, telling visitors what they find in it. The same facts in ' +
   'every language; never invent brands, places or offers that are not stated. Return JSON with texts.\n';
 
-/** A category's name and an inviting description in every shop language (its own first), from the admin's notes. */
-export async function writeCategoryText(text: { title: string; description: string }, locales: Locale[]) {
+/** A Mercadillo's name and an inviting description in every shop language (its own first), from the admin's notes. */
+export async function writeGroupText(text: { title: string; description: string }, locales: Locale[]) {
   const result = await draftText(null, '', null, {
-    prompt: categoryTextPrompt(locales) + `Name: ${text.title}\nWhat the admin wrote: ${text.description || '(nothing)'}\n`,
+    prompt: groupTextPrompt(locales) + `Name: ${text.title}\nWhat the admin wrote: ${text.description || '(nothing)'}\n`,
     schema: { type: 'object', properties: { texts: textsJsonSchema(locales) }, required: ['texts'] },
   });
   return z.object({ texts: z.record(z.string(), textSchema) }).parse(result).texts as Partial<Record<Locale, z.infer<typeof textSchema>>>;

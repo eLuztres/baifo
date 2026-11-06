@@ -12,16 +12,15 @@ import { getCorralHosts } from '@/components/shared/home/corral-hosts';
 import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
-import { getStoreCategories } from '@/lib/actions/category.actions';
 import { absoluteUrl, BRAND } from '@/lib/brand';
-import { localize, localizeProduct } from '@/lib/category';
-import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS, listingTypeOf, type ListingType } from '@/lib/constants';
+import { localize, localizeProduct } from '@/lib/localize';
+import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS } from '@/lib/constants';
 import { feedCardLabels } from '@/lib/listing-labels';
-import type { TranslationKey } from '@/lib/i18n';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
 import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
+import { getTagOptions } from '@/lib/tags';
 import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
 import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
@@ -34,11 +33,12 @@ import ExploreScrollKeeper from '@/components/shared/explore-scroll-keeper';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
 import TagBadges from '@/components/shared/product/tag-badges';
-import { tagNameIn } from '@/lib/tag-names';
+import { findTagByParam, tagHref, tagNameIn } from '@/lib/tag-names';
+import { chosenTypeFilters, currentExploreLink, inScopeOf, ofTypes, TYPE_FILTERS } from '@/lib/explore-filters';
 import { cn, formatPriceTag } from '@/lib/utils';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing and `categoria` categories (comma separated), `mercadillo` one Mercadillo's listings. `c` is the older link to one category. */
+  /** `q` the typed search, `tipo` kinds of listing (comma separated), `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
   searchParams: Promise<{ q?: string; tipo?: string; categoria?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
 }
 
@@ -47,17 +47,10 @@ type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
 // A suggestion only needs the start of a long description.
 const SUGGESTION_TEXT_LENGTH = 400;
 
-// The three things a listing can be. Services count as offers; the first param is the link's, older links keep working.
-const TYPE_FILTERS: { params: string[]; labelKey: TranslationKey; types: ListingType[] }[] = [
-  { params: ['ofrezco', 'productos', 'servicios'], labelKey: 'EXPLORE_TYPE_OFFER', types: ['PRODUCT', 'SERVICE'] },
-  { params: ['busco'], labelKey: 'EXPLORE_TYPE_WANTED', types: ['WANTED'] },
-  { params: ['eventos'], labelKey: 'EXPLORE_TYPE_EVENT', types: ['EVENT'] },
-];
-
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
-  const [{ q, tipo, categoria, mercadillo }, { t, locale }, categories, mercadillos] = await Promise.all([searchParams, getT(), getStoreCategories(), getMercadillos()]);
+  const [{ q, tipo, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
   // A shared Mercadillo shows its own name, words and picture.
-  const shared = !q && !tipo && !categoria && mercadillos.find((option) => option.slug === mercadillo);
+  const shared = !q && !tipo && mercadillos.find((option) => option.slug === mercadillo);
   if (shared) {
     const title = t('MERCADILLO_NAMED', { name: localize(shared.name, locale) });
     const description = metaDescription(localize(shared.text, locale)) || undefined;
@@ -74,15 +67,11 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
       },
     };
   }
-  // One category alone is a page of its own for search engines; any other mix of filters points back to the feed.
-  const chosen = !q && !tipo && !mercadillo && categories.find((option) => option.slug === categoria);
-  if (chosen) {
-    const category = localize(chosen.name, locale);
-    return {
-      title: t('EXPLORE_CATEGORY_SEO_TITLE', { category }),
-      description: metaDescription(t('EXPLORE_CATEGORY_SEO_DESCRIPTION', { category })),
-      alternates: await pageAlternates(`/explore?categoria=${chosen.slug}`),
-    };
+  // A shared etiqueta's link shows its name, in the language it is opened in.
+  const sharedTag = !q && !tipo && !mercadillo && findTagByParam(tags, etiqueta);
+  if (sharedTag) {
+    const title = tagNameIn(sharedTag.names, locale);
+    return { title, alternates: await pageAlternates(tagHref(sharedTag.names, locale)), openGraph: { siteName: BRAND.name, title, locale } };
   }
   return {
     title: t('EXPLORE_SEO_TITLE'),
@@ -91,41 +80,33 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
   };
 }
 
-// Every language's text, so a visitor finds a listing by the words of any of them.
-const allTexts = (value: unknown) => Object.values((value ?? {}) as Record<string, string>).filter(Boolean);
-const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, categoria, mercadillo, c, etiqueta }, { t, locale }, categories, allListings, placeIds, mercadillos] = await Promise.all([
+  const [{ q = '', tipo, categoria, mercadillo, c, etiqueta }, { t, locale }, allListings, placeIds, mercadillos] = await Promise.all([
     searchParams,
     getT(),
-    getStoreCategories(),
     getInStockRings(),
     getVisitorPlaceIds(),
     getMercadillos(),
   ]);
-  // Older links keep working (the listing's way back, and ?c=eventos from the former Eventos category).
-  if (c) redirect(listingTypeOf(c) && !categories.some((category) => category.slug === c) ? `/explore?tipo=${c}` : `/explore?categoria=${c}`);
+  const currentLink = currentExploreLink({ c, categoria });
+  if (currentLink) redirect(currentLink);
 
   const texts = adminTexts(locale);
   const now = new Date();
   const listings = inPlaces(allListings, placeIds);
   const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
-  const categoryById = new Map(categories.map((category) => [category.id, category]));
 
-  // A listing is found by its names and etiquetas (in every language), and by its description, its categories' names and its kind.
+  // A listing is found by its names and etiquetas (in every language), and by its description and its kind.
   const searchTextOf = (listing: Listing): SearchableText => {
     const translations = Object.values((listing.translations ?? {}) as Record<string, { name?: string; shortName?: string; description?: string }>);
-    const ownCategories = listing.categoryIds.map((id) => categoryById.get(id)).filter((category) => category !== undefined);
     return {
       names: [listing.name, listing.shortName, ...translations.flatMap((text) => [text.name, text.shortName]), ...listing.tags.flatMap((tag) => Object.values(tag.names))].filter(Boolean).map((name) => foldText(name!)).join(' | '),
       rest: foldText(
         [
           listing.description,
           ...translations.map((text) => text.description),
-          // Only the category's names: its keywords would make every listing in it a match (they find the category itself).
-          ...ownCategories.flatMap((category) => allTexts(category.name)),
           t(LISTING_TYPE_KEYS[listing.type]),
         ]
           .filter(Boolean)
@@ -136,21 +117,16 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   const words = queryWords(q);
   const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
-  const inMercadillo = chosenMercadillo ? listings.filter((listing) => listing.mercadilloId === chosenMercadillo.id) : listings;
   // A chosen etiqueta shows exactly the listings that carry it.
-  const chosenTag = etiqueta ? listings.flatMap((listing) => listing.tags).find((tag) => tag.id === etiqueta) : undefined;
-  const inScope = chosenTag ? inMercadillo.filter((listing) => listing.tags.some((tag) => tag.id === chosenTag.id)) : inMercadillo;
+  const chosenTag = findTagByParam(listings.flatMap((listing) => listing.tags), etiqueta);
+  const inScope = inScopeOf(listings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
-  const chosenFilters = TYPE_FILTERS.filter(({ params }) => listParam(tipo).some((param) => params.includes(param)));
+  const chosenFilters = chosenTypeFilters(tipo);
   const types = chosenFilters.flatMap((filter) => filter.types);
-  // A link can name a category that's gone; it counts as not chosen.
-  const slugs = listParam(categoria).filter((slug) => categories.some((category) => category.slug === slug));
-  const ofType = types.length ? found.filter((listing) => types.includes(listing.type)) : found;
-  const categoryIds = categories.filter((category) => slugs.includes(category.slug)).map((category) => category.id);
-  const shown = categoryIds.length ? ofType.filter((listing) => listing.categoryIds.some((id) => categoryIds.includes(id))) : ofType;
+  const shown = ofTypes(found, types);
 
   // Only the plain list has rows: a search or filter shows every match in the grid.
-  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && categoryIds.length === 0;
+  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0;
   const rows = isPlainList
     ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
     : [];
@@ -158,51 +134,31 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const rowSpots = pickRowSpots(gridListings.length, rows.length);
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 
-  const filled = categories
-    .map((category) => ({ category, count: ofType.filter((listing) => listing.categoryIds.includes(category.id)).length }))
-    // A chosen category stays, even when the type or search leaves it empty, so its name can still show and be undone.
-    .filter(({ category, count }) => count > 0 || slugs.includes(category.slug))
-    .sort((a, b) => b.count - a.count);
-
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, categoria, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
-    const category = categoryById.get(listing.categoryIds[0]);
     return {
       href: hrefOf(listing),
       name: localizeProduct(listing, locale).name,
       image: listing.image,
-      category: category && localize(category.name, locale),
       text: { names: text.names, rest: text.rest.slice(0, SUGGESTION_TEXT_LENGTH) },
     };
   });
-  const searchChoices: SearchChoice[] = [
-    ...TYPE_FILTERS.map((filter) => ({ filter, count: listings.filter((listing) => filter.types.includes(listing.type)).length }))
-      .filter(({ count }) => count > 0)
-      .map(({ filter, count }) => ({
-        href: `/explore?tipo=${filter.params[0]}`,
-        label: t(filter.labelKey),
-        count,
-        text: { names: foldText(t(filter.labelKey)), rest: '' },
-      })),
-    ...categories
-      .map((category) => ({ category, inIt: listings.filter((listing) => listing.categoryIds.includes(category.id)) }))
-      .filter(({ inIt }) => inIt.length > 0)
-      .map(({ category, inIt }) => ({
-        href: `/explore?categoria=${category.slug}`,
-        label: localize(category.name, locale),
-        image: category.image ?? inIt[0]?.image,
-        count: inIt.length,
-        text: { names: allTexts(category.name).map(foldText).join(' | '), rest: foldText(category.keywords.join(' ')) },
-      })),
-  ];
+  const searchChoices: SearchChoice[] = TYPE_FILTERS.map((filter) => ({ filter, count: listings.filter((listing) => filter.types.includes(listing.type)).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ filter, count }) => ({
+      href: `/explore?tipo=${filter.params[0]}`,
+      label: t(filter.labelKey),
+      count,
+      text: { names: foldText(t(filter.labelKey)), rest: '' },
+    }));
   // Every etiqueta on a listing, once, with how many listings carry it; found by its name in any language.
   const tagCounts = new Map<string, { tag: Listing['tags'][number]; count: number }>();
   for (const tag of listings.flatMap((listing) => listing.tags)) tagCounts.set(tag.id, { tag, count: (tagCounts.get(tag.id)?.count ?? 0) + 1 });
   const searchTags: SearchChoice[] = [...tagCounts.values()].map(({ tag, count }) => ({
-    href: `/explore?etiqueta=${tag.id}`,
+    href: tagHref(tag.names, locale),
     label: tagNameIn(tag.names, locale),
     count,
     text: { names: Object.values(tag.names).filter(Boolean).map((name) => foldText(name!)).join(' | '), rest: '' },
@@ -296,7 +252,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       <h1 className='sr-only'>
         {q.trim() ||
           (chosenMercadillo && localize(chosenMercadillo.name, locale)) ||
-          (slugs.length === 1 && t('EXPLORE_CATEGORY_SEO_TITLE', { category: localize(categories.find((category) => category.slug === slugs[0])?.name, locale) })) ||
           t('EXPLORE_SEO_TITLE')}
       </h1>
       <div className='sr-only'>{pullUpHome}</div>
@@ -337,16 +292,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   isCompact
                   isSingleChoice
                   className='w-24 sm:w-40 lg:w-44'
-                />
-                <FilterDropdown
-                  label={t('SEARCH_CATEGORY')}
-                  allLabel={t('SEARCH_ANY')}
-                  param='categoria'
-                  options={filled.map(({ category, count }) => ({ value: category.slug, label: localize(category.name, locale), count }))}
-                  selected={slugs}
-                  isCompact
-                  isSingleChoice
-                  className='w-26 sm:w-60 lg:w-76'
                 />
               </div>
             </StickyFilterRow>

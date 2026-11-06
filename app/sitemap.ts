@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getInStockSlugs, getRingSummaries } from '@/components/shared/home/in-stock-rings';
-import { getStoreCategories } from '@/lib/actions/category.actions';
+import { getInStockSlugs } from '@/components/shared/home/in-stock-rings';
 import { SERVER_URL } from '@/lib/constants';
 import { languageAlternates } from '@/lib/seo';
 
@@ -16,15 +15,13 @@ const entry = (path: string, lastModified?: Date): MetadataRoute.Sitemap[number]
   alternates: { languages: absolute(languageAlternates(path)) },
 });
 
-/** Home, the feed, each category with listings and every listing the shop shows; expired and sold ones drop out with it. */
+/** Home, the feed and every listing the shop shows; expired and sold ones drop out with it. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [listings, summaries, categories] = await Promise.all([getInStockSlugs(), getRingSummaries(), getStoreCategories()]);
-  const filled = categories.filter((category) => summaries.some((listing) => listing.categoryIds.includes(category.id)));
+  const listings = await getInStockSlugs();
 
   return [
     entry('/'),
     entry('/explore'),
-    ...filled.map((category) => entry(`/explore?categoria=${category.slug}`)),
     ...listings.map((listing) => entry(`/product/${listing.slug}`, listing.createdAt)),
   ];
 }

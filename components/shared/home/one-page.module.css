@@ -14,7 +14,7 @@
   scroll-snap-type: y mandatory;
 }
 
-/* Links to a part (See the categories, the nav) glide down to it instead of jumping. */
+/* Links to a part (the nav) glide down to it instead of jumping. */
 @media (prefers-reduced-motion: no-preference) {
   :global(div):has(> :global(main) .onePage) {
     scroll-behavior: smooth;
@@ -67,7 +67,7 @@
   outline: none;
 }
 
-/* The store with its category selector is exactly one screen, with nothing to scroll inside it. */
+/* A part that is exactly one screen, with nothing to scroll inside it. */
 .fitScreen {
   display: flex;
   flex-direction: column;

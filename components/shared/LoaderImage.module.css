@@ -69,7 +69,7 @@
     stroke: var(--loader-steel-dark, #8d929b);
 }
 
-/* The stone line: the shop's inlay color (turquoise by default), as on the category ring. */
+/* The stone line: the shop's inlay color (turquoise by default). */
 .inlay {
     stroke: var(--inlay);
 }

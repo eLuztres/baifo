@@ -84,5 +84,6 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 
 - Pull updates with `git fetch upstream && git merge upstream/main`. Then run `npm install` and `npx prisma migrate deploy`.
 - **Baifo has no payments on purpose (2026-11-04):** no Stripe, PayPal, cart, checkout or orders, only the Bizum and cash listing fee. When merging from `custom`, keep them out, even though the template's code otherwise wins. The tables stay in the database.
+- **Baifo has no categories (2026-11-06), only etiquetas:** no Category table, category ring, product studio or product form; every listing has a submission and is edited in the listing editor. When merging from `custom`, keep them out too.
 - When resolving conflicts, the template's code wins. The customer's `.env`, `public/brand/` and `brand/messages/` win.
 - If a customer needs a change that isn't configurable yet, make it configurable **in the template**, then merge it down. Don't fork the code in the customer repo.

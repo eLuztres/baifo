@@ -56,7 +56,7 @@ const envNumber = (key: string, fallback: number) => {
 export const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
 // A showcase that still shows prices (e.g. a classifieds board where buyers contact the seller).
 export const SHOWS_PRICES = !SHOWCASE_MODE || process.env.SHOWCASE_SHOW_PRICES === 'true';
-// Every listing is exactly one of these, and any type goes in any category. A service (babysitter, gardener …) or an
+// Every listing is exactly one of these. A service (babysitter, gardener …) or an
 // event (a workshop, a concert) never has a cart, only its contact; an event's price is its entry (0: free).
 export const LISTING_TYPES = ['PRODUCT', 'WANTED', 'SERVICE', 'EVENT'] as const satisfies readonly ListingType[];
 export type { ListingType };
@@ -98,11 +98,11 @@ const CONDITION_KEYS = {
 /** The text key of a product's condition, or none for a missing or unknown one. */
 export const conditionKey = (condition?: string | null) =>
   PRODUCT_CONDITIONS.includes(condition as ProductCondition) ? CONDITION_KEYS[condition as ProductCondition] : undefined;
-// The AI product studio needs an OpenAI key; without one, new products use the plain product form.
+// The AI needs an OpenAI key; without one the admin shows no AI costs.
 export const IS_STUDIO_ENABLED = Boolean(process.env.OPENAI_API_KEY);
 // Where the admin menu's "New product" leads; a shop with its own creation flow sets it in .env.
 export const NEW_PRODUCT_PATH =
-  process.env.ADMIN_NEW_PRODUCT_PATH || (IS_STUDIO_ENABLED ? '/admin/studio' : '/admin/products/create');
+  process.env.ADMIN_NEW_PRODUCT_PATH || '/admin/listings/new';
 /** A listing shop's "Crear" first asks Anuncio or Evento instead of opening one creation page. */
 export const CHOOSES_LISTING_TYPE = NEW_PRODUCT_PATH.startsWith('/admin/listings/new');
 /** Where a new listing of a type starts in the admin. */
@@ -110,16 +110,11 @@ export const newListingPath = (type: ListingType) =>
   type === 'PRODUCT' ? '/admin/listings/new' : `/admin/listings/new?tipo=${LISTING_TYPE_PARAMS[type]}`;
 /** On a listing's page while the admin is still creating it: the menu keeps "New listing" lit. */
 export const CREATING_PARAM = 'nuevo';
-/** Where "Add a product" in a category leads: the studio files it there; a listing shop starts a new listing. */
-export const newProductPathFor = (category: { id: string }) =>
-  NEW_PRODUCT_PATH === '/admin/studio' ? `/admin/studio?category=${category.id}` : NEW_PRODUCT_PATH;
 
 // How long a ring stays reserved for a customer after "Show interest"; set per shop in .env.
 export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 // How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
-// So one listing can't fill every category in the feed's filter.
-export const MAX_LISTING_CATEGORIES = envNumber('MAX_LISTING_CATEGORIES', 3);
 export const MAX_LISTING_TAGS = envNumber('MAX_LISTING_TAGS', 5);
 // Listings that go offline within this many days show in the feed's "Ending soon"; set per shop in .env.
 export const ENDING_SOON_DAYS = envNumber('ENDING_SOON_DAYS', 3);

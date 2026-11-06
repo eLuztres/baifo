@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Tag } from 'lucide-react';
 import type { Locale } from '@/lib/i18n-core';
-import { byTagName, tagNameIn, type TagNames } from '@/lib/tag-names';
+import { byTagName, tagHref, tagNameIn, type TagNames } from '@/lib/tag-names';
 import { cn } from '@/lib/utils';
 
 interface TagBadgesProps {
@@ -28,7 +28,7 @@ export default function TagBadges({ tags, locale, isLinked, className }: TagBadg
         return (
           <li key={tag.id} className='min-w-0'>
             {isLinked ? (
-              <Link href={`/explore?etiqueta=${tag.id}`} className={cn(badgeClass, 'transition hover:border-primary/50')}>
+              <Link href={tagHref(tag.names, locale)} className={cn(badgeClass, 'transition hover:border-primary/50')}>
                 {content}
               </Link>
             ) : (

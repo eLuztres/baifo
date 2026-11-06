@@ -10,7 +10,6 @@ import {
   List,
   MapPin,
   Plus,
-  Shapes,
   SlidersHorizontal,
   Sparkles,
   Store,
@@ -33,12 +32,6 @@ const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon:
     title: 'ADMIN_NEW_PRODUCT',
     href: '/admin/studio',
     icon: Plus,
-  },
-  {
-    title: 'ADMIN_PRODUCTS',
-    hint: 'ADMIN_PRODUCTS_HINT',
-    href: '/admin/products',
-    icon: Shapes,
   },
   {
     title: 'ADMIN_OVERVIEW',

@@ -1,12 +1,19 @@
 import { z } from 'zod';
-import {
-  insertProductSchema,
-  insertReviewSchema
+import { insertReviewSchema } from '@/lib/validators';
 
-} from '@/lib/validators';
-
-
-export type Product = z.infer<typeof insertProductSchema> & {
+export interface Product {
+  name: string;
+  shortName?: string | null;
+  slug: string;
+  brand: string;
+  description: string;
+  stock: number;
+  images: string[];
+  isFeatured: boolean;
+  banner: string | null;
+  price: string;
+  priceClass?: string | null;
+  sourceImage?: string | null;
   id: string;
   rating: string;
   numReviews: number;
@@ -14,7 +21,7 @@ export type Product = z.infer<typeof insertProductSchema> & {
   imageIndex : number;
   reservedUntil?: Date | string | null;
   reservedById?: string | null;
-};
+}
 
 export type Review = z.infer<typeof insertReviewSchema> & {
   id: string;

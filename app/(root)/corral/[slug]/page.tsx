@@ -9,7 +9,7 @@ import FeedCard from '@/components/shared/product/feed-card';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { Button } from '@/components/ui/button';
 import { BRAND } from '@/lib/brand';
-import { localizeProduct } from '@/lib/category';
+import { localizeProduct } from '@/lib/localize';
 import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { feedCardLabels } from '@/lib/listing-labels';

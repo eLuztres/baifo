@@ -6,7 +6,7 @@ import CorralHostsButton from '@/components/shared/home/corral-hosts-button';
 import { getCorralHosts } from '@/components/shared/home/corral-hosts';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { BRAND } from '@/lib/brand';
-import { localizeProduct } from '@/lib/category';
+import { localizeProduct } from '@/lib/localize';
 import { APP_NAME } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { feedCardLabels } from '@/lib/listing-labels';

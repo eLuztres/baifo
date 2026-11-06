@@ -27,5 +27,5 @@ export const Cards: Story = {};
 
 export const Compact: Story = { args: { isCompact: true } };
 
-/** The category editor passes no "only fix mistakes" labels. */
+/** The Mercadillo editor passes no "only fix mistakes" labels. */
 export const TwoChoices: Story = { args: { hasCorrected: false } };
