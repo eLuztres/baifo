@@ -111,9 +111,16 @@
     height: calc(100svh - 6rem);
   }
 
-  /* Full width, but smaller on short screens, so title, price and buttons (about 13rem) still fit below it. */
+  /* Full width at most; it gives up height to whatever title, etiquetas, price and buttons need below it. */
+  .photo {
+    display: flex;
+    flex: 0 1 calc(100vw * 4 / 3);
+    justify-content: center;
+    min-height: 0;
+  }
+
   .phonePicture {
-    width: min(100%, calc((100svh - 4rem - 13rem) * 0.75));
-    margin-inline: auto;
+    height: 100%;
+    max-width: 100%;
   }
 }
