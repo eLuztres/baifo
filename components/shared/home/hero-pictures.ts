@@ -34,5 +34,15 @@ export function getHeroPictures(): HeroPicture[] {
   return [...pictures.values()].filter((picture) => picture.tall || picture.wide);
 }
 
+/**
+ * The same pictures, starting at a random one so each visit opens differently. Only a picture drawn for both screen
+ * shapes can start: it shows before the page knows the shape.
+ */
+export function startAtRandom(pictures: HeroPicture[]): HeroPicture[] {
+  const starts = pictures.flatMap((picture, index) => (picture.tall && picture.wide ? [index] : []));
+  const start = starts[Math.floor(Math.random() * starts.length)] ?? 0;
+  return [...pictures.slice(start), ...pictures.slice(0, start)];
+}
+
 /** `01-newspaper` → `HOME_HERO_ALT_NEWSPAPER`: the order prefix can change without touching the texts. */
 export const heroAltKey = (name: string) => `HOME_HERO_ALT_${name.replace(/^\d+-/, '').replace(/-/g, '_').toUpperCase()}`;

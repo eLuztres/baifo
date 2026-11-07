@@ -6,7 +6,7 @@ import { useActiveSection } from '@/components/shared/header/use-active-section'
 import { prefersReducedMotion, SECTION_IDS } from './one-page';
 import styles from './scene-hero.module.css';
 
-const SCENE_MS = 7000;
+const SCENE_MS = 4000;
 const WIDE_SCREEN = '(min-aspect-ratio: 1/1)';
 
 export interface Scene {

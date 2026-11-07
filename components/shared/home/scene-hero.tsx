@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import AdvertiseBox from './advertise-box';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
-import { type HeroPicture, heroAltKey } from './hero-pictures';
+import { type HeroPicture, heroAltKey, startAtRandom } from './hero-pictures';
 import SceneCrossfade from './scene-crossfade';
 import styles from './scene-hero.module.css';
 
@@ -23,7 +23,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
-  const scenes = pictures.map(({ name, tall, wide, figure }) => {
+  const scenes = startAtRandom(pictures).map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
     const alt = t(key as TranslationKey);
     return { tall, wide, figure, alt: alt === key ? '' : alt };
