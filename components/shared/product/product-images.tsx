@@ -9,15 +9,16 @@ import ImageLightbox from '@/components/shared/image-lightbox';
 import { useSwipe } from '@/hooks/useSwipe';
 import { prefersReducedMotion } from '@/components/shared/home/one-page';
 import { isVideoUrl } from '@/lib/video';
+import type { PictureMotion } from '@/lib/picture-motion';
 import { playFullScreen } from '@/lib/video-full-screen';
 import AiPictureMark from './ai-picture-mark';
 import BrandStamp from './brand-stamp';
-import { RingGlassCard } from './product-ring';
+import MovingPictures from './moving-pictures';
 import ringStyles from './product-ring.module.css';
 import VideoSoundButton from './video-sound-button';
 
-// Long enough to really look at each view before the next one dissolves in.
-const TURN_MS = 6000;
+// Long enough to look at each view; it drifts slowly meanwhile, then moves on to the next.
+const TURN_MS = 4500;
 const TURN_BUTTON_CLASS =
   'size-14 rounded-full border-primary/40 text-primary hover:border-primary [&_svg]:size-6 max-sm:hidden';
 
@@ -30,11 +31,12 @@ interface ProductImagesProps {
   aiLabel?: string;
   /** Phones: sizes the swiped photos, e.g. smaller on short screens. */
   phoneClassName?: string;
+  /** How the pictures move from one to the next ('still': they wait for the visitor). */
+  motion?: PictureMotion;
 }
 
-const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName }: ProductImagesProps) => {
+const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName, motion = 'mix' }: ProductImagesProps) => {
   const [current, setCurrent] = useState(0);
-  const [phoneIndex, setPhoneIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
@@ -44,25 +46,18 @@ const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName }: ProductI
   const swipe = useSwipe({ onSwipe: turn });
 
   const cardRef = useRef<HTMLDivElement>(null);
-  const tilesRef = useRef<HTMLDivElement>(null);
+  const phoneRef = useRef<HTMLDivElement>(null);
   const isVideoShown = isVideoUrl(images[current] ?? '');
-  const getCardVideo = useCallback(() => cardRef.current?.firstElementChild?.children[current]?.querySelector('video'), [current]);
-  const getTileVideo = useCallback(() => tilesRef.current?.children[phoneIndex]?.querySelector('video'), [phoneIndex]);
+  const getCardVideo = useCallback(() => cardRef.current?.querySelector<HTMLVideoElement>(`[data-index="${current}"] video`), [current]);
+  const getPhoneVideo = useCallback(() => phoneRef.current?.querySelector<HTMLVideoElement>(`[data-index="${current}"] video`), [current]);
 
   // A swipe ends on the photo too; only a real tap opens the full-screen view.
-  const openFullScreen = () => {
+  const openFullScreen = (getVideo: () => HTMLVideoElement | null | undefined) => {
     if (swipe.hasSwiped()) return;
     // The video already playing goes full screen itself: it goes on from what it has loaded instead of starting over.
-    const video = isVideoShown ? getCardVideo() : null;
+    const video = isVideoShown ? getVideo() : null;
     if (video) playFullScreen(video);
     else setFullScreenIndex(current);
-  };
-
-  // On phones a video tile goes full screen itself too; photos open the viewer.
-  const openTile = (index: number, tile: HTMLElement) => {
-    const video = isVideoUrl(images[index]) ? tile.querySelector('video') : null;
-    if (video) playFullScreen(video);
-    else setFullScreenIndex(index);
   };
 
   // Closing the viewer keeps the photo that was looked at last.
@@ -78,41 +73,36 @@ const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName }: ProductI
   // The views follow each other quietly until the visitor takes over.
   useEffect(() => {
     // A video plays to the end instead of being turned away after a few seconds.
-    if (count < 2 || isHovered || isReducedMotion || fullScreenIndex !== null || isVideoShown) return;
-    const timer = setInterval(() => setCurrent((index) => (index + 1) % count), TURN_MS);
-    return () => clearInterval(timer);
-  }, [count, isHovered, isReducedMotion, fullScreenIndex, isVideoShown]);
+    if (count < 2 || motion === 'still' || isHovered || isReducedMotion || fullScreenIndex !== null || isVideoShown) return;
+    // Started again after every turn, so a picture the visitor chose gets its full time too.
+    const timer = setTimeout(() => setCurrent((index) => (index + 1) % count), TURN_MS);
+    return () => clearTimeout(timer);
+  }, [count, motion, isHovered, isReducedMotion, fullScreenIndex, isVideoShown, current]);
 
   return (
     <>
-      {/* Phones: the photos full width, one at a time, swiped sideways; a tap opens one full screen. */}
+      {/* Phones: the photos full width, moving one to the next; swiped sideways, a tap opens one full screen. */}
       <div className={cn('relative aspect-[3/4] sm:hidden', phoneClassName)}>
-        <div
-          ref={tilesRef}
-          className='flex size-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none]'
-          onScroll={(event) => setPhoneIndex(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth))}
+        <button
+          type='button'
+          onClick={() => openFullScreen(getPhoneVideo)}
+          aria-label={t('IMAGE_FULLSCREEN')}
+          className='relative size-full touch-pan-y'
+          {...(count > 1 ? swipe.handlers : {})}
         >
-          {images.map((image, index) => (
-            <button
-              type='button'
-              key={image}
-              onClick={(event) => openTile(index, event.currentTarget)}
-              aria-label={t('SHOW_IMAGE', { n: index + 1 })}
-              className='relative size-full shrink-0 snap-center'
-            >
-              <ProductMedia src={image} alt={index === 0 ? alt : ''} fill sizes='100vw' priority={index === 0} className='object-contain' playsWhenVisible />
-              {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-3 right-3' />}
-              {/* Beside the AI mark, which takes the corner. */}
-              <BrandStamp src={stamp} className={cn('bottom-3 right-3', aiLabel && 'right-11')} />
-            </button>
-          ))}
-        </div>
-        {/* Above the dots; outside the tile, whose tap goes full screen. */}
-        {isVideoUrl(images[phoneIndex] ?? '') && <VideoSoundButton getVideo={getTileVideo} className='bottom-10 left-3' />}
+          <div ref={phoneRef} className='contents'>
+            <MovingPictures images={images} index={current} alt={alt} motion={motion} sizes='100vw' priority imageClassName='object-contain' playsWhenVisible />
+          </div>
+          {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-3 right-3 z-10' />}
+          {/* Beside the AI mark, which takes the corner. */}
+          <BrandStamp src={stamp} className={cn('z-10 bottom-3 right-3', aiLabel && 'right-11')} />
+        </button>
+        {/* Above the dots; outside the picture, whose tap goes full screen. */}
+        {isVideoShown && <VideoSoundButton getVideo={getPhoneVideo} className='bottom-10 left-3' />}
         {count > 1 && (
-          <div aria-hidden='true' className='pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5 rounded-full bg-background/60 px-2 py-1.5 backdrop-blur-sm'>
+          <div aria-hidden='true' className='pointer-events-none absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 rounded-full bg-background/60 px-2 py-1.5 backdrop-blur-sm'>
             {images.map((image, index) => (
-              <span key={image} className={cn('size-1.5 rounded-full transition-colors', index === phoneIndex ? 'bg-foreground' : 'bg-foreground/35')} />
+              <span key={image} className={cn('size-1.5 rounded-full transition-colors', index === current ? 'bg-foreground' : 'bg-foreground/35')} />
             ))}
           </div>
         )}
@@ -163,11 +153,13 @@ const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName }: ProductI
               type='button'
               className='relative size-full cursor-zoom-in rounded-[1.75rem]'
               aria-label={t('IMAGE_FULLSCREEN')}
-              onClick={openFullScreen}
+              onClick={() => openFullScreen(getCardVideo)}
               {...(count > 1 ? swipe.handlers : {})}
             >
               <div ref={cardRef} className='contents'>
-                <RingGlassCard product={{ name: alt, images }} imageIndex={current} playsWhenVisible />
+                <div className={cn(ringStyles.glassCard, ringStyles.featured)}>
+                  <MovingPictures images={images} index={current} alt={alt} motion={motion} sizes='32rem' priority imageClassName='object-contain' playsWhenVisible />
+                </div>
               </div>
               {aiLabel && <AiPictureMark label={aiLabel} className='absolute bottom-3 right-3 size-8 [&_svg]:size-4' />}
               <BrandStamp src={stamp} className={cn('bottom-4 right-4', aiLabel && 'bottom-[1.1rem] right-13')} />

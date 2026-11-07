@@ -69,6 +69,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         address: submission.address,
         placeId,
         mercadilloId: submission.mercadilloId,
+        pictureMotion: submission.pictureMotion,
         isFeatured: plan === 'big',
         contactPhone,
         sellerId: submission.sellerId,

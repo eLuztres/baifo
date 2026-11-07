@@ -30,6 +30,7 @@ import { lacksConsent, markSent, recordConsent } from './listing-payment';
 import { enableListing, publishByAdmin, takeDown } from './publish';
 import { pictureCounterpart } from './pictures';
 import { takeVideoStill } from './video-cleanup';
+import { PICTURE_MOTIONS } from '@/lib/picture-motion';
 
 // Server actions are public endpoints: every one checks for an admin itself.
 const NOT_ALLOWED = { success: false, message: 'Solo para administradores' } as const;
@@ -221,6 +222,7 @@ const descriptionSchema = z.object({
   mercadilloId: mercadilloIdSchema,
   scoutId: scoutIdSchema,
   tags: tagsSchema,
+  pictureMotion: z.enum(PICTURE_MOTIONS).optional(),
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
   isHidden: z.boolean().default(false),
   onlineUntil: z
@@ -239,7 +241,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'tags') return { success: false, message: `Como mucho ${MAX_LISTING_TAGS} etiquetas` };
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'contacts') return { success: false, message: CHECK_CONTACTS };
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, scoutId, tags } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, scoutId, tags, pictureMotion } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
@@ -282,6 +284,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       ...(isEvent && { startsAt, address: address ?? null }),
       mercadilloId,
       scoutId,
+      pictureMotion,
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
@@ -357,6 +360,7 @@ const editSchema = z.object({
   mercadilloId: mercadilloIdSchema,
   scoutId: scoutIdSchema,
   tags: tagsSchema,
+  pictureMotion: z.enum(PICTURE_MOTIONS).optional(),
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
   // This listing's name; missing: it stays as it is.
@@ -431,7 +435,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, shortTitle, description, price, images, placeId, mercadilloId, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, placeId, mercadilloId, pictureMotion, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -449,6 +453,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         images,
         placeId,
         mercadilloId,
+        pictureMotion,
       },
     });
     revalidatePath('/');

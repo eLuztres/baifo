@@ -59,6 +59,8 @@ model Product {
   // The Mercadillo it belongs to, if any: /explore shows those together in one row.
   mercadilloId   String?     @db.Uuid
   mercadillo     Mercadillo? @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
+  // How its pictures move from one to the next (PICTURE_MOTIONS); 'still' keeps them still.
+  pictureMotion  String      @default("mix")
   // A service's kind of offer: class, service or support (SERVICE_TYPES).
   serviceType    String?
   // An event: when it starts (it leaves the shop after that day) and where it is.
@@ -380,6 +382,8 @@ model Submission {
   // Its Mercadillo; the product it becomes takes it over.
   mercadilloId      String?          @db.Uuid
   mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
+  // How its pictures move; the product it becomes takes it over.
+  pictureMotion     String           @default("mix")
   // Shown at the end of the description, and found by the search.
   tags              Tag[]
   // The señalador who sent the person to Baifo, if any.

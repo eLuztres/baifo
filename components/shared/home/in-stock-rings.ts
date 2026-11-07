@@ -50,6 +50,8 @@ export interface CollectionRing {
   placeId: string | null;
   /** Server only: the Mercadillo it belongs to, for its row in the list. */
   mercadilloId: string | null;
+  /** How its pictures move on its card (PICTURE_MOTIONS). */
+  pictureMotion: string;
   /** Server only: its etiquetas, for the feed's search and its cards. */
   tags: { id: string; names: TagNames }[];
 }
@@ -84,6 +86,7 @@ const RING_SELECT = {
   startsAt: true,
   placeId: true,
   mercadilloId: true,
+  pictureMotion: true,
   expiresAt: true,
   submission: { select: { rawImages: true, expiresAt: true, tags: { select: { id: true, names: true } } } },
 } satisfies Prisma.ProductSelect;

@@ -25,10 +25,10 @@ beforeAll(() => {
   window.matchMedia ??= (() => ({ matches: false })) as unknown as typeof window.matchMedia;
 });
 
-// The phone grid comes first in the page, before the desktop thumbnails with the same labels.
-const phoneTile = (n: number) => screen.getAllByRole('button', { name: t('SHOW_IMAGE', { n }) })[0];
+// The phone's picture comes first in the page, before the desktop one with the same label.
+const phonePicture = () => screen.getAllByRole('button', { name: t('IMAGE_FULLSCREEN') })[0];
 
-describe('ProductImages phone grid', () => {
+describe('ProductImages on phones', () => {
   it('loads the videos only once they are on screen, never all at once', () => {
     const { container } = renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
 
@@ -40,13 +40,13 @@ describe('ProductImages phone grid', () => {
     });
   });
 
-  it('puts the tapped video tile itself in full screen instead of opening the viewer', () => {
+  it('puts the tapped video itself in full screen instead of opening the viewer', () => {
     renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
 
-    const tile = phoneTile(1);
-    fireEvent.click(tile);
+    const picture = phonePicture();
+    fireEvent.click(picture);
 
-    expect(mockPlayFullScreen).toHaveBeenCalledWith(tile.querySelector('video'));
+    expect(mockPlayFullScreen).toHaveBeenCalledWith(picture.querySelector('video'));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -56,30 +56,27 @@ describe('ProductImages phone grid', () => {
     expect(screen.queryByRole('button', { name: t('VIDEO_SOUND_ON') })).not.toBeInTheDocument();
   });
 
-  it('opens the viewer for a photo tile', () => {
-    renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
+  it('opens the viewer for a photo', () => {
+    renderWithI18n(<ProductImages images={['/board.jpg', '/surf.mp4']} alt='Paddle surf' />);
 
-    fireEvent.click(phoneTile(2));
+    fireEvent.click(phonePicture());
 
     expect(mockPlayFullScreen).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog', { name: 'viewer 1' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'viewer 0' })).toBeInTheDocument();
   });
 });
 
-// The dots under the phone strip; the desktop gallery has none.
+// The dots on the phone's picture; the desktop gallery has none.
 const phoneDots = (container: HTMLElement) => container.querySelectorAll('[aria-hidden="true"] > span.rounded-full');
 
-describe('ProductImages phone swipe', () => {
-  it('shows one dot per picture and marks the one swiped to', () => {
+describe('ProductImages dots', () => {
+  it('shows one dot per picture and marks the one shown', () => {
     const { container } = renderWithI18n(<ProductImages images={IMAGES} alt='Paddle surf' />);
-    const strip = container.querySelector('.snap-x') as HTMLElement;
-    Object.defineProperty(strip, 'clientWidth', { value: 375 });
 
     expect(phoneDots(container)).toHaveLength(2);
     expect(phoneDots(container)[0]).toHaveClass('bg-foreground');
 
-    strip.scrollLeft = 375;
-    fireEvent.scroll(strip);
+    fireEvent.click(screen.getByRole('button', { name: t('SHOW_IMAGE', { n: 2 }) }));
 
     expect(phoneDots(container)[0]).toHaveClass('bg-foreground/35');
     expect(phoneDots(container)[1]).toHaveClass('bg-foreground');

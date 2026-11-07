@@ -31,6 +31,7 @@ jest.mock('@/components/marketplace/address-input', () => ({
 jest.mock('@/components/i18n-provider', () => ({ useI18n: () => ({ t: (key: string) => key, locale: 'en' }) }));
 jest.mock('@/components/shared/voice-input-button', () => () => null);
 jest.mock('@/components/ProductMedia', () => () => null);
+jest.mock('@/components/shared/product/moving-pictures', () => () => null);
 
 // Any text the step shows is just its key, so the buttons can be found by it.
 const texts = new Proxy({}, { get: (_, key) => (key === 'missingToPublish' ? 'missing: {items}' : String(key)) }) as AdminTexts;

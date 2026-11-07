@@ -38,7 +38,9 @@ import { sellerIdentity } from '@/lib/marketplace/seller';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
 import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constants';
 import { cn } from '@/lib/utils';
-import { pictureOf } from '@/lib/video';
+import { isVideoUrl, pictureOf } from '@/lib/video';
+import { PICTURE_MOTIONS, toPictureMotion, type PictureMotion } from '@/lib/picture-motion';
+import MovingPictures from '@/components/shared/product/moving-pictures';
 import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
@@ -152,6 +154,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const [targetStatus, setTargetStatus] = useState(listing.status);
   const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
   const [scoutId, setScoutId] = useState(listing.scoutId ?? '');
+  const [pictureMotion, setPictureMotion] = useState<PictureMotion>(toPictureMotion(listing.pictureMotion));
+  const motionPictures = (listing.images.length > 0 ? listing.images : listing.rawImages).filter((image) => !isVideoUrl(image));
   const [tags, setTags] = useState<EditorTag[]>(() => listing.tags);
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
@@ -246,6 +250,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         mercadilloId,
         scoutId,
         tags,
+        pictureMotion,
       });
       if (!result.success) return setError(result.message);
       onSent({ ...listing, status: 'PROCESSING', rawText: notes, textMode, lastError: null }, isForPerson);
@@ -271,6 +276,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       mercadilloId,
       scoutId,
       tags,
+      pictureMotion,
       sellerPhone: sentPhone,
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
       contacts: sentContacts(),
@@ -686,6 +692,32 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                 </select>
               </div>
             )}
+            <div className='space-y-1'>
+              <Label htmlFor='listing-motion' className='px-1 text-xs text-muted-foreground'>
+                {texts.pictureMotionLabel}
+              </Label>
+              <div className='flex items-center gap-3'>
+                <select
+                  id='listing-motion'
+                  value={pictureMotion}
+                  disabled={isWriting}
+                  onChange={(event) => setPictureMotion(event.target.value as PictureMotion)}
+                  className={cn(SELECT_CLASS, 'min-w-0 flex-1')}
+                >
+                  {PICTURE_MOTIONS.map((motion) => (
+                    <option key={motion} value={motion}>
+                      {texts[`pictureMotion_${motion}`]}
+                    </option>
+                  ))}
+                </select>
+                {/* As it will look; a new choice shows from the next change on. */}
+                {motionPictures.length > 0 && (
+                  <div className='aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-xl bg-muted'>
+                    <MovingPictures images={motionPictures} alt='' motion={pictureMotion} sizes='4rem' turnMs={1800} hasCloseUps />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

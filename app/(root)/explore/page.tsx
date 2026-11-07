@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
+import MovingPictures from '@/components/shared/product/moving-pictures';
+import { toPictureMotion } from '@/lib/picture-motion';
+import { isVideoUrl } from '@/lib/video';
 import { absoluteUrl, BRAND } from '@/lib/brand';
 import { localize, localizeProduct } from '@/lib/localize';
 import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS, PRICE_FILTER_STEPS, SHOWS_PRICES } from '@/lib/constants';
@@ -41,6 +44,9 @@ interface ExplorePageProps {
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
+
+// Each card's picture stays a moment before the next; the cards change at their own times, as they come on screen.
+const CARD_TURN_MS = 4000;
 
 // A suggestion only needs the start of a long description.
 const SUGGESTION_TEXT_LENGTH = 400;
@@ -199,7 +205,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         className='group flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card transition max-sm:rounded-2xl hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/10'
       >
         <div className='relative aspect-[3/4] bg-muted'>
-          <ProductMedia src={listing.images[0]} alt={name} fill sizes={sizes} playsWhenVisible />
+          {/* A video plays instead; photos move from one to the next as the listing chose. */}
+          {isVideoUrl(listing.images[0]) ? (
+            <ProductMedia src={listing.images[0]} alt={name} fill sizes={sizes} playsWhenVisible />
+          ) : (
+            <MovingPictures images={listing.images.filter((image) => !isVideoUrl(image))} alt={name} motion={toPictureMotion(listing.pictureMotion)} sizes={sizes} turnMs={CARD_TURN_MS} hasCloseUps />
+          )}
           {pictureLabel && (
             <span className='absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-xl bg-background/90 px-2.5 py-1 text-xs font-medium shadow sm:bottom-3 sm:left-3'>
               {pictureLabel}

@@ -312,21 +312,6 @@
     text-wrap: balance;
 }
 
-/* The ring's photos cross-fade in the featured card, each drifting in with a slow zoom. */
-/* Views fade through the dark, never overlapping: differently framed photos would show two rings at once. */
-.galleryImage {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 700ms ease-in;
-}
-
-.galleryActive {
-    opacity: 1;
-    transition: opacity 1100ms ease-out 650ms;
-    animation: ken-burns 14s ease-out both;
-}
-
 .thumb {
     position: relative;
     width: 4.5rem;
@@ -348,13 +333,6 @@
 @media (max-width: 639px) {
     .thumb {
         width: 2.75rem;
-    }
-}
-
-/* A barely noticeable settle, so a new view feels alive without moving. */
-@keyframes ken-burns {
-    from {
-        transform: scale(1.03);
     }
 }
 
@@ -386,8 +364,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .tilt,
-    .card,
-    .galleryActive {
+    .card {
         animation: none;
     }
 

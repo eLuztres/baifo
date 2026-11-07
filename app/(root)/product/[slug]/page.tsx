@@ -7,6 +7,7 @@ import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import ProductPrice from '@/components/shared/product/product-price';
 import ProductImages from '@/components/shared/product/product-images';
+import { toPictureMotion } from '@/lib/picture-motion';
 import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ContactWaysButton from '@/components/shared/product/contact-ways-button';
@@ -213,6 +214,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             stamp={product.type === 'PRODUCT' ? BRAND.stamp : undefined}
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
             phoneClassName={styles.phonePicture}
+            motion={toPictureMotion(product.pictureMotion)}
           />
         </div>
 
