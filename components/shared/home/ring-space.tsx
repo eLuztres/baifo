@@ -5,7 +5,6 @@ import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
 import type { SpaceRing } from './ring-space-field';
-import { SECTION_IDS, sectionHref } from './one-page';
 import PalmSilhouette from './palm-silhouette';
 import RingSpaceStage from './ring-space-stage';
 import room from './dark-room.module.css';
@@ -58,8 +57,8 @@ export default async function RingSpace({ rings }: RingSpaceProps) {
         <h1 className='sr-only'>
           {[t('HOME_HERO_WORD_1'), t('HOME_HERO_WORD_2'), t('HOME_HERO_WORD_3')].join(', ')}
         </h1>
-        {/* Points down: the store is the next part of the page. */}
-        <Link href={sectionHref(SECTION_IDS.showroom)} className={room.action}>
+        {/* Points down: the listings come next. */}
+        <Link href='/explore' className={room.action}>
           {t('HOME_HERO_CTA')}
           <ChevronDown className='size-4 motion-safe:animate-bounce' />
         </Link>

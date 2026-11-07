@@ -43,7 +43,7 @@ export default async function DarkRoomHero({ image }: DarkRoomHeroProps) {
         </div>
 
         <div className={styles.foot}>
-          <Link href={sectionHref(SECTION_IDS.showroom)} className={room.action}>
+          <Link href='/explore' className={room.action}>
             {t('HOME_HERO_CTA')}
             <ArrowRight className='size-4' />
           </Link>

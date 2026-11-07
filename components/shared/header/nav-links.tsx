@@ -3,7 +3,7 @@
 import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { focusSection, ONE_PAGE_PATH, scrollToSection, SECTION_IDS } from '@/components/shared/home/one-page';
+import { focusSection, ONE_PAGE_PATH, scrollToSection, SECTION_IDS, sectionHref } from '@/components/shared/home/one-page';
 import { cn } from '@/lib/utils';
 import type { NavLink } from './nav-items';
 import { useActiveNavIndex } from './use-active-section';
@@ -61,7 +61,8 @@ export default function NavLinks({ links, pageLinks = [], variant = 'pills' }: N
   // On the one-page home a tab glides to its part instead of jumping there; a new-tab or middle click stays a plain link.
   const handleClick = (event: MouseEvent<HTMLAnchorElement>, link: NavLink) => {
     const isPlainClick = event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
-    if (pathname !== ONE_PAGE_PATH || !isPlainClick) return;
+    const isHomePart = link.href === sectionHref(link.section);
+    if (pathname !== ONE_PAGE_PATH || !isPlainClick || !isHomePart) return;
     event.preventDefault();
     scrollToSection(link.section);
     focusSection(link.section);

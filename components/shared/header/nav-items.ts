@@ -8,12 +8,13 @@ export interface NavLink {
   section: SectionId;
 }
 
-const navLink = (section: SectionId, label: string): NavLink => ({ href: sectionHref(section), label, section });
+const navLink = (section: SectionId, label: string, href = sectionHref(section)): NavLink => ({ href, label, section });
 
 // Not in the 'use client' nav-links module, so server components (header, menu, footer) can call it.
 export const getNavLinks = (t: Translator): NavLink[] => [
   navLink(SECTION_IDS.home, t('NAV_HOME')),
-  navLink(SECTION_IDS.showroom, t('NAV_SHOWROOM')),
+  // The listings tab opens the explore view, not the showroom part of the home.
+  navLink(SECTION_IDS.showroom, t('NAV_SHOWROOM'), '/explore'),
   ...(hasWorkshop ? [navLink(SECTION_IDS.workshop, t('NAV_WORKSHOP'))] : []),
   ...(hasContactInfo ? [navLink(SECTION_IDS.contact, t('NAV_CONTACT'))] : []),
 ];

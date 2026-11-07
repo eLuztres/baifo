@@ -1,5 +1,4 @@
 import type { CSSProperties } from 'react';
-import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
 import { OFFERS_PATH } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
@@ -27,14 +26,16 @@ const Header = async () => {
   return (
     <HidingHeader className='sticky top-0 z-40 w-full border-b border-border bg-background lg:bg-background/95 lg:backdrop-blur'>
       <div className='flex h-16 w-full items-center justify-between gap-2 px-4 sm:gap-6 sm:h-20 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-10'>
-        <Link
+        {/* A plain link on purpose: the logo reloads the whole site, the refresh of the installed app. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a
           href='/'
           className='shrink-0 justify-self-start rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background'
           aria-label={BRAND.name}
           style={{ '--logo-height': `${BRAND.logoHeight}px` } as CSSProperties}
         >
           <BrandLogo withName priority isAnimated className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
-        </Link>
+        </a>
 
         <NavLinks links={navLinks} pageLinks={pageLinks} />
 

@@ -5,6 +5,7 @@ import AdminAddButton from '@/components/shared/admin-add-button';
 import GoldLeafBackground from '@/components/shared/gold-leaf-background';
 import DunesBackground from '@/components/shared/dunes-background';
 import HomeOffers from '@/components/shared/offers/home-offers';
+import RefreshOnReturn from '@/components/shared/refresh-on-return';
 import { BRAND } from '@/lib/brand';
 
 export default function RootLayout({
@@ -22,6 +23,7 @@ export default function RootLayout({
       <Footer />
       <AdminAddButton />
       <HomeOffers />
+      <RefreshOnReturn />
     </div>
   );
 }

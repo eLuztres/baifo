@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 import { cn } from '@/lib/utils';
+import SlideLink from '@/components/shared/slide-link';
 import AdvertiseBox from './advertise-box';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
@@ -38,9 +38,9 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       </div>
 
       <div className={styles.buttons}>
-        <Link href='/explore' className={styles.cta}>
+        <SlideLink href='/explore' direction='down' readySelector='[data-feed-page]' className={styles.cta}>
           {t('HOME_SCENE_READ')}
-        </Link>
+        </SlideLink>
       </div>
 
       {/* A small ad like in the local paper: the only place the site talks about the fee. */}

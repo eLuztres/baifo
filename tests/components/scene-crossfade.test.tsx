@@ -36,14 +36,14 @@ describe('SceneCrossfade', () => {
     expect(container.querySelectorAll('picture')).toHaveLength(2);
   });
 
-  it('moves on every 7 seconds and keeps every scene it reached when it wraps around', () => {
+  it('moves on every 4 seconds and keeps every scene it reached when it wraps around', () => {
     mockScreen({});
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
 
-    act(() => jest.advanceTimersByTime(7000));
+    act(() => jest.advanceTimersByTime(4000));
     expect(shownScene(container)).toBe('Terrace');
 
-    act(() => jest.advanceTimersByTime(14000));
+    act(() => jest.advanceTimersByTime(8000));
     expect(shownScene(container)).toBe('Newspaper');
     expect(container.querySelectorAll('picture')).toHaveLength(3);
   });
@@ -52,7 +52,7 @@ describe('SceneCrossfade', () => {
     mockScreen({ isWide: true });
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
 
-    act(() => jest.advanceTimersByTime(7000));
+    act(() => jest.advanceTimersByTime(4000));
     expect(shownScene(container)).toBe('Surf');
   });
 
@@ -82,7 +82,7 @@ describe('SceneCrossfade', () => {
       rerender(<SceneCrossfade scenes={SCENES} />);
     };
 
-    act(() => jest.advanceTimersByTime(7000));
+    act(() => jest.advanceTimersByTime(4000));
     expect(shownScene(container)).toBe('Terrace');
 
     scrollTo('showroom');
@@ -93,14 +93,14 @@ describe('SceneCrossfade', () => {
 
     scrollTo('home');
     expect(figure()?.getAttribute('data-arrived')).toBe('true');
-    act(() => jest.advanceTimersByTime(7000));
+    act(() => jest.advanceTimersByTime(4000));
     expect(shownScene(container)).toBe('Terrace');
   });
 
   it('draws the cut-out only over the scene that has one, as decoration', () => {
     mockScreen({});
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
-    act(() => jest.advanceTimersByTime(7000));
+    act(() => jest.advanceTimersByTime(4000));
 
     const figures = container.querySelectorAll('[data-arrived] img');
     expect(figures).toHaveLength(1);

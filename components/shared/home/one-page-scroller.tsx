@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActiveSection } from '@/components/shared/header/use-active-section';
+import { slideTo } from '@/components/shared/slide-navigation';
 import { createWheelGestureGate, glideBehavior, isClearlyVertical, isInsideScrollOwner, isInsideSideMover, SECTION_IDS, SECTION_ORDER } from './one-page';
 
 // Keys that turn the page; Shift turns them around, like Shift+Space.
@@ -55,7 +56,7 @@ export default function OnePageScroller({ belowHomeHref }: OnePageScrollerProps)
     const leaveHome = () => {
       if (hasLeft || !belowHomeHref) return;
       hasLeft = true;
-      router.push(belowHomeHref);
+      slideTo(router, belowHomeHref, 'down', '[data-feed-page]');
     };
     if (belowHomeHref) router.prefetch(belowHomeHref);
 
