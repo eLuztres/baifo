@@ -47,6 +47,8 @@ type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
 
 // Each card's picture stays a moment before the next; the cards change at their own times, as they come on screen.
 const CARD_TURN_MS = 4000;
+// Chosen on the server, per visit, so the list never looks the same and the page's first paint already shows it.
+const randomStart = () => Math.floor(Math.random() * 1000);
 
 // A suggestion only needs the start of a long description.
 const SUGGESTION_TEXT_LENGTH = 400;
@@ -209,7 +211,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           {isVideoUrl(listing.images[0]) ? (
             <ProductMedia src={listing.images[0]} alt={name} fill sizes={sizes} playsWhenVisible />
           ) : (
-            <MovingPictures images={listing.images.filter((image) => !isVideoUrl(image))} alt={name} motion={toPictureMotion(listing.pictureMotion)} sizes={sizes} turnMs={CARD_TURN_MS} hasCloseUps />
+            <MovingPictures images={listing.images.filter((image) => !isVideoUrl(image))} alt={name} motion={toPictureMotion(listing.pictureMotion)} sizes={sizes} turnMs={CARD_TURN_MS} hasCloseUps start={randomStart()} />
           )}
           {pictureLabel && (
             <span className='absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-xl bg-background/90 px-2.5 py-1 text-xs font-medium shadow sm:bottom-3 sm:left-3'>

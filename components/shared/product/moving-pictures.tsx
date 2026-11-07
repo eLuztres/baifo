@@ -40,6 +40,8 @@ interface MovingPicturesProps {
   /** The picture to show; it changes with an animation. Missing: the pictures turn by themselves every `turnMs`. */
   index?: number;
   turnMs?: number;
+  /** Without `index`: any number, the view to begin with is this one modulo the views (e.g. a random one per card). */
+  start?: number;
   /** The list: a listing with few photos moves between close-ups of them too. */
   hasCloseUps?: boolean;
   priority?: boolean;
@@ -67,9 +69,9 @@ async function whenReady(layer: HTMLElement) {
 
 /** A listing's pictures, one at a time, moving from one to the next as the listing chose. The browser does it with the
     photos it already has: only the next one is loaded, while the one before it shows. */
-export default function MovingPictures({ images, alt, motion, sizes, index, turnMs, hasCloseUps = false, priority, imageClassName, className, playsWhenVisible }: MovingPicturesProps) {
+export default function MovingPictures({ images, alt, motion, sizes, index, turnMs, hasCloseUps = false, start = 0, priority, imageClassName, className, playsWhenVisible }: MovingPicturesProps) {
   const views = viewsOf(images, hasCloseUps && motion !== 'still');
-  const [ownIndex, setOwnIndex] = useState(0);
+  const [ownIndex, setOwnIndex] = useState(() => start % Math.max(views.length, 1));
   const wanted = index ?? ownIndex;
   const [shown, setShown] = useState(wanted);
   const [mounted, setMounted] = useState(() => new Set([wanted]));
