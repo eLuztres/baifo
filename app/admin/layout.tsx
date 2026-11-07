@@ -9,6 +9,7 @@ import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, OFFERS_ENABLED, SHOWCASE
 import { ADMIN_LINKS } from '@/lib/brand';
 import { localize } from '@/lib/localize';
 import { getLocale, getT } from '@/lib/i18n-server';
+import LanguageSwitcher from '@/components/shared/header/language-switcher';
 
 export default async function AdminLayout({
   children,
@@ -36,6 +37,7 @@ export default async function AdminLayout({
                   <Store /> <span className='max-[359px]:sr-only'>{t('ADMIN_BACK_TO_SHOP', { shop: APP_NAME })}</span>
                 </Link>
               </Button>
+              <LanguageSwitcher variant='compact' className='h-8 gap-1.5 pl-1 pr-2.5 text-xs sm:h-9 sm:text-sm [&>span]:size-6' />
               <Menu />
             </div>
           </div>

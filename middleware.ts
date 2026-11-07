@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
-import { URL_LOCALE_HEADER } from '@/lib/i18n-core';
+import { URL_LOCALE_HEADER, urlLocaleOf } from '@/lib/i18n-core';
 import { buildContentSecurityPolicy } from '@/lib/security-headers';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
@@ -48,10 +48,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(signInUrl, request.method === 'GET' ? 307 : 303);
   }
 
-  // `?lang=` reaches getLocale as a header; unknown values are ignored there.
+  // `?lang=` reaches getLocale as a header; unknown values are ignored there. Browsing on from a page keeps its
+  // language, so a shared link stays in its language without touching the visitor's saved one.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.delete(URL_LOCALE_HEADER);
-  const urlLocale = request.nextUrl.searchParams.get('lang');
+  const urlLocale = urlLocaleOf(request.nextUrl, request.headers.get('referer'));
   if (urlLocale) requestHeaders.set(URL_LOCALE_HEADER, urlLocale);
 
   // Next.js reads the nonce from the request's CSP header and puts it on its own scripts; the layout reads x-nonce.

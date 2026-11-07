@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LOCALE_COOKIE, LOCALES, type Locale } from '@/lib/i18n-core';
+import { LOCALE_COOKIE, LOCALES, type Locale, withLang } from '@/lib/i18n-core';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,14 +24,11 @@ function useChooseLocale() {
   const choose = (next: Locale) => {
     if (next === locale) return;
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-    // A language in the URL (from Google) wins over the cookie, so it has to go.
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('lang')) {
-      url.searchParams.delete('lang');
-      startTransition(() => router.replace(`${url.pathname}${url.search}${url.hash}`));
-    } else {
-      startTransition(() => router.refresh());
-    }
+    // The URL's language wins over the saved one, so the address takes the new one too. A refresh then redraws
+    // everything in it, the header included: a navigation to the new address would keep the layout as it was.
+    const { pathname, search, hash } = window.location;
+    window.history.replaceState(window.history.state, '', withLang(`${pathname}${search}${hash}`, next));
+    startTransition(() => router.refresh());
   };
 
   return { locale, choose, isPending };

@@ -41,7 +41,12 @@ const Header = async () => {
 
         <div className='flex items-center gap-1 justify-self-end'>
           {/* A fixed start theme keeps its switch in the language menu: one header button less. */}
-          <LanguageSwitcher variant='compact' className='hidden lg:inline-flex' hasThemeChoice={BRAND.hasThemeSwitch && BRAND.theme !== 'system'} />
+          {/* In sight on every screen: one tap to the languages. A bit smaller on phones, so it fits next to the logo. */}
+          <LanguageSwitcher
+            variant='compact'
+            className='h-10 gap-2 pr-3 text-sm sm:h-12 sm:gap-2.5 sm:pr-4 sm:text-base'
+            hasThemeChoice={BRAND.hasThemeSwitch && BRAND.theme !== 'system'}
+          />
           {BRAND.theme === 'system' && <ModeToggle className='hidden lg:inline-flex' />}
           <Menu />
         </div>

@@ -6,10 +6,10 @@ import { LOCALE_COOKIE, LOCALES, getDictionary } from '@/lib/i18n';
 import { renderWithI18n } from '../utils/render-with-i18n';
 
 const mockRefresh = jest.fn();
-const mockReplace = jest.fn();
-jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh, replace: mockReplace }) }));
+jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh }) }));
 
 beforeEach(() => {
+  mockRefresh.mockClear();
   document.cookie = `${LOCALE_COOKIE}=; max-age=0; path=/`;
 });
 
@@ -27,23 +27,26 @@ describe('LanguageSwitcher (pills)', () => {
     }
   });
 
-  it('saves the new locale in a cookie and refreshes the page', async () => {
+  it('saves the new locale in a cookie, puts it in the address and redraws the page', async () => {
+    window.history.replaceState(null, '', '/explore');
     renderWithI18n(<LanguageSwitcher />);
 
     await userEvent.click(screen.getByRole('button', { name: 'ES' }));
 
     expect(document.cookie).toContain(`${LOCALE_COOKIE}=es`);
+    expect(window.location.search).toBe('?lang=es');
     await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1));
+    window.history.replaceState(null, '', '/');
   });
 
-  it('drops a language in the URL so the new choice wins', async () => {
-    window.history.replaceState(null, '', '/product/lamp?lang=en&c=bikes');
+  it('replaces the language in the URL and keeps the rest', async () => {
+    window.history.replaceState(null, '', '/product/lamp?lang=en&c=bikes#info');
     renderWithI18n(<LanguageSwitcher />);
 
     await userEvent.click(screen.getByRole('button', { name: 'ES' }));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/product/lamp?c=bikes'));
-    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(`${window.location.pathname}${window.location.search}${window.location.hash}`).toBe('/product/lamp?lang=es&c=bikes#info');
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1));
     window.history.replaceState(null, '', '/');
   });
 

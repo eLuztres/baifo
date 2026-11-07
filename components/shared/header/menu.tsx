@@ -13,7 +13,6 @@ import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { getRunningOffers } from '@/lib/offers';
 import UserButton from './user-button';
-import LanguageSwitcher from './language-switcher';
 import ModeToggle from './mode-toggle';
 import MenuAccount, { MENU_ROW_CLASS } from './menu-account';
 import { getNavLinks } from './nav-items';
@@ -45,7 +44,6 @@ const Menu = async () => {
         {/* The sheet has a title but no description; this tells Radix that is on purpose. */}
         <SheetContent className='flex flex-col gap-6 overflow-y-auto' aria-describedby={undefined}>
           <SheetTitle className='font-display text-2xl'>{menuLabel}</SheetTitle>
-          <LanguageSwitcher />
           {BRAND.hasThemeSwitch && <ModeToggle variant='pills' hasSystem={BRAND.theme === 'system'} />}
           <nav className='flex flex-col gap-1'>
             {navLinks.map((link) => (

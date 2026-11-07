@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
@@ -11,6 +12,7 @@ import { getDictionary } from '@/lib/i18n';
 import { getEnabledLocales, getLocale } from '@/lib/i18n-server';
 import TurnUpright from '@/components/shared/turn-upright';
 import NoPinchZoom from '@/components/shared/no-pinch-zoom';
+import LangInUrl from '@/components/shared/lang-in-url';
 import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -87,6 +89,10 @@ export default async function RootLayout({
             <Toaster />
             <TurnUpright />
             <NoPinchZoom />
+            {/* It reads the URL's parameters, which needs a Suspense boundary of its own. */}
+            <Suspense fallback={null}>
+              <LangInUrl />
+            </Suspense>
           </I18nProvider>
         </ThemeProvider>
         <Analytics />

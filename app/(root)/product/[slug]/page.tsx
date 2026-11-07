@@ -29,6 +29,7 @@ import { getSession } from '@/lib/auth-guard';
 import { absoluteUrl, BRAND } from '@/lib/brand';
 import { ANY_CONDITION, APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { withLang } from '@/lib/i18n-core';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { isReservationActive } from '@/lib/reservation';
@@ -132,7 +133,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const shopChatUrl =
     !hasSellerContact && BRAND.contact.whatsappUrl
       ? `${BRAND.contact.whatsappUrl}?text=${encodeURIComponent(
-          t('CONTACT_CORRAL_MESSAGE', { to: APP_NAME, name, url: `${SERVER_URL}/product/${slug}` })
+          t('CONTACT_CORRAL_MESSAGE', { to: APP_NAME, name, url: `${SERVER_URL}${withLang(`/product/${slug}`, locale)}` })
         )}`
       : undefined;
   // Who buyers write to, and their message already in the seller's language.

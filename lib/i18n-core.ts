@@ -32,6 +32,29 @@ export function isLocale(value: string | undefined | null): value is Locale {
   return !!value && LOCALE_IDS.includes(value);
 }
 
+/** `path` with `?lang=` set to `locale`, keeping its other parameters and its #part. */
+export function withLang(path: string, locale: string) {
+  const [beforeHash, hash] = path.split('#');
+  const [pathname, query = ''] = beforeHash.split('?');
+  const params = new URLSearchParams(query);
+  params.set('lang', locale);
+  return `${pathname}?${params}${hash === undefined ? '' : `#${hash}`}`;
+}
+
+/** The language a request's URL asks for: its own `?lang=`, or the one of the page on this site it came from. */
+export function urlLocaleOf(url: URL, referer: string | null) {
+  const own = url.searchParams.get('lang');
+  if (own) return own;
+  if (!referer) return null;
+  try {
+    const from = new URL(referer);
+    // Only our own pages: a link on another site doesn't choose the language.
+    return from.origin === url.origin ? from.searchParams.get('lang') : null;
+  } catch {
+    return null;
+  }
+}
+
 export type Translator = (
   key: TranslationKey,
   vars?: Record<string, string | number>

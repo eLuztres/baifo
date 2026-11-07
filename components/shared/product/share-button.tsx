@@ -4,6 +4,7 @@ import { Share2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { withLang } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
 
 interface ShareButtonProps {
@@ -18,12 +19,13 @@ interface ShareButtonProps {
 
 /** Shares the page through the phone's share sheet (WhatsApp, …), or copies its link where there is none (most desktops). */
 export default function ShareButton({ title, path, isLabeled, className }: ShareButtonProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
 
   const share = async () => {
     // Without the query (e.g. the filters someone came through): they mean nothing to the person it is sent to.
-    const url = `${window.location.origin}${path ?? window.location.pathname}`;
+    // The language stays: the link opens, and previews, in the language it was shared in.
+    const url = `${window.location.origin}${withLang(path ?? window.location.pathname, locale)}`;
     if (navigator.share) {
       // Closing the share sheet rejects too; that is not an error.
       await navigator.share({ title, url }).catch(() => {});
