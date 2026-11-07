@@ -38,7 +38,8 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       </div>
 
       <div className={styles.buttons}>
-        <SlideLink href='/explore' direction='down' readySelector='[data-feed-page]' className={styles.cta}>
+        {/* prefetch: the whole listings page loads while home shows (also for the swipe down), not only its loading frame. */}
+        <SlideLink href='/explore' prefetch direction='down' readySelector='[data-feed-page]' className={styles.cta}>
           {t('HOME_SCENE_READ')}
         </SlideLink>
       </div>

@@ -12,7 +12,7 @@ const LoadingPage = () => {
         width: '100vw',
       }}
     >
-      <LoaderImage image={BRAND.loaderImage} />
+      <LoaderImage image={BRAND.loaderImage} darkImage={BRAND.loaderImageDark} />
     </div>
   );
 };

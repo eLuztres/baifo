@@ -4,13 +4,20 @@
     animation: page-enter 600ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
-/* Fast page changes never show the loader; slow ones fade it in gently. */
+/* Fast page changes never show the loader; slow ones fade it in gently. It fills the screen (below the header and
+   the page's top space), so a slow page shows the loader in the middle and never an empty page above the footer. */
 .loader {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 50vh;
+    min-height: calc(100svh - 6rem);
     animation: loader-enter 600ms ease-out 300ms both;
+}
+
+@media (min-width: 640px) {
+    .loader {
+        min-height: calc(100svh - 8rem);
+    }
 }
 
 @keyframes page-enter {

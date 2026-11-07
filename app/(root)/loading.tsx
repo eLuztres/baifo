@@ -6,7 +6,7 @@ import styles from '@/components/shared/page-transition.module.css';
 export default function Loading() {
   return (
     <div className={styles.loader}>
-      <LoaderImage image={BRAND.loaderImage} />
+      <LoaderImage image={BRAND.loaderImage} darkImage={BRAND.loaderImageDark} />
     </div>
   );
 }

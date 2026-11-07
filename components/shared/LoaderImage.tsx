@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslateMessage } from '@/components/i18n-provider';
+import { cn } from '@/lib/utils';
 import styles from './LoaderImage.module.css';
 
 type LayerKind = 'face' | 'side' | 'inlay';
@@ -67,16 +68,20 @@ function RingLayer({ kind, depth }: { kind: LayerKind; depth: number }) {
 interface LoaderImageProps {
     /** The shop's own loader picture (BRAND_LOADER_IMAGE): it hops instead of the turning ring. */
     image?: string;
+    /** The same in dark mode (BRAND_LOADER_IMAGE_DARK). */
+    darkImage?: string;
 }
 
 // useTranslateMessage instead of useI18n: it also renders outside <I18nProvider> (Storybook).
-const LoaderImage = ({ image }: LoaderImageProps) => {
+const LoaderImage = ({ image, darkImage }: LoaderImageProps) => {
     const translate = useTranslateMessage();
     if (image) {
         return (
             <div role='status' aria-label={translate('LOADING')} className={styles.hopStage}>
-                {/* eslint-disable-next-line @next/next/no-img-element -- any size or format from .env, no optimization needed */}
-                <img src={image} alt='' className={styles.hopper} />
+                {[image, darkImage].filter((src): src is string => Boolean(src)).map((src, index) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- any size or format from .env, no optimization needed
+                    <img key={src} src={src} alt='' className={cn(styles.hopper, darkImage && (index === 0 ? 'dark:hidden' : 'hidden dark:block'))} />
+                ))}
                 <span className={styles.hopShadow} aria-hidden='true' />
             </div>
         );

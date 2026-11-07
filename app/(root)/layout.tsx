@@ -24,6 +24,9 @@ export default function RootLayout({
       <AdminAddButton />
       <HomeOffers />
       <RefreshOnReturn />
+      {/* Fetched with the first page: on mobile data the loader's own picture otherwise arrives after the page it waits for. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- only warms the cache for the loader */}
+      {[BRAND.loaderImage, BRAND.loaderImageDark].map((src) => src && <img key={src} src={src} alt='' hidden />)}
     </div>
   );
 }

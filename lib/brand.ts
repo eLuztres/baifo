@@ -119,6 +119,8 @@ export const BRAND = {
   hasGoldLeafBackground: env('BRAND_DECORATION') === 'goldleaf',
   hasDunesBackground: env('BRAND_DECORATION') === 'dunes',
   loaderImage: env('BRAND_LOADER_IMAGE'),
+  /** The loader picture in dark mode (light lines); default: BRAND_LOADER_IMAGE. */
+  loaderImageDark: env('BRAND_LOADER_IMAGE_DARK'),
   /** A small mark in the corner of item pictures, e.g. the shop's mascot. */
   stamp: env('BRAND_STAMP'),
   /** On a product page, swiping up (or the wheel down) opens the next product. */
