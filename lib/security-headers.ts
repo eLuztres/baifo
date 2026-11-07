@@ -1,8 +1,6 @@
 // The origins the browser may load from or talk to. Keep in sync with the upload and map features.
 const UPLOADTHING_FILES = ['https://utfs.io', 'https://*.ufs.sh'];
 const UPLOADTHING_UPLOADS = ['https://uploadthing.com', 'https://*.uploadthing.com', 'https://*.ingest.uploadthing.com'];
-// The map embed on a corral page.
-const MAP_FRAMES = ['https://www.openstreetmap.org'];
 // The Google sign-in form posts to our server action, which redirects to Google.
 const SIGN_IN = ['https://accounts.google.com'];
 
@@ -60,7 +58,7 @@ export function buildContentSecurityPolicy({ nonce, isDev }: ContentSecurityPoli
       ...extra,
       ...(isDev ? ['ws:'] : []),
     ],
-    'frame-src': [...MAP_FRAMES, ...extra],
+    'frame-src': [...extra],
     'worker-src': ["'self'", 'blob:'],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],

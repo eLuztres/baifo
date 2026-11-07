@@ -1,19 +1,15 @@
 import type { CSSProperties } from 'react';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { BRAND } from '@/lib/brand';
 import { OFFERS_PATH } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
 import { getRunningOffers } from '@/lib/offers';
-import { getShopPlaces } from '@/lib/places';
-import { parsePlaceSlugs, PLACES_COOKIE } from '@/lib/places-core';
 import BrandLogo from '@/components/shared/brand-logo';
 import LanguageSwitcher from './language-switcher';
 import ModeToggle from './mode-toggle';
 import Menu from './menu';
 import { getNavLinks } from './nav-items';
 import NavLinks from './nav-links';
-import PlacePicker from './place-picker';
 import HidingHeader from './hiding-header';
 import TabSwipe from './tab-swipe';
 
@@ -21,10 +17,9 @@ import TabSwipe from './tab-swipe';
 export { getNavLinks };
 
 const Header = async () => {
-  const { t, locale } = await getT();
+  const { t } = await getT();
   const navLinks = getNavLinks(t);
-  // A shop without places has no picker and shows everything.
-  const [places, cookieStore, offers] = await Promise.all([getShopPlaces(locale), cookies(), getRunningOffers()]);
+  const offers = await getRunningOffers();
   // The offers page is in the bar only while an offer runs.
   const pageLinks = offers.length > 0 ? [{ href: OFFERS_PATH, label: t('OFFERS_TITLE') }] : [];
 
@@ -44,7 +39,6 @@ const Header = async () => {
         <NavLinks links={navLinks} pageLinks={pageLinks} />
 
         <div className='flex items-center gap-1 justify-self-end'>
-          {places.length > 0 && <PlacePicker places={places} savedSlugs={parsePlaceSlugs(cookieStore.get(PLACES_COOKIE)?.value)} />}
           {/* A fixed start theme keeps its switch in the language menu: one header button less. */}
           <LanguageSwitcher variant='compact' className='hidden lg:inline-flex' hasThemeChoice={BRAND.hasThemeSwitch && BRAND.theme !== 'system'} />
           {BRAND.theme === 'system' && <ModeToggle className='hidden lg:inline-flex' />}

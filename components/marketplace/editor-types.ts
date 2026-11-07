@@ -13,6 +13,12 @@ export interface MercadilloOption {
   name: string;
 }
 
+/** A señalador who can have sent the person, by name. */
+export interface ScoutOption {
+  id: string;
+  name: string;
+}
+
 /** An etiqueta on the listing: a new one has no id yet and is made on save. */
 export interface EditorTag {
   id?: string;

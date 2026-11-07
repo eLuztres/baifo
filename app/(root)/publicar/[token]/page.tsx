@@ -7,7 +7,6 @@ import ProductPrice from '@/components/shared/product/product-price';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { Button } from '@/components/ui/button';
 import { absoluteUrl, BRAND } from '@/lib/brand';
-import { localize } from '@/lib/localize';
 import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
 import type { ListingTranslations } from '@/lib/marketplace/catalog';
 import { BIZUM_PHONE, LISTING_DAYS, LISTING_PAYMENT_METHODS, LISTING_PRICES, UNPAID_LISTING_HOURS } from '@/lib/marketplace/config';
@@ -80,7 +79,6 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
   const hasPrice = listing.priceMode !== 'NONE' && Number(listing.price) > 0;
   const priceLabelText = priceLabelKey(listing.type, listing.priceMode);
   const priceLabel = priceLabelText && t(priceLabelText);
-  const corral = listing.place?.corral;
   // Until when the person can still pay: the link stops working this long after it was sent.
   const validUntil = listing.sentAt
     ? new Date(listing.sentAt.getTime() + UNPAID_LISTING_HOURS * 3600_000).toLocaleString(locale, {
@@ -97,12 +95,6 @@ export default async function PublishPage({ params, searchParams }: PublishPageP
     methods: LISTING_PAYMENT_METHODS,
     bizumPhone: BIZUM_PHONE,
     code: listing.payCode ?? '',
-    corral: corral && {
-      name: corral.name,
-      address: corral.address,
-      hours: localize(corral.hours, locale),
-      mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([corral.venue, corral.address].filter(Boolean).join(', '))}`,
-    },
     validUntil,
     helpUrl: BRAND.contact.whatsappUrl,
   };

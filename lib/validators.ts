@@ -35,6 +35,16 @@ export const mercadilloSchema = z.object({
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 
+// A señalador: a name and, to send them their link, a WhatsApp.
+export const scoutSchema = z.object({
+  name: z.string().trim().min(1, message('VALIDATION_GROUP_NAME')).max(60, message('VALIDATION_GROUP_NAME')),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
+});
+export const updateScoutSchema = scoutSchema.extend({ id: idSchema });
+
 // Lowercased, so sign-in, sign-up and Google logins match the same account.
 const emailSchema = z.string().trim().toLowerCase().email(message('VALIDATION_EMAIL_INVALID'));
 
@@ -173,50 +183,6 @@ export const listingContactsSchema = z.object({ email: contactField('email'), we
 export const sellerLocaleSchema = z
   .union([z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]), z.literal('')])
   .transform((value) => value || null);
-
-// A place on the island (admin "Places"): the town's name, whether it's open, and its pin in % of the island picture.
-export const placeSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string().trim().min(2, 'VALIDATION_PLACE_NAME').max(40),
-  isLive: z.boolean(),
-  x: z.number().min(0).max(100),
-  y: z.number().min(0).max(100),
-});
-
-export type PlaceInput = z.infer<typeof placeSchema>;
-
-// An uploaded photo (UploadThing) or one of the shop's own files under /brand/.
-const corralImageSchema = z
-  .string()
-  .trim()
-  .max(500)
-  .refine((value) => value === '' || value.startsWith('https://') || value.startsWith('/brand/'))
-  .transform((value) => value || null);
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((value) => value || null);
-
-// A place's Corral (admin "Places"): its texts are written in the shop's language and translated on save.
-export const corralSchema = z.object({
-  name: z.string().trim().min(2, 'VALIDATION_CORRAL_NAME').max(60),
-  address: z.string().trim().min(5, 'VALIDATION_CORRAL_ADDRESS').max(160),
-  venue: optionalText(80),
-  text: z.string().trim().max(400),
-  hours: z.string().trim().max(300),
-  lat: z.number().min(-90).max(90).nullable(),
-  lng: z.number().min(-180).max(180).nullable(),
-  hostName: optionalText(80),
-  hostImage: corralImageSchema,
-  image: corralImageSchema,
-  whatsapp: optionalText(30),
-  phone: optionalText(30),
-  email: z.union([z.string().trim().email().max(120), z.literal('')]).transform((value) => value || null),
-});
-
-export type CorralInput = z.input<typeof corralSchema>;
 
 // A moment as the admin types it in a datetime-local input, on the shop's clock (SHOP_TIME_ZONE).
 const shopDateTimeSchema = z.string().transform((value, context) => {

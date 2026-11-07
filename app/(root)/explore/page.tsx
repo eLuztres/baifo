@@ -6,9 +6,7 @@ import productStyles from '@/app/(root)/product/[slug]/product-view.module.css';
 import ProductMedia from '@/components/ProductMedia';
 import FilterDropdown from '@/components/admin/filter-dropdown';
 import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
-import { Button, buttonVariants } from '@/components/ui/button';
-import CorralHostsButton from '@/components/shared/home/corral-hosts-button';
-import { getCorralHosts } from '@/components/shared/home/corral-hosts';
+import { Button } from '@/components/ui/button';
 import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
@@ -21,8 +19,7 @@ import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
 import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
 import { getTagOptions } from '@/lib/tags';
-import { getShopPlaces, getVisitorPlaceIds } from '@/lib/places';
-import ShowAllPlacesButton from '@/components/shared/show-all-places-button';
+import { getVisitorPlaceIds } from '@/lib/places';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import MercadilloRow, { MercadilloIcon, MercadilloRowItem } from '@/components/shared/mercadillo-row';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
@@ -185,9 +182,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     count: ofType.filter((listing) => isInPriceRange(listing.price, range)).length,
   })).filter((option) => option.count > 0 || option.value === chosenRange?.value);
 
-  const livePlaces = (await getShopPlaces(locale)).filter((place) => place.isLive);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
-  const hosts = await getCorralHosts((name) => t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME }));
 
   const renderCard = (listing: Listing, sizes = '(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw') => {
     const name = localizeProduct(listing, locale).name;
@@ -277,12 +272,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       <div className='sr-only'>{pullUpHome}</div>
       <ExploreScrollKeeper />
 
-      {listings.length === 0 && allListings.length > 0 ? (
-        <div className='space-y-4 py-16 text-center'>
-          <p className='text-muted-foreground'>{t('PLACES_EMPTY')}</p>
-          <ShowAllPlacesButton slugs={livePlaces.map((place) => place.slug)} label={t('PLACES_SHOW_ALL')} />
-        </div>
-      ) : listings.length === 0 ? (
+      {listings.length === 0 ? (
         <p className='py-16 text-center text-muted-foreground'>{t('STORE_EMPTY')}</p>
       ) : (
         <>
@@ -390,12 +380,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             <span aria-hidden='true' className='h-px w-16 bg-gradient-to-r from-transparent via-primary to-transparent' />
             <p className='text-balance font-display text-2xl sm:text-3xl'>{t('EXPLORE_END_TITLE')}</p>
             <p className='max-w-md text-pretty text-muted-foreground'>{t('EXPLORE_END_TEXT', { shop: APP_NAME })}</p>
-            {/* Publishing starts with a person: the corral hosts; the shop's number only without any. */}
-            {hosts.length > 0 ? (
-              <CorralHostsButton hosts={hosts} text={t('CONTACT_HOSTS_TEXT')} className={cn(buttonVariants({ size: 'lg' }), 'rounded-full')}>
-                {t('HOME_HERO_ORDER_BUTTON')}
-              </CorralHostsButton>
-            ) : whatsappUrl && (
+            {/* One tap straight to the shop's WhatsApp, no pop-up in between. */}
+            {whatsappUrl && (
               <Button asChild size='lg' className='rounded-full'>
                 <a href={whatsappUrl} target='_blank' rel='noopener noreferrer'>
                   {t('HOME_HERO_ORDER_BUTTON')}

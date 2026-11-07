@@ -115,6 +115,9 @@ const tagsSchema = z
   )
   .max(MAX_LISTING_TAGS)
   .optional();
+// Empty: no señalador; missing: it stays as it is.
+const scoutIdSchema = mercadilloIdSchema;
+const scoutExists = async (id: string) => Boolean(await prisma.scout.findUnique({ where: { id }, select: { id: true } }));
 const mercadilloExists = async (id: string) => Boolean(await prisma.mercadillo.findUnique({ where: { id }, select: { id: true } }));
 
 // New etiquetas are made first; existing ones only gain the names they lacked (what "Traducir" filled in).
@@ -216,6 +219,7 @@ const descriptionSchema = z.object({
   startsAt: eventStartSchema,
   address: eventAddressSchema,
   mercadilloId: mercadilloIdSchema,
+  scoutId: scoutIdSchema,
   tags: tagsSchema,
   // "Más": Oculto keeps it ready instead of online; "Online hasta" is the last day it shows (YYYY-MM-DD), an event's is its day.
   isHidden: z.boolean().default(false),
@@ -235,7 +239,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'tags') return { success: false, message: `Como mucho ${MAX_LISTING_TAGS} etiquetas` };
   if (!parsed.success && parsed.error.issues[0]?.path[0] === 'contacts') return { success: false, message: CHECK_CONTACTS };
   if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, tags } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, scoutId, tags } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
@@ -251,6 +255,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   if (mercadilloId && !(await mercadilloExists(mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
+  if (scoutId && !(await scoutExists(scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
   if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
@@ -276,6 +281,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
       mercadilloId,
+      scoutId,
       autoPublish: !isHidden,
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
@@ -349,6 +355,7 @@ const editSchema = z.object({
     .transform((value) => value || undefined)
     .optional(),
   mercadilloId: mercadilloIdSchema,
+  scoutId: scoutIdSchema,
   tags: tagsSchema,
   // The person's WhatsApp, checked like on their own page; missing: the number stays as it is.
   sellerPhone: sellerPhoneSchema.optional(),
@@ -385,6 +392,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
   if (parsed.data.mercadilloId && !(await mercadilloExists(parsed.data.mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
+  if (parsed.data.scoutId && !(await scoutExists(parsed.data.scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
   const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, ...fields } = parsed.data;

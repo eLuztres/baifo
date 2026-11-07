@@ -3,7 +3,7 @@
 import { type ReactNode, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Banknote, Check, CheckCircle2, Copy, Loader2, MapPin, MessageCircle, Smartphone } from 'lucide-react';
+import { Banknote, Check, CheckCircle2, Copy, Loader2, MessageCircle, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -23,19 +23,10 @@ export interface PaymentOptions {
   bizumPhone?: string;
   /** The Bizum concept that tells the admin whose payment it is. */
   code: string;
-  /** Where cash is handed over: the listing's Corral, if its place has one. */
-  corral?: PayCorral | null;
   /** When the private link stops working, in the person's language and the shop's time. */
   validUntil: string;
   /** The shop's own WhatsApp for questions; never the person's. */
   helpUrl?: string;
-}
-
-interface PayCorral {
-  name: string;
-  address: string;
-  hours: string;
-  mapsUrl: string;
 }
 
 type ManualPayMethod = 'bizum' | 'cash';
@@ -190,27 +181,6 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
         {method === 'cash' && (
           <div className='space-y-3 rounded-2xl bg-muted p-4 text-sm'>
             <p>{texts.payCashHow}</p>
-            <div className='min-w-0'>
-              <p className='text-xs text-muted-foreground'>{texts.payWhere}</p>
-              <p className='font-semibold'>{payment.corral?.name ?? texts.corral}</p>
-              {payment.corral && (
-                <a
-                  href={payment.corral.mapsUrl}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='inline-flex max-w-full items-start gap-1 break-words text-primary underline underline-offset-2'
-                >
-                  <MapPin className='mt-0.5 size-4 shrink-0' aria-hidden />
-                  <span className='min-w-0'>{payment.corral.address}</span>
-                </a>
-              )}
-            </div>
-            {payment.corral?.hours && (
-              <div>
-                <p className='text-xs text-muted-foreground'>{texts.payHours}</p>
-                <p className='whitespace-pre-line'>{payment.corral.hours}</p>
-              </div>
-            )}
             <div className='flex flex-wrap gap-x-6 gap-y-3'>
               <div>
                 <p className='text-xs text-muted-foreground'>{texts.payAmount}</p>
@@ -221,6 +191,14 @@ export default function PublishForm({ token, texts, prices, days, initial, payme
                 <p className='font-mono text-base font-semibold tracking-wider'>{payment.code}</p>
               </div>
             </div>
+            {/* Cash is handed over in person: the shop's WhatsApp arranges where and when. */}
+            {payment.helpUrl && (
+              <Button asChild variant='outline' className='w-full rounded-full'>
+                <a href={payment.helpUrl} target='_blank' rel='noopener noreferrer'>
+                  <MessageCircle /> {texts.payCashWrite}
+                </a>
+              </Button>
+            )}
           </div>
         )}
         {error && <p className='text-sm text-destructive'>{error}</p>}

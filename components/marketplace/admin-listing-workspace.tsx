@@ -9,6 +9,7 @@ import { getAdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { LISTING_DAYS } from '@/lib/marketplace/config';
 import { getMercadillos } from '@/lib/mercadillos';
+import { prisma } from '@/db/prisma';
 
 interface AdminListingWorkspaceProps {
   id: string;
@@ -20,7 +21,11 @@ interface AdminListingWorkspaceProps {
 export default async function AdminListingWorkspace({ id, locale, texts }: AdminListingWorkspaceProps) {
   const listing = await getAdminListing(id);
   if (!listing) notFound();
-  const [mercadillos, tagOptions] = await Promise.all([getMercadillos(), getTagOptions()]);
+  const [mercadillos, tagOptions, scouts] = await Promise.all([
+    getMercadillos(),
+    getTagOptions(),
+    prisma.scout.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+  ]);
   const shopLocale = getShopLocale();
   const languageOf = (language: Locale) => ({ id: language, label: LOCALES.find((option) => option.id === language)?.label ?? language });
   // The shop language's text is the listing's own; every other language gets its own title and description.
@@ -33,6 +38,7 @@ export default async function AdminListingWorkspace({ id, locale, texts }: Admin
       <ListingWorkspace
         initial={listing}
         mercadillos={mercadillos.map(({ id, name }) => ({ id, name: localize(name, locale) }))}
+        scouts={scouts}
         tagOptions={tagOptions}
         maxTags={MAX_LISTING_TAGS}
         languages={languages}

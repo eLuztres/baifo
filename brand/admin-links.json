@@ -1,6 +1,7 @@
 [
   {"href": "/admin/listings", "after": "/admin/studio", "icon": "grid", "label": {"es": "Anuncios", "en": "Listings", "it": "Annunci", "fr": "Annonces", "de": "Anzeigen"}},
-  {"href": "/admin/places", "after": "/admin/offers", "icon": "map-pin", "label": {"es": "Corrales", "en": "Corrales", "it": "Corrales", "fr": "Corrales", "de": "Corrales"}},
-  {"href": "/admin/mercadillos", "after": "/admin/places", "icon": "store", "label": {"es": "Mercadillos", "en": "Mercadillos", "it": "Mercadillos", "fr": "Mercadillos", "de": "Mercadillos"}},
-  {"href": "/admin/etiquetas", "icon": "tag", "label": {"es": "Etiquetas", "en": "Tags", "it": "Etichette", "fr": "Étiquettes", "de": "Schlagwörter"}, "hint": {"es": "En todos los idiomas y sus anuncios", "en": "In every language, and their listings", "it": "In tutte le lingue e i loro annunci", "fr": "Dans toutes les langues, et leurs annonces", "de": "In allen Sprachen und ihre Anzeigen"}}
+  {"href": "/admin/senaladores", "after": "/admin/offers", "icon": "users", "label": {"es": "Señaladores", "en": "Scouts", "it": "Segnalatori", "fr": "Éclaireurs", "de": "Scouts"}},
+  {"href": "/admin/mercadillos", "after": "/admin/senaladores", "icon": "store", "label": {"es": "Mercadillos", "en": "Mercadillos", "it": "Mercadillos", "fr": "Mercadillos", "de": "Mercadillos"}},
+  {"href": "/admin/etiquetas", "icon": "tag", "label": {"es": "Etiquetas", "en": "Tags", "it": "Etichette", "fr": "Étiquettes", "de": "Schlagwörter"}, "hint": {"es": "En todos los idiomas y sus anuncios", "en": "In every language, and their listings", "it": "In tutte le lingue e i loro annunci", "fr": "Dans toutes les langues, et leurs annonces", "de": "In allen Sprachen und ihre Anzeigen"}},
+  {"href": "/admin/listings-log", "isAdvanced": true, "icon": "history", "label": {"es": "Historial de anuncios", "en": "Listings log", "it": "Storico annunci", "fr": "Historique des annonces", "de": "Anzeigen-Verlauf"}}
 ]

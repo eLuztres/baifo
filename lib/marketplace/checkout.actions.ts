@@ -62,7 +62,7 @@ export async function confirmListing(input: ListingChoice): Promise<ActionResult
 
 const claimSchema = z.object({ token: z.string().uuid(), method: z.enum(['bizum', 'cash']) });
 
-/** "Ya he hecho el Bizum" / "Pasaré por El Corral" (to publish or renew): noted for the admin, who still checks the money and taps Pagado. */
+/** "Ya he hecho el Bizum" / "Os escribo para quedar" (to publish or renew): noted for the admin, who still checks the money and taps Pagado. */
 export async function claimListingPayment(token: string, method: 'bizum' | 'cash'): Promise<ActionResult> {
   try {
     const parsed = claimSchema.safeParse({ token, method });

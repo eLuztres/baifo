@@ -151,7 +151,7 @@ describe('the welcome and the choice', () => {
 
     const [, text] = sendList.mock.calls[0];
     expect(text).toContain(
-      '💶 Tu anuncio cuesta 5 € y sale 90 días. Se paga al empezar: en efectivo o con tarjeta en El Corral, o por Bizum al 600 000 000 con tu número de WhatsApp como concepto.'
+      '💶 Tu anuncio cuesta 5 € y sale 90 días. Se paga al empezar: en efectivo o con tarjeta, en persona, o por Bizum al 600 000 000 con tu número de WhatsApp como concepto.'
     );
     // WhatsApp refuses a list message with a longer text.
     expect(text.length).toBeLessThanOrEqual(1024);

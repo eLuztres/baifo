@@ -1,5 +1,5 @@
 import { inPlaces } from '@/components/shared/home/in-stock-rings';
-import { chosenPlaces, parsePlaceSlugs } from '@/lib/places-core';
+import { chosenPlaces } from '@/lib/places-core';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
 
@@ -11,11 +11,6 @@ const PLACES = [
 const slugsOf = (places: { slug: string }[]) => places.map((place) => place.slug);
 
 describe('the visitor’s places', () => {
-  it('reads the saved slugs, ignoring blanks', () => {
-    expect(parsePlaceSlugs(' corralejo, ,el-cotillo ')).toEqual(['corralejo', 'el-cotillo']);
-    expect(parsePlaceSlugs(undefined)).toEqual([]);
-  });
-
   it('shows every live place when nothing is saved', () => {
     expect(slugsOf(chosenPlaces(PLACES, []))).toEqual(['corralejo', 'el-cotillo']);
   });

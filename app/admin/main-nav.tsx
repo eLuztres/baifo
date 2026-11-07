@@ -5,6 +5,7 @@ import CreateChooser from '@/components/shared/create-chooser';
 import {
   BadgePercent,
   ChevronDown,
+  History,
   LayoutDashboard,
   LayoutGrid,
   List,
@@ -62,7 +63,7 @@ const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon:
 ];
 
 // The icons a shop's own admin page can name in brand/admin-links.json.
-const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, list: List, 'map-pin': MapPin, store: Store, tag: Tag };
+const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, history: History, list: List, 'map-pin': MapPin, store: Store, tag: Tag, users: Users };
 
 interface NavLink {
   key: string;

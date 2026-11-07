@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { listingLogQuery } from '@/lib/listing-log';
 
 // Decimal columns come back as strings, so they can be passed to client components.
 const decimalsAsStrings = Prisma.defineExtension({
@@ -78,7 +79,9 @@ const decimalsAsStrings = Prisma.defineExtension({
 });
 
 function createPrismaClient() {
-  return new PrismaClient().$extends(decimalsAsStrings);
+  const base = new PrismaClient();
+  // The log reads and writes through the plain client, so its own queries aren't logged again.
+  return base.$extends(decimalsAsStrings).$extends({ query: { submission: { $allOperations: listingLogQuery(base) } } });
 }
 
 // Dev hot reloads re-run this module: reuse one client instead of opening a new connection pool each time.

@@ -6,7 +6,6 @@ import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 import { cn } from '@/lib/utils';
 import AdvertiseBox from './advertise-box';
-import { getCorralHosts } from './corral-hosts';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey } from './hero-pictures';
@@ -23,7 +22,6 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
-  const hosts = await getCorralHosts((name) => t('HOME_HERO_HOST_MESSAGE', { name, shop: APP_NAME }));
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = pictures.map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
@@ -49,8 +47,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
       <AdvertiseBox
         title={order}
         text={orderText}
-        hosts={hosts}
-        fallbackHref={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
+        href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
       />
     </section>
   );

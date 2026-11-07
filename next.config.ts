@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] }];
   },
+  // The corral pages are gone (#535); links already shared land on the home page.
+  async redirects() {
+    return [{ source: '/corral/:slug*', destination: '/', permanent: false }];
+  },
   serverExternalPackages: ['ffmpeg-static'],
   outputFileTracingIncludes: {
     '/admin/listings/**': FFMPEG_BINARY,

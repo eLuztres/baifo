@@ -27,7 +27,7 @@ const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYME
 
 
 interface ListingsPageProps {
-  searchParams: Promise<{ estado?: string; tipo?: string }>;
+  searchParams: Promise<{ estado?: string; tipo?: string; senalador?: string }>;
 }
 
 /** The values of a comma-separated filter in the link. */
@@ -35,16 +35,18 @@ const listParam = (param?: string) => param?.split(',').filter(Boolean) ?? [];
 
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {
   await requireAdmin();
-  const [{ estado, tipo }, locale] = await Promise.all([searchParams, getLocale()]);
+  const [{ estado, tipo, senalador }, locale] = await Promise.all([searchParams, getLocale()]);
   const texts = adminTexts(locale);
   const statuses = STATUSES.filter((value) => listParam(estado).includes(value));
   const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
+  // From a señalador's row: only the listings they sent.
+  const scoutWhere = senalador && /^[0-9a-f-]{36}$/.test(senalador) ? { scoutId: senalador } : {};
   const typeWhere = types.length ? { type: { in: types } } : {};
   const showsLive = statuses.length === 0 || statuses.includes('LIVE');
 
   const [listings, counts, unlisted] = await Promise.all([
     prisma.submission.findMany({
-      where: { status: statuses.length ? { in: statuses } : { not: 'COLLECTING' }, ...typeWhere },
+      where: { status: statuses.length ? { in: statuses } : { not: 'COLLECTING' }, ...typeWhere, ...scoutWhere },
       orderBy: { updatedAt: 'desc' },
       take: 120,
       include: { seller: { select: { waId: true, name: true } } },

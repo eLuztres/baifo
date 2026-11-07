@@ -3,18 +3,15 @@ import { ArrowUpRight } from 'lucide-react';
 import PageHeader from '@/components/shared/page-header';
 import { getContactChannels } from '@/components/shared/contact-channels';
 import { APP_NAME, SHOWCASE_MODE } from '@/lib/constants';
-import { BRAND, hasContactInfo } from '@/lib/brand';
+import { hasContactInfo } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
 import { cn } from '@/lib/utils';
-import CorralHostsButton from './corral-hosts-button';
-import { getCorralHosts } from './corral-hosts';
 import { SECTION_IDS } from './one-page';
 import styles from './one-page.module.css';
 
 export default async function ContactSection() {
   const { t } = await getT();
   const channels = getContactChannels(t);
-  const hosts = await getCorralHosts((name) => t('CONTACT_HOST_MESSAGE', { name }));
 
   // The menu links here whenever .env has contact details, so hiding them all keeps the rules showing.
   if (!hasContactInfo) return null;
@@ -55,14 +52,7 @@ export default async function ContactSection() {
               <ArrowUpRight className='h-5 w-5 text-muted-foreground transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground' />
             </>
           );
-          // WhatsApp goes to a person: the corral hosts, when there are any.
-          const isToHosts = href === BRAND.contact.whatsappUrl && hosts.length > 0;
-          const row = isToHosts ? rowContent(t('CONTACT_HOSTS_VALUE'), true) : rowContent(value);
-          return isToHosts ? (
-            <CorralHostsButton key={label} hosts={hosts} text={t('CONTACT_HOSTS_TEXT')} className={rowClass}>
-              {row}
-            </CorralHostsButton>
-          ) : (
+          return (
             <Link
               key={label}
               href={href}
@@ -70,7 +60,7 @@ export default async function ContactSection() {
               rel={external ? 'noopener noreferrer' : undefined}
               className={rowClass}
             >
-              {row}
+              {rowContent(value)}
             </Link>
           );
         })}

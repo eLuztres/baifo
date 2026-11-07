@@ -75,6 +75,7 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         languages={[{ id: 'en', label: 'EN' }]}
         shopLanguage={{ id: 'es', label: 'ES' }}
         mercadillos={[]}
+        scouts={[{ id: 'scout-ana', name: 'Ana' }, { id: 'scout-marco', name: 'Marco' }]}
         tagOptions={[{ id: 'surf', names: { es: 'Surf', en: 'Surfing' }, count: 2 }]}
         maxTags={5}
         listingDays={90}
@@ -391,6 +392,20 @@ describe('DescriptionStep', () => {
       expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici azul', sellerPhone: '+34612345678' }));
       expect(updateAdminListing).not.toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: expect.anything() }));
       expect(hideAdminListing).toHaveBeenCalledWith('abc');
+    });
+
+    it('shows the señalador in Más and saves the one picked', async () => {
+      (updateAdminListing as jest.Mock).mockResolvedValue({ success: true, message: 'Guardado' });
+      (getAdminListing as jest.Mock).mockResolvedValue({ ...live, scoutId: 'scout-marco' });
+      renderStep({ ...live, scoutId: 'scout-ana' } as AdminListing);
+
+      fireEvent.click(screen.getByRole('button', { name: /stepMore/ }));
+      expect(screen.getByLabelText('scoutLabel')).toHaveValue('scout-ana');
+      expect([...screen.getByLabelText('scoutLabel').querySelectorAll('option')].map((option) => option.textContent)).toEqual(['scoutNone', 'Ana', 'Marco']);
+      fireEvent.change(screen.getByLabelText('scoutLabel'), { target: { value: 'scout-marco' } });
+      fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
+
+      await waitFor(() => expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ scoutId: 'scout-marco' })));
     });
 
     it('shows the name in use and saves it once changed', async () => {

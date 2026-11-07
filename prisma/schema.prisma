@@ -382,6 +382,9 @@ model Submission {
   mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
   // Shown at the end of the description, and found by the search.
   tags              Tag[]
+  // The señalador who sent the person to Baifo, if any.
+  scoutId           String?          @db.Uuid
+  scout             Scout?           @relation(fields: [scoutId], references: [id], onDelete: SetNull)
   // A service's kind of offer and an event's start and address; the product it becomes takes them over.
   serviceType       String?
   startsAt          DateTime?        @db.Timestamp(6)
@@ -420,6 +423,38 @@ model Submission {
   updatedAt         DateTime         @updatedAt
 
   @@index([sellerId, status])
+}
+
+// A señalador: someone who meets people and sends them to Baifo with their own link (/s/<code>).
+model Scout {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  // Their WhatsApp, to send them their link; digits with the country code.
+  phone       String?
+  code        String       @unique
+  createdAt   DateTime     @default(now()) @db.Timestamp(6)
+  submissions Submission[]
+}
+
+// One point in a listing's life: who did what, what changed and the whole listing as it was then.
+// No relation to Submission on purpose, so the history stays after the listing is deleted.
+model ListingEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submissionId String   @db.Uuid
+  // created, edited, status, paid, scout, deleted (LISTING_EVENT_ACTIONS).
+  action       String
+  title        String?
+  // 'admin', 'owner', 'whatsapp' or 'system', and the admin's name and id.
+  actorType    String
+  actorName    String?
+  actorId      String?
+  // Only what changed: { "price": ["15", "18"] }.
+  changes      Json     @default("{}")
+  snapshot     Json
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+
+  @@index([submissionId, createdAt])
+  @@index([createdAt])
 }
 
 // A listing fee as it was paid, for the books; it keeps the title when the listing is deleted.

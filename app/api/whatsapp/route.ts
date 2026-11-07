@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/db/prisma';
+import { runAsListingActor } from '@/lib/listing-log';
 import { handleInbound } from '@/lib/marketplace/inbound';
 import { isValidSignature, parseMessages } from '@/lib/whatsapp-cloud/webhook';
 
@@ -43,7 +44,10 @@ export async function POST(request: NextRequest) {
   after(async () => {
     for (const message of messages) {
       if (!(await isFirstDelivery(message.id))) continue;
-      await handleInbound(message).catch((error) => console.error('WhatsApp message failed', message.id, error));
+      // The listing history shows who wrote: the person or the admin answering on WhatsApp.
+      await runAsListingActor({ type: 'whatsapp', name: `+${message.from}` }, () => handleInbound(message)).catch((error) =>
+        console.error('WhatsApp message failed', message.id, error)
+      );
     }
   });
   return NextResponse.json({ ok: true });

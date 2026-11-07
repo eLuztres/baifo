@@ -31,7 +31,7 @@ const PREVIEW_FIELDS = {
   sellerName: true,
   sellerLocale: true,
   product: { select: { slug: true } },
-  place: { select: { id: true, corral: { select: { name: true, address: true, venue: true, hours: true } } } },
+  place: { select: { id: true } },
   seller: { select: { waId: true, name: true } },
 } as const;
 

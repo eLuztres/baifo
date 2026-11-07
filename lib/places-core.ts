@@ -1,9 +1,3 @@
-/** The visitor's chosen places: kept in localStorage, mirrored into a cookie so the server can filter the first render. */
-export const PLACES_STORAGE_KEY = 'shop-places';
-export const PLACES_COOKIE = 'places';
-// A year: the choice is a preference, like the language.
-export const PLACES_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
 /** A place as the shop shows it: its pin on the island and whether it's open yet. */
 export interface ShopPlace {
   id: string;
@@ -12,22 +6,7 @@ export interface ShopPlace {
   x: number;
   y: number;
   isLive: boolean;
-  /** Its Corral's name, when the place has its meeting spot. */
-  corralName?: string;
-  /** The person who welcomes you there: the picker shows them, not a map. */
-  hostName?: string;
-  hostImage?: string;
 }
-
-/** "Chantal Montaldo" → "Chantal": the host greets you by first name. */
-export const firstName = (name: string) => name.split(' ')[0];
-
-/** The saved slugs as written in the cookie or storage ("corralejo,el-cotillo"). */
-export const parsePlaceSlugs = (value?: string | null) =>
-  (value ?? '')
-    .split(',')
-    .map((slug) => slug.trim())
-    .filter(Boolean);
 
 /** The live places the visitor chose; nothing saved, or nothing of it still live, means all live places. */
 export function chosenPlaces<T extends Pick<ShopPlace, 'slug' | 'isLive'>>(places: T[], saved: string[]) {

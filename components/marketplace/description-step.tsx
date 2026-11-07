@@ -43,7 +43,7 @@ import { toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
 import AddressInput from './address-input';
 import TagInput from './tag-input';
-import type { EditorLanguage, EditorTag, MercadilloOption, TagOption } from './editor-types';
+import type { EditorLanguage, EditorTag, MercadilloOption, ScoutOption, TagOption } from './editor-types';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -53,6 +53,8 @@ interface DescriptionStepProps {
   shopLanguage: EditorLanguage;
   /** The Mercadillos it can join, on "Más". */
   mercadillos: MercadilloOption[];
+  /** The señaladores to pick from, on "Más". */
+  scouts: ScoutOption[];
   /** The shop's etiquetas to offer under the texts. */
   tagOptions: TagOption[];
   /** How many etiquetas a listing can have (MAX_LISTING_TAGS). */
@@ -70,7 +72,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, tagOptions, maxTags, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, scouts, tagOptions, maxTags, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -149,6 +151,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
   const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
+  const [scoutId, setScoutId] = useState(listing.scoutId ?? '');
   const [tags, setTags] = useState<EditorTag[]>(() => listing.tags);
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
@@ -241,6 +244,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
         mercadilloId,
+        scoutId,
         tags,
       });
       if (!result.success) return setError(result.message);
@@ -265,6 +269,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       address: isEvent ? address : '',
       textMode,
       mercadilloId,
+      scoutId,
       tags,
       sellerPhone: sentPhone,
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
@@ -661,6 +666,21 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                   {mercadillos.map((mercadillo) => (
                     <option key={mercadillo.id} value={mercadillo.id}>
                       {mercadillo.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {scouts.length > 0 && (
+              <div className='space-y-1'>
+                <Label htmlFor='listing-scout' className='px-1 text-xs text-muted-foreground'>
+                  {texts.scoutLabel}
+                </Label>
+                <select id='listing-scout' value={scoutId} disabled={isWriting} onChange={(event) => setScoutId(event.target.value)} className={SELECT_CLASS}>
+                  <option value=''>{texts.scoutNone}</option>
+                  {scouts.map((scout) => (
+                    <option key={scout.id} value={scout.id}>
+                      {scout.name}
                     </option>
                   ))}
                 </select>
