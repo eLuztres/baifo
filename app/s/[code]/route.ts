@@ -18,9 +18,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   return NextResponse.redirect(isAndroid ? androidAppIntent(chatUrl) : chatUrl);
 }
 
-/** After a QR scan, Android's browser keeps a redirected https link to itself and shows WhatsApp's download page;
-    an intent opens the installed app, and the browser falls back to the same link when there is none. */
+/** After a QR scan, Android's browser keeps a redirected https link to itself and shows WhatsApp's download page.
+    An intent for the same https link opens whichever WhatsApp is installed (only normal WhatsApp knows whatsapp://,
+    Business doesn't), and the browser falls back to the link when there is none. */
 const androidAppIntent = (chatUrl: string) => {
-  const { search } = new URL(chatUrl);
-  return `intent://send${search}#Intent;scheme=whatsapp;S.browser_fallback_url=${encodeURIComponent(chatUrl)};end`;
+  const { host, pathname, search } = new URL(chatUrl);
+  return `intent://${host}${pathname}${search}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(chatUrl)};end`;
 };
