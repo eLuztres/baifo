@@ -23,7 +23,11 @@ const nextConfig: NextConfig = {
   // and Next.js would stream the metadata into the body for those, so the preview fell back to the icon.
   htmlLimitedBots: /.*/,
   async headers() {
-    return [{ source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] }];
+    return [
+      { source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] },
+      // Vercel's cache ignores Range: it kept a 2-byte piece and served it for every part of a video (#556).
+      { source: '/media/:key', headers: [{ key: 'x-vercel-enable-rewrite-caching', value: '0' }] },
+    ];
   },
   // The corral pages are gone (#535); links already shared land on the home page.
   async redirects() {
