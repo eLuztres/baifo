@@ -6,7 +6,6 @@ import GoldLeafBackground from '@/components/shared/gold-leaf-background';
 import DunesBackground from '@/components/shared/dunes-background';
 import HomeOffers from '@/components/shared/offers/home-offers';
 import RefreshOnReturn from '@/components/shared/refresh-on-return';
-import IosInstallHint from '@/components/shared/ios-install-hint';
 import { BRAND } from '@/lib/brand';
 
 export default function RootLayout({
@@ -24,7 +23,6 @@ export default function RootLayout({
       <Footer />
       <AdminAddButton />
       <HomeOffers />
-      <IosInstallHint shopName={BRAND.name} />
       <RefreshOnReturn />
       {/* Fetched with the first page: on mobile data the loader's own picture otherwise arrives after the page it waits for. */}
       {/* eslint-disable-next-line @next/next/no-img-element -- only warms the cache for the loader */}
