@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import productStyles from '@/app/(root)/product/[slug]/product-view.module.css';
@@ -37,6 +38,7 @@ import { findTagByParam, tagHref, tagNameIn } from '@/lib/tag-names';
 import { chosenTypeFilters, currentExploreLink, inScopeOf, ofTypes, TYPE_FILTERS } from '@/lib/explore-filters';
 import { isInPriceRange, parsePriceRange, priceRanges } from '@/lib/price-ranges';
 import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
+import { freshMix, MIX_COOKIE } from '@/lib/fresh-mix';
 
 interface ExplorePageProps {
   /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
@@ -92,13 +94,16 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, precio, categoria, mercadillo, c, etiqueta }, { t, locale }, allListings, placeIds, mercadillos] = await Promise.all([
+  const [{ q = '', tipo, precio, categoria, mercadillo, c, etiqueta }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
     searchParams,
     getT(),
     getInStockRings(),
     getVisitorPlaceIds(),
     getMercadillos(),
+    cookies(),
   ]);
+  // Not always the newest on top: each visitor's own order, new every few hours.
+  const allListings = freshMix(storedListings, cookieStore.get(MIX_COOKIE)?.value ?? '');
   const currentLink = currentExploreLink({ c, categoria });
   if (currentLink) redirect(currentLink);
 

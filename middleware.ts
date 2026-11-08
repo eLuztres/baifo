@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
 import { URL_LOCALE_HEADER, urlLocaleOf } from '@/lib/i18n-core';
 import { buildContentSecurityPolicy } from '@/lib/security-headers';
+import { MIX_COOKIE, MIX_HOURS, newMixSeed } from '@/lib/fresh-mix';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
 const PROTECTED_PATHS = [
@@ -60,8 +61,12 @@ export function middleware(request: NextRequest) {
   const contentSecurityPolicy = buildContentSecurityPolicy({ nonce, isDev: process.env.NODE_ENV === 'development' });
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
+  // The page reads the new seed on this very request, so the first view and the way back show the same order.
+  const newSeed = pathname === '/explore' && !request.cookies.has(MIX_COOKIE) ? newMixSeed() : undefined;
+  if (newSeed) requestHeaders.set('cookie', [request.headers.get('cookie'), `${MIX_COOKIE}=${newSeed}`].filter(Boolean).join('; '));
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', contentSecurityPolicy);
+  if (newSeed) response.cookies.set(MIX_COOKIE, newSeed, { maxAge: MIX_HOURS * 60 * 60, httpOnly: true, sameSite: 'lax', path: '/' });
 
   return response;
 }
