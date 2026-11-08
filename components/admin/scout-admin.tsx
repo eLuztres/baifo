@@ -28,6 +28,8 @@ export interface EditableScout {
   code: string;
   /** Their link, e.g. https://baifo.es/s/ana. */
   url: string;
+  /** What their QR opens: the shop's WhatsApp chat with their code in the message. */
+  qrUrl: string;
   listingCount: number;
 }
 
@@ -115,10 +117,10 @@ function ScoutQr({ scout, onClose }: { scout: EditableScout; onClose: () => void
   useEffect(() => {
     // Drawn on a canvas: fetching a data: URL is blocked by our connect-src rule.
     const canvas = document.createElement('canvas');
-    QRCode.toCanvas(canvas, scout.url, { width: 1024, margin: 2, errorCorrectionLevel: 'M' }).then(() =>
+    QRCode.toCanvas(canvas, scout.qrUrl, { width: 1024, margin: 2, errorCorrectionLevel: 'M' }).then(() =>
       canvas.toBlob((blob) => blob && setFile(new File([blob], `baifo-${scout.code}.png`, { type: 'image/png' })), 'image/png'),
     );
-  }, [scout.url, scout.code]);
+  }, [scout.qrUrl, scout.code]);
 
   const shareQr = async () => {
     if (!file) return;
@@ -140,7 +142,7 @@ function ScoutQr({ scout, onClose }: { scout: EditableScout; onClose: () => void
           <DialogTitle>{scout.name}</DialogTitle>
           <DialogDescription>{t('SCOUT_QR_HINT')}</DialogDescription>
         </DialogHeader>
-        <WhatsAppQr url={scout.url} label={scout.url} className='mx-auto w-full max-w-64 rounded-2xl' />
+        <WhatsAppQr url={scout.qrUrl} label={scout.url} className='mx-auto w-full max-w-64 rounded-2xl' />
         <p className='break-all text-center font-mono text-sm text-primary'>{scout.url.replace(/^https?:\/\//, '')}</p>
         <Button className='w-full rounded-full' onClick={shareQr} disabled={!file}>
           <Share2 /> {t('SCOUT_SHARE_QR')}
