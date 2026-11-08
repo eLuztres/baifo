@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -109,9 +109,19 @@ function ScoutEditor({ scout, onClose, onSaved }: ScoutEditorProps) {
 function ScoutQr({ scout, onClose }: { scout: EditableScout; onClose: () => void }) {
   const { t } = useI18n();
 
+  const [file, setFile] = useState<File | null>(null);
+
+  // Made beforehand: iOS only shares straight from the tap, so nothing may be awaited before navigator.share.
+  useEffect(() => {
+    // Drawn on a canvas: fetching a data: URL is blocked by our connect-src rule.
+    const canvas = document.createElement('canvas');
+    QRCode.toCanvas(canvas, scout.url, { width: 1024, margin: 2, errorCorrectionLevel: 'M' }).then(() =>
+      canvas.toBlob((blob) => blob && setFile(new File([blob], `baifo-${scout.code}.png`, { type: 'image/png' })), 'image/png'),
+    );
+  }, [scout.url, scout.code]);
+
   const shareQr = async () => {
-    const blob = await (await fetch(await QRCode.toDataURL(scout.url, { width: 1024, margin: 2, errorCorrectionLevel: 'M' }))).blob();
-    const file = new File([blob], `baifo-${scout.code}.png`, { type: 'image/png' });
+    if (!file) return;
     if (navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file], text: scout.url }).catch(() => {});
       return;
@@ -132,7 +142,7 @@ function ScoutQr({ scout, onClose }: { scout: EditableScout; onClose: () => void
         </DialogHeader>
         <WhatsAppQr url={scout.url} label={scout.url} className='mx-auto w-full max-w-64 rounded-2xl' />
         <p className='break-all text-center font-mono text-sm text-primary'>{scout.url.replace(/^https?:\/\//, '')}</p>
-        <Button className='w-full rounded-full' onClick={shareQr}>
+        <Button className='w-full rounded-full' onClick={shareQr} disabled={!file}>
           <Share2 /> {t('SCOUT_SHARE_QR')}
         </Button>
       </DialogContent>
