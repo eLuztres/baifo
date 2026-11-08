@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useMedia } from '@/hooks/useMedia';
-import { pictureOf, videoPoster, videoSource } from '@/lib/video';
+import { pictureOf, throughSite, videoPoster, videoSource } from '@/lib/video';
 
 const DEFAULT_FILL_SIZES = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw';
 
@@ -95,7 +95,7 @@ export default function ProductMedia({
                 <video
                     ref={videoRef}
                     // #t: without a still, Safari paints the frame at that time instead of a black box.
-                    src={isStill && !posterUrl ? `${videoSource(src)}#t=0.1` : videoSource(src)}
+                    src={isStill && !posterUrl ? `${throughSite(videoSource(src))}#t=0.1` : throughSite(videoSource(src))}
                     aria-label={alt || undefined}
                     className={cn(fitClass, 'relative object-center w-full h-full', className)}
                     autoPlay={!isStill && !playsWhenVisible}
@@ -104,7 +104,7 @@ export default function ProductMedia({
                     playsInline
                     // With a still frame a preview loads nothing of the video; a feed card only once it's on screen.
                     preload={playsWhenVisible || (isStill && posterUrl) ? 'none' : isStill ? 'metadata' : 'auto'}
-                    poster={posterUrl}
+                    poster={posterUrl && throughSite(posterUrl)}
                     onError={handleError}
                     onLoadedData={handleVideoLoaded}
                 />

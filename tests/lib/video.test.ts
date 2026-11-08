@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { coverPicture, isVideoUrl, mediaUrl, pictureOf, videoPoster, videoSource, videoStill } from '@/lib/video';
+import { coverPicture, isVideoUrl, mediaUrl, pictureOf, videoPoster, throughSite, videoSource, videoStill } from '@/lib/video';
 
 describe('videoStill', () => {
   beforeAll(() => {
@@ -46,5 +46,17 @@ describe('video stills in the URL', () => {
     expect(coverPicture([video, 'https://x.ufs.sh/f/photo'])).toBe('https://x.ufs.sh/f/still');
     expect(coverPicture([mediaUrl('https://x.ufs.sh/f/old', 'video/mp4'), 'https://x.ufs.sh/f/photo'])).toBe('https://x.ufs.sh/f/photo');
     expect(coverPicture([])).toBeUndefined();
+  });
+});
+
+describe('throughSite', () => {
+  it('serves UploadThing files from this site, old and new addresses', () => {
+    expect(throughSite('https://rf1rilwah0.ufs.sh/f/abc123')).toBe('/media/abc123');
+    expect(throughSite('https://utfs.io/f/abc123')).toBe('/media/abc123');
+  });
+
+  it('leaves other addresses alone', () => {
+    expect(throughSite('/showcase/clip.mp4')).toBe('/showcase/clip.mp4');
+    expect(throughSite('https://example.com/f/abc123')).toBe('https://example.com/f/abc123');
   });
 });

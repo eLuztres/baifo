@@ -19,6 +19,12 @@ export function videoPoster(url: string) {
 /** The file itself, without the mark: what a <video> loads. */
 export const videoSource = (url: string) => url.split('#')[0];
 
+// Spanish networks block UploadThing's Cloudflare addresses while football is on, so browsers get its files through this site (#556).
+const UPLOADTHING_FILE = /^https:\/\/(?:[a-z0-9]+\.ufs\.sh|utfs\.io)\/f\/([^/?#]+)/i;
+
+/** An UploadThing file's address on this site (the /media rewrite in next.config); other addresses stay as they are. */
+export const throughSite = (url: string) => url.replace(UPLOADTHING_FILE, '/media/$1');
+
 /** The picture for places that only show pictures: a photo itself, a video's still frame, or none. */
 export const pictureOf = (url: string) => (isVideoUrl(url) ? videoPoster(url) : url);
 
