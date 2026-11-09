@@ -7,6 +7,9 @@
   min-height: 100dvh;
   padding: 16px;
   background: var(--background);
+  /* iPhones enlarge text on a page wider than the screen: in the zoomed-down sheet it overflowed its boxes. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .toolbar {
