@@ -233,14 +233,49 @@ const descriptionSchema = z.object({
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
 
+const TEXT_FIELD_NAMES: Record<string, string> = { title: 'el título', description: 'la descripción', short: 'el título corto' };
+
+/** What "Publicar" says when a field fails: the field itself, so the admin knows what to change. */
+const describeIssueMessage = (issue: z.ZodIssue | undefined) => {
+  const [field, language, textField] = issue?.path ?? [];
+  const tooLong = issue?.code === 'too_big' && 'maximum' in issue ? ` (máximo ${issue.maximum} caracteres)` : '';
+  switch (field) {
+    case 'tags':
+      return `Como mucho ${MAX_LISTING_TAGS} etiquetas`;
+    case 'contacts':
+      return CHECK_CONTACTS;
+    case 'sellerName':
+      return 'Revisa el nombre';
+    case 'sellerPhone':
+      return 'Revisa el teléfono';
+    case 'notes':
+      return `La descripción es demasiado larga${tooLong}`;
+    case 'texts': {
+      const languageName = LOCALES.find((option) => option.id === language)?.label ?? String(language);
+      const name = TEXT_FIELD_NAMES[String(textField)] ?? 'el texto';
+      return tooLong ? `Acorta ${name} en ${languageName}${tooLong}` : `Revisa ${name} en ${languageName}`;
+    }
+    case 'price':
+      return 'Revisa el precio: solo números, por ejemplo 80 o 12,50';
+    case 'startsAt':
+      return 'Revisa la fecha y la hora del evento';
+    case 'onlineUntil':
+      return 'Revisa el día de «Online hasta»';
+    default:
+      return `Revisa ${String(field ?? 'el anuncio')}`;
+  }
+};
+
 /** "Publicar": the AI writes the listing from the description (as the admin chose) and it goes online once it is done.
     A picture, the description, a way to reach the person (WhatsApp, email, web or Instagram) and their OK to show it are needed. */
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
   const parsed = descriptionSchema.safeParse(input);
-  if (!parsed.success && parsed.error.issues[0]?.path[0] === 'tags') return { success: false, message: `Como mucho ${MAX_LISTING_TAGS} etiquetas` };
-  if (!parsed.success && parsed.error.issues[0]?.path[0] === 'contacts') return { success: false, message: CHECK_CONTACTS };
-  if (!parsed.success) return { success: false, message: parsed.error.issues[0]?.path[0] === 'sellerName' ? 'Revisa el nombre' : 'Revisa el teléfono' };
+  if (!parsed.success) {
+    // Only where and why, never the values: the logs show which field stopped a listing.
+    console.warn(`Listing ${id} not published:`, parsed.error.issues.map((issue) => `${issue.path.join('.')} ${issue.code}`).join(', '));
+    return { success: false, message: describeIssueMessage(parsed.error.issues[0]) };
+  }
   const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, scoutId, tags, pictureMotion } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
