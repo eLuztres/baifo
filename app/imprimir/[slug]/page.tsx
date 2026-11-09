@@ -57,8 +57,8 @@ export default async function PrintListingPage({ params }: PrintPageProps) {
   const priceLabel = priceLabelKey(product.type, product.priceMode);
   const condition = product.type === 'PRODUCT' ? conditionKey(product.condition) : undefined;
   const serviceKey = product.type === 'SERVICE' ? serviceTypeKey(product.serviceType) : undefined;
-  const mercadilloName = product.mercadillo && localize(product.mercadillo.name, locale);
-  const facts = [condition && t(condition), serviceKey && t(serviceKey), mercadilloName && t('MERCADILLO_NAMED', { name: mercadilloName })].filter(Boolean);
+  const mercadilloNames = product.mercadillos.map((mercadillo) => t('MERCADILLO_NAMED', { name: localize(mercadillo.name, locale) }));
+  const facts = [condition && t(condition), serviceKey && t(serviceKey), ...mercadilloNames].filter(Boolean);
 
   return (
     <main className={styles.page} style={{ '--print-accent': EMAIL_COLORS.primary } as React.CSSProperties}>

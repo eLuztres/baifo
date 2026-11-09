@@ -148,9 +148,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   // Only the plain list has rows: a search or filter shows every match in the grid.
   const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && !chosenRange;
   const rows = isPlainList
-    ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloId === option.id) })).filter((row) => row.listings.length > 0)
+    ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloIds.includes(option.id)) })).filter((row) => row.listings.length > 0)
     : [];
-  const gridListings = isPlainList ? shown.filter((listing) => !listing.mercadilloId) : shown;
+  const gridListings = isPlainList ? shown.filter((listing) => listing.mercadilloIds.length === 0) : shown;
   const rowSpots = pickRowSpots(gridListings.length, rows.length);
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 

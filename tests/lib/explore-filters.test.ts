@@ -1,19 +1,19 @@
 import { chosenTypeFilters, currentExploreLink, inScopeOf, listParam, ofTypes } from '@/lib/explore-filters';
 import type { ListingType } from '@/lib/constants';
 
-const listing = (id: string, type: ListingType, mercadilloId: string | null = null, tagIds: string[] = []) => ({
+const listing = (id: string, type: ListingType, mercadilloIds: string[] = [], tagIds: string[] = []) => ({
   id,
   type,
-  mercadilloId,
+  mercadilloIds,
   tags: tagIds.map((tagId) => ({ id: tagId })),
 });
 
 const LISTINGS = [
-  listing('bike', 'PRODUCT', null, ['sport']),
-  listing('surf-lessons', 'SERVICE', 'magma', ['sport', 'lessons']),
-  listing('wanted-board', 'WANTED', 'magma', ['sport']),
-  listing('concert', 'EVENT', null, ['music']),
-  listing('lamp', 'PRODUCT', 'magma'),
+  listing('bike', 'PRODUCT', [], ['sport']),
+  listing('surf-lessons', 'SERVICE', ['magma', 'surf'], ['sport', 'lessons']),
+  listing('wanted-board', 'WANTED', ['magma'], ['sport']),
+  listing('concert', 'EVENT', [], ['music']),
+  listing('lamp', 'PRODUCT', ['magma']),
 ];
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
@@ -75,5 +75,9 @@ describe('inScopeOf', () => {
   it('shows one Mercadillo, and both filters together', () => {
     expect(ids(inScopeOf(LISTINGS, { mercadilloId: 'magma' }))).toEqual(['surf-lessons', 'wanted-board', 'lamp']);
     expect(ids(inScopeOf(LISTINGS, { mercadilloId: 'magma', tagId: 'lessons' }))).toEqual(['surf-lessons']);
+  });
+
+  it('shows a listing in every Mercadillo it is in', () => {
+    expect(ids(inScopeOf(LISTINGS, { mercadilloId: 'surf' }))).toEqual(['surf-lessons']);
   });
 });

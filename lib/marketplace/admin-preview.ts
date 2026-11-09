@@ -7,7 +7,7 @@ import { isAdminPreviewSlug, previewSubmissionId } from './preview-slug';
 export async function getAdminProductPreview(slug: string) {
   const id = previewSubmissionId(slug);
   if (!isAdminPreviewSlug(slug) || !(await isAdmin())) return null;
-  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } }, mercadillo: { select: { slug: true, name: true, icon: true } } } });
+  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } }, mercadillos: { select: { slug: true, name: true, icon: true }, orderBy: { sortOrder: 'asc' } } } });
   if (!submission?.title) return null;
   const { title, shortTitle, description, images, rawImages, price, priceMode, type, condition, serviceType, startsAt, address, placeId } = submission;
   return {
@@ -26,7 +26,7 @@ export async function getAdminProductPreview(slug: string) {
     startsAt,
     address,
     placeId,
-    mercadillo: submission.mercadillo,
+    mercadillos: submission.mercadillos,
     stock: 1,
     reservedUntil: null,
     reservedById: null,

@@ -56,9 +56,8 @@ model Product {
   // Where it is handed over or offered; visitors filter the shop by places.
   placeId        String?   @db.Uuid
   place          Place?    @relation(fields: [placeId], references: [id], onDelete: SetNull)
-  // The Mercadillo it belongs to, if any: /explore shows those together in one row.
-  mercadilloId   String?     @db.Uuid
-  mercadillo     Mercadillo? @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
+  // The Mercadillos it is in, any number: /explore shows it in each one's row.
+  mercadillos    Mercadillo[]
   // How its pictures move from one to the next (PICTURE_MOTIONS); 'still' keeps them still.
   pictureMotion  String      @default("mix")
   // A service's kind of offer: class, service or support (SERVICE_TYPES).
@@ -379,9 +378,8 @@ model Submission {
   // Its place; the product it becomes takes it over.
   placeId           String?          @db.Uuid
   place             Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
-  // Its Mercadillo; the product it becomes takes it over.
-  mercadilloId      String?          @db.Uuid
-  mercadillo        Mercadillo?      @relation(fields: [mercadilloId], references: [id], onDelete: SetNull)
+  // Its Mercadillos; the product it becomes takes them over.
+  mercadillos       Mercadillo[]
   // How its pictures move; the product it becomes takes it over.
   pictureMotion     String           @default("mix")
   // Shown at the end of the description, and found by the search.

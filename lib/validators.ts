@@ -32,6 +32,8 @@ export const mercadilloSchema = z.object({
     .string()
     .trim()
     .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
+  // Its listings (products); missing: they stay as they are.
+  productIds: z.array(z.string().uuid()).max(500).optional(),
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 

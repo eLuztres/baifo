@@ -34,6 +34,10 @@ interface ExploreSearchProps {
   value: string;
   /** Whether the feed is narrowed, so clearing the field opens everything again. */
   isFiltered: boolean;
+  /** Where "every match" and clearing lead; default the feed. */
+  searchPath?: string;
+  /** Instead of opening the chosen link: e.g. the Mercadillo editor narrows its own list with it. */
+  onPick?: (href: string) => void;
 }
 
 interface Option {
@@ -66,7 +70,7 @@ function Highlighted({ text, words }: { text: string; words: string[] }) {
 }
 
 /** The feed's search: suggests kinds, etiquetas and listings while typing (by name, etiqueta or description); Enter shows every match. */
-export default function ExploreSearch({ listings, choices, tags, value, isFiltered }: ExploreSearchProps) {
+export default function ExploreSearch({ listings, choices, tags, value, isFiltered, searchPath = '/explore', onPick }: ExploreSearchProps) {
   const { t } = useI18n();
   const router = useRouter();
   const listboxId = useId();
@@ -83,26 +87,29 @@ export default function ExploreSearch({ listings, choices, tags, value, isFilter
         ...choices.map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count })),
         ...[...tags].sort((a, b) => b.count - a.count).map((tag) => ({ id: tag.href, href: tag.href, label: tag.label, count: tag.count, isTag: true })),
       ];
-    const searchHref = `/explore?${new URLSearchParams({ q: query.trim() })}`;
+    const searchHref = `${searchPath}?${new URLSearchParams({ q: query.trim() })}`;
     return [
       { id: searchHref, href: searchHref, label: t('EXPLORE_SEARCH_ALL', { query: query.trim() }), isAll: true },
       ...best(choices, words, MAX_CHOICES).map((choice) => ({ id: choice.href, href: choice.href, label: choice.label, image: choice.image, count: choice.count })),
       ...best(tags, words, MAX_CHOICES).map((tag) => ({ id: tag.href, href: tag.href, label: tag.label, count: tag.count, isTag: true })),
       ...best(listings, words, MAX_LISTINGS).map((listing) => ({ id: listing.href, href: listing.href, label: listing.name, image: listing.image })),
     ];
-  }, [choices, tags, listings, query, t, words]);
+  }, [choices, tags, listings, query, searchPath, t, words]);
 
   const go = (href: string) => {
     setIsOpen(false);
     inputRef.current?.blur();
-    router.push(href);
+    if (onPick) onPick(href);
+    else router.push(href);
   };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    // React passes a submit on through portals: inside a dialog it would also send the form around it.
+    event.stopPropagation();
     const option = options[activeIndex];
     if (isOpen && option) return go(option.href);
-    if (words.length > 0) go(`/explore?${new URLSearchParams({ q: query.trim() })}`);
+    if (words.length > 0) go(`${searchPath}?${new URLSearchParams({ q: query.trim() })}`);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -121,7 +128,7 @@ export default function ExploreSearch({ listings, choices, tags, value, isFilter
   const clear = () => {
     setQuery('');
     setActiveIndex(-1);
-    if (isFiltered) go('/explore');
+    if (isFiltered) go(searchPath);
     else inputRef.current?.focus();
   };
 

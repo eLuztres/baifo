@@ -48,8 +48,8 @@ export interface CollectionRing {
   description: string;
   /** Server only: where it is, for the visitor's place filter. */
   placeId: string | null;
-  /** Server only: the Mercadillo it belongs to, for its row in the list. */
-  mercadilloId: string | null;
+  /** Server only: the Mercadillos it is in, for their rows in the list. */
+  mercadilloIds: string[];
   /** How its pictures move on its card (PICTURE_MOTIONS). */
   pictureMotion: string;
   /** Server only: its etiquetas, for the feed's search and its cards. */
@@ -85,7 +85,7 @@ const RING_SELECT = {
   serviceType: true,
   startsAt: true,
   placeId: true,
-  mercadilloId: true,
+  mercadillos: { select: { id: true } },
   pictureMotion: true,
   expiresAt: true,
   submission: { select: { rawImages: true, expiresAt: true, tags: { select: { id: true, names: true } } } },
@@ -94,7 +94,7 @@ const RING_SELECT = {
 // From the extended client, which hands prices over as strings.
 type RingRow = Prisma.Result<typeof prisma.product, { select: typeof RING_SELECT }, 'findFirstOrThrow'>;
 
-const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt, ...product }: RingRow): CollectionRing => {
+const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt, mercadillos, ...product }: RingRow): CollectionRing => {
   const { type } = product;
   return {
     ...product,
@@ -104,6 +104,7 @@ const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt,
     isIllustrative: (type === 'PRODUCT' || type === 'EVENT') && Boolean(submission && submission.rawImages.length === 0),
     image: coverPicture(images) ?? images[0],
     images,
+    mercadilloIds: mercadillos.map((mercadillo) => mercadillo.id),
     isReserved: isReservationActive({ reservedUntil }),
     tags: submission?.tags.map(({ id, names }) => ({ id, names: names as TagNames })) ?? [],
     // A seller's listing ends with its submission; an admin's service has its own end.

@@ -68,7 +68,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         startsAt: submission.startsAt,
         address: submission.address,
         placeId,
-        mercadilloId: submission.mercadilloId,
+        mercadillos: { connect: await tx.mercadillo.findMany({ where: { submissions: { some: { id: submission.id } } }, select: { id: true } }) },
         pictureMotion: submission.pictureMotion,
         isFeatured: plan === 'big',
         contactPhone,

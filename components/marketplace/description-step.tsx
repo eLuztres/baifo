@@ -152,7 +152,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   );
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
-  const [mercadilloId, setMercadilloId] = useState(listing.mercadilloId ?? '');
+  const [mercadilloIds, setMercadilloIds] = useState(listing.mercadilloIds);
+  const toggleMercadillo = (id: string) => setMercadilloIds((current) => (current.includes(id) ? current.filter((chosen) => chosen !== id) : [...current, id]));
   const [scoutId, setScoutId] = useState(listing.scoutId ?? '');
   const [pictureMotion, setPictureMotion] = useState<PictureMotion>(toPictureMotion(listing.pictureMotion));
   const motionPictures = (listing.images.length > 0 ? listing.images : listing.rawImages).filter((image) => !isVideoUrl(image));
@@ -247,7 +248,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
-        mercadilloId,
+        mercadilloIds,
         scoutId,
         tags,
         pictureMotion,
@@ -273,7 +274,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       startsAt: isEvent ? filled.startsAt : '',
       address: isEvent ? address : '',
       textMode,
-      mercadilloId,
+      mercadilloIds,
       scoutId,
       tags,
       pictureMotion,
@@ -664,17 +665,29 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
             </div>
             {mercadillos.length > 0 && (
               <div className='space-y-1'>
-                <Label htmlFor='listing-mercadillo' className='px-1 text-xs text-muted-foreground'>
-                  {texts.mercadilloLabel}
-                </Label>
-                <select id='listing-mercadillo' value={mercadilloId} disabled={isWriting} onChange={(event) => setMercadilloId(event.target.value)} className={SELECT_CLASS}>
-                  <option value=''>{texts.mercadilloNone}</option>
-                  {mercadillos.map((mercadillo) => (
-                    <option key={mercadillo.id} value={mercadillo.id}>
-                      {mercadillo.name}
-                    </option>
-                  ))}
-                </select>
+                <p className='px-1 text-xs text-muted-foreground'>{texts.mercadilloLabel}</p>
+                {/* Any number of them; the Mercadillo's own editor changes the same links. */}
+                <div className='flex flex-wrap gap-2'>
+                  {mercadillos.map((mercadillo) => {
+                    const isChosen = mercadilloIds.includes(mercadillo.id);
+                    return (
+                      <button
+                        key={mercadillo.id}
+                        type='button'
+                        aria-pressed={isChosen}
+                        disabled={isWriting}
+                        onClick={() => toggleMercadillo(mercadillo.id)}
+                        className={cn(
+                          'inline-flex h-10 max-w-full items-center gap-1.5 rounded-full border px-3 text-sm transition disabled:opacity-50',
+                          isChosen ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary/50'
+                        )}
+                      >
+                        {isChosen && <Check className='size-4 shrink-0' aria-hidden />}
+                        <span className='truncate'>{mercadillo.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
             {scouts.length > 0 && (

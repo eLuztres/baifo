@@ -41,7 +41,7 @@ const HIDDEN_FIELDS = new Set(['payToken', 'updatedAt', 'attempts', 'lastError',
 const SNAPSHOT_INCLUDE = {
   tags: { select: { names: true } },
   place: { select: { slug: true } },
-  mercadillo: { select: { slug: true } },
+  mercadillos: { select: { slug: true } },
   scout: { select: { name: true } },
   seller: { select: { waId: true } },
 } satisfies Prisma.SubmissionInclude;
@@ -54,13 +54,14 @@ const plain = (value: unknown): unknown =>
 
 /** The whole listing as plain JSON, its relations as names. */
 function toSnapshot(row: SnapshotRow): Snapshot {
-  const { tags, place, mercadillo, scout, seller, ...fields } = row;
+  const { tags, place, mercadillos, scout, seller, ...fields } = row;
   const snapshot: Snapshot = Object.fromEntries(Object.entries(fields).filter(([key]) => !HIDDEN_FIELDS.has(key)).map(([key, value]) => [key, plain(value)]));
   return {
     ...snapshot,
     tags: tags.map((tag) => tag.names),
     place: place?.slug ?? null,
-    mercadillo: mercadillo?.slug ?? null,
+    // Kept as one text under its old name, so the log reads the same as before.
+    mercadillo: mercadillos.map((mercadillo) => mercadillo.slug).join(', ') || null,
     scout: scout?.name ?? null,
     sellerPhone: seller.waId,
   };

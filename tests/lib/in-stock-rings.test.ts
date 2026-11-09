@@ -28,6 +28,7 @@ const row = (id: string) => ({
   serviceType: null,
   startsAt: null,
   placeId: null,
+  mercadillos: [],
   expiresAt: null,
   submission: null,
 });

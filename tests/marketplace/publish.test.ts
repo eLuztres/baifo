@@ -8,12 +8,14 @@ jest.mock('@/db/prisma', () => {
   const submission = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() };
   const product = { create: jest.fn(), delete: jest.fn(async () => ({})), deleteMany: jest.fn(async () => ({ count: 0 })), updateMany: jest.fn(async () => ({ count: 1 })) };
   const listingFee = { create: jest.fn() };
+  const mercadillo = { findMany: jest.fn(async () => []) };
   return {
     prisma: {
       submission,
       product,
       listingFee,
-      $transaction: jest.fn((run: (tx: unknown) => unknown) => run({ submission, product, listingFee })),
+      mercadillo,
+      $transaction: jest.fn((run: (tx: unknown) => unknown) => run({ submission, product, listingFee, mercadillo })),
     },
   };
 });

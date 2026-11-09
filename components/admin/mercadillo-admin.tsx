@@ -8,6 +8,8 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { ImageIcon, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import GroupFields, { useGroupFields } from '@/components/admin/group-fields';
+import MercadilloListings, { type PickableListing } from '@/components/admin/mercadillo-listings';
+import type { SearchChoice } from '@/components/shared/explore-search';
 import { useI18n } from '@/components/i18n-provider';
 import DeleteDialog from '@/components/shared/delete-dialog';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
@@ -32,26 +34,33 @@ export interface EditableMercadillo {
   icon: string | null;
   contactPhone: string | null;
   productCount: number;
+  /** Its listings, chosen here or in each listing's editor. */
+  productIds: string[];
 }
 
 interface MercadilloEditorProps {
   locales: Locale[];
   /** The Mercadillo to edit; a new one is made without it. */
   mercadillo?: EditableMercadillo;
+  listings: PickableListing[];
+  searchChoices: SearchChoice[];
+  searchTags: SearchChoice[];
+  mercadilloNames: Record<string, string>;
   onClose: () => void;
   onSaved: () => void;
 }
 
 /** Dialog to make or change a Mercadillo. */
-function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloEditorProps) {
+function MercadilloEditor({ locales, mercadillo, listings, searchChoices, searchTags, mercadilloNames, onClose, onSaved }: MercadilloEditorProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const form = useForm<z.infer<typeof mercadilloSchema>>({
     resolver: zodResolver(mercadilloSchema),
-    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, image: mercadillo?.image ?? null, icon: mercadillo?.icon ?? null, contactPhone: mercadillo?.contactPhone ?? '' },
+    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, image: mercadillo?.image ?? null, icon: mercadillo?.icon ?? null, contactPhone: mercadillo?.contactPhone ?? '', productIds: mercadillo?.productIds ?? [] },
   });
   const fields = useGroupFields(form, { locales, group: mercadillo });
   const icon = form.watch('icon');
+  const productIds = form.watch('productIds') ?? [];
   const iconInput = useRef<HTMLInputElement>(null);
   const { startUpload: uploadIcon, isUploading: isUploadingIcon } = useUploadThing('imageUploader', {
     onClientUploadComplete: (files) => {
@@ -81,6 +90,15 @@ function MercadilloEditor({ locales, mercadillo, onClose, onSaved }: MercadilloE
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className='space-y-5'>
             <GroupFields fields={fields} descriptionHint={t('MERCADILLO_DESCRIPTION_HINT')} />
+            <MercadilloListings
+              mercadilloId={mercadillo?.id}
+              listings={listings}
+              choices={searchChoices}
+              tags={searchTags}
+              mercadilloNames={mercadilloNames}
+              chosenIds={productIds}
+              onChange={(ids) => form.setValue('productIds', ids, { shouldDirty: true })}
+            />
             <div className='flex items-center gap-3'>
               <MercadilloIcon src={icon} className='size-14' />
               <input
@@ -152,14 +170,20 @@ interface MercadilloAdminProps {
   /** The shop's language first. */
   locales: Locale[];
   mercadillos: EditableMercadillo[];
+  /** Every online listing, to choose a Mercadillo's from. */
+  listings: PickableListing[];
+  /** The kinds and etiquetas its search offers, as on /explore. */
+  searchChoices: SearchChoice[];
+  searchTags: SearchChoice[];
 }
 
 /** The list of Mercadillos, each with its product count, to edit or delete, and the way to make a new one. */
-export default function MercadilloAdmin({ locale, locales, mercadillos }: MercadilloAdminProps) {
+export default function MercadilloAdmin({ locale, locales, mercadillos, listings, searchChoices, searchTags }: MercadilloAdminProps) {
   const { t } = useI18n();
   const router = useRouter();
   // 'new': the editor makes one; a Mercadillo: it changes that one.
   const [editing, setEditing] = useState<EditableMercadillo | 'new' | null>(null);
+  const mercadilloNames = Object.fromEntries(mercadillos.map((mercadillo) => [mercadillo.id, localize(mercadillo.name, locale)]));
 
   return (
     <div className='space-y-4'>
@@ -200,6 +224,10 @@ export default function MercadilloAdmin({ locale, locales, mercadillos }: Mercad
           key={editing === 'new' ? 'new' : editing.id}
           locales={locales}
           mercadillo={editing === 'new' ? undefined : editing}
+          listings={listings}
+          searchChoices={searchChoices}
+          searchTags={searchTags}
+          mercadilloNames={mercadilloNames}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

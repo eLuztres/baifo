@@ -140,7 +140,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
       : undefined;
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
-  const mercadilloName = product.mercadillo && localize(product.mercadillo.name, locale);
+  const mercadillos = product.mercadillos.map((mercadillo) => ({ ...mercadillo, name: localize(mercadillo.name, locale) }));
   const sellerMessage = hasSellerContact ? getContactMessage(product, seller?.name) : undefined;
   // Email, web and Instagram besides the WhatsApp; only whether there is an email goes to the browser.
   const contactWays = product.submission && {
@@ -236,16 +236,18 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             </div>
             <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
-            {(condition || serviceKey || isEvent || mercadilloName) && (
+            {(condition || serviceKey || isEvent || mercadillos.length > 0) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
-                {mercadilloName && (
+                {/* With several, only their names: the chips stay on one line on phones. */}
+                {mercadillos.map((mercadillo) => (
                   <Link
-                    href={`/explore?mercadillo=${product.mercadillo?.slug}`}
+                    key={mercadillo.slug}
+                    href={`/explore?mercadillo=${mercadillo.slug}`}
                     className='inline-flex w-fit min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted py-1 pl-1.5 pr-3 text-sm transition hover:border-primary/50'
                   >
-                    <MercadilloIcon src={product.mercadillo?.icon ?? null} className='size-5' /> <span className='truncate'>{t('MERCADILLO_NAMED', { name: mercadilloName })}</span>
+                    <MercadilloIcon src={mercadillo.icon} className='size-5' /> <span className='truncate'>{mercadillos.length > 1 ? mercadillo.name : t('MERCADILLO_NAMED', { name: mercadillo.name })}</span>
                   </Link>
-                )}
+                ))}
                 {condition && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(condition)}</p>}
                 {serviceKey && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(serviceKey)}</p>}
                 {isEvent && product.startsAt && (

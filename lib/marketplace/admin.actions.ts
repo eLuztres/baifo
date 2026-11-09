@@ -101,8 +101,10 @@ const eventStartSchema = z
   })
   .optional();
 const eventAddressSchema = z.string().trim().max(200).transform((value) => value || null).optional();
-// Empty: in no Mercadillo; missing: it stays as it is.
-const mercadilloIdSchema = z
+// Empty: in no Mercadillo; missing: they stay as they are.
+const mercadilloIdsSchema = z.array(z.string().uuid()).max(50).optional();
+// Empty: no señalador; missing: it stays as it is.
+const scoutIdSchema = z
   .union([z.string().uuid(), z.literal('')])
   .transform((value) => value || null)
   .optional();
@@ -116,10 +118,10 @@ const tagsSchema = z
   )
   .max(MAX_LISTING_TAGS)
   .optional();
-// Empty: no señalador; missing: it stays as it is.
-const scoutIdSchema = mercadilloIdSchema;
 const scoutExists = async (id: string) => Boolean(await prisma.scout.findUnique({ where: { id }, select: { id: true } }));
-const mercadilloExists = async (id: string) => Boolean(await prisma.mercadillo.findUnique({ where: { id }, select: { id: true } }));
+const mercadillosExist = async (ids: string[]) => (await prisma.mercadillo.count({ where: { id: { in: ids } } })) === new Set(ids).size;
+// The whole set, replacing the ones before.
+const setMercadillos = (ids: string[]) => ({ set: ids.map((id) => ({ id })) });
 
 // New etiquetas are made first; existing ones only gain the names they lacked (what "Traducir" filled in).
 const setListingTags = async (id: string, tags: z.output<typeof tagsSchema> & object) => {
@@ -219,7 +221,7 @@ const descriptionSchema = z.object({
   price: amountSchema,
   startsAt: eventStartSchema,
   address: eventAddressSchema,
-  mercadilloId: mercadilloIdSchema,
+  mercadilloIds: mercadilloIdsSchema,
   scoutId: scoutIdSchema,
   tags: tagsSchema,
   pictureMotion: z.enum(PICTURE_MOTIONS).optional(),
@@ -276,7 +278,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
     console.warn(`Listing ${id} not published:`, parsed.error.issues.map((issue) => `${issue.path.join('.')} ${issue.code}`).join(', '));
     return { success: false, message: describeIssueMessage(parsed.error.issues[0]) };
   }
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloId, scoutId, tags, pictureMotion } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloIds, scoutId, tags, pictureMotion } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
@@ -291,7 +293,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // An event goes online only with its date (a database rule too).
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
-  if (mercadilloId && !(await mercadilloExists(mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
+  if (mercadilloIds && !(await mercadillosExist(mercadilloIds))) return { success: false, message: 'Elige uno de los mercadillos' };
   if (scoutId && !(await scoutExists(scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
@@ -317,7 +319,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
-      mercadilloId,
+      ...(mercadilloIds && { mercadillos: setMercadillos(mercadilloIds) }),
       scoutId,
       pictureMotion,
       autoPublish: !isHidden,
@@ -346,12 +348,12 @@ export async function getAdminListing(id: string) {
   if (!(await isAdmin()) || !idSchema.safeParse(id).success) return null;
   const submission = await prisma.submission.findUnique({
     where: { id },
-    include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } }, tags: { select: { id: true, names: true } } },
+    include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } }, tags: { select: { id: true, names: true } }, mercadillos: { select: { id: true } } },
   });
   if (!submission) return null;
-  const { price, tags, ...rest } = submission;
+  const { price, tags, mercadillos, ...rest } = submission;
   // The plan prices come along: the editor's "Pagado" starts from the chosen plan's price.
-  return { ...rest, price: price?.toString() ?? null, planPrices: LISTING_PRICES, tags: tags.map((tag) => ({ id: tag.id, names: tag.names as TagNames })) };
+  return { ...rest, price: price?.toString() ?? null, planPrices: LISTING_PRICES, tags: tags.map((tag) => ({ id: tag.id, names: tag.names as TagNames })), mercadilloIds: mercadillos.map((mercadillo) => mercadillo.id) };
 }
 
 export type AdminListing = NonNullable<Awaited<ReturnType<typeof getAdminListing>>>;
@@ -392,7 +394,7 @@ const editSchema = z.object({
     .union([z.string().uuid(), z.literal('')])
     .transform((value) => value || undefined)
     .optional(),
-  mercadilloId: mercadilloIdSchema,
+  mercadilloIds: mercadilloIdsSchema,
   scoutId: scoutIdSchema,
   tags: tagsSchema,
   pictureMotion: z.enum(PICTURE_MOTIONS).optional(),
@@ -430,11 +432,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (parsed.data.placeId && !(await prisma.place.findUnique({ where: { id: parsed.data.placeId }, select: { id: true } }))) {
     return { success: false, message: 'Elige uno de los lugares' };
   }
-  if (parsed.data.mercadilloId && !(await mercadilloExists(parsed.data.mercadilloId))) return { success: false, message: 'Elige uno de los mercadillos' };
+  if (parsed.data.mercadilloIds && !(await mercadillosExist(parsed.data.mercadilloIds))) return { success: false, message: 'Elige uno de los mercadillos' };
   if (parsed.data.scoutId && !(await scoutExists(parsed.data.scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, mercadilloIds, ...fields } = parsed.data;
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
   // A person's listing keeps a way to reach them: a number, or else an email, web or Instagram. The house's own may have none.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER && !hasContactExtra(contacts)) {
@@ -466,11 +468,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   }
   const submission = await prisma.submission.update({
     where: { id },
-    data: { ...edit, translations, textVersions: { ...versions, [textMode]: editedVersion } },
+    data: { ...edit, ...(mercadilloIds && { mercadillos: setMercadillos(mercadilloIds) }), translations, textVersions: { ...versions, [textMode]: editedVersion } },
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, shortTitle, description, price, images, placeId, mercadilloId, pictureMotion, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, placeId, pictureMotion, serviceType, startsAt, address } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -487,7 +489,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         priceMode,
         images,
         placeId,
-        mercadilloId,
+        ...(mercadilloIds && { mercadillos: setMercadillos(mercadilloIds) }),
         pictureMotion,
       },
     });

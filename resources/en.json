@@ -520,7 +520,7 @@
   "TAG_NAMES_HINT": "Tap a name to write or change it; \"—\" means not translated yet.",
   "TAG_NO_TITLE": "Untitled",
   "MERCADILLOS_ADMIN_TITLE": "Mercadillos",
-  "MERCADILLOS_ADMIN_INTRO": "A Mercadillo brings together several products from one person or shop. It shows as a row in the list. Products are added from \"More\" in each listing's editor.",
+  "MERCADILLOS_ADMIN_INTRO": "A Mercadillo brings together several listings from one person or shop. It shows as a row in the list. Listings are chosen here, in each Mercadillo, or from \"More\" in each listing's editor; one can be in several.",
   "MERCADILLO_NEW": "New Mercadillo",
   "MERCADILLO_EDIT": "Edit Mercadillo",
   "MERCADILLO_EMPTY": "No Mercadillos yet.",
@@ -749,5 +749,12 @@
   "PRINT_BACK": "Back to the listing",
   "PRINT_NOTES": "Notes",
   "PRINT_NOTES_HINT": "Write anything you want to add here",
-  "PRINT_SCAN": "Scan the code to see the listing"
+  "PRINT_SCAN": "Scan the code to see the listing",
+  "MERCADILLO_LISTINGS": "Listings · {count}",
+  "MERCADILLO_LISTINGS_ADD": "Add",
+  "MERCADILLO_LISTINGS_EMPTY": "No listings yet.",
+  "MERCADILLO_LISTINGS_PICK": "Choose the listings",
+  "MERCADILLO_LISTINGS_ALSO_IN": "Also in {names}",
+  "MERCADILLO_LISTINGS_DONE": "Done · {count}",
+  "MERCADILLO_LISTING_REMOVE": "Remove {name}"
 }

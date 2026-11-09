@@ -25,13 +25,13 @@ export function currentExploreLink({ c, categoria }: { c?: string; categoria?: s
 
 interface Narrowable {
   type: ListingType;
-  mercadilloId: string | null;
+  mercadilloIds: string[];
   tags: { id: string }[];
 }
 
 /** The listings in one Mercadillo and with one etiqueta, when chosen. */
 export const inScopeOf = <T extends Narrowable>(listings: T[], { mercadilloId, tagId }: { mercadilloId?: string; tagId?: string }) =>
-  listings.filter((listing) => (!mercadilloId || listing.mercadilloId === mercadilloId) && (!tagId || listing.tags.some((tag) => tag.id === tagId)));
+  listings.filter((listing) => (!mercadilloId || listing.mercadilloIds.includes(mercadilloId)) && (!tagId || listing.tags.some((tag) => tag.id === tagId)));
 
 /** The listings of the chosen kinds; none chosen: all. */
 export const ofTypes = <T extends Narrowable>(listings: T[], types: ListingType[]) =>

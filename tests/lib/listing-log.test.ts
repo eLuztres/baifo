@@ -57,7 +57,7 @@ const listing = (fields: Partial<Row> = {}): Row => ({
   createdAt: at(0),
   tags: [{ names: { es: 'Cerámica' } }],
   place: null,
-  mercadillo: null,
+  mercadillos: [],
   scout: null,
   seller: { waId: '34600111222' },
   ...fields,

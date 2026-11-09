@@ -520,7 +520,7 @@
   "TAG_NAMES_HINT": "Touche un nom pour l'écrire ou le changer ; « — » veut dire pas encore traduit.",
   "TAG_NO_TITLE": "Sans titre",
   "MERCADILLOS_ADMIN_TITLE": "Mercadillos",
-  "MERCADILLOS_ADMIN_INTRO": "Un Mercadillo réunit plusieurs produits d'une personne ou d'une boutique. Il apparaît comme une rangée dans la liste. Les produits s'ajoutent depuis « Plus » dans l'éditeur de chaque annonce.",
+  "MERCADILLOS_ADMIN_INTRO": "Un Mercadillo réunit plusieurs annonces d'une personne ou d'une boutique. Il apparaît comme une rangée dans la liste. Les annonces se choisissent ici, dans chaque Mercadillo, ou depuis « Plus » dans l'éditeur de chaque annonce ; une annonce peut être dans plusieurs.",
   "MERCADILLO_NEW": "Nouveau Mercadillo",
   "MERCADILLO_EDIT": "Modifier le Mercadillo",
   "MERCADILLO_EMPTY": "Pas encore de Mercadillo.",
@@ -749,5 +749,12 @@
   "PRINT_BACK": "Retour à l’annonce",
   "PRINT_NOTES": "Notes",
   "PRINT_NOTES_HINT": "Écris ici ce que tu veux ajouter",
-  "PRINT_SCAN": "Scanne le code pour voir l’annonce"
+  "PRINT_SCAN": "Scanne le code pour voir l’annonce",
+  "MERCADILLO_LISTINGS": "Annonces · {count}",
+  "MERCADILLO_LISTINGS_ADD": "Ajouter",
+  "MERCADILLO_LISTINGS_EMPTY": "Pas encore d’annonce.",
+  "MERCADILLO_LISTINGS_PICK": "Choisis les annonces",
+  "MERCADILLO_LISTINGS_ALSO_IN": "Aussi dans {names}",
+  "MERCADILLO_LISTINGS_DONE": "OK · {count}",
+  "MERCADILLO_LISTING_REMOVE": "Retirer {name}"
 }
