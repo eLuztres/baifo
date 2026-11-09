@@ -531,6 +531,7 @@
   "MERCADILLO_DELETE_HINT": "Its products stay online and go back to the normal list.",
   "MERCADILLO_DESCRIPTION_HINT": "Shown in its row and on its page.",
   "MERCADILLO_LABEL": "Mercadillo",
+  "HOME_MERCADILLOS": "Mercadillos",
   "MERCADILLO_NAMED": "Mercadillo {name}",
   "MERCADILLO_COUNT_ONE": "1 product",
   "MERCADILLO_COUNT": "{count} products",

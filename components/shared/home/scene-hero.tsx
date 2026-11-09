@@ -3,10 +3,13 @@ import { APP_NAME } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
+import { localize } from '@/lib/localize';
+import { getMercadillos } from '@/lib/mercadillos';
 import { getScoutChoices } from '@/lib/scout-choices';
 import { cn } from '@/lib/utils';
 import SlideLink from '@/components/shared/slide-link';
 import AdvertiseBox from './advertise-box';
+import MercadilloGrid from './mercadillo-grid';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey, startAtRandom } from './hero-pictures';
@@ -19,7 +22,7 @@ interface SceneHeroProps {
 
 /** The opening screen: a full-screen island picture of the goat, a small title and one way into the listings. */
 export default async function SceneHero({ pictures }: SceneHeroProps) {
-  const { t } = await getT();
+  const [{ t, locale }, mercadillos] = await Promise.all([getT(), getMercadillos()]);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const scouts = whatsappUrl ? await getScoutChoices(t) : [];
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
@@ -45,6 +48,14 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
           {t('HOME_SCENE_READ')}
         </SlideLink>
       </div>
+
+      {/* An empty Mercadillo would open an empty page. */}
+      <MercadilloGrid
+        label={t('HOME_MERCADILLOS')}
+        mercadillos={mercadillos
+          .filter((mercadillo) => mercadillo._count.products > 0)
+          .map(({ slug, name, icon }) => ({ slug, name: localize(name, locale), icon }))}
+      />
 
       {/* A small ad like in the local paper: the only place the site talks about the fee. */}
       <AdvertiseBox
