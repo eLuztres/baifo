@@ -10,7 +10,7 @@ import type { z } from 'zod';
 import { Camera, Copy, Loader2, MessageCircle, Pencil, Plus, QrCode, Share2, Trash2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import DeleteDialog from '@/components/shared/delete-dialog';
-import ProductMedia from '@/components/ProductMedia';
+import ScoutPicture from '@/components/shared/scout-picture';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,7 +21,6 @@ import { createScout, deleteScout, updateScout } from '@/lib/actions/scout.actio
 import { translateMessage } from '@/lib/i18n-core';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
-import { cn } from '@/lib/utils';
 import { scoutSchema } from '@/lib/validators';
 import { whatsappLinkUrl } from '@/lib/whatsapp-chat';
 
@@ -42,23 +41,6 @@ interface ScoutEditorProps {
   scout?: EditableScout;
   onClose: () => void;
   onSaved: () => void;
-}
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-/** Their photo in a circle, or their initials when there is none. */
-function ScoutPicture({ name, image, className }: { name: string; image: string | null; className?: string }) {
-  return (
-    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-primary', className)}>
-      {image ? <ProductMedia src={image} alt='' fill sizes='6rem' isStill /> : initials(name)}
-    </span>
-  );
 }
 
 interface PicturePickerProps {

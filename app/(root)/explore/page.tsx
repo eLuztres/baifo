@@ -24,12 +24,14 @@ import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
 import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
 import { getTagOptions } from '@/lib/tags';
 import { getVisitorPlaceIds } from '@/lib/places';
+import { getScoutChoices } from '@/lib/scout-choices';
 import StickyFilterRow from '@/components/shared/sticky-filter-row';
 import MercadilloRow, { MercadilloIcon, MercadilloRowItem } from '@/components/shared/mercadillo-row';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ShareButton from '@/components/shared/product/share-button';
 import PullUpHome from '@/components/shared/pull-up-home';
+import WhoSentYouLink from '@/components/shared/who-sent-you';
 import ExploreScrollKeeper from '@/components/shared/explore-scroll-keeper';
 import { metaDescription, pageAlternates } from '@/lib/seo';
 import { foldText, mainMatches, queryWords, type SearchableText } from '@/lib/search-text';
@@ -196,6 +198,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   })).filter((option) => option.count > 0 || option.value === chosenRange?.value);
 
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
+  const scouts = whatsappUrl ? await getScoutChoices(t) : [];
 
   const renderCard = (listing: Listing, sizes = '(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw') => {
     const name = localizeProduct(listing, locale).name;
@@ -398,12 +401,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             <span aria-hidden='true' className='h-px w-16 bg-gradient-to-r from-transparent via-primary to-transparent' />
             <p className='text-balance font-display text-2xl sm:text-3xl'>{t('EXPLORE_END_TITLE')}</p>
             <p className='max-w-md text-pretty text-muted-foreground'>{t('EXPLORE_END_TEXT', { shop: APP_NAME })}</p>
-            {/* One tap straight to the shop's WhatsApp, no pop-up in between. */}
+            {/* First who told them about the shop, then its WhatsApp from that señalador. */}
             {whatsappUrl && (
               <Button asChild size='lg' className='rounded-full'>
-                <a href={whatsappUrl} target='_blank' rel='noopener noreferrer'>
+                <WhoSentYouLink href={whatsappUrl} scouts={scouts} shopName={APP_NAME}>
                   {t('HOME_HERO_ORDER_BUTTON')}
-                </a>
+                </WhoSentYouLink>
               </Button>
             )}
           </div>

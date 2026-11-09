@@ -3,6 +3,7 @@ import { APP_NAME } from '@/lib/constants';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
+import { getScoutChoices } from '@/lib/scout-choices';
 import { cn } from '@/lib/utils';
 import SlideLink from '@/components/shared/slide-link';
 import AdvertiseBox from './advertise-box';
@@ -20,6 +21,7 @@ interface SceneHeroProps {
 export default async function SceneHero({ pictures }: SceneHeroProps) {
   const { t } = await getT();
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
+  const scouts = whatsappUrl ? await getScoutChoices(t) : [];
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
@@ -49,6 +51,8 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
         title={order}
         text={orderText}
         href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
+        scouts={scouts}
+        shopName={APP_NAME}
       />
     </section>
   );
