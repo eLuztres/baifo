@@ -742,5 +742,11 @@
   "LOG_FIELD_expiresAt": "Online bis",
   "LOG_FIELD_paidAt": "Bezahlt am",
   "LOG_FIELD_payClaimedMethod": "Sagt, zahlt per",
-  "LOG_FIELD_paymentProvider": "Zahlung"
+  "LOG_FIELD_paymentProvider": "Zahlung",
+  "PRINT": "Drucken",
+  "PRINT_DOWNLOAD_PDF": "PDF herunterladen",
+  "PRINT_BACK": "Zurück zur Anzeige",
+  "PRINT_NOTES": "Notizen",
+  "PRINT_NOTES_HINT": "Schreib hier, was du ergänzen möchtest",
+  "PRINT_SCAN": "Scanne den Code, um die Anzeige zu sehen"
 }

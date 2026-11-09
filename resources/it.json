@@ -742,5 +742,11 @@
   "LOG_FIELD_expiresAt": "Online fino al",
   "LOG_FIELD_paidAt": "Pagato il",
   "LOG_FIELD_payClaimedMethod": "Dice di pagare con",
-  "LOG_FIELD_paymentProvider": "Pagamento"
+  "LOG_FIELD_paymentProvider": "Pagamento",
+  "PRINT": "Stampa",
+  "PRINT_DOWNLOAD_PDF": "Scarica PDF",
+  "PRINT_BACK": "Torna all’annuncio",
+  "PRINT_NOTES": "Note",
+  "PRINT_NOTES_HINT": "Scrivi qui quello che vuoi aggiungere",
+  "PRINT_SCAN": "Scansiona il codice per vedere l’annuncio"
 }

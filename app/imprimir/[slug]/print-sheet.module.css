@@ -1,0 +1,257 @@
+/* Paper is white whatever the site's theme (Baifo is dark), so the sheet has its own ink colors, like the emails. */
+.page {
+  --paper: #ffffff;
+  --ink: #1f2a2e;
+  --ink-soft: #5b6b70;
+  --line: #d5dcde;
+  min-height: 100dvh;
+  padding: 16px;
+  background: var(--background);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: 210mm;
+  margin: 0 auto 12px;
+}
+
+/* A4 on screen too, so what you see is what prints; phones see it zoomed down (useSheetZoom). */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 5mm;
+  width: 210mm;
+  height: 297mm;
+  margin: 0 auto;
+  padding: 12mm;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+  zoom: var(--sheet-zoom, 1);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4mm;
+  border-bottom: 0.6mm solid var(--print-accent);
+}
+
+.logo {
+  height: 13mm;
+  width: auto;
+}
+
+.domain {
+  font-size: 13pt;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
+.title {
+  margin: 0;
+  font-size: 22pt;
+  line-height: 1.15;
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2mm;
+  margin-top: -2mm;
+}
+
+.facts:empty {
+  display: none;
+}
+
+.price {
+  font-size: 18pt;
+  font-weight: 700;
+  margin-right: 2mm;
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 1.5mm;
+  padding: 1mm 3mm;
+  border: 0.3mm solid var(--line);
+  border-radius: 999px;
+  font-size: 10pt;
+}
+
+.fact svg {
+  width: 3.5mm;
+  height: 3.5mm;
+}
+
+.body {
+  display: flex;
+  gap: 6mm;
+  min-height: 0;
+}
+
+/* Every Baifo picture is 3:4. */
+.cover {
+  flex: 0 0 82mm;
+  width: 82mm;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 3mm;
+  background: var(--line);
+}
+
+.side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5mm;
+  min-width: 0;
+  max-height: calc(82mm * 4 / 3);
+}
+
+.description {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: pre-line;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  mask-image: linear-gradient(to bottom, black 85%, transparent);
+}
+
+.contact {
+  display: flex;
+  align-items: center;
+  gap: 4mm;
+  padding: 4mm;
+  border: 0.4mm solid var(--print-accent);
+  border-radius: 3mm;
+}
+
+.contactText {
+  flex: 1;
+  min-width: 0;
+  font-size: 10pt;
+}
+
+.contactText p {
+  margin: 0 0 1.5mm;
+}
+
+.phone {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  font-size: 15pt;
+  font-weight: 700;
+}
+
+.phone svg {
+  width: 5mm;
+  height: 5mm;
+  color: var(--print-accent);
+}
+
+.scan {
+  color: var(--ink-soft);
+  font-size: 9pt;
+}
+
+.qr {
+  flex: 0 0 32mm;
+  width: 32mm;
+  height: 32mm;
+  --background: var(--paper);
+  --foreground: var(--ink);
+}
+
+.thumbs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3mm;
+}
+
+.thumb {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 2mm;
+  background: var(--line);
+}
+
+/* Takes what is left of the page. */
+.notes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.5mm;
+  min-height: 25mm;
+}
+
+.notesLabel {
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.notesText {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: 0;
+  outline: none;
+  padding: 0 1mm;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(9mm - 0.3mm), var(--line) calc(9mm - 0.3mm), var(--line) 9mm);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12pt;
+  line-height: 9mm;
+}
+
+.notesText::placeholder {
+  color: var(--ink-soft);
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  .page {
+    padding: 0;
+    background: var(--paper);
+  }
+
+  .toolbar {
+    display: none;
+  }
+
+  .sheet {
+    box-shadow: none;
+    zoom: 1;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .notesText::placeholder {
+    color: transparent;
+  }
+}

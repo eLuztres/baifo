@@ -12,6 +12,7 @@ import InterestButton from '@/components/shared/product/interest-button';
 import ContactSellerButton from '@/components/shared/product/contact-seller-button';
 import ContactWaysButton from '@/components/shared/product/contact-ways-button';
 import ShareButton from '@/components/shared/product/share-button';
+import PrintButton from '@/components/shared/product/print-button';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ListingInfoButton from '@/components/shared/product/listing-info-button';
@@ -231,6 +232,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
                 <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
+                {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} />}
               </div>
             </div>
             <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
