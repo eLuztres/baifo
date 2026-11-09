@@ -29,7 +29,7 @@ export function PrintToolbar({ backHref }: { backHref: string }) {
 const SHEET_WIDTH_PX = 794;
 const GUTTERS_PX = 32;
 
-/** Shrinks the A4 sheet to fit a phone's width on screen; printing ignores it. CSS can't divide 100vw by a length. */
+/** Scales the A4 sheet down to a phone's width on screen; printing ignores it. CSS can't divide 100vw by a length. */
 function useSheetZoom() {
   useEffect(() => {
     const fit = () => document.documentElement.style.setProperty('--sheet-zoom', String(Math.min(1, (window.innerWidth - GUTTERS_PX) / SHEET_WIDTH_PX)));

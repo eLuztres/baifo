@@ -7,9 +7,8 @@
   min-height: 100dvh;
   padding: 16px;
   background: var(--background);
-  /* iPhones enlarge text on a page wider than the screen: in the zoomed-down sheet it overflowed its boxes. */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  /* The full-size sheet stays wider than a phone underneath its scaling; no sideways scroll for it. */
+  overflow-x: clip;
 }
 
 .toolbar {
@@ -21,20 +20,22 @@
   margin: 0 auto 12px;
 }
 
-/* A4 on screen too, so what you see is what prints; phones see it zoomed down (useSheetZoom). */
+/* A4 on screen too, so what you see is what prints; phones see it scaled down (useSheetZoom).
+   Scaled, not CSS zoom: iPhones zoomed the boxes but kept the text big, so it overflowed. The bottom margin takes back the space it leaves. */
 .sheet {
   display: flex;
   flex-direction: column;
   gap: 5mm;
   width: 210mm;
   height: 297mm;
-  margin: 0 auto;
+  margin: 0 auto calc(297mm * (var(--sheet-zoom, 1) - 1));
   padding: 12mm;
   overflow: hidden;
   background: var(--paper);
   color: var(--ink);
   box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
-  zoom: var(--sheet-zoom, 1);
+  transform: scale(var(--sheet-zoom, 1));
+  transform-origin: top left;
 }
 
 .header {
@@ -249,7 +250,8 @@
 
   .sheet {
     box-shadow: none;
-    zoom: 1;
+    margin: 0;
+    transform: none;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
