@@ -9,6 +9,8 @@ import FilterDropdown from '@/components/admin/filter-dropdown';
 import ExploreSearch, { type SearchChoice, type SearchListing } from '@/components/shared/explore-search';
 import { Button } from '@/components/ui/button';
 import { getInStockRings, getSellerNames, inPlaces } from '@/components/shared/home/in-stock-rings';
+import ContactSection from '@/components/shared/home/contact-section';
+import { SECTION_IDS } from '@/components/shared/home/one-page';
 import WorkshopSection from '@/components/shared/home/workshop-section';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
 import MovingPictures from '@/components/shared/product/moving-pictures';
@@ -283,8 +285,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const pullUpHome = <PullUpHome href='/' label={t('PULL_UP_HOME', { shop: APP_NAME })} />;
 
   return (
-    // data-feed-page: the ring's morph waits for this page (use-open-feed.ts).
-    <div className='mx-auto w-full max-w-7xl space-y-5 px-1 pb-10 max-sm:-mt-4 sm:space-y-8' data-feed-page=''>
+    // data-feed-page: the ring's morph waits for this page (use-open-feed.ts). The id lights the listings tab above the parts below.
+    <div id={SECTION_IDS.showroom} className='mx-auto w-full max-w-7xl space-y-5 px-1 pb-10 max-sm:-mt-4 sm:space-y-8' data-feed-page=''>
       <h1 className='sr-only'>
         {q.trim() ||
           (chosenMercadillo && localize(chosenMercadillo.name, locale)) ||
@@ -410,10 +412,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               </Button>
             )}
           </div>
-
-          <WorkshopSection />
         </>
       )}
+
+      {/* The start page doesn't scroll, so these parts follow the listings. */}
+      <WorkshopSection />
+      <ContactSection />
     </div>
   );
 }

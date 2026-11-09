@@ -2,10 +2,7 @@ import DarkRoomHero from '@/components/shared/home/dark-room-hero';
 import { getHeroPictures } from '@/components/shared/home/hero-pictures';
 import RingSpace from '@/components/shared/home/ring-space';
 import SceneHero from '@/components/shared/home/scene-hero';
-import WorkshopSection from '@/components/shared/home/workshop-section';
-import ContactSection from '@/components/shared/home/contact-section';
 import { SECTION_IDS } from '@/components/shared/home/one-page';
-import OnePageScroller from '@/components/shared/home/one-page-scroller';
 import onePage from '@/components/shared/home/one-page.module.css';
 import room from '@/components/shared/home/dark-room.module.css';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
@@ -30,9 +27,8 @@ export default async function HomePage() {
   const heroPictures = getHeroPictures();
 
   return (
-    <div className={onePage.onePage}>
-      {/* Down from the goat opens the list of listings. */}
-      <OnePageScroller belowHomeHref='/explore' />
+    // One fixed screen: only its button opens the listings, so no swipe lands on a page still loading.
+    <div className={onePage.fixedHome}>
       <section id={SECTION_IDS.home} className={cn(room.room, onePage.home)}>
         {heroPictures.length > 0 ? (
           <SceneHero pictures={heroPictures} />
@@ -42,8 +38,6 @@ export default async function HomePage() {
           <DarkRoomHero image={BRAND.heroImage} />
         )}
       </section>
-      <WorkshopSection />
-      <ContactSection />
     </div>
   );
 }

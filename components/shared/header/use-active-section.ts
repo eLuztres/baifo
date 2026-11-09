@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
-import { ONE_PAGE_PATH, SECTION_ORDER, type SectionId } from '@/components/shared/home/one-page';
+import { PARTS_PATH, SECTION_IDS, SECTION_ORDER, type SectionId } from '@/components/shared/home/one-page';
 import type { NavLink } from './nav-items';
 
 // The top half of the screen: the current part is the last one reaching into it, i.e. whose top has passed the middle.
@@ -72,12 +72,12 @@ const subscribeNowhere = () => () => {};
 const getActiveSection = () => activeSection;
 const getFirstSection = () => SECTION_ORDER[0];
 
-/** The part of the one-page home on screen; only for the home itself. */
+/** The part on screen; only for the page holding the parts. */
 export const useActiveSection = (): SectionId => useSyncExternalStore(subscribe, getActiveSection, getFirstSection);
 
-/** The index of the nav link whose part of the one-page home is on screen, or -1 on any other page. */
+/** The index of the nav link whose part is on screen, or -1 on any other page (or before a part is seen). */
 export function useActiveNavIndex(links: NavLink[]): number {
-  const isOnePage = usePathname() === ONE_PAGE_PATH;
-  const section = useSyncExternalStore(isOnePage ? subscribe : subscribeNowhere, getActiveSection, getFirstSection);
-  return isOnePage ? Math.max(0, links.findIndex((link) => link.section === section)) : -1;
+  const isPartsPage = usePathname() === PARTS_PATH;
+  const section = useSyncExternalStore(isPartsPage ? subscribe : subscribeNowhere, getActiveSection, getFirstSection);
+  return isPartsPage && section !== SECTION_IDS.home ? links.findIndex((link) => link.section === section) : -1;
 }

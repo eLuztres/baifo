@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { ChevronRight, X } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
-import { ONE_PAGE_PATH, SECTION_IDS } from '@/components/shared/home/one-page';
+import { HOME_PATH, SECTION_IDS } from '@/components/shared/home/one-page';
 import { useActiveSection } from '@/components/shared/header/use-active-section';
 import { OFFERS_PATH } from '@/lib/constants';
 import { cn } from '@/lib/utils';
@@ -61,7 +61,7 @@ const OfferAnnouncement = ({ items, hasAdminButton }: OfferAnnouncementProps) =>
     return () => clearInterval(timer);
   }, [count, isPaused]);
 
-  if (pathname !== ONE_PAGE_PATH || count === 0) return null;
+  if (pathname !== HOME_PATH || count === 0) return null;
   const current = shown[index % count];
 
   const close = () => {

@@ -1,4 +1,5 @@
-/** Home, showroom, shop, workshop and contact are parts of one scrolling page; these are their element ids. */
+/** The parts of the shop and their element ids: home is the start page; the listings (showroom), workshop and contact
+    follow each other on the listings page. */
 export const SECTION_IDS = {
   home: 'home',
   showroom: 'showroom',
@@ -11,13 +12,16 @@ export type SectionId = (typeof SECTION_IDS)[keyof typeof SECTION_IDS];
 
 export const SECTION_ORDER: SectionId[] = Object.values(SECTION_IDS);
 
-export const ONE_PAGE_PATH = '/';
+export const HOME_PATH = '/';
+
+// The start page is one fixed screen (a swipe there landed on a dark, still loading page); the other parts scroll here.
+export const PARTS_PATH = '/explore';
 
 // IntersectionObserver margin for "on screen": the part above the current one still reaches under the sticky header,
 // so that strip doesn't count.
 export const ON_SCREEN_MARGIN = '-20% 0px 0px 0px';
 
-export const sectionHref = (id: SectionId) => (id === SECTION_IDS.home ? ONE_PAGE_PATH : `${ONE_PAGE_PATH}#${id}`);
+export const sectionHref = (id: SectionId) => (id === SECTION_IDS.home ? HOME_PATH : `${PARTS_PATH}#${id}`);
 
 /** Up or down only when clearly more vertical than sideways, so a slanted swipe or wheel turn is never read both ways. */
 export const isClearlyVertical = (deltaX: number, deltaY: number) => Math.abs(deltaY) > 2 * Math.abs(deltaX);

@@ -1,46 +1,28 @@
-/* No rubber-band bounce: on iOS it pulls the page off a part's edge. The window itself never scrolls here. */
-:global(html):has(.onePage) {
+/* The start page is one screen that never scrolls: its button opens the listings, and the parts follow them there.
+   No rubber-band bounce either: on iOS it pulls the page off the screen's edge. */
+:global(html):has(.fixedHome) {
   overflow: hidden;
   overscroll-behavior-y: none;
 }
 
-/* The page turns part by part with the browser's own snapping: a swipe follows the finger and always lands on a
-   whole part. The layout scrolls instead of the window, so Safari's toolbars never shrink and grow the screen. */
-:global(div):has(> :global(main) .onePage) {
+:global(div):has(> :global(main) .fixedHome) {
   height: 100dvh;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior-y: none;
-  scroll-snap-type: y mandatory;
+  overflow: hidden;
 }
 
-/* Links to a part (the nav) glide down to it instead of jumping. */
-@media (prefers-reduced-motion: no-preference) {
-  :global(div):has(> :global(main) .onePage) {
-    scroll-behavior: smooth;
-  }
+/* Right under the header, as the snapping used to place it. */
+:global(main):has(.fixedHome) {
+  padding-top: 0;
 }
 
-/* A flick turns exactly one part, never past one. */
-.onePage > section {
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-}
-
-/* The footer below contact is the last stop. */
-:global(main):has(.onePage) + :global(footer) {
-  scroll-snap-align: end;
-}
-
-/* Keeps parts clear of the sticky header when they snap or a link jumps to them; the phone tab row floats over the page.
-   A margin on the parts, not scroll-padding on the page: that would count the header itself as hidden, so
-   focusing a header control (closing the menu sheet) scrolled the page up and the scroller turned back a part. */
-.onePage > section {
+/* Keeps parts clear of the sticky header when a link jumps or glides to them. */
+.section {
   scroll-margin-top: 4rem;
 }
 
 @media (min-width: 640px) {
-  .onePage > section {
+  .section {
     scroll-margin-top: 5rem;
   }
 }
@@ -57,13 +39,13 @@
   }
 }
 
-/* The opening ends where the screen ends, so one swipe turns straight to the store. */
-.onePage > .home {
+/* The start page ends where the screen ends. */
+.fixedHome > .home {
   padding-bottom: 0;
 }
 
 /* A nav link moves the focus to its part for keyboard and screen-reader users; the part itself needs no ring. */
-.onePage > section:focus {
+.section:focus {
   outline: none;
 }
 

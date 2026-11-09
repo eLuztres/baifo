@@ -20,6 +20,11 @@
     }
 }
 
+/* While it shows, the page doesn't scroll: scrolling moved the header away and left only the dark ground. */
+:global(html):has(.loader) {
+    overflow: hidden;
+}
+
 @keyframes page-enter {
     from {
         opacity: 0;
