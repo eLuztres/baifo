@@ -319,7 +319,6 @@ export async function describeAdminListing(id: string, input: ListingDescription
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
       ...(isEvent && { startsAt, address: address ?? null }),
-      ...(mercadilloIds && { mercadillos: setMercadillos(mercadilloIds) }),
       scoutId,
       pictureMotion,
       autoPublish: !isHidden,
@@ -334,6 +333,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   });
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   if (tags) await setListingTags(id, tags);
+  // A link between tables can't go through updateMany: set here, before the run that publishes it.
+  if (mercadilloIds) await prisma.submission.update({ where: { id }, data: { mercadillos: setMercadillos(mercadilloIds) } });
   await recordConsent({ id }, 'admin-confirmed');
   after(() => processSubmission(id));
   // Before the description only the pictures run, so an error then was theirs: they start again too.
