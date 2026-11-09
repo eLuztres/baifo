@@ -35,8 +35,9 @@ export const mercadilloSchema = z.object({
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 
-// A señalador: a name and, to send them their link, a WhatsApp.
+// A señalador: a name, a photo and, to send them their link, a WhatsApp.
 export const scoutSchema = z.object({
+  image: z.string().url().startsWith('https://').nullish(),
   name: z.string().trim().min(1, message('VALIDATION_GROUP_NAME')).max(60, message('VALIDATION_GROUP_NAME')),
   phone: z
     .string()

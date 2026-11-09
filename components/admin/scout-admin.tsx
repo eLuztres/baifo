@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import QRCode from 'qrcode';
 import type { z } from 'zod';
-import { Copy, Loader2, MessageCircle, Pencil, Plus, QrCode, Share2, Trash2 } from 'lucide-react';
+import { Camera, Copy, Loader2, MessageCircle, Pencil, Plus, QrCode, Share2, Trash2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import DeleteDialog from '@/components/shared/delete-dialog';
+import ProductMedia from '@/components/ProductMedia';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +19,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createScout, deleteScout, updateScout } from '@/lib/actions/scout.actions';
 import { translateMessage } from '@/lib/i18n-core';
+import { preparePhotos } from '@/lib/prepare-photos';
+import { useUploadThing } from '@/lib/uploadthing';
+import { cn } from '@/lib/utils';
 import { scoutSchema } from '@/lib/validators';
 import { whatsappLinkUrl } from '@/lib/whatsapp-chat';
 
@@ -25,6 +29,7 @@ export interface EditableScout {
   id: string;
   name: string;
   phone: string | null;
+  image: string | null;
   code: string;
   /** Their link, e.g. https://baifo.es/s/ana. */
   url: string;
@@ -39,13 +44,93 @@ interface ScoutEditorProps {
   onSaved: () => void;
 }
 
-/** Dialog to add a señalador or change their name and number. */
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+/** Their photo in a circle, or their initials when there is none. */
+function ScoutPicture({ name, image, className }: { name: string; image: string | null; className?: string }) {
+  return (
+    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted font-medium text-primary', className)}>
+      {image ? <ProductMedia src={image} alt='' fill sizes='6rem' isStill /> : initials(name)}
+    </span>
+  );
+}
+
+interface PicturePickerProps {
+  name: string;
+  image: string | null;
+  onChange: (image: string | null) => void;
+}
+
+/** The round photo slot: tap to pick a photo, tap again to change it. */
+function PicturePicker({ name, image, onChange }: PicturePickerProps) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const input = useRef<HTMLInputElement>(null);
+  const { startUpload, isUploading } = useUploadThing('imageUploader', {
+    onClientUploadComplete: (files) => {
+      if (files[0]) onChange(files[0].ufsUrl);
+    },
+    onUploadError: () => {
+      toast({ variant: 'destructive', description: t('STUDIO_UPLOAD_FAILED') });
+    },
+  });
+
+  return (
+    <div className='flex flex-col items-center gap-1'>
+      <button
+        type='button'
+        onClick={() => input.current?.click()}
+        disabled={isUploading}
+        aria-label={t('SCOUT_PICTURE')}
+        className='relative size-24 rounded-full border-2 border-dashed border-border bg-muted text-muted-foreground transition hover:border-primary hover:text-primary'
+      >
+        {image ? (
+          <>
+            <ScoutPicture name={name} image={image} className='size-full' />
+            <span className='absolute bottom-0 right-0 flex size-8 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground'>
+              <Pencil className='size-4' />
+            </span>
+          </>
+        ) : (
+          <span className='flex flex-col items-center gap-1 text-xs'>
+            {isUploading ? <Loader2 className='size-6 animate-spin' /> : <Camera className='size-6' />}
+            {t('SCOUT_PICTURE')}
+          </span>
+        )}
+      </button>
+      {image && (
+        <button type='button' className='text-xs text-muted-foreground hover:text-destructive' onClick={() => onChange(null)}>
+          {t('SCOUT_PICTURE_REMOVE')}
+        </button>
+      )}
+      <input
+        ref={input}
+        type='file'
+        accept='image/*'
+        hidden
+        onChange={async (event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = '';
+          if (files.length > 0) await startUpload(await preparePhotos(files));
+        }}
+      />
+    </div>
+  );
+}
+
+/** Dialog to add a señalador or change their photo, name and number. */
 function ScoutEditor({ scout, onClose, onSaved }: ScoutEditorProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const form = useForm<z.infer<typeof scoutSchema>>({
     resolver: zodResolver(scoutSchema),
-    defaultValues: { name: scout?.name ?? '', phone: scout?.phone ? `+${scout.phone}` : '' },
+    defaultValues: { name: scout?.name ?? '', phone: scout?.phone ? `+${scout.phone}` : '', image: scout?.image ?? null },
   });
 
   const handleSubmit = async (values: z.infer<typeof scoutSchema>) => {
@@ -64,6 +149,7 @@ function ScoutEditor({ scout, onClose, onSaved }: ScoutEditorProps) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className='space-y-4'>
+            <PicturePicker name={form.watch('name')} image={form.watch('image') ?? null} onChange={(image) => form.setValue('image', image, { shouldDirty: true })} />
             <FormField
               control={form.control}
               name='name'
@@ -138,7 +224,8 @@ function ScoutQr({ scout, onClose }: { scout: EditableScout; onClose: () => void
   return (
     <Dialog open onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className='sm:max-w-sm'>
-        <DialogHeader>
+        <DialogHeader className='items-center text-center'>
+          {scout.image && <ScoutPicture name={scout.name} image={scout.image} className='size-20' />}
           <DialogTitle>{scout.name}</DialogTitle>
           <DialogDescription>{t('SCOUT_QR_HINT')}</DialogDescription>
         </DialogHeader>
@@ -181,6 +268,7 @@ export default function ScoutAdmin({ scouts, shopName }: ScoutAdminProps) {
         <ul className='space-y-3'>
           {scouts.map((scout) => (
             <li key={scout.id} className='flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-card p-3'>
+              <ScoutPicture name={scout.name} image={scout.image} className='size-12' />
               <Link href={`/admin/listings?senalador=${scout.id}`} className='min-w-28 flex-1 hover:underline'>
                 <p className='truncate font-medium'>{scout.name}</p>
                 <p className='text-sm text-muted-foreground'>

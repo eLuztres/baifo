@@ -435,6 +435,8 @@ model Scout {
   name        String
   // Their WhatsApp, to send them their link; digits with the country code.
   phone       String?
+  // Their photo, also the picture WhatsApp shows when their link is shared.
+  image       String?
   code        String       @unique
   createdAt   DateTime     @default(now()) @db.Timestamp(6)
   submissions Submission[]

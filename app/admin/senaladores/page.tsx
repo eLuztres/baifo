@@ -28,12 +28,12 @@ const ScoutsPage = async () => {
       </div>
       <ScoutAdmin
         shopName={APP_NAME}
-        scouts={scouts.map(({ id, name, phone, code, _count }) => {
+        scouts={scouts.map(({ id, name, phone, image, code, _count }) => {
           const url = `${SERVER_URL}/s/${code}`;
           // The QR holds WhatsApp's own link: a scanner hands it straight to whichever WhatsApp is installed, while a detour
           // through our link stays in the scanner's browser on Android.
           const qrUrl = BRAND.contact.sellWhatsappUrl(tShop('SCOUT_WHATSAPP_MESSAGE', { shop: APP_NAME, name, code })) ?? url;
-          return { id, name, phone, code, url, qrUrl, listingCount: _count.submissions };
+          return { id, name, phone, image, code, url, qrUrl, listingCount: _count.submissions };
         })}
       />
     </div>

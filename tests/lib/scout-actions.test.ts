@@ -31,7 +31,7 @@ describe('createScout', () => {
   it('makes the link code from the name, and keeps the number with its country code', async () => {
     await expect(createScout({ name: 'Ana María', phone: '612 345 678' })).resolves.toEqual({ success: true, message: 'SCOUT_CREATED' });
 
-    expect(db.create).toHaveBeenCalledWith({ data: { name: 'Ana María', phone: '34612345678', code: 'ana-maria' } });
+    expect(db.create).toHaveBeenCalledWith({ data: { name: 'Ana María', phone: '34612345678', image: null, code: 'ana-maria' } });
   });
 
   it('adds a number to the code when another señalador has it', async () => {
@@ -39,7 +39,7 @@ describe('createScout', () => {
 
     await createScout({ name: 'Ana', phone: '' });
 
-    expect(db.create).toHaveBeenCalledWith({ data: { name: 'Ana', phone: null, code: 'ana3' } });
+    expect(db.create).toHaveBeenCalledWith({ data: { name: 'Ana', phone: null, image: null, code: 'ana3' } });
   });
 
   it('needs a name and a real number', async () => {
@@ -53,7 +53,14 @@ describe('updateScout', () => {
   it('changes the name and number but never the code, so printed QRs keep working', async () => {
     await expect(updateScout({ id: ID, name: 'Ana Pérez', phone: '+34 600 111 222' })).resolves.toEqual({ success: true, message: 'SCOUT_UPDATED' });
 
-    expect(db.update).toHaveBeenCalledWith({ where: { id: ID }, data: { name: 'Ana Pérez', phone: '34600111222' } });
+    expect(db.update).toHaveBeenCalledWith({ where: { id: ID }, data: { name: 'Ana Pérez', phone: '34600111222', image: null } });
+  });
+
+  it('keeps their photo', async () => {
+    const image = 'https://abc.ufs.sh/f/ana.jpg';
+    await updateScout({ id: ID, name: 'Ana', phone: '', image });
+
+    expect(db.update).toHaveBeenCalledWith({ where: { id: ID }, data: { name: 'Ana', phone: null, image } });
   });
 });
 

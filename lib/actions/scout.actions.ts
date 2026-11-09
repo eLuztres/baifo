@@ -30,8 +30,8 @@ async function freeCode(name: string) {
 export async function createScout(data: z.infer<typeof scoutSchema>) {
   try {
     if (!(await isAdmin())) return adminOnly();
-    const { name, phone } = scoutSchema.parse(data);
-    await prisma.scout.create({ data: { name, phone: toPhone(phone), code: await freeCode(name) } });
+    const { name, phone, image } = scoutSchema.parse(data);
+    await prisma.scout.create({ data: { name, phone: toPhone(phone), image: image ?? null, code: await freeCode(name) } });
     revalidatePath('/admin/senaladores');
     return { success: true, message: 'SCOUT_CREATED' satisfies TranslationKey };
   } catch (error) {
@@ -43,8 +43,8 @@ export async function createScout(data: z.infer<typeof scoutSchema>) {
 export async function updateScout(data: z.infer<typeof updateScoutSchema>) {
   try {
     if (!(await isAdmin())) return adminOnly();
-    const { id, name, phone } = updateScoutSchema.parse(data);
-    await prisma.scout.update({ where: { id }, data: { name, phone: toPhone(phone) } });
+    const { id, name, phone, image } = updateScoutSchema.parse(data);
+    await prisma.scout.update({ where: { id }, data: { name, phone: toPhone(phone), image: image ?? null } });
     revalidatePath('/admin/senaladores');
     return { success: true, message: 'SCOUT_UPDATED' satisfies TranslationKey };
   } catch (error) {
