@@ -373,7 +373,10 @@ describe('describeAdminListing', () => {
 
     expect((await send({ sellerPhone: '6123' })).message).toBe('Revisa el teléfono');
     expect((await send({ price: '80€' })).message).toBe('Revisa el precio: solo números, por ejemplo 80 o 12,50');
-    expect((await send({ notes: 'a'.repeat(2001) })).message).toBe('La descripción es demasiado larga (máximo 2000 caracteres)');
+    // As long as the description itself may be (Chantal's was over 2000, #558).
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+    expect((await send({ notes: 'a'.repeat(2500) })).success).toBe(true);
+    expect((await send({ notes: 'a'.repeat(3001) })).message).toBe('La descripción es demasiado larga (máximo 3000 caracteres)');
     const longShort = { ...DRAFT, en: { ...DRAFT.en, short: 'A very comfortable city bike for the island' } };
     expect((await send({ texts: longShort })).message).toBe('Acorta el título corto en EN (máximo 40 caracteres)');
     expect(console.warn).toHaveBeenLastCalledWith(`Listing ${ID} not published:`, 'texts.en.short too_big');

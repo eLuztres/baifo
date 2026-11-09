@@ -128,7 +128,7 @@ const setListingTags = async (id: string, tags: z.output<typeof tagsSchema> & ob
 };
 
 const draftSchema = z.object({
-  notes: z.string().trim().min(1).max(2000),
+  notes: z.string().trim().min(1).max(3000),
   title: z.string().trim().max(120).optional(),
   // The tab the admin wrote in: the base every other language is made from.
   language: z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]).optional(),
@@ -201,7 +201,7 @@ const CHECK_CONTACTS = 'Revisa el email, la web o el Instagram';
 const contactFields = ({ email, web, instagram }: z.output<typeof listingContactsSchema>) => ({ contactEmail: email, contactWeb: web, contactInstagram: instagram });
 
 const descriptionSchema = z.object({
-  notes: z.string().trim().max(2000),
+  notes: z.string().trim().max(3000),
   sellerPhone: sellerPhoneSchema.optional(),
   // The name on this listing only, checked like on their own page; empty: none.
   sellerName: sellerNameSchema.optional(),
