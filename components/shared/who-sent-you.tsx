@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import ScoutPicture from '@/components/shared/scout-picture';
@@ -11,6 +11,8 @@ export interface ScoutChoice {
   image: string | null;
   /** The shop's WhatsApp with "I come from {name}" and their link already written. */
   href: string;
+  /** Their link preview picture, or null without a photo. */
+  preview: string | null;
 }
 
 interface WhoSentYouLinkProps {
@@ -28,6 +30,10 @@ const OPENS_WHATSAPP = { target: '_blank', rel: 'noopener noreferrer' } as const
 export default function WhoSentYouLink({ href, scouts, shopName, className, children }: WhoSentYouLinkProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
+  // Made while the person chooses, so WhatsApp finds it ready: a slow picture leaves the message without the photo for good.
+  useEffect(() => {
+    if (isOpen) scouts.forEach(({ preview }) => preview && (new Image().src = preview));
+  }, [isOpen, scouts]);
   const rowClass = 'flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2 pr-3 text-left transition hover:border-primary';
 
   return (

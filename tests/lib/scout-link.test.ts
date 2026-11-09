@@ -4,7 +4,7 @@ import { prisma } from '@/db/prisma';
 import { GET } from '@/app/s/[code]/route';
 
 jest.mock('@/db/prisma', () => ({ prisma: { scout: { findUnique: jest.fn() } } }));
-jest.mock('@/lib/constants', () => ({ APP_NAME: 'Baifo' }));
+jest.mock('@/lib/constants', () => ({ APP_NAME: 'Baifo', SERVER_URL: 'https://baifo.es' }));
 jest.mock('@/lib/brand', () => ({
   BRAND: { contact: { sellWhatsappUrl: (text: string) => `https://api.whatsapp.com/send?phone=34600000555&text=${encodeURIComponent(text)}` } },
 }));
@@ -40,7 +40,8 @@ describe('a señalador link', () => {
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(html).toContain('<meta property="og:image" content="https://abc.ufs.sh/f/ana.jpg">');
+    // Small and square through our own address: WhatsApp skips a phone photo of several MB.
+    expect(html).toContain('<meta property="og:image" content="https://baifo.es/s/ana/preview.jpg?v=ana.jpg">');
     expect(html).toContain('SCOUT_LINK_TITLE {&#34;shop&#34;:&#34;Baifo&#34;,&#34;name&#34;:&#34;Ana &#60;3&#34;}');
   });
 

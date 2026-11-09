@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/db/prisma';
 import { BRAND } from '@/lib/brand';
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME, SERVER_URL } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
+import { scoutPreviewPath } from '@/lib/scout-choices';
 
 /** A señalador's link (and QR): opens the shop's WhatsApp with their name and code in the text, so we know who sent the person. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!chatUrl) return NextResponse.redirect(new URL('/', request.url));
   const userAgent = request.headers.get('user-agent') ?? '';
   if (scout?.image && LINK_PREVIEW_BOTS.test(userAgent)) {
-    return linkPreview(t('SCOUT_LINK_TITLE', { shop: APP_NAME, name: scout.name }), t('SCOUT_LINK_DESCRIPTION', { name: scout.name }), scout.image);
+    const preview = `${SERVER_URL}${scoutPreviewPath(scout.code, scout.image)}`;
+    return linkPreview(t('SCOUT_LINK_TITLE', { shop: APP_NAME, name: scout.name }), t('SCOUT_LINK_DESCRIPTION', { name: scout.name }), preview);
   }
   const isAndroid = /Android/i.test(userAgent);
   return NextResponse.redirect(isAndroid ? androidAppIntent(chatUrl) : chatUrl);
@@ -35,12 +37,13 @@ const LINK_PREVIEW_BOTS = /WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twit
 
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 
-/** Just the tags a link preview reads: the señalador's photo, name and a line about the link. */
+/** Just the tags a link preview reads: the señalador's photo (made small: WhatsApp skips big ones), name and a line about the link. */
 const linkPreview = (title: string, description: string, image: string) => {
   const [safeTitle, safeDescription, safeImage] = [title, description, image].map(escapeHtml);
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${safeTitle}</title>
 <meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">
-<meta property="og:image" content="${safeImage}"><meta property="og:type" content="website"><meta name="twitter:card" content="summary">
+<meta property="og:image" content="${safeImage}"><meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="800"><meta property="og:image:height" content="800"><meta property="og:type" content="website"><meta name="twitter:card" content="summary">
 </head></html>`;
   return new NextResponse(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
 };

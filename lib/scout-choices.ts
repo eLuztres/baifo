@@ -6,11 +6,14 @@ import type { getT } from '@/lib/i18n-server';
 
 type Translate = Awaited<ReturnType<typeof getT>>['t'];
 
+/** Their link preview picture. The photo's file name in the address: a new photo isn't hidden behind the cached old one. */
+export const scoutPreviewPath = (code: string, image: string) => `/s/${code}/preview.jpg?v=${encodeURIComponent(image.split('/').pop() ?? '')}`;
+
 /** The señaladores to choose from before placing a listing. Their link in the message makes WhatsApp show their photo. */
 export async function getScoutChoices(t: Translate): Promise<ScoutChoice[]> {
   const scouts = await prisma.scout.findMany({ orderBy: { name: 'asc' }, select: { name: true, code: true, image: true } });
   return scouts.flatMap(({ name, code, image }) => {
     const href = BRAND.contact.sellWhatsappUrl(t('SCOUT_CHOSEN_MESSAGE', { shop: APP_NAME, name, url: `${SERVER_URL}/s/${code}` }));
-    return href ? [{ name, image, href }] : [];
+    return href ? [{ name, image, href, preview: image ? scoutPreviewPath(code, image) : null }] : [];
   });
 }
