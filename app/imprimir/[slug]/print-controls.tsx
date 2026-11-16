@@ -41,18 +41,3 @@ function useSheetZoom() {
     };
   }, []);
 }
-
-interface NotesBoxProps {
-  label: string;
-  placeholder: string;
-}
-
-/** Ruled lines for the person's own words: typed here before printing, or written on the paper by hand. */
-export function NotesBox({ label, placeholder }: NotesBoxProps) {
-  return (
-    <label className={styles.notes}>
-      <span className={styles.notesLabel}>{label}</span>
-      <textarea placeholder={placeholder} className={styles.notesText} maxLength={600} />
-    </label>
-  );
-}

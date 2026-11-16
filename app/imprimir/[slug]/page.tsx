@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { CalendarDays, MapPin, Phone } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
 import { prisma } from '@/db/prisma';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { getProductBySlug } from '@/lib/product';
@@ -16,12 +16,16 @@ import { sellerIdentity } from '@/lib/marketplace/seller';
 import { isRateLimited } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
 import { formatPriceTag } from '@/lib/utils';
-import { pictureOf } from '@/lib/video';
-import { NotesBox, PrintToolbar } from './print-controls';
+import { MAX_PRINT_PHOTOS, parseCopies, printDescription, printParagraphs } from '@/lib/print';
+import { isVideoUrl, pictureOf, throughSite } from '@/lib/video';
+import { PrintToolbar } from './print-controls';
+import PrintSheets from './print-sheet';
 import styles from './print-sheet.module.css';
 
 interface PrintPageProps {
   params: Promise<{ slug: string }>;
+  /** `copias` 1, 2 or 4 per sheet; `imprimir=1` (from the print choice) opens the print right away, see print-sheet.tsx. */
+  searchParams: Promise<{ copias?: string }>;
 }
 
 export async function generateMetadata({ params }: PrintPageProps): Promise<Metadata> {
@@ -41,15 +45,21 @@ async function sellerPhone(productId: string) {
   return product?.contactPhone ?? null;
 }
 
-/** A listing on one A4 page, in the visitor's language, to print or save as a PDF. */
-export default async function PrintListingPage({ params }: PrintPageProps) {
-  const { slug } = await params;
+/** A listing on an A4 page, or 2 or 4 copies of it, in the visitor's language, to print or save as a PDF. */
+export default async function PrintListingPage({ params, searchParams }: PrintPageProps) {
+  const [{ slug }, { copias }] = await Promise.all([params, searchParams]);
   const [product, { t, locale }] = await Promise.all([getProductBySlug(slug), getT()]);
   if (!product) notFound();
 
+  const copies = parseCopies(copias);
   const { name, description } = localizeProduct(product, locale);
-  const pictures = product.images.map(pictureOf).filter((picture): picture is string => Boolean(picture));
-  const [cover, ...others] = pictures;
+  // A video prints as its still frame, marked; one without a still is left out. Through this site, as on the listing (#556).
+  const photos = product.images
+    .flatMap((url) => {
+      const picture = pictureOf(url);
+      return picture ? [{ src: throughSite(picture), isVideo: isVideoUrl(url) }] : [];
+    })
+    .slice(0, MAX_PRINT_PHOTOS);
   const phone = product.contactPhone ? await sellerPhone(product.id) : BRAND.contact.phone;
   const seller = product.submission && sellerIdentity(product.submission);
   const listingUrl = `${SERVER_URL}${withLang(`/product/${slug}`, locale)}`;
@@ -59,73 +69,50 @@ export default async function PrintListingPage({ params }: PrintPageProps) {
   const serviceKey = product.type === 'SERVICE' ? serviceTypeKey(product.serviceType) : undefined;
   const mercadilloNames = product.mercadillos.map((mercadillo) => t('MERCADILLO_NAMED', { name: localize(mercadillo.name, locale) }));
   const facts = [condition && t(condition), serviceKey && t(serviceKey), ...mercadilloNames].filter(Boolean);
+  const text = printDescription(description ?? '', copies);
+  const hasFacts = facts.length > 0 || (product.type === 'EVENT' && (product.startsAt || product.address));
 
   return (
     <main className={styles.page} style={{ '--print-accent': EMAIL_COLORS.primary } as React.CSSProperties}>
       <PrintToolbar backHref={`/product/${slug}`} />
-      <article className={styles.sheet}>
-        <header className={styles.header}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- printed as is, no resizing needed */}
-          <img src={BRAND.logo} alt={BRAND.name} className={styles.logo} />
-          <span className={styles.domain}>{new URL(SERVER_URL).host}</span>
-        </header>
-
-        <h1 className={styles.title}>{name}</h1>
-        <div className={styles.facts}>
-          {hasPrice && (
-            <span className={styles.price}>
-              {priceLabel && `${t(priceLabel)} `}
-              {formatPriceTag(Number(product.price))}
-            </span>
-          )}
-          {product.type === 'EVENT' && product.startsAt && (
-            <span className={styles.fact}>
-              <CalendarDays aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
-            </span>
-          )}
-          {product.type === 'EVENT' && product.address && (
-            <span className={styles.fact}>
-              <MapPin aria-hidden /> {product.address}
-            </span>
-          )}
-          {facts.map((fact) => (
-            <span key={fact} className={styles.fact}>
-              {fact}
-            </span>
-          ))}
-        </div>
-
-        <div className={styles.body}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- next/image would lazy-load and miss the print */}
-          {cover && <img src={cover} alt={name} className={styles.cover} />}
-          <div className={styles.side}>
-            {description && <p className={styles.description}>{description}</p>}
-            <div className={styles.contact}>
-              <div className={styles.contactText}>
-                {seller?.name && <p>{t('SELLER_OFFERED_BY', { name: seller.name })}</p>}
-                {phone && (
-                  <p className={styles.phone}>
-                    <Phone aria-hidden /> {phone}
-                  </p>
-                )}
-                <p className={styles.scan}>{t('PRINT_SCAN')}</p>
-              </div>
-              <WhatsAppQr url={listingUrl} label={t('PRINT_SCAN')} className={styles.qr} />
+      <PrintSheets
+        copies={copies}
+        listing={{
+          logo: BRAND.logo,
+          logoAlt: BRAND.name,
+          domain: new URL(SERVER_URL).host,
+          title: name,
+          price: hasPrice ? `${priceLabel ? `${t(priceLabel)} ` : ''}${formatPriceTag(Number(product.price))}` : undefined,
+          facts: hasFacts && (
+            <div className={styles.facts}>
+              {product.type === 'EVENT' && product.startsAt && (
+                <span className={styles.fact}>
+                  <CalendarDays aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
+                </span>
+              )}
+              {product.type === 'EVENT' && product.address && (
+                <span className={styles.fact}>
+                  <MapPin aria-hidden /> {product.address}
+                </span>
+              )}
+              {facts.map((fact) => (
+                <span key={fact} className={styles.fact}>
+                  {fact}
+                </span>
+              ))}
             </div>
-          </div>
-        </div>
-
-        {others.length > 0 && (
-          <div className={styles.thumbs}>
-            {others.map((picture) => (
-              // eslint-disable-next-line @next/next/no-img-element -- see the cover
-              <img key={picture} src={picture} alt='' className={styles.thumb} />
-            ))}
-          </div>
-        )}
-
-        <NotesBox label={t('PRINT_NOTES')} placeholder={t('PRINT_NOTES_HINT')} />
-      </article>
+          ),
+          offeredBy: seller?.name ? t('SELLER_OFFERED_BY', { name: seller.name }) : undefined,
+          phone,
+          scanLabel: t('PRINT_SCAN'),
+          qr: <WhatsAppQr url={listingUrl} label={t('PRINT_SCAN')} className={styles.qrCode} />,
+          photos,
+          videoLabel: t('PRINT_VIDEO'),
+          paragraphs: printParagraphs(text.text),
+          textLength: text.text.length,
+          moreLabel: text.isCut ? t('PRINT_MORE_IN_QR') : undefined,
+        }}
+      />
     </main>
   );
 }
