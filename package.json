@@ -24,7 +24,8 @@
     "email": "cp .env ./node_modules/react-email && email dev --dir email --port 3001",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:lifecycle": "E2E_LIFECYCLE=1 playwright test e2e/listing-lifecycle.spec.ts --project=desktop --workers=1"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",

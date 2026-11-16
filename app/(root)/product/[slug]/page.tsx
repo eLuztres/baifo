@@ -2,7 +2,7 @@ import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle } from 'lucide-react';
-import { getProductBySlug } from '@/lib/actions/product.actions';
+import { getProductBySlug } from '@/lib/product';
 import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import ProductPrice from '@/components/shared/product/product-price';

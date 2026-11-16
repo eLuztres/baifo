@@ -147,9 +147,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const [address, setAddress] = useState(listing.address ?? '');
   // "Más": Online goes live on Publicar, Oculto keeps it ready; an Anuncio shows until the end of "Online hasta".
   const [isHidden, setIsHidden] = useState(false);
-  const [onlineUntil, setOnlineUntil] = useState(() =>
-    toShopDateTime(isEditing && listing.expiresAt ? new Date(listing.expiresAt) : new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10)
-  );
+  // Only an online listing keeps its end; one coming back (e.g. expired today) gets a whole new period.
+  const savedOnlineUntil = isEditing && listing.status === 'LIVE' && listing.expiresAt ? toShopDateTime(new Date(listing.expiresAt)).slice(0, 10) : null;
+  const [onlineUntil, setOnlineUntil] = useState(() => savedOnlineUntil ?? toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10));
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
   const [mercadilloIds, setMercadilloIds] = useState(listing.mercadilloIds);
@@ -297,7 +297,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               : enableAdminListing;
     const changed = change && (await change(listing.id));
     if (changed && !changed.success) return setError(changed.message);
-    if (targetStatus === 'LIVE' && !isEvent) await setAdminListingEnd(listing.id, onlineUntil);
+    if (targetStatus === 'LIVE' && !isEvent && onlineUntil !== savedOnlineUntil) await setAdminListingEnd(listing.id, onlineUntil);
     const next = await getAdminListing(listing.id);
     router.push(next?.status === 'LIVE' && next.product?.slug ? `/product/${next.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`);
   };

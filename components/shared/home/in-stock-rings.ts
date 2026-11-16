@@ -60,12 +60,14 @@ export interface CollectionRing {
 export const inPlaces = <T extends Pick<CollectionRing, 'placeId'>>(rings: T[], placeIds?: string[]) =>
   placeIds ? rings.filter((ring) => !ring.placeId || placeIds.includes(ring.placeId)) : rings;
 
-/** What a listing must be to show in the shop: in stock (showcase mode has no stock), with a photo, and not a past event. */
+/** What a listing must be to show in the shop: in stock (showcase mode has no stock), with a photo, not a past event and not past its end. */
 const inStockWhere = (): Prisma.ProductWhereInput => ({
   ...(SHOWCASE_MODE ? {} : { stock: { gt: 0 } }),
   images: { isEmpty: false },
   // An event leaves the shop once its day is over; no cron needed.
   OR: [{ startsAt: null }, { startsAt: { gte: startOfShopDay() } }],
+  // Past its end it leaves at once, by the same end the daily run uses: the listing's own, or an admin service's.
+  NOT: { OR: [{ submission: { is: { expiresAt: { lte: new Date() } } } }, { submission: { is: null }, expiresAt: { lte: new Date() } }] },
 });
 
 const RING_SELECT = {

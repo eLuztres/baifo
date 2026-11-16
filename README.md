@@ -326,6 +326,7 @@ To make a shop's feature available to all shops, build it into the template as a
 | `npm run push-env` | copy `.env` values to the linked Vercel project (`--only KEY1,KEY2` for some) |
 | `npm run dev` / `build` / `start` | develop / build / run |
 | `npm run lint` / `test` / `test:e2e` | lint / unit tests / end-to-end tests |
+| `npm run test:lifecycle` | a whole listing's and event's life against a local shop (writes to the local database and UploadThing, so it never runs with the rest) |
 | `npm run storybook` | component explorer on :6006 |
 | `npm run email` | email preview on :3001 |
 

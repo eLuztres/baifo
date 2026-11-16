@@ -1,7 +1,7 @@
 'use server';
 import { prisma } from '@/db/prisma';
 import { formatError } from '../utils';
-import { CONTACT_LIMIT, SHOWS_PRICES } from '../constants';
+import { CONTACT_LIMIT } from '../constants';
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { z } from 'zod';
@@ -9,17 +9,6 @@ import { isAdmin } from '@/lib/auth-guard';
 import type { TranslationKey } from '@/lib/i18n-core';
 import { isRateLimited } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
-
-// Get single product by it's slug
-export async function getProductBySlug(slug: string) {
-  return await prisma.product.findFirst({
-    where: { slug: slug },
-    // Showcase mode: the price is never read, so no page can send it.
-    omit: { price: !SHOWS_PRICES },
-    // Baifo: the seller's name and language for "Offered by" and the message to them; their number stays out.
-    include: { submission: { select: { id: true, sellerName: true, sellerLocale: true, contactEmail: true, contactWeb: true, contactInstagram: true, seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } } } }, mercadillos: { select: { slug: true, name: true, icon: true }, orderBy: { sortOrder: 'asc' } } },
-  });
-}
 
 /** The seller's WhatsApp link of a product that has one (classifieds); fetched on a click, so the number isn't in the page.
     Limited per IP, so a script can't collect every seller's number. */

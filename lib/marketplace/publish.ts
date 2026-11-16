@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES } from '@/lib/constants';
-import { startOfShopDay } from '@/lib/event-date';
+import { eventEndsAt } from '@/lib/event-date';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
@@ -35,7 +35,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const now = Date.now();
   // An event stays until its day is over (the daily run finishes it then); an admin's "Online hasta" holds for its first
   // period; else the shop's LISTING_DAYS.
-  const eventEnd = submission.type === 'EVENT' && submission.startsAt ? new Date(startOfShopDay(submission.startsAt).getTime() + DAY_MS) : null;
+  const eventEnd = submission.type === 'EVENT' && submission.startsAt ? eventEndsAt(submission.startsAt) : null;
   const chosenEnd = !submission.paidAt && submission.expiresAt && submission.expiresAt.getTime() > now ? submission.expiresAt : null;
   const expiresAt = eventEnd ?? chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';

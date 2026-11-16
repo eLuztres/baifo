@@ -171,7 +171,8 @@ const config: Config = {
 
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // Playwright specs in e2e/ run with `npm run test:e2e`, not Jest
-  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
+  // .claude/worktrees: other sessions' copies of the repo.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/', '<rootDir>/.claude/'],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
   // testRegex: [],

@@ -22,6 +22,9 @@ export const videoSource = (url: string) => url.split('#')[0];
 // Spanish networks block UploadThing's Cloudflare addresses while football is on, so browsers get its files through this site (#556).
 const UPLOADTHING_FILE = /^https:\/\/(?:[a-z0-9]+\.ufs\.sh|utfs\.io)\/f\/([^/?#]+)/i;
 
+/** The UploadThing file key of a stored address, or none for any other address. */
+export const uploadthingKey = (url: string) => url.match(UPLOADTHING_FILE)?.[1];
+
 /** An UploadThing file's address on this site (the /media rewrite in next.config); other addresses stay as they are. */
 export const throughSite = (url: string) => url.replace(UPLOADTHING_FILE, '/media/$1');
 

@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { prisma } from '@/db/prisma';
 import { isRateLimited } from '@/lib/rate-limit';
 import { enableListing, publishConfirmed, takeDown } from '@/lib/marketplace/publish';
+import { deleteListingFiles } from '@/lib/marketplace/media';
 import {
   changeSellerPhone,
   claimListingPayment,
@@ -15,6 +16,7 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/rate-limit', () => ({ isRateLimited: jest.fn() }));
 jest.mock('@/lib/marketplace/publish', () => ({ enableListing: jest.fn(), publishConfirmed: jest.fn(), takeDown: jest.fn() }));
 jest.mock('@/lib/marketplace/config', () => ({ HOUSE_SELLER: 'baifo', LISTING_PAYMENT_METHODS: ['bizum', 'cash'], LISTING_PRICES: { normal: '5.00', big: '10.00' }, publishUrl: () => '' }));
+jest.mock('@/lib/marketplace/media', () => ({ deleteListingFiles: jest.fn(async () => {}) }));
 jest.mock('@/lib/marketplace/listing-payment', () => ({ isLinkExpired: () => false, recordConsent: jest.fn() }));
 jest.mock('@/db/prisma', () => {
   const prisma: Record<string, unknown> = {
@@ -96,7 +98,7 @@ describe('saveSellerName', () => {
 
 describe('manageListing', () => {
   const listing = (type: string, status = 'LIVE', productId: string | null = 'prod-1') =>
-    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type, status, productId });
+    db.submission.findFirst.mockResolvedValue({ id: 'sub-1', type, status, productId, rawImages: ['raw.jpg'], images: ['ai.jpg'], aiImages: ['ai.jpg'] });
 
   it('marks a live product sold with the private link alone', async () => {
     listing('PRODUCT');
@@ -130,6 +132,14 @@ describe('manageListing', () => {
     expect(await manageListing(TOKEN, 'delete')).toEqual({ success: true });
     expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'prod-1' } });
     expect(db.submission.delete).toHaveBeenCalledWith({ where: { id: 'sub-1' } });
+    expect(deleteListingFiles).toHaveBeenCalledWith(['raw.jpg', 'ai.jpg', 'ai.jpg']);
+  });
+
+  it('still deletes the listing when its photos cannot be removed', async () => {
+    listing('PRODUCT', 'HIDDEN');
+    (deleteListingFiles as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await manageListing(TOKEN, 'delete')).toEqual({ success: true });
   });
 
   it('does nothing for a link without a live or hidden listing, or an unknown action', async () => {

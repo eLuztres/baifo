@@ -36,7 +36,7 @@ describe('getContactMessage', () => {
     for (const { id } of LOCALES) {
       const t = getTranslator(id);
       for (const key of ['CONTACT_MESSAGE_PRODUCT', 'CONTACT_MESSAGE_WANTED', 'CONTACT_MESSAGE_SERVICE', 'CONTACT_MESSAGE_EVENT'] as const) {
-        expect(t(key)).toMatch(/^\{hello\}\n.*\{shop\}.*\{name\}.*\{url\}/s);
+        expect(t(key)).toMatch(/^\{hello\}\n[\s\S]*\{shop\}[\s\S]*\{name\}[\s\S]*\{url\}/);
         // An emoji can arrive as � when a wa.me link opens WhatsApp on a computer.
         expect(t(key)).not.toMatch(/\p{Extended_Pictographic}/u);
       }

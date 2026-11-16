@@ -25,6 +25,11 @@ const shopDay = (date: Date | string, timeZone = SHOP_TIME_ZONE) => toShopDateTi
 /** Midnight of today on the island: events from before it are over. */
 export const startOfShopDay = (now = new Date(), timeZone = SHOP_TIME_ZONE) => fromShopDateTime(`${shopDay(now, timeZone)}T00:00`, timeZone)!;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** When a live event leaves the shop: the end of its day. */
+export const eventEndsAt = (startsAt: Date) => new Date(startOfShopDay(startsAt).getTime() + DAY_MS);
+
 export const isShopToday = (date: Date | string, now = new Date(), timeZone = SHOP_TIME_ZONE) => shopDay(date, timeZone) === shopDay(now, timeZone);
 
 /** An event counts as over once its day is over, as only its start is known. */

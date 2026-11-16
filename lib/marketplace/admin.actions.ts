@@ -8,7 +8,7 @@ import { isAdmin } from '@/lib/auth-guard';
 import { LISTING_TYPES, MAX_LISTING_TAGS, PRICE_MODES } from '@/lib/constants';
 import { MAX_TAG_LENGTH, type TagNames } from '@/lib/tag-names';
 import { saveEditorTag } from '@/lib/tags';
-import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
+import { eventEndsAt, fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
@@ -416,7 +416,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, type: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, seller: { select: { waId: true, name: true } } },
+    select: { translations: true, type: true, status: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, seller: { select: { waId: true, name: true } } },
   });
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerPhone')) return { success: false, message: 'Revisa el teléfono' };
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) return { success: false, message: 'Revisa el nombre' };
@@ -457,6 +457,8 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     serviceType: isService ? undefined : null,
     startsAt: isEvent ? fields.startsAt : null,
     address: isEvent ? fields.address : null,
+    // A live event moved to another day leaves the shop after that day, not the old one.
+    ...(isEvent && fields.startsAt && current?.status === 'LIVE' && { expiresAt: eventEndsAt(fields.startsAt) }),
     ...(sellerName !== undefined && { sellerName }),
     ...(contacts && contactFields(contacts)),
   };
@@ -473,7 +475,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   });
   // A live listing's product follows the edit.
   if (submission.productId) {
-    const { title, shortTitle, description, price, images, placeId, pictureMotion, serviceType, startsAt, address } = edit;
+    const { title, shortTitle, description, price, images, placeId, pictureMotion, serviceType, startsAt, address, expiresAt } = edit;
     await prisma.product.update({
       where: { id: submission.productId },
       data: {
@@ -487,6 +489,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         serviceType,
         startsAt,
         address,
+        expiresAt,
         priceMode,
         images,
         placeId,

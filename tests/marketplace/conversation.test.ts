@@ -149,7 +149,7 @@ describe('the welcome and the choice', () => {
 
     await handleSellerMessage(message({ text: 'Buenos días' }));
 
-    const [, text] = sendList.mock.calls[0];
+    const [, text] = (sendList as jest.Mock).mock.calls[0];
     expect(text).toContain(
       '💶 Tu anuncio cuesta 5 € y sale 90 días. Se paga al empezar: en efectivo o con tarjeta, en persona, o por Bizum al 600 000 000 con tu número de WhatsApp como concepto.'
     );

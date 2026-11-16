@@ -59,6 +59,15 @@ describe('getInStockRings', () => {
     expect(rings.map((ring) => ring.endsAt)).toEqual([submissionEnd, productEnd, null]);
   });
 
+  it('leaves out a listing past its end at once, by the same end the daily run uses', async () => {
+    findMany.mockResolvedValue([]);
+    await getInStockRings();
+    const { where } = findMany.mock.calls[0][0];
+    const [bySubmission, byOwnEnd] = where.NOT.OR;
+    expect(bySubmission.submission.is.expiresAt.lte).toBeInstanceOf(Date);
+    expect(byOwnEnd).toMatchObject({ submission: { is: null }, expiresAt: { lte: expect.any(Date) } });
+  });
+
   it('narrows the rings in stock without loosening them', async () => {
     findMany.mockResolvedValue([]);
     await getInStockRings({ slug: 'a' });

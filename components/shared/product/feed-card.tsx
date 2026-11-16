@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import ProductMedia from '@/components/ProductMedia';
 import AiPictureMark from '@/components/shared/product/ai-picture-mark';
-import { cn, formatPriceTag } from '@/lib/utils';
+import { formatPriceTag } from '@/lib/utils';
 
 interface FeedCardProps {
   href: string;

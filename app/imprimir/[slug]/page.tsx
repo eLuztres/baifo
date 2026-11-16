@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { CalendarDays, MapPin, Phone } from 'lucide-react';
 import { prisma } from '@/db/prisma';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
-import { getProductBySlug } from '@/lib/actions/product.actions';
+import { getProductBySlug } from '@/lib/product';
 import { BRAND, EMAIL_COLORS } from '@/lib/brand';
 import { conditionKey, CONTACT_LIMIT, SERVER_URL, SHOWS_PRICES } from '@/lib/constants';
 import { formatEventDate } from '@/lib/event-date';

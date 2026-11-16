@@ -11,6 +11,7 @@ import { sellerLocaleSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/v
 import { HOUSE_SELLER, LISTING_PAYMENT_METHODS } from './config';
 import { isLinkExpired, recordConsent } from './listing-payment';
 import { enableListing, publishConfirmed, takeDown } from './publish';
+import { deleteListingFiles } from './media';
 import { toWaId } from './seller';
 import { moveListingToNumber } from './seller-number';
 
@@ -130,7 +131,7 @@ export async function manageListing(token: string, action: ListingAction): Promi
     if (await isOverLimit(CLOSE_LISTING_LIMIT, CLOSE_LISTING_LINK_LIMIT, parsed.data.token)) return { success: false, isTooMany: true };
     const submission = await prisma.submission.findFirst({
       where: { payToken: parsed.data.token, status: { in: ['LIVE', 'HIDDEN'] } },
-      select: { id: true, type: true, status: true, productId: true },
+      select: { id: true, type: true, status: true, productId: true, rawImages: true, images: true, aiImages: true },
     });
     if (!submission) return { success: false };
     const isLive = submission.status === 'LIVE';
@@ -152,6 +153,8 @@ export async function manageListing(token: string, action: ListingAction): Promi
           prisma.submission.delete({ where: { id: submission.id } }),
         ]);
         revalidatePath('/');
+        // Their photos stay public otherwise; the listing is gone either way.
+        await deleteListingFiles([...submission.rawImages, ...submission.images, ...submission.aiImages]).catch((error) => console.error('[listing] photos not deleted', error));
         break;
     }
     return { success: true };
