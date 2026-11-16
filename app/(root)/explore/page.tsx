@@ -42,7 +42,7 @@ import { findTagByParam, tagHref, tagNameIn } from '@/lib/tag-names';
 import { chosenTypeFilters, currentExploreLink, inScopeOf, ofTypes, TYPE_FILTERS } from '@/lib/explore-filters';
 import { isInPriceRange, parsePriceRange, priceRanges } from '@/lib/price-ranges';
 import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
-import { freshMix, MIX_COOKIE } from '@/lib/fresh-mix';
+import { freshMix, MIX_COOKIE, readMixSeed, seededRank } from '@/lib/fresh-mix';
 
 interface ExplorePageProps {
   /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
@@ -107,7 +107,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     cookies(),
   ]);
   // Not always the newest on top: each visitor's own order, new every few hours.
-  const allListings = freshMix(storedListings, cookieStore.get(MIX_COOKIE)?.value ?? '');
+  const mixSeed = readMixSeed(cookieStore.get(MIX_COOKIE)?.value);
+  const allListings = freshMix(storedListings, mixSeed);
   const currentLink = currentExploreLink({ c, categoria });
   if (currentLink) redirect(currentLink);
 
@@ -151,7 +152,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloIds.includes(option.id)) })).filter((row) => row.listings.length > 0)
     : [];
   const gridListings = isPlainList ? shown.filter((listing) => listing.mercadilloIds.length === 0) : shown;
-  const rowSpots = pickRowSpots(gridListings.length, rows.length);
+  const rowSpots = pickRowSpots(gridListings.length, rows.length, seededRank(mixSeed), rows.map((row) => row.mercadillo.id));
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 
   // A listing's way back returns to these same filters.
@@ -253,7 +254,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const renderRow = (row: (typeof rows)[number]) => {
     const name = localize(row.mercadillo.name, locale);
     return (
-      <li key={row.mercadillo.id} className='col-span-full'>
+      <li key={row.mercadillo.id} data-anchor={`mercadillo-${row.mercadillo.id}`} className='col-span-full'>
         <MercadilloRow
           label={t('MERCADILLO_LABEL')}
           name={name}
@@ -391,7 +392,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               </p>
             ) : (
               <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
-                {gridListings.map((listing, index) => [...rowsAt(index).map(renderRow), <li key={listing.id}>{renderCard(listing)}</li>])}
+                {gridListings.map((listing, index) => [...rowsAt(index).map(renderRow), <li key={listing.id} data-anchor={listing.id}>{renderCard(listing)}</li>])}
                 {rowsAt(gridListings.length).map(renderRow)}
               </ul>
             )}

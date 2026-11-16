@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
 import { URL_LOCALE_HEADER, urlLocaleOf } from '@/lib/i18n-core';
 import { buildContentSecurityPolicy } from '@/lib/security-headers';
-import { MIX_COOKIE, MIX_HOURS, newMixSeed } from '@/lib/fresh-mix';
+import { MIX_COOKIE, MIX_COOKIE_DAYS, needsNewMix, newMixSeed, renewMix, withCookie } from '@/lib/fresh-mix';
+import { QUIET_REFRESH_COOKIE } from '@/lib/quiet-refresh';
 
 // Pages that need a signed-in user. Roles (admin) are checked on the server, not here.
 const PROTECTED_PATHS = [
@@ -62,11 +63,14 @@ export function middleware(request: NextRequest) {
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
   // The page reads the new seed on this very request, so the first view and the way back show the same order.
-  const newSeed = pathname === '/explore' && !request.cookies.has(MIX_COOKIE) ? newMixSeed() : undefined;
-  if (newSeed) requestHeaders.set('cookie', [request.headers.get('cookie'), `${MIX_COOKIE}=${newSeed}`].filter(Boolean).join('; '));
+  const mixCookie = pathname === '/explore' ? request.cookies.get(MIX_COOKIE)?.value : undefined;
+  const newSeed = pathname === '/explore' && needsNewMix(mixCookie, request.cookies.has(QUIET_REFRESH_COOKIE)) ? newMixSeed() : undefined;
+  if (newSeed) requestHeaders.set('cookie', withCookie(request.headers.get('cookie'), MIX_COOKIE, newSeed));
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', contentSecurityPolicy);
-  if (newSeed) response.cookies.set(MIX_COOKIE, newSeed, { maxAge: MIX_HOURS * 60 * 60, httpOnly: true, sameSite: 'lax', path: '/' });
+  // A kept seed is marked as seen now, so coming back from a listing never reshuffles the list behind it.
+  const mixValue = newSeed ?? (mixCookie && renewMix(mixCookie));
+  if (mixValue) response.cookies.set(MIX_COOKIE, mixValue, { maxAge: MIX_COOKIE_DAYS * 24 * 60 * 60, httpOnly: true, sameSite: 'lax', path: '/' });
 
   return response;
 }

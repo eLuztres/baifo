@@ -15,6 +15,9 @@ const envList = (key: string, fallback: string[]) => {
 
 export const PAGE_SIZE = Number(process.env.PAGE_SIZE) || 12;
 
+// Which deploy is running (set by Vercel); empty locally. Server only: client code would read it as empty.
+export const DEPLOYMENT_VERSION = process.env.VERCEL_DEPLOYMENT_ID || process.env.VERCEL_GIT_COMMIT_SHA || '';
+
 // Where the shop works for now, e.g. a launch in one town; blank means everywhere and hides the notice.
 export const SERVICE_AREA = process.env.SERVICE_AREA?.trim() || '';
 
