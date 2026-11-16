@@ -10,9 +10,9 @@ const PROTECTED_PATHS = [
   /^\/(user|admin)(\/|$)/,
 ];
 
-// Old links to the removed cart, checkout and orders, and the price search, lead home.
+// Old links to the removed cart, checkout and orders, the price search and the offers, lead home.
 const SHOWCASE_MODE = process.env.SHOWCASE_MODE === 'true';
-const SHOP_ONLY_PATHS = /^\/(cart|search|shipping-address|payment-method|place-order|order|user\/orders)(\/|$)/;
+const SHOP_ONLY_PATHS = /^\/(cart|search|shipping-address|payment-method|place-order|order|user\/orders|ofertas)(\/|$)/;
 
 // A private preview (PREVIEW_PASSWORD set) asks for the shared password; any user name goes.
 function hasPreviewPassword(request: NextRequest, password: string) {

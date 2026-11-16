@@ -8,10 +8,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { OFFERS_PATH } from '@/lib/constants';
 import { BRAND } from '@/lib/brand';
 import { getT } from '@/lib/i18n-server';
-import { getRunningOffers } from '@/lib/offers';
 import UserButton from './user-button';
 import ModeToggle from './mode-toggle';
 import MenuAccount, { MENU_ROW_CLASS } from './menu-account';
@@ -19,9 +17,8 @@ import { getNavLinks } from './nav-items';
 
 // The shop, admin and account headers all render it, so it translates its own links and labels.
 const Menu = async () => {
-  const [{ t }, offers] = await Promise.all([getT(), getRunningOffers()]);
+  const { t } = await getT();
   const navLinks = getNavLinks(t);
-  const hasOffers = offers.length > 0;
   const menuLabel = t('NAV_MENU');
 
   return (
@@ -56,13 +53,6 @@ const Menu = async () => {
                 </Link>
               </SheetClose>
             ))}
-            {hasOffers && (
-              <SheetClose asChild>
-                <Link href={OFFERS_PATH} className={MENU_ROW_CLASS}>
-                  {t('OFFERS_TITLE')}
-                </Link>
-              </SheetClose>
-            )}
           </nav>
           {/* Every account link sits right in the menu: a second dropdown inside the sheet was cramped on phones. */}
           <div className='border-t pt-4'>

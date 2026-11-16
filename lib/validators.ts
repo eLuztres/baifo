@@ -1,7 +1,5 @@
 import { z } from 'zod';
 import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
-import { OFFER_ICONS } from './constants';
-import { fromShopDateTime } from './event-date';
 import { CLEAN_CONTACT, type ContactExtra } from './marketplace/contact-ways';
 
 // Messages are translation keys (checked here at compile time); FormMessage and the Toaster
@@ -187,34 +185,4 @@ export const sellerLocaleSchema = z
   .union([z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]]), z.literal('')])
   .transform((value) => value || null);
 
-// A moment as the admin types it in a datetime-local input, on the shop's clock (SHOP_TIME_ZONE).
-const shopDateTimeSchema = z.string().transform((value, context) => {
-  const date = fromShopDateTime(value);
-  if (date) return date;
-  context.addIssue({ code: z.ZodIssueCode.custom, message: 'VALIDATION_OFFER_DATES' satisfies TranslationKey });
-  return z.NEVER;
-});
 
-// An offer (admin "Offers"): its texts in the shop's language, translated on save; it shows only from startsAt to endsAt.
-export const offerSchema = z
-  .object({
-    id: z.string().uuid().optional(),
-    title: z.string().trim().min(2, 'VALIDATION_OFFER_TITLE' satisfies TranslationKey).max(80),
-    text: z.string().trim().min(2, 'VALIDATION_OFFER_TEXT' satisfies TranslationKey).max(400),
-    audience: z.string().trim().max(40),
-    icon: z.enum(OFFER_ICONS),
-    // A page of the shop ("/explore") or another site; empty means no button.
-    linkUrl: z
-      .string()
-      .trim()
-      .max(500)
-      .refine((value) => value === '' || /^\/(?!\/)/.test(value) || value.startsWith('https://'), 'VALIDATION_OFFER_LINK' satisfies TranslationKey)
-      .transform((value) => value || null),
-    startsAt: shopDateTimeSchema,
-    endsAt: shopDateTimeSchema,
-    sortOrder: z.number().int().min(0).max(999),
-    isActive: z.boolean(),
-  })
-  .refine(({ startsAt, endsAt }) => endsAt > startsAt, { message: 'VALIDATION_OFFER_DATES' satisfies TranslationKey, path: ['endsAt'] });
-
-export type OfferInput = z.input<typeof offerSchema>;

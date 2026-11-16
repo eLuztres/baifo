@@ -1,8 +1,6 @@
 import type { CSSProperties } from 'react';
 import { BRAND } from '@/lib/brand';
-import { OFFERS_PATH } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
-import { getRunningOffers } from '@/lib/offers';
 import BrandLogo from '@/components/shared/brand-logo';
 import LanguageSwitcher from './language-switcher';
 import ModeToggle from './mode-toggle';
@@ -18,9 +16,6 @@ export { getNavLinks };
 const Header = async () => {
   const { t } = await getT();
   const navLinks = getNavLinks(t);
-  const offers = await getRunningOffers();
-  // The offers page is in the bar only while an offer runs.
-  const pageLinks = offers.length > 0 ? [{ href: OFFERS_PATH, label: t('OFFERS_TITLE') }] : [];
 
   // Blur only from lg up: on phones it re-blurs the moving page under it every frame, behind a nearly opaque background.
   return (
@@ -37,7 +32,7 @@ const Header = async () => {
           <BrandLogo withName priority isAnimated className='h-[calc(var(--logo-height)*0.75)] sm:h-(--logo-height)' nameClassName='text-2xl sm:text-3xl' />
         </a>
 
-        <NavLinks links={navLinks} pageLinks={pageLinks} />
+        <NavLinks links={navLinks} />
 
         <div className='flex items-center gap-1 justify-self-end'>
           {/* A fixed start theme keeps its switch in the language menu: one header button less. */}

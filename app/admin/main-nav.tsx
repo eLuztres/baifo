@@ -3,7 +3,6 @@ import Link from 'next/link';
 import ChoiceDialog from '@/components/shared/choice-dialog';
 import CreateChooser from '@/components/shared/create-chooser';
 import {
-  BadgePercent,
   ChevronDown,
   History,
   LayoutDashboard,
@@ -28,7 +27,7 @@ import type { AdminLink } from '@/lib/brand';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // New product comes first: adding products is what the admin does most.
-const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon: LucideIcon; isSalesOnly?: boolean; isAiOnly?: boolean; isOffersOnly?: boolean; isAdvanced?: boolean }[] = [
+const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon: LucideIcon; isSalesOnly?: boolean; isAiOnly?: boolean; isAdvanced?: boolean }[] = [
   {
     title: 'ADMIN_NEW_PRODUCT',
     href: '/admin/studio',
@@ -39,12 +38,6 @@ const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon:
     href: '/admin/overview',
     icon: LayoutDashboard,
     isSalesOnly: true,
-  },
-  {
-    title: 'OFFERS_ADMIN_TITLE',
-    href: '/admin/offers',
-    icon: BadgePercent,
-    isOffersOnly: true,
   },
   // Pages the admin opens seldom wait in the Advanced menu at the end.
   {
@@ -81,8 +74,6 @@ interface MainNavProps extends React.HTMLAttributes<HTMLElement> {
   isShowcase: boolean;
   /** Whether the shop has an OpenAI key; without one there are no AI costs to show. */
   isAiEnabled: boolean;
-  /** Whether the shop has offers (OFFERS_ENABLED). */
-  isOffersEnabled: boolean;
   /** Where "New product" leads (NEW_PRODUCT_PATH). */
   newProductHref: string;
   /** The shop's own admin pages (brand/admin-links.json), already in the visitor's language. */
@@ -101,7 +92,7 @@ const linkClass = (variant: 'inline' | 'tabs', isActive: boolean) =>
       : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'
   );
 
-const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
+const MainNav = ({ className, isShowcase, isAiEnabled, newProductHref, extraLinks = [], variant = 'inline', ...props }: MainNavProps) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // A listing just made on the creation page is still being created on its own page.
@@ -124,7 +115,7 @@ const MainNav = ({ className, isShowcase, isAiEnabled, isOffersEnabled, newProdu
     isActive: pathname.startsWith(link.href) && !isCreating,
   });
   const navLinks: NavLink[] = [];
-  for (const item of links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly) && !(!isOffersEnabled && item.isOffersOnly))) {
+  for (const item of links.filter((item) => !(isShowcase && item.isSalesOnly) && !(!isAiEnabled && item.isAiOnly))) {
     const href = item.href === '/admin/studio' ? newProductHref : item.href;
     const isActive = href === newProductHref ? isCreating : pathname.includes(href);
     navLinks.push({ key: item.href, href, label: t(item.title), hint: item.hint && t(item.hint), icon: item.icon, isActive, isAdvanced: item.isAdvanced });

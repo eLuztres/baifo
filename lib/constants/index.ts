@@ -21,12 +21,6 @@ export const DEPLOYMENT_VERSION = process.env.VERCEL_DEPLOYMENT_ID || process.en
 // Where the shop works for now, e.g. a launch in one town; blank means everywhere and hides the notice.
 export const SERVICE_AREA = process.env.SERVICE_AREA?.trim() || '';
 
-// Offers (admin "Offers"): big announcements on the home page and /ofertas. On by default; without a running offer nothing shows.
-export const OFFERS_ENABLED = process.env.OFFERS_ENABLED !== 'false';
-// The icons an offer can have (lucide names); components/shared/offers/offer-icon.tsx draws them.
-export const OFFER_ICONS = ['GraduationCap', 'Rocket', 'Tag', 'Gift', 'Sparkles', 'Megaphone'] as const;
-export type OfferIcon = (typeof OFFER_ICONS)[number];
-export const OFFERS_PATH = '/ofertas';
 
 // The shop owner's login email: only the owner can make, change or delete admins, and nobody can remove the owner.
 export const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim().toLowerCase() || '';

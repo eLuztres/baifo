@@ -244,7 +244,6 @@ PRICE_CLASSES=Essential:60, Premium:120   # optional price classes: a product in
 OWNER_EMAIL=owner@example.com       # the owner: only they can make, change or delete admins, and no admin can remove them
 SIGN_UP_BY_INVITE=true              # nobody signs up alone: admins create one-time invite links in Admin → Users
 SERVICE_AREA=Corralejo              # for now only here: a notice above the header says so (remove it to serve everywhere)
-OFFERS_ENABLED=false                # turns off offers (Admin → Offers: big announcements on the home page and /ofertas); on by default
 ```
 
 ### Home page
@@ -261,7 +260,7 @@ The hero picture (`BRAND_HERO_IMAGE`) is decorative by default. If it shows some
 | `brand/cutouts.json` | product slugs with a cut-out picture at `public/brand/products/cutout/<slug>.webp`. With at least 4, those products float in the opening scene instead of the hero picture |
 | `brand/rings3d.json` | optional 3D recipes per product slug for the opening scene (three.js, loaded only then) |
 | `brand/studio.mjs` | your own AI studio prompts: export any prompt of `lib/studio/prompts.mjs` under its name to replace the neutral one |
-| `brand/admin-links.json` | the shop's own admin pages in the admin menu: `[{ "href": "/admin/x", "label": { "es": "…", "en": "…" } }]`, optionally `"after": "/admin/offers"` (its place in the menu) and `"icon"` (`grid`, `list`, `map-pin`) |
+| `brand/admin-links.json` | the shop's own admin pages in the admin menu: `[{ "href": "/admin/x", "label": { "es": "…", "en": "…" } }]`, optionally `"after": "/admin/mercadillos"` (its place in the menu) and `"icon"` (`grid`, `list`, `map-pin`) |
 
 ```env
 BRAND_DECORATION=goldleaf           # dark background with a gold lamp breathing out smoke

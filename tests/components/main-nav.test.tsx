@@ -20,7 +20,6 @@ const renderNav = () =>
     <MainNav
       isShowcase={false}
       isAiEnabled={false}
-      isOffersEnabled={false}
       newProductHref='/admin/listings/new'
       extraLinks={[{ href: '/admin/listings', label: 'Listings' }]}
     />

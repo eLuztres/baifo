@@ -5,7 +5,7 @@ import Menu from '@/components/shared/header/menu';
 import HidingHeader from '@/components/shared/header/hiding-header';
 import { Button } from '@/components/ui/button';
 import MainNav from './main-nav';
-import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, OFFERS_ENABLED, SHOWCASE_MODE } from '@/lib/constants';
+import { APP_NAME, IS_STUDIO_ENABLED, NEW_PRODUCT_PATH, SHOWCASE_MODE } from '@/lib/constants';
 import { ADMIN_LINKS } from '@/lib/brand';
 import { localize } from '@/lib/localize';
 import { getLocale, getT } from '@/lib/i18n-server';
@@ -17,7 +17,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }>) {
   const [locale, { t }] = await Promise.all([getLocale(), getT()]);
-  const navProps = { isShowcase: SHOWCASE_MODE, isAiEnabled: IS_STUDIO_ENABLED, isOffersEnabled: OFFERS_ENABLED, newProductHref: NEW_PRODUCT_PATH };
+  const navProps = { isShowcase: SHOWCASE_MODE, isAiEnabled: IS_STUDIO_ENABLED, newProductHref: NEW_PRODUCT_PATH };
   const extraLinks = ADMIN_LINKS.map((link) => ({ ...link, label: localize(link.label, locale), hint: link.hint && localize(link.hint, locale) }));
   return (
     <>
