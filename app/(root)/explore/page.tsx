@@ -275,7 +275,6 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     return (
       <li key={row.mercadillo.id} data-anchor={`mercadillo-${row.mercadillo.id}`} className='col-span-full'>
         <MercadilloRow
-          label={t('MERCADILLO_LABEL')}
           name={name}
           heading={t('MERCADILLO_NAMED', { name })}
           text={localize(row.mercadillo.text, locale)}
@@ -382,10 +381,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                     sizes='(min-width: 640px) 11rem, 10rem'
                     className='size-40 shadow-2xl shadow-primary/25 ring-4 ring-background sm:size-44'
                   />
-                  <div className='space-y-1'>
-                    <p className='text-xs font-medium uppercase tracking-[0.25em] text-primary sm:text-sm'>{t('MERCADILLO_LABEL')}</p>
-                    <p className='text-balance font-display text-5xl leading-none sm:text-6xl'>{localize(chosenMercadillo.name, locale)}</p>
-                  </div>
+                  <p className='text-balance font-display text-5xl leading-none sm:text-6xl'>{localize(chosenMercadillo.name, locale)}</p>
                   <p className='max-w-xl text-pretty text-base leading-relaxed text-foreground/85 sm:text-lg'>{localize(chosenMercadillo.text, locale)}</p>
                   <p className='rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground'>
                     {inScope.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: inScope.length })}

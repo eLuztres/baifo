@@ -536,7 +536,6 @@
   "MERCADILLO_DELETED": "Sélection supprimée",
   "MERCADILLO_DELETE_HINT": "Ses produits restent en ligne et reviennent dans la liste normale.",
   "MERCADILLO_DESCRIPTION_HINT": "Affiché dans sa rangée et sur sa page.",
-  "MERCADILLO_LABEL": "Sélection",
   "HOME_SELECTIONS": "Sélections",
   "MERCADILLO_NAMED": "Sélection {name}",
   "MERCADILLO_COUNT_ONE": "1 produit",

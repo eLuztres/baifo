@@ -12,8 +12,6 @@ import { cn } from '@/lib/utils';
 const ROW_CARD_CLASS = 'w-[62%] shrink-0 sm:w-[38%] md:w-[27%] xl:w-[19%]';
 
 interface MercadilloRowProps {
-  /** "Mercadillo", above its name. */
-  label: string;
   name: string;
   /** The two together, for the share sheet and screen readers. */
   heading: string;
@@ -35,7 +33,7 @@ interface MercadilloRowProps {
 
 /** One Mercadillo in a line of its own, built like Amazon's rows: a heading that leads to all of it, then the cards,
     moved by swiping or, with a mouse, by page with the arrows on both sides. */
-export default function MercadilloRow({ label, name, heading, text, icon, isToday, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
+export default function MercadilloRow({ name, heading, text, icon, isToday, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
   const scroller = useRef<HTMLUListElement>(null);
   const [position, setPosition] = useState({ page: 1, pages: 1, canGoBack: false, canGoNext: false });
 
@@ -67,10 +65,8 @@ export default function MercadilloRow({ label, name, heading, text, icon, isToda
         <div className='flex items-center justify-between gap-3'>
           <Link href={href} className='group flex min-w-0 items-center gap-2 sm:gap-3'>
             <MercadilloIcon src={icon} isToday={isToday} className='size-10 sm:size-12' />
-            <span className='min-w-0'>
-              <span className='block text-xs font-medium uppercase tracking-wider text-primary'>{label}</span>
-              <h2 className='truncate font-display text-2xl leading-tight group-hover:underline sm:text-3xl'>{name}</h2>
-            </span>
+            {/* Only its name: the word "Selección" isn't needed, the row says it by itself. */}
+            <h2 className='min-w-0 truncate font-display text-2xl leading-tight group-hover:underline sm:text-3xl'>{name}</h2>
             <span className='hidden shrink-0 self-end pb-1 text-sm text-primary sm:inline'>{seeAllLabel}</span>
             <ArrowRight className='size-5 shrink-0 self-center sm:hidden' aria-label={seeAllLabel} />
           </Link>
