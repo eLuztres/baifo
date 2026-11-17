@@ -13,7 +13,7 @@ const SERVICE_TYPE_KEYS = {
 export const serviceTypeKey = (serviceType?: string | null) =>
   SERVICE_TYPES.includes(serviceType as ServiceType) ? SERVICE_TYPE_KEYS[serviceType as ServiceType] : undefined;
 
-type LabelledListing = Pick<CollectionRing, 'price' | 'priceMode' | 'type' | 'serviceType' | 'startsAt'>;
+type LabelledListing = Pick<CollectionRing, 'price' | 'priceMode' | 'type' | 'serviceType' | 'startsAt' | 'isRepeating'>;
 
 /** The text key said before a price: "from", or "up to" ("Budget up to" on a wanted ad); none for a set price. */
 export const priceLabelKey = (type: ListingType, priceMode?: PriceMode | null) =>
@@ -28,7 +28,8 @@ export function feedCardLabels(listing: LabelledListing, t: Translator, locale: 
   return {
     priceLabel: listing.price ? labelOf(t, priceLabelKey(listing.type, listing.priceMode)) : undefined,
     priceText: isEvent && SHOWS_PRICES && !listing.price ? t('EVENT_FREE') : undefined,
-    badge: isEvent ? t('EXPLORE_EVENT_BADGE') : listing.type === 'WANTED' ? t('EXPLORE_WANTED_BADGE') : undefined,
+    // ↻ on "Evento": it repeats, and the date is its next one. On the badge, not the date, which needs all its room at 320px.
+    badge: isEvent ? `${listing.isRepeating ? '↻ ' : ''}${t('EXPLORE_EVENT_BADGE')}` : listing.type === 'WANTED' ? t('EXPLORE_WANTED_BADGE') : undefined,
     // Short, so it fits a 320px phone's small tile next to "Evento".
     dateBadge: isEvent && listing.startsAt ? formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'), now, undefined, 'short') : undefined,
   };

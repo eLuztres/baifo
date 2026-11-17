@@ -31,6 +31,8 @@ export interface CollectionRing {
   priceMode?: PriceMode;
   /** An event or workshop: when it starts; it is only listed until the end of that day. */
   startsAt?: Date | null;
+  /** A repeating event: startsAt is its next date. */
+  isRepeating?: boolean;
   /** An item whose picture the AI made from words alone (no photo of the real thing): buyers see a note. */
   isIllustrative?: boolean;
   isReserved: boolean;
@@ -90,7 +92,7 @@ const RING_SELECT = {
   mercadillos: { select: { id: true } },
   pictureMotion: true,
   expiresAt: true,
-  submission: { select: { rawImages: true, expiresAt: true, tags: { select: { id: true, names: true } } } },
+  submission: { select: { rawImages: true, expiresAt: true, repeatFrequency: true, tags: { select: { id: true, names: true } } } },
 } satisfies Prisma.ProductSelect;
 
 // From the extended client, which hands prices over as strings.
@@ -104,6 +106,7 @@ const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt,
     price: product.priceMode === 'NONE' || (type === 'EVENT' && Number(price) === 0) ? undefined : price,
     // Services and wanted ads are illustrative by nature; only an item could be taken for the real one.
     isIllustrative: (type === 'PRODUCT' || type === 'EVENT') && Boolean(submission && submission.rawImages.length === 0),
+    isRepeating: type === 'EVENT' && Boolean(submission?.repeatFrequency),
     image: coverPicture(images) ?? images[0],
     images,
     mercadilloIds: mercadillos.map((mercadillo) => mercadillo.id),

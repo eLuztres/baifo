@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, EyeOff, MapPin, MessageCircle, Repeat } from 'lucide-react';
 import { getProductBySlug } from '@/lib/product';
 import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
@@ -40,6 +40,8 @@ import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/localize';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
+import { repeatOf } from '@/lib/event-repeat';
+import EventRepeatDates from '@/components/shared/product/event-repeat-dates';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
 import { breadcrumbJsonLd, eventJsonLd, jsonLd, listingJsonLd, listingMetaDescription, metaDescription, pageAlternates } from '@/lib/seo';
 import type { TranslationKey } from '@/lib/i18n';
@@ -121,6 +123,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const isEvent = product.type === 'EVENT';
   // A shared link to a past event still opens, but without a way to sign up.
   const isOver = isEvent && product.startsAt !== null && isEventOver(product.startsAt);
+  const repeat = isEvent ? repeatOf(product.submission) : null;
+  const DateIcon = repeat ? Repeat : CalendarDays;
   const serviceKey = isService ? serviceTypeKey(product.serviceType) : undefined;
   // No price at all, and 0 (a free event), show no amount.
   const hasPrice = SHOWS_PRICES && product.priceMode !== 'NONE' && Number(product.price) > 0;
@@ -252,9 +256,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {serviceKey && <p className={cn('w-fit rounded-full border border-border bg-muted px-3 py-1 text-sm', phoneOnlyOnBig)}>{t(serviceKey)}</p>}
                 {isEvent && product.startsAt && (
                   <p className='inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary'>
-                    <CalendarDays className='size-3.5' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
+                    <DateIcon className='size-3.5' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
                   </p>
                 )}
+                {repeat && !isOver && <EventRepeatDates repeat={repeat} locale={locale} t={t} className={cn('basis-full', phoneOnlyOnBig)} />}
                 {isEvent && mapHref && (
                   <a
                     href={mapHref}
@@ -292,9 +297,10 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                   <ListingInfoButton title={name} label={t('PRODUCT_DESCRIPTION')} closeLabel={t('CLOSE')} className='sm:hidden'>
                     {isEvent && product.startsAt && (
                       <p className='mb-1 flex items-center gap-2 font-medium text-primary'>
-                        <CalendarDays className='size-4 shrink-0' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
+                        <DateIcon className='size-4 shrink-0' aria-hidden /> {formatEventDate(product.startsAt, locale, t('EVENT_TODAY'))}
                       </p>
                     )}
+                    {repeat && <EventRepeatDates repeat={repeat} locale={locale} t={t} className='mb-3' />}
                     {isEvent && mapHref && (
                       <a href={mapHref} target='_blank' rel='noopener noreferrer' className='mb-3 flex items-center gap-2 text-primary underline-offset-4 hover:underline'>
                         <MapPin className='size-4 shrink-0' aria-hidden /> {product.address}

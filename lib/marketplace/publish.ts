@@ -2,7 +2,8 @@ import { revalidatePath } from 'next/cache';
 import slugify from 'slugify';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES } from '@/lib/constants';
-import { eventEndsAt } from '@/lib/event-date';
+import { eventEndsAt, fromShopDateTime } from '@/lib/event-date';
+import { nextEventStart, repeatOf } from '@/lib/event-repeat';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
@@ -15,6 +16,12 @@ import { sendWithTemplateFallback } from './templates';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type SubmissionWithSeller = Submission & { seller: Seller };
+
+/** A repeating event shows until the end of its period, or until the end of its last day if that comes first. */
+export function repeatingEventEnd(periodEnd: Date, until: string | null) {
+  const lastDayEnd = until ? eventEndsAt(fromShopDateTime(`${until}T00:00`)!).getTime() : Infinity;
+  return new Date(Math.min(periodEnd.getTime(), lastDayEnd));
+}
 
 /** A fee to book together with the listing going live. */
 interface FeeRecord {
@@ -33,9 +40,14 @@ const isPhoneNumber = (waId: string) => /^\d+$/.test(waId);
 async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[], paymentLabel: string, fee?: FeeRecord) {
   const plan = (submission.plan ?? 'normal') as ListingPlan;
   const now = Date.now();
-  // An event stays until its day is over (the daily run finishes it then); an admin's "Online hasta" holds for its first
-  // period; else the shop's LISTING_DAYS.
-  const eventEnd = submission.type === 'EVENT' && submission.startsAt ? eventEndsAt(submission.startsAt) : null;
+  // An event stays until its day is over (the daily run finishes it then), a repeating one for its period and with its
+  // next date; an admin's "Online hasta" holds for its first period; else the shop's LISTING_DAYS.
+  const repeat = submission.type === 'EVENT' ? repeatOf(submission) : null;
+  const nextStart = repeat && nextEventStart(repeat);
+  // A repeating event with no date left has nothing to show.
+  if (repeat && !nextStart) return null;
+  const startsAt = nextStart || submission.startsAt;
+  const eventEnd = repeat ? repeatingEventEnd(new Date(now + LISTING_DAYS * DAY_MS), repeat.until) : submission.type === 'EVENT' && startsAt ? eventEndsAt(startsAt) : null;
   const chosenEnd = !submission.paidAt && submission.expiresAt && submission.expiresAt.getTime() > now ? submission.expiresAt : null;
   const expiresAt = eventEnd ?? chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS);
   const title = submission.title ?? 'Anuncio';
@@ -46,7 +58,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const product = await prisma.$transaction(async (tx) => {
     const { count } = await tx.submission.updateMany({
       where: { id: submission.id, status: { in: from } },
-      data: { status: 'LIVE', paidAt: new Date(), paymentProvider: paymentLabel, expiresAt, remindedAt: null },
+      data: { status: 'LIVE', paidAt: new Date(), paymentProvider: paymentLabel, expiresAt, remindedAt: null, startsAt },
     });
     if (count === 0) return null;
     const created = await tx.product.create({
@@ -65,7 +77,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         priceMode: submission.priceMode ?? (submission.price ? DEFAULT_PRICE_MODES[submission.type] : 'NONE'),
         type: submission.type,
         serviceType: submission.serviceType,
-        startsAt: submission.startsAt,
+        startsAt,
         address: submission.address,
         placeId,
         mercadillos: { connect: await tx.mercadillo.findMany({ where: { submissions: { some: { id: submission.id } } }, select: { id: true } }) },

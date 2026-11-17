@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
 import { CLEAN_CONTACT, type ContactExtra } from './marketplace/contact-ways';
+import { fromShopDateTime } from './event-date';
+import { MONTHLY_BYS, REPEAT_FREQUENCIES } from './event-repeat';
 
 // Messages are translation keys (checked here at compile time); FormMessage and the Toaster
 // translate them. No env-based config is imported, because client forms use these schemas too.
@@ -187,3 +189,18 @@ export const sellerLocaleSchema = z
   .transform((value) => value || null);
 
 
+
+const SHOP_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const SHOP_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/** A repeating event's rule as the listing editor sends it; null: a one-off event. */
+export const eventRepeatSchema = z
+  .object({
+    frequency: z.enum(REPEAT_FREQUENCIES),
+    weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+    monthlyBy: z.enum(MONTHLY_BYS),
+    until: z.union([z.string().regex(SHOP_DAY).refine((day) => fromShopDateTime(`${day}T00:00`) !== null), z.literal('')]),
+    // By the usual day: null cancelled, else the moment it moved to.
+    changes: z.record(z.string().regex(SHOP_DAY), z.string().regex(SHOP_DATE_TIME).refine((moment) => fromShopDateTime(moment) !== null).nullable()),
+  })
+  .nullable();

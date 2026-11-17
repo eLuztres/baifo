@@ -394,6 +394,15 @@ model Submission {
   serviceType       String?
   startsAt          DateTime?        @db.Timestamp(6)
   address           String?
+  // A repeating event (weekly, biweekly, monthly; REPEAT_FREQUENCIES): startsAt is then its next date, worked out from
+  // repeatStart (the first date with the usual time). Weekdays 0 Monday … 6 Sunday; repeatUntil the last day, if any.
+  repeatFrequency   String?
+  repeatStart       DateTime?        @db.Timestamp(6)
+  repeatWeekdays    Int[]            @default([])
+  repeatMonthlyBy   String?
+  repeatUntil       DateTime?        @db.Timestamp(6)
+  // Single dates changed by hand, by their usual day: { "2026-11-26": null } cancelled, { "2026-12-10": "2026-12-10T20:00" } moved.
+  eventDateChanges  Json             @default("{}")
   // Which text is in use: 'original' (the admin's own words, only translated) or 'ai' (improved by the AI).
   textMode          String           @default("ai")
   // The admin's own title for 'original'; the original description is rawText.

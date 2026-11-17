@@ -1,7 +1,7 @@
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import { enableListing, publishByAdmin, publishPaidByAdmin, renewPaidByAdmin } from '@/lib/marketplace/publish';
-import { expireListings } from '@/lib/marketplace/expiry';
+import { expireListings, moveRepeatingEvents } from '@/lib/marketplace/expiry';
 import { RELISTABLE } from '@/lib/marketplace/config';
 
 jest.mock('@/db/prisma', () => {
@@ -165,12 +165,15 @@ describe('expireListings', () => {
     const now = new Date('2026-10-23T10:00:00Z');
     db.submission.findMany
       .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ ...SUBMISSION, id: 'old', status: 'LIVE' }])
       .mockResolvedValueOnce([{ ...SUBMISSION, id: 'soon', status: 'LIVE', expiresAt: new Date('2026-10-27T10:00:00Z') }]);
     db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
     db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    expect(await expireListings(now)).toEqual({ finished: 0, expired: 1, unpaid: 0, reminded: 1 });
+    expect(await expireListings(now)).toEqual({ moved: 0, finished: 0, expired: 1, unpaid: 0, reminded: 1 });
+    // Events end by themselves: never a reminder to renew them.
+    expect(db.submission.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ type: { not: 'EVENT' } }) }));
 
     expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'old' }, data: { status: 'EXPIRED' } });
     expect(db.product.delete).toHaveBeenCalledWith({ where: { id: 'product-old' } });
@@ -187,7 +190,7 @@ describe('expireListings', () => {
     db.product.deleteMany.mockResolvedValueOnce({ count: 2 });
     db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    expect(await expireListings(now)).toEqual({ finished: 0, expired: 2, unpaid: 0, reminded: 0 });
+    expect(await expireListings(now)).toEqual({ moved: 0, finished: 0, expired: 2, unpaid: 0, reminded: 0 });
 
     expect(db.product.deleteMany).toHaveBeenCalledWith({ where: { type: 'SERVICE', submission: null, expiresAt: { lte: now } } });
   });
@@ -197,6 +200,7 @@ describe('past events', () => {
   it('finish the day after their date, without a message, while today\'s event stays online', async () => {
     const now = new Date('2026-10-23T10:00:00Z');
     db.submission.findMany
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         { id: 'yesterday', startsAt: new Date('2026-10-22T20:00:00Z') },
         { id: 'this-morning', startsAt: new Date('2026-10-23T08:00:00Z') },
@@ -205,9 +209,9 @@ describe('past events', () => {
     db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
     db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    expect(await expireListings(now)).toEqual({ finished: 1, expired: 0, unpaid: 0, reminded: 0 });
+    expect(await expireListings(now)).toEqual({ moved: 0, finished: 1, expired: 0, unpaid: 0, reminded: 0 });
 
-    expect(db.submission.findMany).toHaveBeenNthCalledWith(1, {
+    expect(db.submission.findMany).toHaveBeenNthCalledWith(2, {
       where: { status: 'LIVE', type: 'EVENT', startsAt: { lt: now } },
       select: { id: true, startsAt: true },
     });
@@ -218,13 +222,61 @@ describe('past events', () => {
   });
 });
 
+describe('repeating events', () => {
+  const rule = { repeatFrequency: 'weekly', repeatStart: new Date('2026-10-15T19:00:00Z'), repeatWeekdays: [3], repeatMonthlyBy: null, repeatUntil: null };
+
+  it('show their next date on the same listing, skipping a cancelled one', async () => {
+    const now = new Date('2026-10-23T00:05:00Z');
+    db.submission.findMany.mockResolvedValueOnce([
+      { id: 'jam', productId: 'product-jam', expiresAt: new Date('2027-01-01T00:00:00Z'), ...rule, eventDateChanges: { '2026-10-29': null } },
+    ]);
+
+    expect(await moveRepeatingEvents(now)).toEqual({ moved: 1, finished: 0 });
+
+    // 20:00 on the island in summer stays 20:00 in winter, an hour later in UTC terms.
+    const next = new Date('2026-11-05T20:00:00Z');
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'jam' }, data: { startsAt: next } });
+    expect(db.product.updateMany).toHaveBeenCalledWith({ where: { id: 'product-jam' }, data: { startsAt: next } });
+    expect(db.product.delete).not.toHaveBeenCalled();
+  });
+
+  it('finish after their last date, without a message', async () => {
+    const now = new Date('2026-10-23T00:05:00Z');
+    db.submission.findMany.mockResolvedValueOnce([
+      { id: 'jam', productId: 'product-jam', expiresAt: new Date('2027-01-01T00:00:00Z'), ...rule, repeatUntil: new Date('2026-10-22T00:00:00Z'), eventDateChanges: {} },
+    ]);
+    db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
+
+    expect(await moveRepeatingEvents(now)).toEqual({ moved: 0, finished: 1 });
+
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'jam' }, data: { status: 'FINISHED' } });
+    expect(sendText).not.toHaveBeenCalled();
+  });
+
+  it('an event at the end of its period finishes instead of expiring, with no "renew it" message', async () => {
+    const now = new Date('2026-10-23T10:00:00Z');
+    db.submission.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ ...SUBMISSION, id: 'jam', type: 'EVENT', status: 'LIVE' }])
+      .mockResolvedValue([]);
+    db.submission.update.mockImplementation(async ({ where }) => ({ id: where.id, productId: `product-${where.id}` }));
+    db.submission.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    expect(await expireListings(now)).toEqual({ moved: 0, finished: 1, expired: 0, unpaid: 0, reminded: 0 });
+
+    expect(db.submission.update).toHaveBeenCalledWith({ where: { id: 'jam' }, data: { status: 'FINISHED' } });
+    expect(sendText).not.toHaveBeenCalled();
+  });
+});
+
 describe('unpaid listings', () => {
   it('expire UNPAID_LISTING_HOURS (48) after the link was sent unless the person said OK, keeping everything', async () => {
     const now = new Date('2026-10-23T10:00:00Z');
     db.submission.findMany.mockResolvedValue([]);
     db.submission.updateMany.mockResolvedValueOnce({ count: 3 });
 
-    expect(await expireListings(now)).toEqual({ finished: 0, expired: 0, unpaid: 3, reminded: 0 });
+    expect(await expireListings(now)).toEqual({ moved: 0, finished: 0, expired: 0, unpaid: 3, reminded: 0 });
 
     expect(db.submission.updateMany).toHaveBeenCalledWith({
       // Paid before the listing was made: with the OK it only waits for the admin.

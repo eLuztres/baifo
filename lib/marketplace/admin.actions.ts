@@ -12,13 +12,14 @@ import { eventEndsAt, fromShopDateTime, toShopDateTime } from '@/lib/event-date'
 import { getEnabledLocales, getShopLocale, getT } from '@/lib/i18n-server';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
-import { listingContactsSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
+import { eventRepeatSchema, listingContactsSchema, sellerNameSchema, sellerPhoneSchema } from '@/lib/validators';
+import { nextEventStart, repeatColumns, toRepeat, type RepeatInput } from '@/lib/event-repeat';
 import { isVideoUrl, mediaUrl, pictureOf, videoSource } from '@/lib/video';
 import { toProductTranslations, type ListingTranslations } from './catalog';
 import { correctText, createPicture, enhancePhoto, translateText, writeListing } from './ai';
 import { getDefaultPlaceId } from '@/lib/places';
 import { loadAddresses } from './address-search';
-import { HOUSE_SELLER, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
+import { HOUSE_SELLER, LISTING_DAYS, LISTING_PRICES, publishUrl, UNPAID_LISTING_HOURS } from './config';
 import { botText, localeOf } from './messages';
 import { hasContactExtra } from './contact-ways';
 import { toWaId } from './seller';
@@ -27,7 +28,7 @@ import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission, writeDraftText } from './processing';
 import { lacksConsent, markSent, recordConsent } from './listing-payment';
-import { enableListing, publishByAdmin, takeDown } from './publish';
+import { enableListing, publishByAdmin, repeatingEventEnd, takeDown } from './publish';
 import { pictureCounterpart } from './pictures';
 import { takeVideoStill } from './video-cleanup';
 import { PICTURE_MOTIONS } from '@/lib/picture-motion';
@@ -220,6 +221,8 @@ const descriptionSchema = z.object({
   priceMode: z.enum(PRICE_MODES).optional(),
   price: amountSchema,
   startsAt: eventStartSchema,
+  // A repeating event's rule; null or missing: a one-off event.
+  repeat: eventRepeatSchema.optional(),
   address: eventAddressSchema,
   mercadilloIds: mercadilloIdsSchema,
   scoutId: scoutIdSchema,
@@ -268,6 +271,19 @@ const describeIssueMessage = (issue: z.ZodIssue | undefined) => {
   }
 };
 
+const NO_DATES_LEFT = 'No queda ninguna fecha: revisa «Hasta» y las fechas';
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A live event that already repeated keeps the period it paid for (a renewal included); one that starts repeating now
+    gets a normal period from today. */
+const repeatingPeriodEnd = ({ repeatFrequency, expiresAt, paidAt }: { repeatFrequency: string | null; expiresAt: Date | null; paidAt: Date | null }) => {
+  const paidPeriodEnd = (paidAt?.getTime() ?? Date.now()) + LISTING_DAYS * DAY_MS;
+  return new Date(repeatFrequency ? Math.max(expiresAt?.getTime() ?? 0, paidPeriodEnd) : Date.now() + LISTING_DAYS * DAY_MS);
+};
+
+/** The date an event shows: its own, or a repeating one's next; NO_DATES_LEFT when all of them are over or cancelled. */
+const repeatedStart = (start: Date, repeat: RepeatInput | null | undefined) => (repeat ? (nextEventStart(toRepeat(start, repeat)) ?? NO_DATES_LEFT) : start);
+
 /** "Publicar": the AI writes the listing from the description (as the admin chose) and it goes online once it is done.
     A picture, the description, a way to reach the person (WhatsApp, email, web or Instagram) and their OK to show it are needed. */
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
@@ -278,7 +294,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
     console.warn(`Listing ${id} not published:`, parsed.error.issues.map((issue) => `${issue.path.join('.')} ${issue.code}`).join(', '));
     return { success: false, message: describeIssueMessage(parsed.error.issues[0]) };
   }
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, address, isHidden, onlineUntil, mercadilloIds, scoutId, tags, pictureMotion } =
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, repeat, address, isHidden, onlineUntil, mercadilloIds, scoutId, tags, pictureMotion } =
     parsed.data;
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
@@ -293,6 +309,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // An event goes online only with its date (a database rule too).
   const isEvent = listing.type === 'EVENT';
   if (isEvent && !startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
+  const eventDate = isEvent && startsAt ? repeatedStart(startsAt, repeat) : null;
+  if (eventDate === NO_DATES_LEFT) return { success: false, message: NO_DATES_LEFT };
   if (mercadilloIds && !(await mercadillosExist(mercadilloIds))) return { success: false, message: 'Elige uno de los mercadillos' };
   if (scoutId && !(await scoutExists(scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Through the whole last day on the island's clock.
@@ -318,7 +336,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       translations: Object.fromEntries(Object.entries(texts).filter(([locale]) => locale !== shopLocale)),
       // The price is optional: a kind of price without an amount is no price.
       ...(priceMode && { priceMode: price && priceMode !== 'NONE' ? priceMode : 'NONE', price: priceMode === 'NONE' ? null : (price ?? null) }),
-      ...(isEvent && { startsAt, address: address ?? null }),
+      ...(isEvent && { startsAt: eventDate, address: address ?? null, ...repeatColumns(startsAt ?? null, repeat ?? null) }),
       scoutId,
       pictureMotion,
       autoPublish: !isHidden,
@@ -387,6 +405,8 @@ const editSchema = z.object({
       return date;
     })
     .optional(),
+  // A repeating event's rule; null: a one-off event; missing: it stays as it is.
+  repeat: eventRepeatSchema.optional(),
   address: z.string().trim().max(200).transform((value) => value || null).optional(),
   // Which of the two texts these title and description are.
   textMode: z.enum(TEXT_MODES).optional(),
@@ -416,7 +436,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
-    select: { translations: true, type: true, status: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, seller: { select: { waId: true, name: true } } },
+    select: { translations: true, type: true, status: true, textMode: true, textVersions: true, productId: true, hasContactConsent: true, paidAt: true, expiresAt: true, repeatFrequency: true, seller: { select: { waId: true, name: true } } },
   });
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerPhone')) return { success: false, message: 'Revisa el teléfono' };
   if (!parsed.success && parsed.error.issues.some((issue) => issue.path[0] === 'sellerName')) return { success: false, message: 'Revisa el nombre' };
@@ -437,7 +457,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (parsed.data.scoutId && !(await scoutExists(parsed.data.scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, mercadilloIds, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, mercadilloIds, repeat, ...fields } = parsed.data;
+  // A repeating event shows its next date; the date it was given is the first one, where the rule starts.
+  const eventDate = isEvent && fields.startsAt ? repeatedStart(fields.startsAt, repeat) : null;
+  if (eventDate === NO_DATES_LEFT) return { success: false, message: NO_DATES_LEFT };
+  const isRepeating = Boolean(isEvent && repeat);
   const newWaId = sellerPhone === undefined ? undefined : toWaId(sellerPhone);
   // A person's listing keeps a way to reach them: a number, or else an email, web or Instagram. The house's own may have none.
   if (newWaId === HOUSE_SELLER && current?.seller.waId !== HOUSE_SELLER && !hasContactExtra(contacts)) {
@@ -455,10 +479,15 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     priceMode,
     price: priceMode === 'NONE' ? null : (fields.price ?? null),
     serviceType: isService ? undefined : null,
-    startsAt: isEvent ? fields.startsAt : null,
+    startsAt: isEvent ? eventDate : null,
     address: isEvent ? fields.address : null,
-    // A live event moved to another day leaves the shop after that day, not the old one.
-    ...(isEvent && fields.startsAt && current?.status === 'LIVE' && { expiresAt: eventEndsAt(fields.startsAt) }),
+    ...((repeat !== undefined || !isEvent) && repeatColumns(isEvent ? (fields.startsAt ?? null) : null, isEvent ? (repeat ?? null) : null)),
+    // A live event moved to another day leaves the shop after that day, not the old one; a repeating one after its period.
+    ...(isEvent &&
+      eventDate &&
+      current?.status === 'LIVE' && {
+        expiresAt: isRepeating ? repeatingEventEnd(repeatingPeriodEnd(current), repeat?.until || null) : eventEndsAt(eventDate),
+      }),
     ...(sellerName !== undefined && { sellerName }),
     ...(contacts && contactFields(contacts)),
   };

@@ -41,9 +41,11 @@ import { cn } from '@/lib/utils';
 import { isVideoUrl, pictureOf } from '@/lib/video';
 import { PICTURE_MOTIONS, toPictureMotion, type PictureMotion } from '@/lib/picture-motion';
 import MovingPictures from '@/components/shared/product/moving-pictures';
-import { toShopDateTime } from '@/lib/event-date';
+import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import type { Locale } from '@/lib/i18n-core';
+import { nextEventStart, repeatOf, toRepeat, type RepeatInput } from '@/lib/event-repeat';
 import AddressInput from './address-input';
+import EventRepeatFields from './event-repeat-fields';
 import TagInput from './tag-input';
 import type { EditorLanguage, EditorTag, MercadilloOption, ScoutOption, TagOption } from './editor-types';
 
@@ -143,12 +145,35 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const [priceMode, setPriceMode] = useState<PriceMode>(listing.priceMode ?? DEFAULT_PRICE_MODES[listing.type]);
   const [price, setPrice] = useState(listing.price ?? '');
   // An event's date ("2026-11-29T19:00" on the island's clock) and place; "Crear descripción" fills empty ones from the words.
-  const [startsAt, setStartsAt] = useState(listing.startsAt ? toShopDateTime(listing.startsAt) : '');
+  // A repeating event's field holds its first date, where the rule starts; the listing shows the next one.
+  const savedRepeat = repeatOf(listing);
+  const [startsAt, setStartsAt] = useState(() => {
+    const shown = savedRepeat ? listing.repeatStart : listing.startsAt;
+    return shown ? toShopDateTime(shown) : '';
+  });
+  const [isRepeating, setIsRepeating] = useState(Boolean(savedRepeat));
+  // Kept while "Se repite" is unticked, so ticking it again brings the same choices back.
+  const [repeat, setRepeat] = useState<RepeatInput>(() =>
+    savedRepeat
+      ? { frequency: savedRepeat.frequency, weekdays: savedRepeat.weekdays, monthlyBy: savedRepeat.monthlyBy, until: savedRepeat.until ?? '', changes: savedRepeat.changes }
+      : { frequency: 'weekly', weekdays: [], monthlyBy: 'weekday', until: '', changes: {} }
+  );
+  const sentRepeat = isEvent && isRepeating ? repeat : null;
+  // Unticked, the field keeps the next date instead of the first, which may be long past.
+  const toggleRepeat = (isOn: boolean) => {
+    const first = !isOn && startsAt ? fromShopDateTime(startsAt) : null;
+    const next = first && nextEventStart(toRepeat(first, repeat));
+    if (next) setStartsAt(toShopDateTime(next));
+    setIsRepeating(isOn);
+  };
   const [address, setAddress] = useState(listing.address ?? '');
   // "Más": Online goes live on Publicar, Oculto keeps it ready; an Anuncio shows until the end of "Online hasta".
   const [isHidden, setIsHidden] = useState(false);
   // Only an online listing keeps its end; one coming back (e.g. expired today) gets a whole new period.
   const savedOnlineUntil = isEditing && listing.status === 'LIVE' && listing.expiresAt ? toShopDateTime(new Date(listing.expiresAt)).slice(0, 10) : null;
+  // A repeating event: a normal period (the one it has, when it repeated already), or until its last day if sooner.
+  const periodEnd = (savedRepeat && savedOnlineUntil) || toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10);
+  const repeatingOnlineUntil = repeat.until && repeat.until < periodEnd ? repeat.until : periodEnd;
   const [onlineUntil, setOnlineUntil] = useState(() => savedOnlineUntil ?? toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10));
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
@@ -244,7 +269,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         texts: filled.texts,
         priceMode: isEvent ? 'FIXED' : priceMode,
         price: filled.price,
-        ...(isEvent && { startsAt: filled.startsAt, address }),
+        ...(isEvent && { startsAt: filled.startsAt, address, repeat: sentRepeat }),
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
         ...(!isEvent && { onlineUntil }),
@@ -272,6 +297,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       price: isEvent ? filled.price || '0' : filled.price,
       images: listing.images.length > 0 ? listing.images : listing.rawImages,
       startsAt: isEvent ? filled.startsAt : '',
+      repeat: sentRepeat,
       address: isEvent ? address : '',
       textMode,
       mercadilloIds,
@@ -541,7 +567,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
             {/* The native date and time picker needs the whole width on a phone. */}
             <div className='space-y-1'>
               <Label htmlFor='starts-at' className='px-1 text-xs text-muted-foreground'>
-                {texts.eventStartsLabel}
+                {isRepeating ? texts.repeatFirstDate : texts.eventStartsLabel}
               </Label>
               <Input id='starts-at' type='datetime-local' value={startsAt} readOnly={isWriting} onChange={(event) => setStartsAt(event.target.value)} className='h-12 rounded-2xl bg-card text-base md:text-base' />
             </div>
@@ -558,6 +584,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                 className='h-12 rounded-2xl bg-card text-base md:text-base'
               />
             </div>
+            <EventRepeatFields start={startsAt} isOn={isRepeating} onToggle={toggleRepeat} value={repeat} onChange={setRepeat} texts={texts} disabled={isWriting} />
           </div>
         )}
 
@@ -651,8 +678,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               {/* An event stays until its day is over: the date set in Descripción, shown here but changed only there. */}
               {isEvent ? (
                 <>
-                  <Input id='online-until' type='date' value={startsAt.slice(0, 10)} disabled className='h-12 rounded-2xl bg-background text-base md:text-base' />
-                  <p className='px-1 text-xs text-muted-foreground'>{texts.eventDateFromDescription}</p>
+                  <Input id='online-until' type='date' value={isRepeating ? repeatingOnlineUntil : startsAt.slice(0, 10)} disabled className='h-12 rounded-2xl bg-background text-base md:text-base' />
+                  <p className='px-1 text-xs text-muted-foreground'>{isRepeating ? texts.repeatOnlineUntil : texts.eventDateFromDescription}</p>
                 </>
               ) : (
                 <Input id='online-until' type='date' value={onlineUntil} readOnly={isWriting} onChange={(event) => setOnlineUntil(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />

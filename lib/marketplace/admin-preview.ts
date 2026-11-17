@@ -34,6 +34,8 @@ export async function getAdminProductPreview(slug: string) {
     contactPhone: null,
     expiresAt: submission.expiresAt,
     createdAt: submission.createdAt,
-    submission: { id, sellerName: submission.sellerName, sellerLocale: submission.sellerLocale, contactEmail: submission.contactEmail, contactWeb: submission.contactWeb, contactInstagram: submission.contactInstagram, seller: submission.seller, tags: submission.tags },
+    submission: { id, sellerName: submission.sellerName, sellerLocale: submission.sellerLocale, contactEmail: submission.contactEmail, contactWeb: submission.contactWeb, contactInstagram: submission.contactInstagram, seller: submission.seller, tags: submission.tags,
+      repeatFrequency: submission.repeatFrequency, repeatStart: submission.repeatStart, repeatWeekdays: submission.repeatWeekdays, repeatMonthlyBy: submission.repeatMonthlyBy,
+      repeatUntil: submission.repeatUntil, eventDateChanges: submission.eventDateChanges },
   };
 }
