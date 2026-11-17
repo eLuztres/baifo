@@ -160,11 +160,11 @@
 
 /* One split button low on the page, where a thumb reaches: two equal halves, the shop's seal on the seam. */
 .buttons {
-  --seal: 2.75rem;
+  --seal: 3.25rem;
   position: relative;
   display: flex;
   align-self: center;
-  width: min(30rem, 100%);
+  width: min(34rem, 100%);
   margin-top: auto;
   margin-bottom: clamp(0.75rem, 2svh, 1.25rem);
   border-radius: 9999px;
@@ -197,7 +197,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 3.25rem;
+  height: 3.85rem;
   padding-inline: 0.75rem calc(var(--seal) / 2 + 0.6rem);
   border: 1px solid rgb(255 255 255 / 0.6);
   border-right-color: rgb(255 255 255 / 0.35);
@@ -206,7 +206,7 @@
   backdrop-filter: blur(14px);
   color: white;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 600;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
   cursor: pointer;
@@ -249,6 +249,26 @@
   object-fit: contain;
 }
 
+/* The narrowest phones: a smaller seal and text, so both words still fit in their half; the height stays. */
+@media (max-width: 359px) {
+  .buttons {
+    --seal: 2.75rem;
+  }
+
+  .buttons > .cta:not(:first-child) {
+    padding-inline: calc(var(--seal) / 2 + 0.5rem) 0.5rem;
+  }
+
+  .buttons .secondary {
+    padding-inline: 0.5rem calc(var(--seal) / 2 + 0.5rem);
+  }
+
+  .buttons .cta,
+  .buttons .secondary {
+    font-size: 1rem;
+  }
+}
+
 /* A see-through glass pill in the island's terracotta, lit from above like a sunset; a shine sweeps across on hover. */
 .cta {
   position: relative;
@@ -256,7 +276,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 3.25rem;
+  height: 3.85rem;
   padding: 0 2rem;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.6);
@@ -272,7 +292,7 @@
   backdrop-filter: blur(14px) saturate(1.6);
   color: white;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
@@ -319,18 +339,18 @@
 
 @media (min-width: 640px) {
   .cta {
-    height: 3.6rem;
+    height: 4.25rem;
     padding-inline: 2.5rem;
-    font-size: 1.3rem;
+    font-size: 1.45rem;
   }
 
   .buttons {
-    --seal: 3.1rem;
+    --seal: 3.6rem;
   }
 
   .secondary {
-    height: 3.6rem;
-    font-size: 1.3rem;
+    height: 4.25rem;
+    font-size: 1.45rem;
   }
 }
 
@@ -356,7 +376,7 @@
 
   .cta,
   .secondary {
-    font-size: clamp(0.95rem, 0.55rem + 1.9vw, 1.15rem);
+    font-size: clamp(1.05rem, 0.6rem + 2.2vw, 1.3rem);
   }
 
   .advertise {
