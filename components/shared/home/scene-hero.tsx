@@ -9,7 +9,7 @@ import { getScoutChoices } from '@/lib/scout-choices';
 import { cn } from '@/lib/utils';
 import SlideLink from '@/components/shared/slide-link';
 import AdvertiseBox from './advertise-box';
-import MercadilloGrid from './mercadillo-grid';
+import MercadilloSheet from './mercadillo-sheet';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey, startAtRandom } from './hero-pictures';
@@ -27,6 +27,15 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
   const scouts = whatsappUrl ? await getScoutChoices(t) : [];
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
+  // An empty Mercadillo would open an empty page.
+  const selections = mercadillos
+    .filter((mercadillo) => mercadillo._count.products > 0)
+    .map(({ slug, name, icon }) => ({ slug, name: localize(name, locale), icon }));
+  // The shop's mark sits on the seam of the split button, the dark one in dark mode; without a mark, no seal.
+  const sealMarks = [
+    { src: BRAND.logoAnimated, className: BRAND.logoAnimatedDark ? 'dark:hidden' : undefined },
+    { src: BRAND.logoAnimatedDark, className: BRAND.logoAnimated ? 'hidden dark:block' : undefined },
+  ].filter((mark): mark is { src: string; className: string | undefined } => Boolean(mark.src));
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = startAtRandom(pictures).map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
@@ -42,22 +51,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
       </div>
 
-      <div className={styles.buttons}>
-        {/* prefetch: the whole listings page loads while home shows (also for the swipe down), not only its loading frame. */}
-        <SlideLink href='/explore' prefetch direction='down' readySelector='[data-feed-page]' className={styles.cta}>
-          {t('HOME_SCENE_READ')}
-        </SlideLink>
-      </div>
-
-      {/* An empty Mercadillo would open an empty page. */}
-      <MercadilloGrid
-        label={t('HOME_MERCADILLOS')}
-        mercadillos={mercadillos
-          .filter((mercadillo) => mercadillo._count.products > 0)
-          .map(({ slug, name, icon }) => ({ slug, name: localize(name, locale), icon }))}
-      />
-
-      {/* A small ad like in the local paper: the only place the site talks about the fee. */}
+      {/* A small ad like in the local paper, right under the title: the only place the site talks about the fee. */}
       <AdvertiseBox
         title={order}
         text={orderText}
@@ -65,6 +59,24 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
         scouts={scouts}
         shopName={APP_NAME}
       />
+
+      {/* One split button at the bottom, in reach of a thumb: the selections and the listings, half and half. */}
+      <div className={styles.buttons}>
+        <MercadilloSheet className={styles.secondary} label={t('HOME_SELECTIONS')} mercadillos={selections} />
+        {/* prefetch: the whole listings page loads while home shows (also for the swipe down), not only its loading frame. */}
+        <SlideLink href='/explore' prefetch direction='down' readySelector='[data-feed-page]' className={styles.cta}>
+          {t('HOME_SCENE_READ')}
+        </SlideLink>
+        {selections.length > 0 && sealMarks.length > 0 && (
+          <span className={styles.seal} aria-hidden>
+            {/* "#still": the animated mark standing still, as in the header for "reduce motion". */}
+            {sealMarks.map(({ src, className }) => (
+              // eslint-disable-next-line @next/next/no-img-element -- a small SVG, shown as is
+              <img key={src} src={`${src}#still`} alt='' width={40} height={40} className={className} />
+            ))}
+          </span>
+        )}
+      </div>
     </section>
   );
 }

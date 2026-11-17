@@ -752,13 +752,6 @@
     }
 }
 
-/* Below lg the offer popup floats over the bottom of the screen: the rings' row stays above it while it shows. */
-@media (max-width: 1023px) {
-    :global(body:has([data-offer-popup])) .categorySection {
-        padding-bottom: 4.75rem;
-    }
-}
-
 /* Short phones: a smaller, lower piece, so its top stays in view; the front card may hide a little of its foot. */
 @media (max-height: 700px) {
     .pieceStage {
