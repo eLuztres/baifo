@@ -1,4 +1,4 @@
-import { eventDates, formatEventRepeat, nextEventStart, repeatColumns, repeatOf, type EventRepeat } from '@/lib/event-repeat';
+import { eventDates, formatEventRepeat, nextEventStart, repeatColumns, repeatOf, toggleEventDay, usualDaysUntil, type EventRepeat } from '@/lib/event-repeat';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 
 const weekly = (overrides: Partial<EventRepeat> = {}): EventRepeat => ({
@@ -64,6 +64,53 @@ describe('eventDates', () => {
   });
 });
 
+describe('dates added on the calendar', () => {
+  it('a weekly event gets a date on top, in order', () => {
+    expect(startsOf(weekly({ changes: { '+2026-11-21': '2026-11-21T19:00' } }), '2026-11-01', 3)).toEqual(['2026-11-19T19:00', '2026-11-21T19:00', '2026-11-26T19:00']);
+  });
+
+  it('picked dates only: the first date and the ones added', () => {
+    const rule = weekly({ frequency: 'custom', changes: { '+2026-12-24': '2026-12-24T19:00', '+2026-12-05': '2026-12-05T19:00' } });
+    expect(startsOf(rule, '2026-11-01', 10)).toEqual(['2026-11-19T19:00', '2026-12-05T19:00', '2026-12-24T19:00']);
+    expect([...usualDaysUntil(rule, '2027-12-31')]).toEqual(['2026-11-19']);
+  });
+
+  it('an added date after the last day does not count', () => {
+    expect(startsOf(weekly({ until: '2026-11-26', changes: { '+2026-12-24': '2026-12-24T19:00' } }), '2026-11-01', 10)).toEqual(['2026-11-19T19:00', '2026-11-26T19:00']);
+  });
+});
+
+describe('toggleEventDay', () => {
+  it('a usual date is cancelled, and back on a second tap', () => {
+    const cancelled = toggleEventDay(weekly(), '2026-11-26');
+    expect(cancelled).toEqual({ '2026-11-26': null });
+    expect(toggleEventDay(weekly({ changes: cancelled }), '2026-11-26')).toEqual({});
+  });
+
+  it('any other day is added at the usual time, and taken away again', () => {
+    const added = toggleEventDay(weekly(), '2026-11-28');
+    expect(added).toEqual({ '+2026-11-28': '2026-11-28T19:00' });
+    expect(toggleEventDay(weekly({ changes: added }), '2026-11-28')).toEqual({});
+  });
+
+  it('an added date that became a usual day counts once, and a tap cancels both', () => {
+    const rule = weekly({ changes: { '+2026-11-26': '2026-11-26T19:00' } });
+    expect(startsOf(rule, '2026-11-01', 3)).toEqual(['2026-11-19T19:00', '2026-11-26T19:00', '2026-12-03T19:00']);
+    expect(toggleEventDay(rule, '2026-11-26')).toEqual({ '2026-11-26': null });
+  });
+
+  it('added dates follow the usual time', () => {
+    expect(startsOf(weekly({ frequency: 'custom', start: '2026-11-19T20:00', changes: { '+2026-12-05': '2026-12-05T19:00' } }), '2026-11-01', 3)).toEqual([
+      '2026-11-19T20:00',
+      '2026-12-05T20:00',
+    ]);
+  });
+
+  it('a week off in a biweekly event is a day to add', () => {
+    expect(toggleEventDay(weekly({ frequency: 'biweekly' }), '2026-11-26')).toEqual({ '+2026-11-26': '2026-11-26T19:00' });
+  });
+});
+
 describe('nextEventStart', () => {
   const at = (value: string) => fromShopDateTime(value)!;
 
@@ -104,6 +151,10 @@ describe('formatEventRepeat', () => {
 
   it('names the weekdays in the visitor language', () => {
     expect(formatEventRepeat(weekly({ weekdays: [1, 3] }), 'es', t as never)).toBe('EVENT_REPEAT_WEEKLY {"days":"martes y jueves","time":"19:00"}');
+  });
+
+  it('picked dates say so', () => {
+    expect(formatEventRepeat(weekly({ frequency: 'custom' }), 'es', t as never)).toBe('EVENT_REPEAT_CUSTOM {"time":"19:00"}');
   });
 
   it('says which weekday of the month', () => {

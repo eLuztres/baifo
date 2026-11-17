@@ -1,14 +1,16 @@
 import { formatEventDate, fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import type { Translator } from '@/lib/i18n-core';
 
-export const REPEAT_FREQUENCIES = ['weekly', 'biweekly', 'monthly'] as const;
+/** 'custom': only the dates picked on the calendar. */
+export const REPEAT_FREQUENCIES = ['weekly', 'biweekly', 'monthly', 'custom'] as const;
 export type RepeatFrequency = (typeof REPEAT_FREQUENCIES)[number];
 
 /** A monthly event: on the same day number ("el día 19") or the same weekday ("el tercer jueves"). */
 export const MONTHLY_BYS = ['weekday', 'day'] as const;
 export type MonthlyBy = (typeof MONTHLY_BYS)[number];
 
-/** Single dates changed by hand, by their usual day: null cancelled, "2026-12-10T20:00" moved there. */
+/** Single dates changed by hand, by their usual day: null cancelled, "2026-12-10T20:00" moved there.
+    A date added on top is keyed "+2026-12-24". */
 export type EventDateChanges = Record<string, string | null>;
 
 /** A repeating event's rule, on the island's clock. */
@@ -31,9 +33,11 @@ export interface EventDate {
   startsAt: string;
   isCancelled: boolean;
   isMoved: boolean;
+  isExtra: boolean;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EXTRA = '+';
 // Without an end and with every date cancelled, the search stops somewhere.
 const MAX_DAYS_LOOKED_AT = 800;
 
@@ -49,6 +53,10 @@ export const weekOfMonth = (day: string) => Math.floor((parseDay(day).getUTCDate
 /** The rule's usual days from its first on, without end. Calendar days only, so summer and winter time can't shift them. */
 function* usualDays({ frequency, start, weekdays, monthlyBy }: EventRepeat): Generator<string> {
   const firstDay = start.slice(0, 10);
+  if (frequency === 'custom') {
+    yield firstDay;
+    return;
+  }
   if (frequency === 'monthly') {
     const first = parseDay(firstDay);
     const [year, month, date] = [first.getUTCFullYear(), first.getUTCMonth(), first.getUTCDate()];
@@ -89,9 +97,37 @@ export function eventDates(rule: EventRepeat, fromDay: string, count: number): E
     const change = rule.changes[day];
     const startsAt = typeof change === 'string' ? change : `${day}T${time}`;
     if (startsAt.slice(0, 10) < fromDay) continue;
-    dates.push({ day, startsAt, isCancelled: change === null, isMoved: typeof change === 'string' });
+    dates.push({ day, startsAt, isCancelled: change === null, isMoved: typeof change === 'string', isExtra: false });
+  }
+  const usual = new Set(dates.map((date) => date.day));
+  for (const [key, change] of Object.entries(rule.changes)) {
+    const day = key.slice(EXTRA.length);
+    // A day that became a usual one (another rhythm, another first date) counts once; added dates take the usual time.
+    if (!key.startsWith(EXTRA) || change === null || usual.has(day) || day < fromDay || day < rule.start.slice(0, 10) || (rule.until && day > rule.until)) continue;
+    dates.push({ day, startsAt: `${day}T${time}`, isCancelled: false, isMoved: false, isExtra: true });
   }
   return dates.sort((a, b) => a.startsAt.localeCompare(b.startsAt)).slice(0, count);
+}
+
+/** The rule's usual days up to `lastDay`, before any change: what the calendar marks and a tap cancels. */
+export function usualDaysUntil(rule: EventRepeat, lastDay: string) {
+  const days = new Set<string>();
+  for (const day of usualDays(rule)) {
+    if (day > lastDay || (rule.until && day > rule.until)) break;
+    days.add(day);
+  }
+  return days;
+}
+
+/** A tap on a calendar day: a usual date is cancelled or back, any other day is added or taken away. */
+export function toggleEventDay(rule: EventRepeat, day: string): EventDateChanges {
+  const { [day]: usualChange, [EXTRA + day]: extra, ...others } = rule.changes;
+  if (usualDaysUntil(rule, day).has(day)) {
+    // A leftover added date on a usual day goes too, or the day could never be cancelled.
+    return usualChange === undefined ? { ...others, [day]: null } : others;
+  }
+  const kept = usualChange === undefined ? others : { ...others, [day]: usualChange };
+  return extra === undefined ? { ...kept, [EXTRA + day]: `${day}T${rule.start.slice(11, 16)}` } : kept;
 }
 
 const shopToday = (now: Date) => toShopDateTime(now).slice(0, 10);
@@ -158,7 +194,7 @@ export function repeatColumns(start: Date | null, input: RepeatInput | null): Re
   return {
     repeatFrequency: rule.frequency,
     repeatStart: start,
-    repeatWeekdays: rule.frequency === 'monthly' ? [] : rule.weekdays.length > 0 ? rule.weekdays : [weekdayOf(rule.start.slice(0, 10))],
+    repeatWeekdays: rule.frequency === 'monthly' || rule.frequency === 'custom' ? [] : rule.weekdays.length > 0 ? rule.weekdays : [weekdayOf(rule.start.slice(0, 10))],
     repeatMonthlyBy: rule.frequency === 'monthly' ? rule.monthlyBy : null,
     repeatUntil: rule.until ? fromShopDateTime(`${rule.until}T00:00`) : null,
     eventDateChanges: rule.changes,
@@ -173,6 +209,7 @@ const weekdayName = (weekday: number, locale: string) =>
 export function formatEventRepeat(rule: EventRepeat, locale: string, t: Translator) {
   const time = rule.start.slice(11, 16);
   const firstDay = rule.start.slice(0, 10);
+  if (rule.frequency === 'custom') return t('EVENT_REPEAT_CUSTOM', { time });
   if (rule.frequency === 'monthly') {
     return rule.monthlyBy === 'day'
       ? t('EVENT_REPEAT_MONTHLY_DAY', { day: parseDay(firstDay).getUTCDate(), time })

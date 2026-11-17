@@ -1,26 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Repeat, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Repeat } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { fromShopDateTime } from '@/lib/event-date';
+import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
 import {
+  eventDates,
   formatEventRepeat,
   formatRepeatDate,
   REPEAT_FREQUENCIES,
+  toggleEventDay,
   toRepeat,
   upcomingEventDates,
+  usualDaysUntil,
   weekdayOf,
   weekOfMonth,
+  type RepeatFrequency,
   type RepeatInput,
 } from '@/lib/event-repeat';
 import { fillText, type AdminTexts } from '@/lib/marketplace/admin-texts';
 import { cn } from '@/lib/utils';
 
-const SHOWN_DATES = 6;
+const NEXT_SHOWN = 3;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const MONTHS_AHEAD = 24;
+// Two months hold at most 62 days: every one of them fits.
+const DAYS_IN_TWO_MONTHS = 62;
 
 interface EventRepeatFieldsProps {
   /** The event's first date, "2026-11-19T19:00"; empty until one is chosen. */
@@ -33,34 +40,75 @@ interface EventRepeatFieldsProps {
   disabled?: boolean;
 }
 
+type DayState = 'event' | 'extra' | 'cancelled' | 'skipped' | 'free' | 'off';
+
 const chipClass = (isOn: boolean) =>
   cn(
     'h-9 min-w-0 whitespace-nowrap rounded-full border px-3 text-sm font-medium transition disabled:opacity-50',
     isOn ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:border-primary'
   );
 
+const dayClass: Record<DayState, string> = {
+  event: 'bg-primary font-bold text-primary-foreground',
+  extra: 'bg-primary font-bold text-primary-foreground',
+  cancelled: 'text-muted-foreground line-through ring-1 ring-inset ring-primary',
+  skipped: 'text-muted-foreground outline-dashed outline-1 -outline-offset-4 outline-muted-foreground/50 hover:bg-muted',
+  free: 'hover:bg-muted',
+  off: 'text-muted-foreground/40',
+};
+
 /** A day in 2024 that was a Monday, so `weekday` days later is that weekday. */
 const weekdayDate = (weekday: number) => new Date(Date.UTC(2024, 0, 1 + weekday));
+const dayOf = (year: number, month: number, date: number) => new Date(Date.UTC(year, month, date)).toISOString().slice(0, 10);
 
-/** "☐ Se repite" under an event's date; ticked, the choices fold out: how often, which days, until when, and the next
-    dates, each one to change or cancel. Unticked, they fold away and nothing repeats. */
+/** "☐ Se repite" under an event's date; ticked: how often (one tap), and a calendar where a tap on a day cancels a
+    usual date or adds one. "Elegir fechas" is only the dates tapped. */
 export default function EventRepeatFields({ start, isOn, onToggle, value, onChange, texts, disabled }: EventRepeatFieldsProps) {
   const { t, locale } = useI18n();
-  const [movingDay, setMovingDay] = useState<string | null>(null);
+  const [monthOffset, setMonthOffset] = useState(0);
   const startDate = start ? fromShopDateTime(start) : null;
   const firstDay = start.slice(0, 10);
   const rule = startDate ? toRepeat(startDate, value) : null;
-  const dates = rule ? upcomingEventDates(rule, SHOWN_DATES) : [];
+  const today = toShopDateTime(new Date()).slice(0, 10);
   const set = (changes: Partial<RepeatInput>) => onChange({ ...value, ...changes });
   const weekdays = value.weekdays.length > 0 ? value.weekdays : firstDay ? [weekdayOf(firstDay)] : [];
   const toggleWeekday = (weekday: number) =>
     // One day at least: the last one can't be taken away.
     set({ weekdays: weekdays.includes(weekday) ? (weekdays.length > 1 ? weekdays.filter((day) => day !== weekday) : weekdays) : [...weekdays, weekday] });
-  const changeDate = (day: string, change: string | null | undefined) => {
-    const others = Object.fromEntries(Object.entries(value.changes).filter(([changed]) => changed !== day));
-    set({ changes: change === undefined ? others : { ...others, [day]: change } });
-  };
   const weekdayName = (weekday: number, style: 'long' | 'narrow') => weekdayDate(weekday).toLocaleDateString(locale, { weekday: style, timeZone: 'UTC' });
+  const monthName = (year: number, month: number) => {
+    const name = new Date(Date.UTC(year, month, 1)).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+  const dayNames = new Intl.ListFormat(locale, { type: 'conjunction' }).format([...weekdays].sort((a, b) => a - b).map((day) => weekdayName(day, 'long')));
+
+  const subLabel = (frequency: RepeatFrequency) => {
+    if (!firstDay) return '';
+    if (frequency === 'weekly') return dayNames;
+    if (frequency === 'biweekly') return fillText(texts.repeatBiweeklyDays, { days: dayNames });
+    if (frequency === 'monthly') return fillText(texts.repeatMonthlyWeekday, { nth: t(`EVENT_NTH_${weekOfMonth(firstDay)}` as 'EVENT_NTH_0'), weekday: weekdayName(weekdayOf(firstDay), 'long') });
+    return texts.repeatCustomHint;
+  };
+
+  // The calendar opens on the month of the next date: the first one, or today's.
+  const opening = firstDay > today ? firstDay : today;
+  const months = [0, 1].map((shift) => {
+    const month = Number(opening.slice(5, 7)) - 1 + monthOffset + shift;
+    return { year: Number(opening.slice(0, 4)) + Math.floor(month / 12), month: ((month % 12) + 12) % 12 };
+  });
+  const firstShown = dayOf(months[0].year, months[0].month, 1);
+  const lastShown = dayOf(months[1].year, months[1].month + 1, 0);
+  const shown = rule ? eventDates(rule, firstShown, DAYS_IN_TWO_MONTHS) : [];
+  const usual = rule ? usualDaysUntil(rule, lastShown) : new Set<string>();
+  const stateOf = (day: string): DayState => {
+    const date = shown.find((each) => (each.isCancelled ? each.day : each.startsAt.slice(0, 10)) === day);
+    if (date) return date.isCancelled ? 'cancelled' : date.isExtra ? 'extra' : 'event';
+    const isTappable = day >= today && day >= firstDay && !(value.until && day > value.until);
+    if (!isTappable) return 'off';
+    const isSkipped = value.frequency === 'biweekly' && weekdays.includes(weekdayOf(day)) && !usual.has(day);
+    return isSkipped ? 'skipped' : 'free';
+  };
+  const next = rule ? upcomingEventDates(rule, NEXT_SHOWN + Object.keys(value.changes).length).filter((date) => !date.isCancelled).slice(0, NEXT_SHOWN) : [];
 
   return (
     <div className='space-y-3 sm:col-span-2'>
@@ -70,140 +118,162 @@ export default function EventRepeatFields({ start, isOn, onToggle, value, onChan
       </label>
 
       {isOn && (
-        <>
-          <div className='flex max-w-md flex-wrap gap-1'>
-            {REPEAT_FREQUENCIES.map((frequency) => (
-              <button
-                key={frequency}
-                type='button'
-                aria-pressed={value.frequency === frequency}
-                disabled={disabled}
-                onClick={() => set({ frequency })}
-                className={cn(chipClass(value.frequency === frequency), 'flex-auto px-2 text-[0.8rem] sm:text-sm')}
-              >
-                {texts[`repeat_${frequency}`]}
-              </button>
-            ))}
-          </div>
-
-          {value.frequency !== 'monthly' ? (
-            <div className='space-y-1'>
-              <p className='px-1 text-xs text-muted-foreground'>{texts.repeatWeekdays}</p>
-              <div className='flex max-w-xs gap-1'>
-                {WEEKDAYS.map((weekday) => (
+        <div className='max-w-2xl space-y-3 rounded-2xl border border-border bg-card p-3'>
+          <div role='radiogroup' aria-label={texts.repeatToggle} className='grid gap-1.5'>
+            {REPEAT_FREQUENCIES.map((frequency) => {
+              const isChosen = value.frequency === frequency;
+              return (
+                <div key={frequency}>
                   <button
-                    key={weekday}
                     type='button'
-                    aria-pressed={weekdays.includes(weekday)}
-                    aria-label={weekdayName(weekday, 'long')}
+                    role='radio'
+                    aria-checked={isChosen}
                     disabled={disabled}
-                    onClick={() => toggleWeekday(weekday)}
-                    className={cn(chipClass(weekdays.includes(weekday)), 'flex-1 px-0 uppercase')}
+                    onClick={() => set({ frequency, monthlyBy: 'weekday' })}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-xl border-[1.5px] px-3 py-2.5 text-left text-sm transition disabled:opacity-50',
+                      isChosen ? 'border-primary bg-primary/10' : 'border-border hover:border-primary'
+                    )}
                   >
-                    {weekdayName(weekday, 'narrow')}
+                    <span className={cn('size-[18px] shrink-0 rounded-full border-2', isChosen ? 'border-[5px] border-primary' : 'border-border')} aria-hidden />
+                    <span className='min-w-0'>
+                      <span className='font-semibold'>{texts[`repeat_${frequency}`]}</span>
+                      {subLabel(frequency) && <span className='text-muted-foreground'> · {subLabel(frequency)}</span>}
+                    </span>
                   </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            firstDay && (
-              <div className='flex flex-wrap gap-1.5'>
-                <button type='button' aria-pressed={value.monthlyBy === 'weekday'} disabled={disabled} onClick={() => set({ monthlyBy: 'weekday' })} className={chipClass(value.monthlyBy === 'weekday')}>
-                  {fillText(texts.repeatMonthlyWeekday, { nth: t(`EVENT_NTH_${weekOfMonth(firstDay)}` as 'EVENT_NTH_0'), weekday: weekdayName(weekdayOf(firstDay), 'long') })}
-                </button>
-                <button type='button' aria-pressed={value.monthlyBy === 'day'} disabled={disabled} onClick={() => set({ monthlyBy: 'day' })} className={chipClass(value.monthlyBy === 'day')}>
-                  {fillText(texts.repeatMonthlyDay, { day: Number(firstDay.slice(8, 10)) })}
-                </button>
-              </div>
-            )
-          )}
-
-          <div className='space-y-1'>
-            <p className='px-1 text-xs text-muted-foreground'>{texts.repeatUntil}</p>
-            <div className='flex items-center gap-1.5'>
-              <button type='button' aria-pressed={!value.until} disabled={disabled} onClick={() => set({ until: '' })} className={chipClass(!value.until)}>
-                {texts.repeatNoEnd}
-              </button>
-              {value.until ? (
-                <Input
-                  type='date'
-                  aria-label={texts.repeatUntil}
-                  value={value.until}
-                  min={firstDay}
-                  disabled={disabled}
-                  onChange={(event) => set({ until: event.target.value })}
-                  className='h-9 w-auto min-w-0 rounded-full border-primary bg-card'
-                />
-              ) : (
-                <button type='button' disabled={disabled || !firstDay} onClick={() => set({ until: dates.at(-1)?.day ?? firstDay })} className={chipClass(false)}>
-                  {texts.repeatEndDate}
-                </button>
-              )}
-            </div>
+                  {isChosen && (frequency === 'weekly' || frequency === 'biweekly') && (
+                    <div role='group' aria-label={texts.repeatWeekdays} className='ml-7 mt-1.5 flex max-w-xs gap-1'>
+                      {WEEKDAYS.map((weekday) => (
+                        <button
+                          key={weekday}
+                          type='button'
+                          aria-pressed={weekdays.includes(weekday)}
+                          aria-label={weekdayName(weekday, 'long')}
+                          disabled={disabled}
+                          onClick={() => toggleWeekday(weekday)}
+                          className={cn(chipClass(weekdays.includes(weekday)), 'h-8 flex-1 px-0 text-xs uppercase')}
+                        >
+                          {weekdayName(weekday, 'narrow')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {rule && (
-            <p className='flex items-center gap-2 rounded-2xl bg-card px-3 py-2 text-sm font-medium'>
-              <Repeat className='size-4 shrink-0 text-primary' aria-hidden /> {formatEventRepeat(rule, locale, t)}
-            </p>
+            <>
+              <div className='flex items-start gap-2 px-1 text-sm'>
+                <Repeat className='mt-0.5 size-4 shrink-0 text-primary' aria-hidden />
+                <p>
+                  <span className='font-semibold'>{formatEventRepeat(rule, locale, t)}</span>
+                  {next.length > 0 && (
+                    <span className='block text-muted-foreground'>{fillText(texts.repeatNext, { dates: next.map((date) => formatRepeatDate(date, locale, t('EVENT_TODAY'))).join(', ') })}</span>
+                  )}
+                </p>
+              </div>
+
+              <div className='relative'>
+                <div className='absolute right-0 top-0 flex gap-1'>
+                  <button type='button' aria-label={texts.repeatPrevMonth} disabled={monthOffset === 0} onClick={() => setMonthOffset(monthOffset - 1)} className='grid size-8 place-items-center rounded-full hover:bg-muted disabled:opacity-30'>
+                    <ChevronLeft className='size-4' aria-hidden />
+                  </button>
+                  <button type='button' aria-label={texts.repeatNextMonth} disabled={monthOffset >= MONTHS_AHEAD} onClick={() => setMonthOffset(monthOffset + 1)} className='grid size-8 place-items-center rounded-full hover:bg-muted disabled:opacity-30'>
+                    <ChevronRight className='size-4' aria-hidden />
+                  </button>
+                </div>
+                <div className='grid gap-4 sm:grid-cols-2'>
+                  {months.map(({ year, month }, index) => {
+                    const blanks = weekdayOf(dayOf(year, month, 1));
+                    const days = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+                    return (
+                      <div key={`${year}-${month}`} className={cn(index === 1 && 'hidden sm:block')}>
+                        <p className='mb-1 flex h-8 items-center px-1 text-sm font-semibold'>{monthName(year, month)}</p>
+                        <div className='grid grid-cols-7 gap-0.5 text-center'>
+                          {WEEKDAYS.map((weekday) => (
+                            <span key={weekday} className='pb-0.5 text-[11px] uppercase text-muted-foreground'>
+                              {weekdayName(weekday, 'narrow')}
+                            </span>
+                          ))}
+                          {Array.from({ length: blanks }, (_, blank) => (
+                            <span key={`blank-${blank}`} />
+                          ))}
+                          {Array.from({ length: days }, (_, index) => {
+                            const day = dayOf(year, month, index + 1);
+                            const state = stateOf(day);
+                            const isTappable = state !== 'off' && day >= today;
+                            return (
+                              <button
+                                key={day}
+                                type='button'
+                                disabled={disabled || !isTappable}
+                                aria-pressed={state === 'event' || state === 'extra'}
+                                aria-current={day === today ? 'date' : undefined}
+                                aria-label={new Date(`${day}T12:00:00Z`).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}
+                                onClick={() => rule && set({ changes: toggleEventDay(rule, day) })}
+                                className={cn('relative mx-auto grid size-8 place-items-center rounded-full text-[13px] transition disabled:cursor-default', dayClass[state])}
+                              >
+                                {index + 1}
+                                {state === 'extra' && <span className='absolute -right-0.5 -top-1 text-[11px] font-extrabold text-primary' aria-hidden>+</span>}
+                                {day === today && <span className='absolute bottom-1 size-1 rounded-full bg-current' aria-hidden />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className='flex flex-wrap gap-x-3.5 gap-y-1 px-1 text-xs text-muted-foreground'>
+                <span className='flex items-center gap-1'>
+                  <i className='size-3 rounded-full bg-primary' aria-hidden /> {texts.repeatLegendEvent}
+                </span>
+                {value.frequency === 'biweekly' && (
+                  <span className='flex items-center gap-1'>
+                    <i className='size-3 rounded-full outline-dashed outline-1 outline-muted-foreground/60' aria-hidden /> {texts.repeatLegendSkipped}
+                  </span>
+                )}
+                <span className='flex items-center gap-1'>
+                  <i className='size-3 rounded-full ring-1 ring-inset ring-primary' aria-hidden /> {texts.repeatLegendCancelled}
+                </span>
+                <span className='flex items-center gap-1'>
+                  <b className='text-primary'>+</b> {texts.repeatLegendExtra}
+                </span>
+              </div>
+            </>
           )}
 
-          {dates.length > 0 && (
-            <div className='space-y-1'>
-              <p className='px-1 text-xs text-muted-foreground'>{texts.repeatDates}</p>
-              <ul className='max-w-md divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card'>
-                {dates.map((date) => (
-                  <li key={date.day} className='flex min-h-12 items-center gap-1 py-1.5 pl-3 pr-1 text-sm'>
-                    {movingDay === date.day ? (
-                      <Input
-                        type='datetime-local'
-                        autoFocus
-                        aria-label={texts.repeatMove}
-                        defaultValue={date.startsAt}
-                        min={`${firstDay}T00:00`}
-                        max={value.until ? `${value.until}T23:59` : undefined}
-                        onBlur={(event) => {
-                          const moved = event.target.value;
-                          // Back on its usual time: no change kept.
-                          changeDate(date.day, !moved || moved === `${date.day}T${start.slice(11, 16)}` ? undefined : moved);
-                          setMovingDay(null);
-                        }}
-                        className='h-9 min-w-0 flex-1 rounded-full'
-                      />
-                    ) : (
-                      <span className={cn('min-w-0 flex-1 truncate', date.isCancelled && 'text-muted-foreground line-through')}>
-                        {formatRepeatDate(date, locale, t('EVENT_TODAY'))}
-                        {date.isMoved && <span className='ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary'>{texts.repeatMoved}</span>}
-                      </span>
-                    )}
-                    {date.isCancelled ? (
-                      <button
-                        type='button'
-                        title={texts.repeatRestore}
-                        disabled={disabled}
-                        onClick={() => changeDate(date.day, undefined)}
-                        className='inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary'
-                      >
-                        {texts.repeatCancelled} <RotateCcw className='size-3.5' aria-hidden /> <span className='sr-only'>{texts.repeatRestore}</span>
-                      </button>
-                    ) : (
-                      movingDay !== date.day && (
-                        <>
-                          <button type='button' aria-label={texts.repeatMove} title={texts.repeatMove} disabled={disabled} onClick={() => setMovingDay(date.day)} className='grid size-9 shrink-0 place-items-center rounded-full hover:bg-muted'>
-                            <Pencil className='size-4' aria-hidden />
-                          </button>
-                          <button type='button' aria-label={texts.repeatCancel} title={texts.repeatCancel} disabled={disabled} onClick={() => changeDate(date.day, null)} className='grid size-9 shrink-0 place-items-center rounded-full hover:bg-muted'>
-                            <X className='size-4' aria-hidden />
-                          </button>
-                        </>
-                      )
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </>
+          <div className='flex flex-wrap items-center gap-1.5'>
+            <span className='px-1 text-xs text-muted-foreground'>{texts.repeatUntil}</span>
+            <button type='button' aria-pressed={!value.until} disabled={disabled} onClick={() => set({ until: '' })} className={chipClass(!value.until)}>
+              {texts.repeatNoEnd}
+            </button>
+            {value.until ? (
+              <Input
+                type='date'
+                aria-label={texts.repeatUntil}
+                value={value.until}
+                min={firstDay}
+                disabled={disabled}
+                onChange={(event) => set({ until: event.target.value })}
+                className='h-9 w-auto min-w-0 rounded-full border-primary bg-card'
+              />
+            ) : (
+              <button
+                type='button'
+                disabled={disabled || !rule}
+                onClick={() => set({ until: (rule && upcomingEventDates(rule, 6).at(-1)?.day) || firstDay })}
+                className={chipClass(false)}
+              >
+                {texts.repeatEndDate}
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

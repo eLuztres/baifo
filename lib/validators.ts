@@ -200,7 +200,10 @@ export const eventRepeatSchema = z
     weekdays: z.array(z.number().int().min(0).max(6)).max(7),
     monthlyBy: z.enum(MONTHLY_BYS),
     until: z.union([z.string().regex(SHOP_DAY).refine((day) => fromShopDateTime(`${day}T00:00`) !== null), z.literal('')]),
-    // By the usual day: null cancelled, else the moment it moved to.
-    changes: z.record(z.string().regex(SHOP_DAY), z.string().regex(SHOP_DATE_TIME).refine((moment) => fromShopDateTime(moment) !== null).nullable()),
+    // By the usual day: null cancelled, else the moment it moved to; "+day" a date added on top.
+    changes: z
+      .record(z.string().regex(/^\+?\d{4}-\d{2}-\d{2}$/), z.string().regex(SHOP_DATE_TIME).refine((moment) => fromShopDateTime(moment) !== null).nullable())
+      // An added date is on its own day.
+      .refine((changes) => Object.entries(changes).every(([key, change]) => !key.startsWith('+') || change?.slice(0, 10) === key.slice(1))),
   })
   .nullable();
