@@ -4,7 +4,7 @@ import { getAdminProductPreview } from '@/lib/marketplace/admin-preview';
 import { adminPreviewSlug, isAdminPreviewSlug } from '@/lib/marketplace/preview-slug';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
-jest.mock('@/db/prisma', () => ({ prisma: { submission: { findUnique: jest.fn() } } }));
+jest.mock('@/db/prisma', () => ({ prisma: { submission: { findUnique: jest.fn() }, mercadillo: { findMany: jest.fn(async () => []) } } }));
 
 const ID = 'ff25bd1e-d82d-4561-8ca2-337545aa373e';
 const findUnique = (prisma as unknown as { submission: { findUnique: jest.Mock } }).submission.findUnique;
@@ -23,6 +23,7 @@ const LISTING = {
   sellerName: 'Lula',
   sellerLocale: null,
   seller: { waId: '34612345678', name: 'Lula' },
+  tags: [],
 };
 
 beforeEach(() => jest.clearAllMocks());

@@ -6,7 +6,7 @@ describe('withLang', () => {
   });
 
   it('keeps the other parameters and the #part, and replaces an old language', () => {
-    expect(withLang('/explore?mercadillo=magma', 'fr')).toBe('/explore?mercadillo=magma&lang=fr');
+    expect(withLang('/explore?seleccion=magma', 'fr')).toBe('/explore?seleccion=magma&lang=fr');
     expect(withLang('/product/lamp?lang=en&c=bikes#info', 'es')).toBe('/product/lamp?lang=es&c=bikes#info');
   });
 });

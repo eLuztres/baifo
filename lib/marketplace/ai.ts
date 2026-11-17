@@ -383,13 +383,13 @@ export async function readListingFields(text: string, type: ListingType, places:
 }
 
 const groupTextPrompt = (locales: Locale[]) =>
-  'Write the description of a Mercadillo of Baifo (a group of listings) in Fuerteventura, from what the admin wrote. ' +
+  'Write the description of a selección of Baifo (a group of listings) in Fuerteventura, from what the admin wrote. ' +
   `For each of ${locales.map((locale) => `${locale} (${LANGUAGE_NAMES[locale]})`).join(', ')}: the title is the ` +
   `name (in ${locales[0]} exactly as the admin wrote it, translated naturally for the others) and the description is one ` +
   'or two short, inviting sentences, at most 200 characters, telling visitors what they find in it. The same facts in ' +
   'every language; never invent brands, places or offers that are not stated. Return JSON with texts.\n';
 
-/** A Mercadillo's name and an inviting description in every shop language (its own first), from the admin's notes. */
+/** A selección's name and an inviting description in every shop language (its own first), from the admin's notes. */
 export async function writeGroupText(text: { title: string; description: string }, locales: Locale[]) {
   const result = await draftText(null, '', null, {
     prompt: groupTextPrompt(locales) + `Name: ${text.title}\nWhat the admin wrote: ${text.description || '(nothing)'}\n`,

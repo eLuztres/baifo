@@ -21,6 +21,6 @@ describe('MercadilloSheet on the start page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mercadillos' }));
     const sheet = screen.getByRole('dialog', { name: 'Mercadillos' });
     expect(within(sheet).getAllByRole('link')).toHaveLength(8);
-    expect(within(sheet).getByRole('link', { name: 'Mercadillo 7' })).toHaveAttribute('href', '/explore?mercadillo=m7');
+    expect(within(sheet).getByRole('link', { name: 'Mercadillo 7' })).toHaveAttribute('href', '/explore?seleccion=m7');
   });
 });

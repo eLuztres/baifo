@@ -242,7 +242,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                 {mercadillos.map((mercadillo) => (
                   <Link
                     key={mercadillo.slug}
-                    href={`/explore?mercadillo=${mercadillo.slug}`}
+                    href={`/explore?seleccion=${mercadillo.slug}`}
                     className='inline-flex w-fit min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted py-1 pl-1.5 pr-3 text-sm transition hover:border-primary/50'
                   >
                     <MercadilloIcon src={mercadillo.icon} className='size-5' /> <span className='truncate'>{mercadillos.length > 1 ? mercadillo.name : t('MERCADILLO_NAMED', { name: mercadillo.name })}</span>

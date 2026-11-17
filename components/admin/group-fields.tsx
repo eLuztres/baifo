@@ -1,10 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import slugify from 'slugify';
-import { ImageIcon, Languages, Loader2, Sparkles } from 'lucide-react';
-import ProductMedia from '@/components/ProductMedia';
+import { Languages, Loader2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -14,19 +13,15 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import TextModeSwitch, { type TextModeTexts } from '@/components/marketplace/text-mode-switch';
 import { improveGroupTexts, translateGroupTexts } from '@/lib/actions/group.actions';
-import { generateGroupCover } from '@/lib/actions/studio.actions';
 import type { LocalizedText } from '@/lib/localize';
 import { LOCALES, translateMessage, type Locale } from '@/lib/i18n-core';
-import { preparePhotos } from '@/lib/prepare-photos';
-import { useUploadThing } from '@/lib/uploadthing';
 import type { TextMode } from '@/lib/marketplace/text-versions';
 
-/** A Mercadillo's cover, name and texts. */
+/** A selección's name and texts. */
 export interface GroupFormValues {
   slug: string;
   name: LocalizedText;
   text: LocalizedText;
-  image: string | null;
 }
 
 interface GroupFieldsOptions {
@@ -34,17 +29,14 @@ interface GroupFieldsOptions {
   locales: Locale[];
   /** The group being edited; a new one is made without it. */
   group?: { name: LocalizedText; text: LocalizedText };
-  /** What the AI makes the cover from when there is no description. */
-  coverFallback?: () => string;
 }
 
-/** The name, description, cover and translations of a group being edited, for GroupFields and the editor's save. */
-export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormReturn<T>, { locales, group, coverFallback }: GroupFieldsOptions) {
+/** The name, description and translations of a group being edited, for GroupFields and the editor's save. */
+export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormReturn<T>, { locales, group }: GroupFieldsOptions) {
   // A form with more fields is one with these fields too; only useForm's types can't say so.
   const form = typedForm as unknown as UseFormReturn<GroupFormValues>;
   const { t } = useI18n();
   const { toast } = useToast();
-  const [isMakingCover, setIsMakingCover] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   // The admin writes in the shop's language (listed first); every other language is a compact tab.
   const [shopLocale, ...otherLocales] = locales;
@@ -57,15 +49,6 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
   const ownText = useRef(group?.text?.[shopLocale] ?? '');
   const [textMode, setTextMode] = useState<TextMode>('original');
   const [isImproving, setIsImproving] = useState(false);
-  const coverInput = useRef<HTMLInputElement>(null);
-  const { startUpload, isUploading } = useUploadThing('imageUploader', {
-    onClientUploadComplete: (files) => {
-      if (files[0]) form.setValue('image', files[0].ufsUrl, { shouldDirty: true });
-    },
-    onUploadError: () => {
-      toast({ variant: 'destructive', description: t('STUDIO_UPLOAD_FAILED') });
-    },
-  });
   const shopName = form.watch(`name.${shopLocale}`)?.trim() ?? '';
 
   const translate = async (isForced: boolean) => {
@@ -119,16 +102,6 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
     if (!group && !form.getValues('slug')) form.setValue('slug', slugify(name, { lower: true, strict: true }));
   };
 
-  // The description says what the cover shows; a template shop without one still has its photo scene.
-  const makeCover = async () => {
-    setIsMakingCover(true);
-    const description = form.getValues(`text.${shopLocale}`)?.trim() || (coverFallback?.() ?? '');
-    const result = await generateGroupCover(description, form.getValues(`name.${shopLocale}`) ?? '');
-    setIsMakingCover(false);
-    if (!result.success || !result.url) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
-    form.setValue('image', result.url, { shouldDirty: true });
-  };
-
   return {
     form,
     shopLocale,
@@ -139,19 +112,14 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
     ownText,
     textMode,
     chooseTextMode,
-    coverInput,
-    startUpload,
     shopName,
     translate,
     translateBeforeSave,
     fillSlug,
-    makeCover,
-    isMakingCover,
     isTranslating,
     isImproving,
-    isUploading,
     /** Saving now would lose what is still being made. */
-    isBusy: isTranslating || isMakingCover || isImproving || isUploading,
+    isBusy: isTranslating || isImproving,
   };
 }
 
@@ -159,10 +127,12 @@ interface GroupFieldsProps {
   fields: ReturnType<typeof useGroupFields>;
   /** Under the description: where it shows. */
   descriptionHint: string;
+  /** Next to the name, e.g. the selección's icon. */
+  aside?: ReactNode;
 }
 
-/** The cover, name, description and other languages of a Mercadillo, inside the editor's form. */
-export default function GroupFields({ fields, descriptionHint }: GroupFieldsProps) {
+/** The name, description and other languages of a selección, inside the editor's form. */
+export default function GroupFields({ fields, descriptionHint, aside }: GroupFieldsProps) {
   const { t } = useI18n();
   const {
     form,
@@ -174,18 +144,12 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
     ownText,
     textMode,
     chooseTextMode,
-    coverInput,
-    startUpload,
     shopName,
     translate,
     fillSlug,
-    makeCover,
-    isMakingCover,
     isTranslating,
     isImproving,
-    isUploading,
   } = fields;
-  const image = form.watch('image');
   const textModeTexts: TextModeTexts = {
     textModeQuestion: t('GROUP_TEXT_MODE_QUESTION'),
     textModeAi: t('GROUP_TEXT_MODE_AI'),
@@ -207,74 +171,35 @@ export default function GroupFields({ fields, descriptionHint }: GroupFieldsProp
 
   return (
     <>
-    <div className='grid gap-5 sm:grid-cols-[9rem_minmax(0,1fr)]'>
-      <div className='flex flex-col items-center gap-2'>
-        <div className='relative aspect-[3/4] w-36 overflow-hidden rounded-xl border border-border bg-muted'>
-          {image ? (
-            <ProductMedia src={image} alt={t('GROUP_FORM_COVER')} fill sizes='9rem' className='object-cover' />
-          ) : (
-            <span className='flex size-full flex-col items-center justify-center gap-2 p-3 text-center text-xs text-muted-foreground'>
-              <ImageIcon className='size-7' aria-hidden /> {t('GROUP_FORM_COVER_EMPTY')}
-            </span>
-          )}
-          {isMakingCover && (
-            <span className='absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm'>
-              <Loader2 className='size-6 animate-spin text-primary' />
-            </span>
-          )}
-        </div>
-        <Button type='button' variant={image ? 'outline' : 'default'} size='sm' className='h-auto min-h-8 w-36 whitespace-normal rounded-full py-1.5' disabled={isMakingCover || !shopName} onClick={makeCover}>
-          {isMakingCover ? <Loader2 className='animate-spin' /> : <Sparkles />}
-          {t(isMakingCover ? 'GROUP_FORM_COVER_WORKING' : image ? 'GROUP_FORM_COVER_AGAIN' : 'GROUP_FORM_COVER_AI')}
-        </Button>
-        <p className='w-36 text-center text-[0.7rem] leading-4 text-muted-foreground'>{t('GROUP_FORM_COVER_HINT')}</p>
-        {/* Your own picture is the exception, so it is a quiet link under the AI button. */}
-        <input
-          ref={coverInput}
-          type='file'
-          accept='image/*'
-          hidden
-          onChange={async (event) => {
-            const files = Array.from(event.target.files ?? []);
-            event.target.value = '';
-            if (files.length > 0) await startUpload(await preparePhotos(files));
-          }}
-        />
-        <button
-          type='button'
-          disabled={isUploading || isMakingCover}
-          onClick={() => coverInput.current?.click()}
-          className='inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs text-primary underline-offset-4 hover:underline disabled:opacity-60'
-        >
-          {isUploading && <Loader2 className='size-3.5 animate-spin' />} {t('GROUP_FORM_COVER_UPLOAD')}
-        </button>
-      </div>
-
+    <div>
       <div className='space-y-4'>
-        <FormField
-          control={form.control}
-          name={`name.${shopLocale}`}
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                {t('GROUP_FORM_NAME_SHORT')} · {languageName(shopLocale)}
-              </FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  value={field.value ?? ''}
-                  className='h-11 text-lg'
-                  onBlur={(event) => {
-                    field.onBlur();
-                    fillSlug(event.target.value);
-                    translate(false);
-                  }}
-                />
-              </FormControl>
-              <FormMessage>{errorOf('name')}</FormMessage>
-            </FormItem>
-          )}
-        />
+        <div className='flex items-start gap-3'>
+          {aside}
+          <FormField
+            control={form.control}
+            name={`name.${shopLocale}`}
+            render={({ field }) => (
+              <FormItem className='min-w-0 flex-1'>
+                <FormLabel>
+                  {t('GROUP_FORM_NAME_SHORT')} · {languageName(shopLocale)}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    className='h-11 text-lg'
+                    onBlur={(event) => {
+                      field.onBlur();
+                      fillSlug(event.target.value);
+                      translate(false);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage>{errorOf('name')}</FormMessage>
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={form.control}
           name={`text.${shopLocale}`}

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 interface ShareButtonProps {
   /** The product's or service's name, shown in the share sheet. */
   title: string;
-  /** What to share, e.g. "/explore?mercadillo=magma"; missing: this page. */
+  /** What to share, e.g. "/explore?seleccion=magma"; missing: this page. */
   path?: string;
   /** A full button saying "Share", for where sharing is one of the main things to do. */
   isLabeled?: boolean;

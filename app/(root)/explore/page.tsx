@@ -23,7 +23,7 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
-import { getMercadillos, pickRowSpots } from '@/lib/mercadillos';
+import { getMercadillos, mercadilloIdsOf, pickRowSpots } from '@/lib/mercadillos';
 import { getTagOptions } from '@/lib/tags';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { getScoutChoices } from '@/lib/scout-choices';
@@ -45,8 +45,8 @@ import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
 import { freshMix, MIX_COOKIE, readMixSeed, seededRank } from '@/lib/fresh-mix';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `mercadillo` one Mercadillo's listings, `etiqueta` one etiqueta's. `categoria` and `c` are older links. */
-  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `seleccion` one selección's listings, `etiqueta` one etiqueta's. `categoria`, `c` and `mercadillo` are older links. */
+  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; seleccion?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -63,27 +63,28 @@ const SUGGESTION_TEXT_LENGTH = 400;
 const PRICE_RANGES = SHOWS_PRICES ? priceRanges(PRICE_FILTER_STEPS) : [];
 
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
-  const [{ q, tipo, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
-  // A shared Mercadillo shows its own name, words and picture.
-  const shared = !q && !tipo && mercadillos.find((option) => option.slug === mercadillo);
+  const [{ q, tipo, seleccion, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
+  // A shared selección shows its own name, words and picture; an old Mercadillo link too.
+  const chosenSlug = seleccion ?? mercadillo;
+  const shared = !q && !tipo && mercadillos.find((option) => option.slug === chosenSlug);
   if (shared) {
     const title = t('MERCADILLO_NAMED', { name: localize(shared.name, locale) });
     const description = metaDescription(localize(shared.text, locale)) || undefined;
     return {
       title,
       description,
-      alternates: await pageAlternates(`/explore?mercadillo=${shared.slug}`),
+      alternates: await pageAlternates(`/explore?seleccion=${shared.slug}`),
       openGraph: {
         siteName: BRAND.name,
         title,
         description,
         locale,
-        images: [{ url: absoluteUrl(`/mercadillo/${shared.slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(`/seleccion/${shared.slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     };
   }
   // A shared etiqueta's link shows its name, in the language it is opened in.
-  const sharedTag = !q && !tipo && !mercadillo && findTagByParam(tags, etiqueta);
+  const sharedTag = !q && !tipo && !chosenSlug && findTagByParam(tags, etiqueta);
   if (sharedTag) {
     const title = tagNameIn(sharedTag.names, locale);
     return { title, alternates: await pageAlternates(tagHref(sharedTag.names, locale)), openGraph: { siteName: BRAND.name, title, locale } };
@@ -98,7 +99,7 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, precio, categoria, mercadillo, c, etiqueta }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
+  const [{ q = '', tipo, precio, categoria, seleccion, mercadillo, c, etiqueta }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
     searchParams,
     getT(),
     getInStockRings(),
@@ -108,8 +109,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   ]);
   // Not always the newest on top: each visitor's own order, new every few hours.
   const mixSeed = readMixSeed(cookieStore.get(MIX_COOKIE)?.value);
-  const allListings = freshMix(storedListings, mixSeed);
-  const currentLink = currentExploreLink({ c, categoria });
+  // A listing is in a selección chosen by hand, or through one of its etiquetas.
+  const allListings = freshMix(storedListings, mixSeed).map((listing) => ({ ...listing, mercadilloIds: mercadilloIdsOf(listing.mercadilloIds, listing.tags.map((tag) => tag.id), mercadillos) }));
+  const currentLink = currentExploreLink({ c, categoria, mercadillo });
   if (currentLink) redirect(currentLink);
 
   const texts = adminTexts(locale);
@@ -135,7 +137,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   const words = queryWords(q);
-  const chosenMercadillo = mercadillos.find((option) => option.slug === mercadillo);
+  const chosenMercadillo = mercadillos.find((option) => option.slug === seleccion);
   // A chosen etiqueta shows exactly the listings that carry it.
   const chosenTag = findTagByParam(listings.flatMap((listing) => listing.tags), etiqueta);
   const inScope = inScopeOf(listings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
@@ -156,7 +158,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
 
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, mercadillo, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, seleccion, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
   const searchListings: SearchListing[] = listings.map((listing) => {
     const text = searchTextOf(listing);
@@ -261,7 +263,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           heading={t('MERCADILLO_NAMED', { name })}
           text={localize(row.mercadillo.text, locale)}
           icon={row.mercadillo.icon}
-          href={`/explore?mercadillo=${row.mercadillo.slug}`}
+          href={`/explore?seleccion=${row.mercadillo.slug}`}
           seeAllLabel={t('MERCADILLO_SEE_ALL')}
           pageLabel={t('MERCADILLO_PAGE')}
           backLabel={t('MERCADILLO_SCROLL_BACK')}
@@ -344,7 +346,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
             {chosenMercadillo && (
               <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
-                <PrepareSharePreview src={`/mercadillo/${chosenMercadillo.slug}/preview.jpg`} />
+                <PrepareSharePreview src={`/seleccion/${chosenMercadillo.slug}/preview.jpg`} />
                 {chosenMercadillo.image ? (
                   <div aria-hidden className='absolute inset-0'>
                     <ProductMedia src={chosenMercadillo.image} alt='' fill sizes='(min-width: 1280px) 80rem, 100vw' isStill />
@@ -373,7 +375,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                     <div className='min-w-0 flex-1'>
                       <ShareButton
                         title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })}
-                        path={`/explore?mercadillo=${chosenMercadillo.slug}`}
+                        path={`/explore?seleccion=${chosenMercadillo.slug}`}
                         isLabeled
                         className='w-full'
                       />

@@ -14,7 +14,7 @@ const groupTextSchema = (key: TranslationKey, max: number) =>
     .record(z.string(), z.string().trim().max(max, message(key)))
     .refine((texts) => Object.values(texts).some(Boolean), message(key));
 
-// A Mercadillo: its link name, name and text per language, picture and icon.
+// A selección (Mercadillo): its link name, name and text per language, icon, etiquetas and listings.
 export const mercadilloSchema = z.object({
   slug: z
     .string()
@@ -23,7 +23,6 @@ export const mercadilloSchema = z.object({
   name: groupTextSchema('VALIDATION_GROUP_NAME', 60),
   // Optional: a Mercadillo can be just a name.
   text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_GROUP_TEXT'))),
-  image: z.string().nullable(),
   icon: z.string().nullable(),
   // Empty: no contact button.
   contactPhone: z
@@ -32,6 +31,8 @@ export const mercadilloSchema = z.object({
     .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
   // Its listings (products); missing: they stay as they are.
   productIds: z.array(z.string().uuid()).max(500).optional(),
+  // Every listing with one of these etiquetas is in it too; missing: they stay as they are.
+  tagIds: z.array(z.string().uuid()).max(100).optional(),
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
 

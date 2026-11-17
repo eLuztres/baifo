@@ -23,6 +23,8 @@ const revalidateStore = () => revalidatePath('/', 'layout');
 const submissionsOf = (productIds: string[]) =>
   productIds.length > 0 ? prisma.submission.findMany({ where: { productId: { in: productIds } }, select: { id: true } }) : Promise.resolve([]);
 
+const tagsOf = (tagIds?: string[]) => (tagIds ? { set: tagIds.map((tagId) => ({ id: tagId })) } : undefined);
+
 /** Sets the Mercadillo's listings: each product and the listing behind it, so the listing's editor shows the same. */
 async function setMercadilloListings(id: string, productIds: string[]) {
   const before = (await prisma.product.findMany({ where: { mercadillos: { some: { id } } }, select: { id: true } })).map((product) => product.id);
@@ -42,9 +44,11 @@ async function setMercadilloListings(id: string, productIds: string[]) {
 export async function createMercadillo(data: z.infer<typeof mercadilloSchema>) {
   try {
     if (!(await isAdmin())) return adminOnly();
-    const { contactPhone, productIds, ...mercadillo } = mercadilloSchema.parse(data);
+    const { contactPhone, productIds, tagIds, ...mercadillo } = mercadilloSchema.parse(data);
     const last = await prisma.mercadillo.aggregate({ _max: { sortOrder: true } });
-    const created = await prisma.mercadillo.create({ data: { ...mercadillo, contactPhone: toContactPhone(contactPhone), sortOrder: (last._max.sortOrder ?? -1) + 1 } });
+    const created = await prisma.mercadillo.create({
+      data: { ...mercadillo, contactPhone: toContactPhone(contactPhone), sortOrder: (last._max.sortOrder ?? -1) + 1, tags: { connect: (tagIds ?? []).map((tagId) => ({ id: tagId })) } },
+    });
     if (productIds) await setMercadilloListings(created.id, productIds);
     revalidateStore();
     return { success: true, message: 'MERCADILLO_CREATED' satisfies TranslationKey };
@@ -56,8 +60,8 @@ export async function createMercadillo(data: z.infer<typeof mercadilloSchema>) {
 export async function updateMercadillo(data: z.infer<typeof updateMercadilloSchema>) {
   try {
     if (!(await isAdmin())) return adminOnly();
-    const { id, contactPhone, productIds, ...mercadillo } = updateMercadilloSchema.parse(data);
-    await prisma.mercadillo.update({ where: { id }, data: { ...mercadillo, contactPhone: toContactPhone(contactPhone) } });
+    const { id, contactPhone, productIds, tagIds, ...mercadillo } = updateMercadilloSchema.parse(data);
+    await prisma.mercadillo.update({ where: { id }, data: { ...mercadillo, contactPhone: toContactPhone(contactPhone), tags: tagsOf(tagIds) } });
     if (productIds) await setMercadilloListings(id, productIds);
     revalidateStore();
     return { success: true, message: 'MERCADILLO_UPDATED' satisfies TranslationKey };

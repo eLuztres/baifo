@@ -32,5 +32,5 @@ export function getContactMessage(listing: ContactListing, sellerName?: string |
 /** The prefilled message to a Mercadillo, in the shop's language. */
 export function getMercadilloContactMessage(mercadillo: { name: unknown; slug: string }): string {
   const locale = getShopLocale();
-  return getTranslator(locale)('MERCADILLO_CONTACT_MESSAGE', { name: localize(mercadillo.name, locale), shop: APP_NAME, url: `${SERVER_URL}/explore?mercadillo=${mercadillo.slug}` });
+  return getTranslator(locale)('MERCADILLO_CONTACT_MESSAGE', { name: localize(mercadillo.name, locale), shop: APP_NAME, url: `${SERVER_URL}/explore?seleccion=${mercadillo.slug}` });
 }

@@ -29,9 +29,13 @@ const nextConfig: NextConfig = {
       { source: '/media/:key', headers: [{ key: 'x-vercel-enable-rewrite-caching', value: '0' }] },
     ];
   },
-  // The corral pages are gone (#535); links already shared land on the home page.
+  // The corral pages are gone (#535); links already shared land on the home page. Mercadillos are selecciones now (#594).
   async redirects() {
-    return [{ source: '/corral/:slug*', destination: '/', permanent: false }];
+    return [
+      { source: '/corral/:slug*', destination: '/', permanent: false },
+      { source: '/mercadillo/:slug/preview.jpg', destination: '/seleccion/:slug/preview.jpg', permanent: true },
+      { source: '/admin/mercadillos', destination: '/admin/selecciones', permanent: true },
+    ];
   },
   // UploadThing files through this site: Spanish networks block UploadThing's Cloudflare addresses during football (#556).
   async rewrites() {

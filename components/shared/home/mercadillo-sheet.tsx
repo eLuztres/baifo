@@ -38,7 +38,7 @@ export default function MercadilloSheet({ mercadillos, label, className }: Merca
             <li key={slug}>
               <SheetClose asChild>
                 <Link
-                  href={`/explore?mercadillo=${slug}`}
+                  href={`/explore?seleccion=${slug}`}
                   className='flex h-full items-center gap-3 rounded-2xl border border-border bg-card p-2 pr-3 transition hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                 >
                   <MercadilloIcon src={icon} sizes='3rem' className='size-12' />

@@ -12,6 +12,7 @@ import type { SearchChoice } from '@/components/shared/explore-search';
 import { TYPE_FILTERS } from '@/lib/explore-filters';
 import { foldText } from '@/lib/search-text';
 import { tagNameIn, type TagNames } from '@/lib/tag-names';
+import { getTagOptions } from '@/lib/tags';
 
 // As on /explore: enough of the description for the search's suggestions.
 const SUGGESTION_TEXT_LENGTH = 400;
@@ -21,17 +22,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('MERCADILLOS_ADMIN_TITLE') };
 }
 
-/** The Mercadillos: the admin makes and changes them here, and adds listings to them in each listing's editor. */
+/** The selecciones: the admin makes and changes them here, and adds listings to them in each listing's editor. */
 const MercadillosPage = async () => {
   await requireAdmin();
   const { t, locale } = await getT();
-  const [mercadillos, products] = await Promise.all([
+  const [mercadillos, products, tags] = await Promise.all([
     getMercadillos(),
     prisma.product.findMany({
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, shortName: true, description: true, type: true, translations: true, images: true, mercadillos: { select: { id: true } }, submission: { select: { tags: { select: { id: true, names: true } } } } },
     }),
+    getTagOptions(),
   ]);
+  const tagOptions = tags.map(({ id, names, count }) => ({ id, name: tagNameIn(names, locale), count })).sort((a, b) => a.name.localeCompare(b.name, locale));
   const listings: PickableListing[] = products.map((product) => {
     const tags = (product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }));
     const translations = Object.values((product.translations ?? {}) as Record<string, { name?: string; shortName?: string; description?: string }>);
@@ -72,20 +75,21 @@ const MercadillosPage = async () => {
       <MercadilloAdmin
         locale={locale}
         locales={[shopLocale, ...getEnabledLocales().filter((enabled) => enabled !== shopLocale)]}
-        mercadillos={mercadillos.map(({ id, slug, name, text, image, icon, contactPhone, _count }) => ({
+        mercadillos={mercadillos.map(({ id, slug, name, text, icon, contactPhone, tagIds, _count }) => ({
           id,
           slug,
           name: name as LocalizedText,
           text: text as LocalizedText,
-          image,
           icon,
           contactPhone,
           productCount: _count.products,
           productIds: listings.filter((listing) => listing.mercadilloIds.includes(id)).map((listing) => listing.id),
+          tagIds,
         }))}
         listings={listings}
         searchChoices={searchChoices}
         searchTags={searchTags}
+        tagOptions={tagOptions}
       />
     </div>
   );

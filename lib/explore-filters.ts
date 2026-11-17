@@ -17,7 +17,8 @@ export const chosenTypeFilters = (tipo?: string) => TYPE_FILTERS.filter(({ param
 
 /** Where an older link goes now: ?c=eventos was the Eventos category, and a former category is searched by its name,
     which its etiqueta carries. Nothing: the link is current. */
-export function currentExploreLink({ c, categoria }: { c?: string; categoria?: string }): string | undefined {
+export function currentExploreLink({ c, categoria, mercadillo }: { c?: string; categoria?: string; mercadillo?: string }): string | undefined {
+  if (mercadillo) return `/explore?${new URLSearchParams({ seleccion: mercadillo })}`;
   if (c && listingTypeOf(c)) return `/explore?tipo=${c}`;
   const oldCategory = c || listParam(categoria)[0];
   return oldCategory ? `/explore?${new URLSearchParams({ q: oldCategory })}` : undefined;
@@ -29,7 +30,7 @@ interface Narrowable {
   tags: { id: string }[];
 }
 
-/** The listings in one Mercadillo and with one etiqueta, when chosen. */
+/** The listings in one selección and with one etiqueta, when chosen. */
 export const inScopeOf = <T extends Narrowable>(listings: T[], { mercadilloId, tagId }: { mercadilloId?: string; tagId?: string }) =>
   listings.filter((listing) => (!mercadilloId || listing.mercadilloIds.includes(mercadilloId)) && (!tagId || listing.tags.some((tag) => tag.id === tagId)));
 

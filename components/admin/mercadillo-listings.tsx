@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, Tag, X } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ExploreSearch, { type SearchChoice } from '@/components/shared/explore-search';
 import { useI18n } from '@/components/i18n-provider';
@@ -49,19 +49,24 @@ interface MercadilloListingsProps {
   mercadilloNames: Record<string, string>;
   chosenIds: string[];
   onChange: (ids: string[]) => void;
+  /** The selección's etiquetas, by id with their names: their listings are in it too. */
+  tagNames: Record<string, string>;
 }
 
 const Thumb = ({ src, alt }: { src: string | null; alt: string }) => (
   <span className='relative block aspect-[3/4] w-full overflow-hidden rounded-lg bg-muted'>{src && <ProductMedia src={src} alt={alt} fill sizes='4rem' className='object-cover' />}</span>
 );
 
-/** The Mercadillo's listings as small pictures, and a list of all listings with checkboxes to choose them. */
-export default function MercadilloListings({ mercadilloId, listings, choices, tags, mercadilloNames, chosenIds, onChange }: MercadilloListingsProps) {
+/** The selección's listings as small pictures, and a list of all listings with checkboxes to choose them. */
+export default function MercadilloListings({ mercadilloId, listings, choices, tags, mercadilloNames, chosenIds, onChange, tagNames }: MercadilloListingsProps) {
   const { t } = useI18n();
   const [picked, setPicked] = useState<string[] | null>(null);
   // What the search narrowed the list to, and what its field shows for it.
   const [filter, setFilter] = useState<{ link: string; label: string } | null>(null);
-  const chosen = listings.filter((listing) => chosenIds.includes(listing.id));
+  // A listing with one of its etiquetas is in, chosen by hand or not; it leaves only with the etiqueta.
+  const tagsOf = (listing: PickableListing) => listing.tagIds.map((id) => tagNames[id]).filter(Boolean);
+  const byTag = listings.filter((listing) => tagsOf(listing).length > 0);
+  const chosen = listings.filter((listing) => chosenIds.includes(listing.id) && tagsOf(listing).length === 0);
   const found = filter ? narrowed(listings, filter.link) : listings;
   const searchListings = listings.map((listing) => ({ href: `${LISTING_LINK}${listing.id}`, name: listing.name, image: listing.image ?? '', text: listing.text }));
 
@@ -84,12 +89,12 @@ export default function MercadilloListings({ mercadilloId, listings, choices, ta
   return (
     <div className='space-y-3 rounded-2xl border border-border p-3'>
       <div className='flex items-center justify-between gap-2'>
-        <p className='font-medium'>{t('MERCADILLO_LISTINGS', { count: chosen.length })}</p>
+        <p className='font-medium'>{t('MERCADILLO_LISTINGS', { count: chosen.length + byTag.length })}</p>
         <Button type='button' size='sm' className='rounded-full' onClick={openPicker}>
           <Plus /> {t('MERCADILLO_LISTINGS_ADD')}
         </Button>
       </div>
-      {chosen.length === 0 ? (
+      {chosen.length + byTag.length === 0 ? (
         <p className='text-sm text-muted-foreground'>{t('MERCADILLO_LISTINGS_EMPTY')}</p>
       ) : (
         <ul className='grid grid-cols-4 gap-2 sm:grid-cols-6'>
@@ -104,6 +109,15 @@ export default function MercadilloListings({ mercadilloId, listings, choices, ta
               >
                 <X className='size-3.5' />
               </button>
+            </li>
+          ))}
+          {byTag.map((listing) => (
+            <li key={listing.id} className='relative' title={`${listing.name} · ${tagsOf(listing).join(', ')}`}>
+              <Thumb src={listing.image} alt={listing.name} />
+              {/* An etiqueta brought it in: no ×, it leaves only with the etiqueta. */}
+              <span className='absolute bottom-1 left-1 grid size-6 place-items-center rounded-full bg-black/65 text-white'>
+                <Tag className='size-3.5' aria-label={tagsOf(listing).join(', ')} />
+              </span>
             </li>
           ))}
         </ul>

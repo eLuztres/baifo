@@ -1,10 +1,32 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 
-/** Every Mercadillo in the shop's order, with how many listings it holds. */
-export const getMercadillos = () =>
-  prisma.mercadillo.findMany({
+/** A selección's listings: the ones chosen by hand and every one with one of its etiquetas. */
+const listingsOf = (id: string, tagIds: string[]): Prisma.ProductWhereInput => ({
+  OR: [{ mercadillos: { some: { id } } }, { submission: { tags: { some: { id: { in: tagIds } } } } }],
+});
+
+/** Every selección (Mercadillo) in the shop's order, with its etiquetas and how many listings it holds. */
+export const getMercadillos = async () => {
+  const mercadillos = await prisma.mercadillo.findMany({
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    include: { _count: { select: { products: true } } },
+    include: { tags: { select: { id: true } } },
+  });
+  const counts = await Promise.all(mercadillos.map(({ id, tags }) => prisma.product.count({ where: listingsOf(id, tags.map((tag) => tag.id)) })));
+  return mercadillos.map(({ tags, ...mercadillo }, index) => ({ ...mercadillo, tagIds: tags.map((tag) => tag.id), _count: { products: counts[index] } }));
+};
+
+/** The selecciones a listing is in: the ones it was chosen for by hand, and every one holding one of its etiquetas. */
+export const mercadilloIdsOf = (chosenIds: string[], tagIds: string[], mercadillos: { id: string; tagIds: string[] }[]) => [
+  ...new Set([...chosenIds, ...mercadillos.filter((mercadillo) => mercadillo.tagIds.some((id) => tagIds.includes(id))).map((mercadillo) => mercadillo.id)]),
+];
+
+/** What a listing's page shows of its selecciones: `chosen` finds the ones chosen by hand, `tagIds` are its etiquetas. */
+export const getListingMercadillos = (chosen: Prisma.MercadilloWhereInput, tagIds: string[]) =>
+  prisma.mercadillo.findMany({
+    where: { OR: [chosen, { tags: { some: { id: { in: tagIds } } } }] },
+    select: { slug: true, name: true, icon: true },
+    orderBy: { sortOrder: 'asc' },
   });
 
 export type Mercadillo = Awaited<ReturnType<typeof getMercadillos>>[number];

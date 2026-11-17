@@ -1,5 +1,6 @@
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
+import { getListingMercadillos } from '@/lib/mercadillos';
 import { toProductTranslations } from './catalog';
 import { isAdminPreviewSlug, previewSubmissionId } from './preview-slug';
 
@@ -7,7 +8,7 @@ import { isAdminPreviewSlug, previewSubmissionId } from './preview-slug';
 export async function getAdminProductPreview(slug: string) {
   const id = previewSubmissionId(slug);
   if (!isAdminPreviewSlug(slug) || !(await isAdmin())) return null;
-  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } }, mercadillos: { select: { slug: true, name: true, icon: true }, orderBy: { sortOrder: 'asc' } } } });
+  const submission = await prisma.submission.findUnique({ where: { id }, include: { seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } } } });
   if (!submission?.title) return null;
   const { title, shortTitle, description, images, rawImages, price, priceMode, type, condition, serviceType, startsAt, address, placeId } = submission;
   return {
@@ -26,7 +27,7 @@ export async function getAdminProductPreview(slug: string) {
     startsAt,
     address,
     placeId,
-    mercadillos: submission.mercadillos,
+    mercadillos: await getListingMercadillos({ submissions: { some: { id } } }, submission.tags.map((tag) => tag.id)),
     stock: 1,
     reservedUntil: null,
     reservedById: null,

@@ -124,6 +124,8 @@ model Mercadillo {
   createdAt   DateTime     @default(now()) @db.Timestamp(6)
   products    Product[]
   submissions Submission[]
+  // Every listing with one of these etiquetas is in it too, next to the ones chosen by hand.
+  tags        Tag[]
 }
 
 // An etiqueta: one thing with a name per language ({ "es": "Música", "en": "Music" }); a missing language isn't translated yet.
@@ -132,6 +134,7 @@ model Tag {
   names       Json         @default("{}")
   createdAt   DateTime     @default(now()) @db.Timestamp(6)
   submissions Submission[]
+  mercadillos Mercadillo[]
 }
 
 // Every listing is exactly one of these (LISTING_TYPES); WANTED is "Busco …", someone looking for something.
