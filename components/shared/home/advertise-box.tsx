@@ -12,7 +12,7 @@ interface AdvertiseBoxProps {
   shopName: string;
 }
 
-/** The ad box under the hero's title: one centered line; the whole box is the button to the shop's WhatsApp. */
+/** The ad box at the bottom of the hero: one centered line; the whole box is the button to the shop's WhatsApp. */
 export default function AdvertiseBox({ title, text, href, scouts, shopName }: AdvertiseBoxProps) {
   const words = (
     <span className={styles.advertiseWords}>

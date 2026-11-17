@@ -73,7 +73,7 @@
   filter: brightness(0.82) saturate(0.95);
 }
 
-/* The cut-out sits on the sand in the middle, above the split button, and never grows into it. */
+/* The cut-out sits on the sand in the middle, between the split button and the ad, and never grows into the ad. */
 .figure {
   position: absolute;
   bottom: 9rem;
@@ -84,7 +84,7 @@
   transform-origin: 50% 100%;
 }
 
-/* The narrowest phones: a smaller goat, so it stays clear of the ad under the title. */
+/* The narrowest phones: a smaller goat, so it stays clear of the split button under the title. */
 @media (max-width: 359px) {
   .figure {
     width: min(20svh, 58vw);
@@ -361,7 +361,7 @@
   box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.45);
 }
 
-/* On a phone the split button and the ad take the whole width, easy to hit with a thumb. */
+/* On a phone the split button takes the whole width, easy to hit with a thumb. */
 @media (max-width: 639px) {
   .panel,
   .buttons {
@@ -375,10 +375,6 @@
   .cta,
   .secondary {
     font-size: clamp(1.05rem, 0.6rem + 2.2vw, 1.3rem);
-  }
-
-  .advertise {
-    align-self: stretch;
   }
 }
 
