@@ -6,6 +6,8 @@ const SWITCHER_ITEMS = '[role="menuitem"][lang]';
 test.describe('language', () => {
   test('switching language updates the page and is remembered', async ({ page, context }) => {
     await page.goto('/explore');
+    // The menu works only once the page is live in the browser.
+    await page.waitForLoadState('networkidle');
     const switcher = page.getByRole('button', { name: new RegExp(`^${t('LANGUAGE_LABEL')}:`) });
     test.skip((await switcher.count()) === 0, 'The shop has a single language');
 
@@ -13,7 +15,8 @@ test.describe('language', () => {
     const [locale] = await otherEnabledLocales(page, SWITCHER_ITEMS);
     await page.locator(`${SWITCHER_ITEMS}[lang="${locale}"]`).click();
 
-    await expect(page.getByText(tIn(locale)('EXPLORE_TITLE')).first()).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
+    await expect(page.getByRole('combobox', { name: tIn(locale)('EXPLORE_SEARCH_LABEL') })).toBeVisible();
     const cookies = await context.cookies();
     expect(cookies.find((c) => c.name === 'NEXT_LOCALE')?.value).toBe(locale);
 
@@ -23,6 +26,7 @@ test.describe('language', () => {
 
   test('follows the browser language on the first visit', async ({ page, browser }) => {
     await page.goto('/explore');
+    await page.waitForLoadState('networkidle');
     const switcher = page.getByRole('button', { name: new RegExp(`^${t('LANGUAGE_LABEL')}:`) });
     test.skip((await switcher.count()) === 0, 'The shop has a single language');
     await switcher.click();
@@ -32,7 +36,8 @@ test.describe('language', () => {
     const localized = await context.newPage();
     await localized.goto('/explore');
 
-    await expect(localized.getByText(tIn(locale)('EXPLORE_TITLE')).first()).toBeVisible();
+    await expect(localized.locator('html')).toHaveAttribute('lang', locale);
+    await expect(localized.getByRole('combobox', { name: tIn(locale)('EXPLORE_SEARCH_LABEL') })).toBeVisible();
     await context.close();
   });
 });

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getImageProps } from 'next/image';
 import { useActiveSection } from '@/components/shared/header/use-active-section';
+import LoaderImage from '@/components/shared/LoaderImage';
 import { prefersReducedMotion, SECTION_IDS } from './one-page';
 import styles from './scene-hero.module.css';
 
@@ -19,16 +20,24 @@ export interface Scene {
 
 interface SceneCrossfadeProps {
   scenes: Scene[];
+  /** The shop's loader pictures (BRAND_LOADER_IMAGE, _DARK): they hop behind a picture that is still on its way. */
+  loaderImage?: string;
+  loaderImageDark?: string;
 }
+
+const sceneKey = (scene: Scene) => (scene.tall ?? scene.wide)!;
 
 /** The scenes fade slowly into each other; with "reduce motion" the first one simply stays. The first scene is home base:
     away from the top the slideshow rests there, so scrolling back up always lands on it. */
-export default function SceneCrossfade({ scenes: allScenes }: SceneCrossfadeProps) {
+export default function SceneCrossfade({ scenes: allScenes, loaderImage, loaderImageDark }: SceneCrossfadeProps) {
   const [isWide, setIsWide] = useState<boolean>();
   const [shown, setShown] = useState(0);
   const [reached, setReached] = useState(0);
   const [isMoving, setIsMoving] = useState(false);
   const isAtTop = useActiveSection() === SECTION_IDS.home;
+  const loadedRef = useRef(new Set<string>());
+  const [hasPicture, setHasPicture] = useState(false);
+  const scenesRef = useRef<Scene[]>([]);
 
   useEffect(() => {
     const query = window.matchMedia(WIDE_SCREEN);
@@ -40,6 +49,7 @@ export default function SceneCrossfade({ scenes: allScenes }: SceneCrossfadeProp
 
   // A scene drawn for one screen shape only is left out on the other. Before the shape is known, the first scene (which has both) shows.
   const scenes = isWide === undefined ? allScenes : allScenes.filter((scene) => (isWide ? scene.wide : scene.tall));
+  scenesRef.current = scenes;
 
   useEffect(() => {
     if (!isAtTop) setShown(0);
@@ -48,22 +58,37 @@ export default function SceneCrossfade({ scenes: allScenes }: SceneCrossfadeProp
   useEffect(() => {
     if (!isAtTop || scenes.length < 2 || prefersReducedMotion()) return;
     setIsMoving(true);
+    // On a slow connection the next picture can still be on its way: the shown one stays until it has arrived.
     const timer = setInterval(() => {
-      setShown((index) => (index + 1) % scenes.length);
-      setReached((index) => Math.min(index + 1, scenes.length - 1));
+      setShown((index) => {
+        const next = (index + 1) % scenesRef.current.length;
+        return loadedRef.current.has(sceneKey(scenesRef.current[next])) ? next : index;
+      });
     }, SCENE_MS);
     return () => clearInterval(timer);
   }, [isAtTop, scenes.length]);
+
+  useEffect(() => setReached((index) => Math.max(index, shown)), [shown]);
 
   // Scenes join the page one ahead of the fade, so a visitor who leaves at once loads two pictures, not all of them.
   const mounted = scenes.slice(0, reached + (isMoving ? 2 : 1));
 
   return (
     <div className={styles.scenes}>
+      {/* Only until the first picture arrives (a slow connection): the next ones wait until loaded, and a fade must not show it. */}
+      {!hasPicture && (
+        <div className={styles.loader}>
+          <LoaderImage image={loaderImage} darkImage={loaderImageDark} />
+        </div>
+      )}
       {mounted.map((scene, index) => (
         <ScenePicture
-          key={scene.tall ?? scene.wide}
+          key={sceneKey(scene)}
           scene={scene}
+          onLoaded={() => {
+            loadedRef.current.add(sceneKey(scene));
+            setHasPicture(true);
+          }}
           isShown={index === shown % scenes.length}
           isFirst={index === 0}
           isAtTop={isAtTop}
@@ -79,10 +104,11 @@ interface ScenePictureProps {
   isFirst: boolean;
   /** The figure's welcome plays each time this turns true (CSS restarts an animation that comes back). */
   isAtTop: boolean;
+  onLoaded: () => void;
 }
 
 // Art direction (a wide picture on wide screens) needs <picture>; getImageProps keeps next/image's sizes for both.
-function ScenePicture({ scene, isShown, isFirst, isAtTop }: ScenePictureProps) {
+function ScenePicture({ scene, isShown, isFirst, isAtTop, onLoaded }: ScenePictureProps) {
   const common = { alt: '', fill: true, sizes: '100vw', priority: isFirst };
   const tall = getImageProps({ ...common, src: (scene.tall ?? scene.wide)! }).props;
   const wide = scene.wide && getImageProps({ ...common, src: scene.wide }).props;
@@ -94,7 +120,8 @@ function ScenePicture({ scene, isShown, isFirst, isAtTop }: ScenePictureProps) {
         <picture>
           {wide && <source media={WIDE_SCREEN} srcSet={wide.srcSet} sizes={wide.sizes} />}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img {...tall} alt={scene.alt} aria-hidden={!isShown} />
+          {/* The ref catches a picture that arrived before the page came alive, when onLoad had no listener yet. */}
+          <img {...tall} alt={scene.alt} aria-hidden={!isShown} onLoad={onLoaded} ref={(img) => { if (img?.complete && img.naturalWidth) onLoaded(); }} />
         </picture>
         {figure && (
           <div className={styles.figure} data-arrived={isAtTop}>

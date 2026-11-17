@@ -1,10 +1,17 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { t } from './helpers';
+
+// One list on screen (a page change can show the old one for a moment too), fully loaded, before counting its cards.
+async function listingCount(page: Page) {
+  await expect(page.locator('[data-feed-page]')).toHaveCount(1);
+  await page.waitForLoadState('networkidle');
+  return page.locator('[data-feed-page] ul a').count();
+}
 
 test.describe('explore: the list of listings', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/explore');
-    test.skip((await page.locator('[data-feed-page] ul a').count()) === 0, 'No listings in the database');
+    test.skip((await listingCount(page)) === 0, 'No listings in the database');
   });
 
   test('search and filters share one line, with no visible title', async ({ page }) => {
@@ -16,7 +23,7 @@ test.describe('explore: the list of listings', () => {
   });
 
   test('searching narrows the list and clearing brings everything back', async ({ page }) => {
-    const all = await page.locator('[data-feed-page] ul a').count();
+    const all = await listingCount(page);
     const search = page.getByRole('combobox', { name: t('EXPLORE_SEARCH_LABEL') });
     await search.fill('zzzznothinglikethis');
     await search.press('Enter');
@@ -48,7 +55,7 @@ test.describe('explore: the list of listings', () => {
     await expect(page).toHaveURL(/\/explore\?etiqueta=[a-z0-9-]+$/);
     expect(new URL(page.url()).searchParams.get('etiqueta')).not.toMatch(/^[0-9a-f]{8}-/);
     await expect(search).toHaveValue(name);
-    const count = await page.locator('[data-feed-page] ul a').count();
+    const count = await listingCount(page);
     expect(count).toBeGreaterThan(0);
 
     // Someone else opens the shared link fresh: the same etiqueta and listings, and its name as the page title.
@@ -79,7 +86,7 @@ test.describe('explore: the list of listings', () => {
   test('a price range narrows the list, its count matches, it goes in the link and "All" undoes it', async ({ page }) => {
     const price = page.getByRole('button', { name: t('SEARCH_PRICE') });
     test.skip((await price.count()) === 0, 'The shop shows no prices');
-    const all = await page.locator('[data-feed-page] ul a').count();
+    const all = await listingCount(page);
     await price.click();
     const option = page.getByRole('menuitemcheckbox').nth(1);
     const count = Number(await option.locator('span').last().textContent());
@@ -96,7 +103,7 @@ test.describe('explore: the list of listings', () => {
 
   test('a price range keeps working together with the kind and a shared link', async ({ page, browser }) => {
     await page.goto('/explore?tipo=ofrezco&precio=0-10');
-    const count = await page.locator('[data-feed-page] ul a').count();
+    const count = await listingCount(page);
     const other = await browser.newPage();
     await other.goto('/explore?precio=0-10&tipo=ofrezco');
     await expect(other.locator('[data-feed-page] ul a')).toHaveCount(count);

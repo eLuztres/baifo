@@ -2,12 +2,16 @@
 
 import Link from 'next/link';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
+import { cn } from '@/lib/utils';
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 export interface MercadilloLink {
   slug: string;
   name: string;
   icon: string | null;
+  /** Hoy: its sun and a line under the name (how many listings it holds). */
+  isToday?: boolean;
+  note?: string;
 }
 
 interface MercadilloSheetProps {
@@ -34,15 +38,21 @@ export default function MercadilloSheet({ mercadillos, label, className }: Merca
           <SheetTitle>{label}</SheetTitle>
         </SheetHeader>
         <ul className='mx-auto grid w-full max-w-3xl grid-cols-1 gap-2 overflow-y-auto overscroll-contain min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-3'>
-          {mercadillos.map(({ slug, name, icon }) => (
+          {mercadillos.map(({ slug, name, icon, isToday, note }) => (
             <li key={slug}>
               <SheetClose asChild>
                 <Link
                   href={`/explore?seleccion=${slug}`}
-                  className='flex h-full items-center gap-3 rounded-2xl border border-border bg-card p-2 pr-3 transition hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                  className={cn(
+                    'flex h-full items-center gap-3 rounded-2xl border border-border bg-card p-2 pr-3 transition hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    isToday && 'border-accent/50'
+                  )}
                 >
-                  <MercadilloIcon src={icon} sizes='3rem' className='size-12' />
-                  <span className='line-clamp-2 min-w-0 text-sm font-semibold leading-tight'>{name}</span>
+                  <MercadilloIcon src={icon} isToday={isToday} sizes='3rem' className='size-12' />
+                  <span className='min-w-0'>
+                    <span className='line-clamp-2 text-sm font-semibold leading-tight'>{name}</span>
+                    {note && <span className='block text-xs text-muted-foreground'>{note}</span>}
+                  </span>
                 </Link>
               </SheetClose>
             </li>

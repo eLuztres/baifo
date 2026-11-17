@@ -23,7 +23,8 @@ import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
-import { getMercadillos, mercadilloIdsOf, pickRowSpots } from '@/lib/mercadillos';
+import { getMercadillos, mercadilloIdsOf, pickRowSpots, spreadRowListings } from '@/lib/mercadillos';
+import { isInToday, TODAY_ID, todayListings, todaySelection } from '@/lib/today';
 import { getTagOptions } from '@/lib/tags';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { getScoutChoices } from '@/lib/scout-choices';
@@ -109,8 +110,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   ]);
   // Not always the newest on top: each visitor's own order, new every few hours.
   const mixSeed = readMixSeed(cookieStore.get(MIX_COOKIE)?.value);
-  // A listing is in a selección chosen by hand, or through one of its etiquetas.
-  const allListings = freshMix(storedListings, mixSeed).map((listing) => ({ ...listing, mercadilloIds: mercadilloIdsOf(listing.mercadilloIds, listing.tags.map((tag) => tag.id), mercadillos) }));
+  // A listing is in a selección chosen by hand, or through one of its etiquetas; and in Hoy while it's new or its event is today.
+  const allListings = freshMix(storedListings, mixSeed).map((listing) => ({
+    ...listing,
+    mercadilloIds: [...mercadilloIdsOf(listing.mercadilloIds, listing.tags.map((tag) => tag.id), mercadillos), ...(isInToday(listing) ? [TODAY_ID] : [])],
+  }));
   const currentLink = currentExploreLink({ c, categoria, mercadillo });
   if (currentLink) redirect(currentLink);
 
@@ -118,6 +122,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const now = new Date();
   const listings = inPlaces(allListings, placeIds);
   const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
+  const todayCount = listings.filter((listing) => listing.mercadilloIds.includes(TODAY_ID)).length;
+  // Hoy goes first, and only while it has listings.
+  const selecciones = todayCount > 0 ? [todaySelection(t('TODAY_NAME'), t('TODAY_TEXT'), todayCount, locale), ...mercadillos] : mercadillos;
 
   // A listing is found by its names and etiquetas (in every language), and by its description and its kind.
   const searchTextOf = (listing: Listing): SearchableText => {
@@ -137,10 +144,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   const words = queryWords(q);
-  const chosenMercadillo = mercadillos.find((option) => option.slug === seleccion);
+  const chosenMercadillo = selecciones.find((option) => option.slug === seleccion);
   // A chosen etiqueta shows exactly the listings that carry it.
   const chosenTag = findTagByParam(listings.flatMap((listing) => listing.tags), etiqueta);
-  const inScope = inScopeOf(listings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
+  const inChosen = inScopeOf(listings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
+  // Hoy keeps its own order: today's events first, then the newest.
+  const inScope = chosenMercadillo?.id === TODAY_ID ? todayListings(inChosen) : inChosen;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = chosenTypeFilters(tipo);
   const types = chosenFilters.flatMap((filter) => filter.types);
@@ -151,11 +160,19 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   // Only the plain list has rows: a search or filter shows every match in the grid.
   const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && !chosenRange;
   const rows = isPlainList
-    ? mercadillos.map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloIds.includes(option.id)) })).filter((row) => row.listings.length > 0)
+    ? selecciones
+        .map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloIds.includes(option.id)) }))
+        .map((row) => (row.mercadillo.id === TODAY_ID ? { ...row, listings: todayListings(row.listings) } : row))
+        .filter((row) => row.listings.length > 0)
     : [];
-  const gridListings = isPlainList ? shown.filter((listing) => listing.mercadilloIds.length === 0) : shown;
-  const rowSpots = pickRowSpots(gridListings.length, rows.length, seededRank(mixSeed), rows.map((row) => row.mercadillo.id));
+  // Hoy's row is always the first thing in the list; the others keep their random spots.
+  const otherRows = rows.filter((row) => row.mercadillo.id !== TODAY_ID);
+  const otherSpots = pickRowSpots(shown.length, otherRows.length, seededRank(mixSeed), otherRows.map((row) => row.mercadillo.id));
+  const rowSpots = rows.map((row) => (row.mercadillo.id === TODAY_ID ? 0 : otherSpots[otherRows.indexOf(row)]));
+  // A selección's listings are in the grid too, far from its row, so nobody misses them by not scrolling the row.
+  const gridListings = isPlainList ? spreadRowListings(shown, new Map(rows.map((row, index) => [row.mercadillo.id, rowSpots[index]]))) : shown;
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
+  const rowsAfterGrid = rows.filter((_, index) => rowSpots[index] >= gridListings.length);
 
   // A listing's way back returns to these same filters.
   const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, seleccion, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
@@ -263,6 +280,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           heading={t('MERCADILLO_NAMED', { name })}
           text={localize(row.mercadillo.text, locale)}
           icon={row.mercadillo.icon}
+          isToday={row.mercadillo.id === TODAY_ID}
           href={`/explore?seleccion=${row.mercadillo.slug}`}
           seeAllLabel={t('MERCADILLO_SEE_ALL')}
           pageLabel={t('MERCADILLO_PAGE')}
@@ -346,7 +364,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
             {chosenMercadillo && (
               <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
-                <PrepareSharePreview src={`/seleccion/${chosenMercadillo.slug}/preview.jpg`} />
+                {/* Hoy has no picture of its own to share. */}
+                {chosenMercadillo.id !== TODAY_ID && <PrepareSharePreview src={`/seleccion/${chosenMercadillo.slug}/preview.jpg`} />}
                 {chosenMercadillo.image ? (
                   <div aria-hidden className='absolute inset-0'>
                     <ProductMedia src={chosenMercadillo.image} alt='' fill sizes='(min-width: 1280px) 80rem, 100vw' isStill />
@@ -359,6 +378,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                 <div className='relative flex flex-col items-center gap-4 sm:gap-5'>
                   <MercadilloIcon
                     src={chosenMercadillo.icon}
+                    isToday={chosenMercadillo.id === TODAY_ID}
                     sizes='(min-width: 640px) 11rem, 10rem'
                     className='size-40 shadow-2xl shadow-primary/25 ring-4 ring-background sm:size-44'
                   />
@@ -395,7 +415,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             ) : (
               <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
                 {gridListings.map((listing, index) => [...rowsAt(index).map(renderRow), <li key={listing.id} data-anchor={listing.id}>{renderCard(listing)}</li>])}
-                {rowsAt(gridListings.length).map(renderRow)}
+                {rowsAfterGrid.map(renderRow)}
               </ul>
             )}
             {chosenMercadillo && <div className='flex justify-center'>{backToList}</div>}

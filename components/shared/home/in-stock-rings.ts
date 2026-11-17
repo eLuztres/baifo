@@ -179,6 +179,11 @@ export async function getRingSummaries(): Promise<RingSummary[]> {
   });
 }
 
+/** Every ring in stock, light: enough to say which are in Hoy and in the visitor's places. */
+export function getTodayCandidates() {
+  return prisma.product.findMany({ where: inStockWhere(), select: { createdAt: true, type: true, startsAt: true, placeId: true } });
+}
+
 /** Slug and date of every ring in stock, for the sitemap. */
 export function getInStockSlugs() {
   return prisma.product.findMany({ where: inStockWhere(), orderBy: PAGE_ORDER, select: { slug: true, createdAt: true } });

@@ -47,3 +47,34 @@ export function pickRowSpots(listingCount: number, rowCount: number, rank: (key:
     return free.splice(ranks.indexOf(Math.min(...ranks)), 1)[0];
   });
 }
+
+// Cards between a selección's row and its own listings in the grid: on a phone about twelve rows, never on one screen.
+export const ROW_LISTING_GAP = 24;
+
+/**
+ * The whole list for the grid, the selecciones' listings too, each at least `gap` cards from every spot where one of its
+ * rows goes (`spotOf`: a row's selección id → its spot). The mix's order stays as far as it can; a listing with no place
+ * that far is left to its rows.
+ */
+export function spreadRowListings<T extends { mercadilloIds: string[] }>(listings: T[], spotOf: Map<string, number>, gap = ROW_LISTING_GAP): T[] {
+  const slots: (T | undefined)[] = new Array(listings.length).fill(undefined);
+  const isInRow = (listing: T) => listing.mercadilloIds.some((id) => spotOf.has(id));
+  const isFarFromRows = (listing: T, slot: number) => listing.mercadilloIds.every((id) => !spotOf.has(id) || Math.abs(slot - spotOf.get(id)!) >= gap);
+  listings.forEach((listing, wanted) => {
+    if (!isInRow(listing)) return;
+    for (let distance = 0; distance < listings.length; distance++) {
+      const slot = [wanted - distance, wanted + distance].find((one) => one >= 0 && one < listings.length && !slots[one] && isFarFromRows(listing, one));
+      if (slot !== undefined) return void (slots[slot] = listing);
+    }
+  });
+  const others = listings.filter((listing) => !isInRow(listing));
+  let grid = slots.map((listing) => listing ?? others.shift()).filter((listing): listing is T => listing !== undefined);
+  // Closing the gaps of the ones left out moves later cards up, and a row past the end shows at the end: check again until none is close.
+  for (;;) {
+    const isClose = (listing: T, slot: number) =>
+      listing.mercadilloIds.some((id) => spotOf.has(id) && Math.abs(slot - Math.min(spotOf.get(id)!, grid.length)) < gap);
+    const kept = grid.filter((listing, slot) => !isClose(listing, slot));
+    if (kept.length === grid.length) return grid;
+    grid = kept;
+  }
+}

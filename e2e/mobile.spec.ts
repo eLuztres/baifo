@@ -13,10 +13,13 @@ test.describe('mobile header', () => {
   });
 
   test('the language pills switch language', async ({ page }) => {
-    await page.goto('/store');
+    await page.goto('/explore');
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: t('NAV_MENU') }).click();
+    // Counted only once the menu is open, so a shop with several languages never looks like one with one.
+    await expect(page.getByRole('dialog')).toBeVisible();
 
-    const pills = page.getByRole('group', { name: t('LANGUAGE_LABEL') });
+    const pills = page.getByRole('dialog').getByRole('group', { name: t('LANGUAGE_LABEL') });
     test.skip((await pills.count()) === 0, 'The shop has a single language');
     const [locale] = await otherEnabledLocales(page, '[role="group"] button[lang]');
     await pills.locator(`button[lang="${locale}"]`).click();

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronRight, Store } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Store, Sun } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ShareButton from '@/components/shared/product/share-button';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ interface MercadilloRowProps {
   /** Its few words, under the heading. */
   text: string;
   icon: string | null;
+  /** Hoy: a soft sun instead of a picture. */
+  isToday?: boolean;
   /** Where the heading leads: all of its listings. */
   href: string;
   seeAllLabel: string;
@@ -33,7 +35,7 @@ interface MercadilloRowProps {
 
 /** One Mercadillo in a line of its own, built like Amazon's rows: a heading that leads to all of it, then the cards,
     moved by swiping or, with a mouse, by page with the arrows on both sides. */
-export default function MercadilloRow({ label, name, heading, text, icon, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
+export default function MercadilloRow({ label, name, heading, text, icon, isToday, href, seeAllLabel, pageLabel, backLabel, nextLabel, children }: MercadilloRowProps) {
   const scroller = useRef<HTMLUListElement>(null);
   const [position, setPosition] = useState({ page: 1, pages: 1, canGoBack: false, canGoNext: false });
 
@@ -64,7 +66,7 @@ export default function MercadilloRow({ label, name, heading, text, icon, href, 
       <div className='space-y-1 px-1'>
         <div className='flex items-center justify-between gap-3'>
           <Link href={href} className='group flex min-w-0 items-center gap-2 sm:gap-3'>
-            <MercadilloIcon src={icon} className='size-10 sm:size-12' />
+            <MercadilloIcon src={icon} isToday={isToday} className='size-10 sm:size-12' />
             <span className='min-w-0'>
               <span className='block text-xs font-medium uppercase tracking-wider text-primary'>{label}</span>
               <h2 className='truncate font-display text-2xl leading-tight group-hover:underline sm:text-3xl'>{name}</h2>
@@ -107,11 +109,25 @@ export default function MercadilloRow({ label, name, heading, text, icon, href, 
   );
 }
 
+interface MercadilloIconProps {
+  src: string | null;
+  /** Hoy: a thin sun in the shop's accent color, soft rather than a bright yellow ball. */
+  isToday?: boolean;
+  sizes?: string;
+  className?: string;
+}
+
 /** A Mercadillo's round picture; a shop sign until it has one. */
-export function MercadilloIcon({ src, sizes = '3rem', className }: { src: string | null; sizes?: string; className?: string }) {
+export function MercadilloIcon({ src, isToday, sizes = '3rem', className }: MercadilloIconProps) {
   return (
-    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-primary', className)}>
-      {src ? <ProductMedia src={src} alt='' fill sizes={sizes} isStill /> : <Store className='size-1/2' aria-hidden />}
+    <span className={cn('relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted text-primary', isToday && 'border-accent/40 bg-accent/10 text-accent', className)}>
+      {isToday ? (
+        <Sun className='size-1/2' strokeWidth={1.25} aria-hidden />
+      ) : src ? (
+        <ProductMedia src={src} alt='' fill sizes={sizes} isStill />
+      ) : (
+        <Store className='size-1/2' aria-hidden />
+      )}
     </span>
   );
 }

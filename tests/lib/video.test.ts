@@ -51,8 +51,8 @@ describe('video stills in the URL', () => {
 
 describe('throughSite', () => {
   it('serves UploadThing files from this site, old and new addresses', () => {
-    expect(throughSite('https://rf1rilwah0.ufs.sh/f/abc123')).toBe('/media/abc123');
-    expect(throughSite('https://utfs.io/f/abc123')).toBe('/media/abc123');
+    expect(throughSite('https://rf1rilwah0.ufs.sh/f/abc123')).toBe('/file/abc123');
+    expect(throughSite('https://utfs.io/f/abc123')).toBe('/file/abc123');
   });
 
   it('leaves other addresses alone', () => {

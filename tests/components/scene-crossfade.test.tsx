@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import SceneCrossfade, { type Scene } from '@/components/shared/home/scene-crossfade';
 import { useActiveSection } from '@/components/shared/header/use-active-section';
 import type { SectionId } from '@/components/shared/home/one-page';
@@ -21,6 +21,17 @@ const mockScreen = ({ isReduced = false, isWide = false }) => {
 
 const shownScene = (container: HTMLElement) => container.querySelector('[data-shown="true"] img')?.getAttribute('alt');
 
+/** The pictures on the page so far have downloaded. */
+const arrive = (container: HTMLElement) => container.querySelectorAll('picture img').forEach((img) => fireEvent.load(img));
+
+/** Time passes with a fast connection: each picture on the page has arrived before the next turn. */
+const wait = (container: HTMLElement, ms: number) => {
+  for (let passed = 0; passed < ms; passed += 4000) {
+    arrive(container);
+    act(() => jest.advanceTimersByTime(4000));
+  }
+};
+
 describe('SceneCrossfade', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -40,10 +51,10 @@ describe('SceneCrossfade', () => {
     mockScreen({});
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
 
-    act(() => jest.advanceTimersByTime(4000));
+    wait(container, 4000);
     expect(shownScene(container)).toBe('Terrace');
 
-    act(() => jest.advanceTimersByTime(8000));
+    wait(container, 8000);
     expect(shownScene(container)).toBe('Newspaper');
     expect(container.querySelectorAll('picture')).toHaveLength(3);
   });
@@ -52,7 +63,7 @@ describe('SceneCrossfade', () => {
     mockScreen({ isWide: true });
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
 
-    act(() => jest.advanceTimersByTime(4000));
+    wait(container, 4000);
     expect(shownScene(container)).toBe('Surf');
   });
 
@@ -82,7 +93,7 @@ describe('SceneCrossfade', () => {
       rerender(<SceneCrossfade scenes={SCENES} />);
     };
 
-    act(() => jest.advanceTimersByTime(4000));
+    wait(container, 4000);
     expect(shownScene(container)).toBe('Terrace');
 
     scrollTo('showroom');
@@ -93,6 +104,19 @@ describe('SceneCrossfade', () => {
 
     scrollTo('home');
     expect(figure()?.getAttribute('data-arrived')).toBe('true');
+    wait(container, 4000);
+    expect(shownScene(container)).toBe('Terrace');
+  });
+
+  it('stays on a picture until the next one has arrived, with the loader behind them meanwhile', () => {
+    mockScreen({});
+    const { container } = render(<SceneCrossfade scenes={SCENES} loaderImage='/brand/loader.png' />);
+    expect(container.querySelector('[role="status"] img')?.getAttribute('src')).toBe('/brand/loader.png');
+
+    act(() => jest.advanceTimersByTime(12000));
+    expect(shownScene(container)).toBe('Newspaper');
+
+    arrive(container);
     act(() => jest.advanceTimersByTime(4000));
     expect(shownScene(container)).toBe('Terrace');
   });
@@ -100,7 +124,7 @@ describe('SceneCrossfade', () => {
   it('draws the cut-out only over the scene that has one, as decoration', () => {
     mockScreen({});
     const { container } = render(<SceneCrossfade scenes={SCENES} />);
-    act(() => jest.advanceTimersByTime(4000));
+    wait(container, 4000);
 
     const figures = container.querySelectorAll('[data-arrived] img');
     expect(figures).toHaveLength(1);

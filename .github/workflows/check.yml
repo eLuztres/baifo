@@ -22,3 +22,8 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npx jest --silent
+        # The tests expect Baifo's settings, which live in .env locally; made-up numbers, nobody is written to.
+        env:
+          NEXT_PUBLIC_SHOP_TIME_ZONE: Atlantic/Canary
+          ADMIN_WHATSAPP_NUMBER: '34600000000'
+          BIZUM_PHONE: 600 000 000

@@ -26,7 +26,8 @@ const nextConfig: NextConfig = {
     return [
       { source: '/:path*', headers: [...SECURITY_HEADERS, ...NOINDEX_HEADERS] },
       // Vercel's cache ignores Range: it kept a 2-byte piece and served it for every part of a video (#556).
-      { source: '/media/:key', headers: [{ key: 'x-vercel-enable-rewrite-caching', value: '0' }] },
+      // /file, not /media: phones that cached that piece under /media would keep failing.
+      { source: '/file/:key', headers: [{ key: 'x-vercel-enable-rewrite-caching', value: '0' }] },
     ];
   },
   // The corral pages are gone (#535); links already shared land on the home page. Mercadillos are selecciones now (#594).
@@ -39,7 +40,7 @@ const nextConfig: NextConfig = {
   },
   // UploadThing files through this site: Spanish networks block UploadThing's Cloudflare addresses during football (#556).
   async rewrites() {
-    return UPLOADTHING_APP_ID ? [{ source: '/media/:key', destination: `https://${UPLOADTHING_APP_ID}.ufs.sh/f/:key` }] : [];
+    return UPLOADTHING_APP_ID ? [{ source: '/file/:key', destination: `https://${UPLOADTHING_APP_ID}.ufs.sh/f/:key` }] : [];
   },
   serverExternalPackages: ['ffmpeg-static'],
   outputFileTracingIncludes: {

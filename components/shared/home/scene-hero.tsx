@@ -5,10 +5,13 @@ import { getT } from '@/lib/i18n-server';
 import { LISTING_FROM_PRICE } from '@/lib/marketplace/config';
 import { localize } from '@/lib/localize';
 import { getMercadillos } from '@/lib/mercadillos';
+import { getVisitorPlaceIds } from '@/lib/places';
 import { getScoutChoices } from '@/lib/scout-choices';
+import { isInToday, TODAY_ID, todaySelection } from '@/lib/today';
 import { cn } from '@/lib/utils';
 import SlideLink from '@/components/shared/slide-link';
 import AdvertiseBox from './advertise-box';
+import { getTodayCandidates, inPlaces } from './in-stock-rings';
 import MercadilloSheet from './mercadillo-sheet';
 import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
@@ -23,15 +26,20 @@ interface SceneHeroProps {
 
 /** The opening screen: a full-screen island picture of the goat, a small title and one way into the listings. */
 export default async function SceneHero({ pictures }: SceneHeroProps) {
-  const [{ t, locale }, mercadillos] = await Promise.all([getT(), getMercadillos()]);
+  const [{ t, locale }, mercadillos, candidates, placeIds] = await Promise.all([getT(), getMercadillos(), getTodayCandidates(), getVisitorPlaceIds()]);
   const whatsappUrl = BRAND.contact.showPhone ? BRAND.contact.sellWhatsappUrl(t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME })) : undefined;
   const scouts = whatsappUrl ? await getScoutChoices(t) : [];
   const order = t('HOME_HERO_ORDER', { price: LISTING_FROM_PRICE });
   const orderText = t('HOME_HERO_ORDER_TEXT');
-  // An empty Mercadillo would open an empty page.
-  const selections = mercadillos
-    .filter((mercadillo) => mercadillo._count.products > 0)
-    .map(({ slug, name, icon }) => ({ slug, name: localize(name, locale), icon }));
+  // An empty Mercadillo would open an empty page; Hoy goes first while it has listings, with how many it holds.
+  const todayCount = inPlaces(candidates, placeIds).filter((listing) => isInToday(listing)).length;
+  const today = todayCount > 0 ? [todaySelection(t('TODAY_NAME'), t('TODAY_TEXT'), todayCount, locale)] : [];
+  const selections = [...today, ...mercadillos.filter((mercadillo) => mercadillo._count.products > 0)].map(({ id, slug, name, icon, _count }) => ({
+    slug,
+    name: localize(name, locale),
+    icon,
+    ...(id === TODAY_ID && { isToday: true, note: _count.products === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: _count.products }) }),
+  }));
   // The shop's mark sits on the seam of the split button, the dark one in dark mode; without a mark, no seal.
   const sealMarks = [
     { src: BRAND.logoAnimated, className: BRAND.logoAnimatedDark ? 'dark:hidden' : undefined },
@@ -46,7 +54,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
 
   return (
     <section className={cn(room.bleed, styles.hero)}>
-      <SceneCrossfade scenes={scenes} />
+      <SceneCrossfade scenes={scenes} loaderImage={BRAND.loaderImage} loaderImageDark={BRAND.loaderImageDark} />
 
       <div className={styles.panel}>
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>

@@ -25,6 +25,13 @@
   background: var(--muted);
 }
 
+.loader {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
 .scene {
   position: absolute;
   inset: 0;

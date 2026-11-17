@@ -25,8 +25,8 @@ const UPLOADTHING_FILE = /^https:\/\/(?:[a-z0-9]+\.ufs\.sh|utfs\.io)\/f\/([^/?#]
 /** The UploadThing file key of a stored address, or none for any other address. */
 export const uploadthingKey = (url: string) => url.match(UPLOADTHING_FILE)?.[1];
 
-/** An UploadThing file's address on this site (the /media rewrite in next.config); other addresses stay as they are. */
-export const throughSite = (url: string) => url.replace(UPLOADTHING_FILE, '/media/$1');
+/** An UploadThing file's address on this site (the /file rewrite in next.config); other addresses stay as they are. */
+export const throughSite = (url: string) => url.replace(UPLOADTHING_FILE, '/file/$1');
 
 /** The picture for places that only show pictures: a photo itself, a video's still frame, or none. */
 export const pictureOf = (url: string) => (isVideoUrl(url) ? videoPoster(url) : url);

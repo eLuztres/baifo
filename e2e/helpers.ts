@@ -1,9 +1,14 @@
 import { test, type Page } from '@playwright/test';
+import { loadEnvConfig } from '@next/env';
 import { createTranslator, getDictionary, type Locale } from '@/lib/i18n';
 
 // Labels come from the shop's dictionary (brand/messages included), never hardcoded
 export const tIn = (locale: Locale) => createTranslator(getDictionary(locale));
 export const t = tIn('en');
+
+// The shop's own .env, so the specs follow how this shop is set up (e.g. sign-up by invite only).
+loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
+export const SIGN_UP_BY_INVITE = process.env.SIGN_UP_BY_INVITE === 'true';
 
 // These specs create users, so they only run against a
 // throwaway database: E2E_ALLOW_WRITES=1 npm run test:e2e
