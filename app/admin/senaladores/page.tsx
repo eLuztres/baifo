@@ -6,6 +6,7 @@ import { BRAND } from '@/lib/brand';
 import { APP_NAME, SERVER_URL } from '@/lib/constants';
 import { getShopLocale, getT } from '@/lib/i18n-server';
 import { getTranslator } from '@/lib/i18n';
+import { scoutWhatsappMessage } from '@/lib/scout-choices';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getT();
@@ -32,7 +33,7 @@ const ScoutsPage = async () => {
           const url = `${SERVER_URL}/s/${code}`;
           // The QR holds WhatsApp's own link: a scanner hands it straight to whichever WhatsApp is installed, while a detour
           // through our link stays in the scanner's browser on Android.
-          const qrUrl = BRAND.contact.sellWhatsappUrl(tShop('SCOUT_WHATSAPP_MESSAGE', { shop: APP_NAME, name, code })) ?? url;
+          const qrUrl = BRAND.contact.sellWhatsappUrl(scoutWhatsappMessage(tShop, name, code)) ?? url;
           return { id, name, phone, image, code, url, qrUrl, listingCount: _count.submissions };
         })}
       />

@@ -25,7 +25,7 @@ describe('a señalador link', () => {
     expect(findScout).toHaveBeenCalledWith(expect.objectContaining({ where: { code: 'ana' } }));
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('phone=34600000555');
-    expect(textOf(response)).toBe('SCOUT_WHATSAPP_MESSAGE {"shop":"Baifo","name":"Ana","code":"ana"}');
+    expect(textOf(response)).toBe('SCOUT_WHATSAPP_MESSAGE {"shop":"Baifo","name":"Ana","code":"ana","url":"baifo.es/s/ana"}');
   });
 
   it('still opens WhatsApp, with the usual message, for an unknown or deleted code', async () => {

@@ -3,7 +3,7 @@ import { prisma } from '@/db/prisma';
 import { BRAND } from '@/lib/brand';
 import { APP_NAME, SERVER_URL } from '@/lib/constants';
 import { getT } from '@/lib/i18n-server';
-import { scoutPreviewPath } from '@/lib/scout-choices';
+import { scoutPreviewPath, scoutWhatsappMessage } from '@/lib/scout-choices';
 
 /** A señalador's link (and QR): opens the shop's WhatsApp with their name and code in the text, so we know who sent the person. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ code: string }> }) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const scout = await prisma.scout.findUnique({ where: { code: code.toLowerCase() }, select: { name: true, code: true, image: true } });
   const { t } = await getT();
   const message = scout
-    ? t('SCOUT_WHATSAPP_MESSAGE', { shop: APP_NAME, name: scout.name, code: scout.code })
+    ? scoutWhatsappMessage(t, scout.name, scout.code)
     : t('SELL_WHATSAPP_MESSAGE', { shop: APP_NAME });
   const chatUrl = BRAND.contact.sellWhatsappUrl(message);
   if (!chatUrl) return NextResponse.redirect(new URL('/', request.url));
