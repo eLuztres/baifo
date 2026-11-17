@@ -241,7 +241,7 @@ export default function MercadilloAdmin({ locale, locales, mercadillos, listings
           {mercadillos.map((mercadillo) => (
             <li key={mercadillo.id} className='flex items-center gap-3 rounded-2xl border border-border bg-card p-3'>
               <MercadilloIcon src={mercadillo.icon} className='size-12' />
-              <Link href={`/explore?seleccion=${mercadillo.slug}`} className='min-w-0 flex-1 hover:underline'>
+              <Link href={`/explore?seleccion=${mercadillo.slug}&desde=admin`} className='min-w-0 flex-1 hover:underline'>
                 <p className='truncate font-medium'>{localize(mercadillo.name, locale)}</p>
                 <p className='text-sm text-muted-foreground'>{mercadillo.productCount === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: mercadillo.productCount })}</p>
                 {mercadillo.tagIds.length > 0 && (

@@ -45,8 +45,8 @@ import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
 import { freshMix, MIX_COOKIE, readMixSeed, seededRank } from '@/lib/fresh-mix';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `seleccion` one selección's listings, `etiqueta` one etiqueta's. `categoria`, `c` and `mercadillo` are older links. */
-  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; seleccion?: string; mercadillo?: string; c?: string; etiqueta?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `seleccion` one selección's listings, `etiqueta` one etiqueta's. `categoria`, `c` and `mercadillo` are older links; `desde=admin` sends the way back to the admin. */
+  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; seleccion?: string; mercadillo?: string; c?: string; etiqueta?: string; desde?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -99,7 +99,7 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, precio, categoria, seleccion, mercadillo, c, etiqueta }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
+  const [{ q = '', tipo, precio, categoria, seleccion, mercadillo, c, etiqueta, desde }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
     searchParams,
     getT(),
     getInStockRings(),
@@ -277,9 +277,9 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     );
   };
 
-  // A Mercadillo's page is long on a phone: the way back is at its top and at its end.
+  // A selección's page is long on a phone: the way back is at its top and at its end; opened from the admin, it goes back there.
   const backToList = (
-    <Link href='/explore' aria-label={t('MERCADILLO_SEE_ALL_LISTINGS')} className={cn(productStyles.backButton, productStyles.backButtonInPage)}>
+    <Link href={desde === 'admin' ? '/admin/selecciones' : '/explore'} aria-label={t('MERCADILLO_SEE_ALL_LISTINGS')} className={cn(productStyles.backButton, productStyles.backButtonInPage)}>
       <ArrowLeft strokeWidth={2.4} aria-hidden />
     </Link>
   );
