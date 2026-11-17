@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 
 /** A selección's listings: the ones chosen by hand and every one with one of its etiquetas. */
-const listingsOf = (id: string, tagIds: string[]): Prisma.ProductWhereInput => ({
+export const listingsOf = (id: string, tagIds: string[]): Prisma.ProductWhereInput => ({
   OR: [{ mercadillos: { some: { id } } }, { submission: { tags: { some: { id: { in: tagIds } } } } }],
 });
 

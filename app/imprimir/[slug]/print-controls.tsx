@@ -7,13 +7,20 @@ import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import styles from './print-sheet.module.css';
 
+interface PrintToolbarProps {
+  backHref: string;
+  /** Where the way back goes, for screen readers; missing: the listing. */
+  backLabel?: string;
+}
+
 /** Above the sheet on screen only: the way back and the download. */
-export function PrintToolbar({ backHref }: { backHref: string }) {
+export function PrintToolbar({ backHref, backLabel }: PrintToolbarProps) {
   const { t } = useI18n();
+  const back = backLabel ?? t('PRINT_BACK');
   useSheetZoom();
   return (
     <div className={styles.toolbar}>
-      <Button asChild variant='ghost' size='icon' className='rounded-full' aria-label={t('PRINT_BACK')} title={t('PRINT_BACK')}>
+      <Button asChild variant='ghost' size='icon' className='rounded-full' aria-label={back} title={back}>
         <Link href={backHref}>
           <ArrowLeft />
         </Link>

@@ -5,6 +5,17 @@ export type PrintCopies = (typeof PRINT_COPIES)[number];
 
 export const MAX_PRINT_PHOTOS = 5;
 
+// A printed selección: its first sheet also holds its name and QR, so fewer listings fit there.
+export const SELECTION_FIRST_SHEET = 8;
+export const SELECTION_NEXT_SHEET = 10;
+
+/** A selección's listings split into A4 sheets; with none, one sheet all the same. */
+export function selectionSheets<T>(listings: T[], first = SELECTION_FIRST_SHEET, next = SELECTION_NEXT_SHEET): T[][] {
+  const sheets = [listings.slice(0, first)];
+  for (let start = first; start < listings.length; start += next) sheets.push(listings.slice(start, start + next));
+  return sheets;
+}
+
 /** ?copias=2 → 2; anything else is the whole sheet. */
 export const parseCopies = (param?: string): PrintCopies => PRINT_COPIES.find((copies) => String(copies) === param) ?? 1;
 

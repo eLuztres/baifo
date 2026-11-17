@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import productStyles from '@/app/(root)/product/[slug]/product-view.module.css';
 import ProductMedia from '@/components/ProductMedia';
 import FilterDropdown from '@/components/admin/filter-dropdown';
@@ -386,16 +386,20 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   <p className='rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground'>
                     {inScope.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: inScope.length })}
                   </p>
-                  <div className='flex w-full max-w-md gap-3'>
-                    {/* In its own box, so its padding doesn't make it wider than the contact button. */}
-                    <div className='min-w-0 flex-1'>
-                      <ShareButton
-                        title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })}
-                        path={`/explore?seleccion=${chosenMercadillo.slug}`}
-                        isLabeled
-                        className='w-full'
-                      />
-                    </div>
+                  {/* Print and share as two round icons, so "Contactar" (only with a phone) keeps the rest of the line. */}
+                  <div className='flex w-full max-w-md items-center justify-center gap-3'>
+                    {chosenMercadillo.id !== TODAY_ID && (
+                      <Button asChild variant='outline' size='icon' className='size-11 shrink-0 rounded-full' aria-label={t('PRINT_SELECTION')} title={t('PRINT_SELECTION')}>
+                        <Link href={`/imprimir/seleccion/${chosenMercadillo.slug}`} prefetch={false}>
+                          <Printer />
+                        </Link>
+                      </Button>
+                    )}
+                    <ShareButton
+                      title={t('MERCADILLO_NAMED', { name: localize(chosenMercadillo.name, locale) })}
+                      path={`/explore?seleccion=${chosenMercadillo.slug}`}
+                      className='size-11 border border-input bg-background text-foreground'
+                    />
                     {chosenMercadillo.contactPhone && (
                       <ContactSellerButton mercadilloId={chosenMercadillo.id} message={getMercadilloContactMessage(chosenMercadillo)} className='min-w-0 flex-1' />
                     )}

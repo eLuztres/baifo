@@ -1,4 +1,4 @@
-import { fitPhotoGrid, minPhotoWidth, parseCopies, printDescription, printParagraphs } from '@/lib/print';
+import { fitPhotoGrid, minPhotoWidth, parseCopies, printDescription, printParagraphs, selectionSheets } from '@/lib/print';
 
 describe('parseCopies', () => {
   it('takes 1, 2 or 4 and makes anything else a whole sheet', () => {
@@ -55,5 +55,20 @@ describe('fitPhotoGrid', () => {
 
   it('knows the smallest size: five across the sheet', () => {
     expect(minPhotoWidth(700, 10)).toBe(132);
+  });
+});
+
+describe('selectionSheets', () => {
+  const listings = (count: number) => Array.from({ length: count }, (_, index) => index);
+
+  it('keeps one sheet for none or a few', () => {
+    expect(selectionSheets([])).toEqual([[]]);
+    expect(selectionSheets(listings(8))).toEqual([listings(8)]);
+  });
+
+  it('puts fewer on the first sheet, then the same number on each after', () => {
+    expect(selectionSheets(listings(9)).map((sheet) => sheet.length)).toEqual([8, 1]);
+    expect(selectionSheets(listings(29)).map((sheet) => sheet.length)).toEqual([8, 10, 10, 1]);
+    expect(selectionSheets(listings(29)).flat()).toEqual(listings(29));
   });
 });
