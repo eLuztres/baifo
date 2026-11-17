@@ -57,6 +57,10 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
   - Chrome windows don't go narrower than about 500px: put the page in iframes of 375px and 320px on a temporary local HTML page (not committed), or use the device toolbar.
 - If the extension isn't connected or the dev server isn't running, say so and ask me to start it, and keep asking until it works. Never finish a front-end task without having seen it, and never report a visual change as checked without having seen it.
 
+## Code review
+
+- **Every implementation ends with a code review by a sub-agent.** When the code is written and tested, send a sub-agent (read-only) to review the diff for bugs, edge cases, phone/desktop behavior and these rules. Fix what it finds, or tell me why not, before calling the task done and before asking to commit.
+
 ## Texts
 
 - User-facing text goes through `getT()` / `useI18n()`. A new key must be added to **all** `resources/*.json` files.

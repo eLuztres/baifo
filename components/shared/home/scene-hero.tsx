@@ -14,6 +14,7 @@ import { SECTION_IDS, sectionHref } from './one-page';
 import room from './dark-room.module.css';
 import { type HeroPicture, heroAltKey, startAtRandom } from './hero-pictures';
 import SceneCrossfade from './scene-crossfade';
+import SealSwipe from './seal-swipe';
 import styles from './scene-hero.module.css';
 
 interface SceneHeroProps {
@@ -51,21 +52,15 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
       </div>
 
-      {/* One split button right under the title: the selections and the listings, half and half. */}
+      {/* One split button right under the title: the selections and the listings, half and half; tap a half or swipe the seal. */}
       <div className={styles.buttons}>
         <MercadilloSheet className={styles.secondary} label={t('HOME_SELECTIONS')} mercadillos={selections} />
-        {/* prefetch: the whole listings page loads while home shows (also for the swipe down), not only its loading frame. */}
+        {/* prefetch: the whole listings page loads while home shows, not only its loading frame. */}
         <SlideLink href='/explore' prefetch direction='down' readySelector='[data-feed-page]' className={styles.cta}>
           {t('HOME_SCENE_READ')}
         </SlideLink>
         {selections.length > 0 && sealMarks.length > 0 && (
-          <span className={styles.seal} aria-hidden>
-            {/* "#still": the animated mark standing still, as in the header for "reduce motion". */}
-            {sealMarks.map(({ src, className }) => (
-              // eslint-disable-next-line @next/next/no-img-element -- a small SVG, shown as is
-              <img key={src} src={`${src}#still`} alt='' width={40} height={40} className={className} />
-            ))}
-          </span>
+          <SealSwipe marks={sealMarks} className={styles.seal} chevronClassName={styles.chevron} />
         )}
       </div>
 
