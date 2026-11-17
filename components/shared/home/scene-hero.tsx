@@ -51,16 +51,7 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
         <h1 className={styles.title}>{t('HOME_SCENE_TITLE', { shop: APP_NAME })}</h1>
       </div>
 
-      {/* A small ad like in the local paper, right under the title: the only place the site talks about the fee. */}
-      <AdvertiseBox
-        title={order}
-        text={orderText}
-        href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
-        scouts={scouts}
-        shopName={APP_NAME}
-      />
-
-      {/* One split button at the bottom, in reach of a thumb: the selections and the listings, half and half. */}
+      {/* One split button right under the title: the selections and the listings, half and half. */}
       <div className={styles.buttons}>
         <MercadilloSheet className={styles.secondary} label={t('HOME_SELECTIONS')} mercadillos={selections} />
         {/* prefetch: the whole listings page loads while home shows (also for the swipe down), not only its loading frame. */}
@@ -77,6 +68,15 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
           </span>
         )}
       </div>
+
+      {/* A small ad like in the local paper, at the bottom: the only place the site talks about the fee. */}
+      <AdvertiseBox
+        title={order}
+        text={orderText}
+        href={whatsappUrl ?? sectionHref(SECTION_IDS.contact)}
+        scouts={scouts}
+        shopName={APP_NAME}
+      />
     </section>
   );
 }

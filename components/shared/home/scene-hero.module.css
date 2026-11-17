@@ -145,7 +145,7 @@
 }
 
 .title {
-  /* A small gap only: the ad stays close to the title, clear of the goat below. */
+  /* A small gap only: the split button stays close to the title, clear of the goat below. */
   margin-bottom: clamp(0.75rem, 2svh, 1.5rem);
   font-family: var(--font-display);
   font-size: clamp(1.9rem, 1rem + 3.4vw, 4.25rem);
@@ -158,15 +158,13 @@
     0 2px 18px rgb(0 0 0 / 0.35);
 }
 
-/* One split button low on the page, where a thumb reaches: two equal halves, the shop's seal on the seam. */
+/* One split button right under the title: two equal halves, the shop's seal on the seam. */
 .buttons {
   --seal: 3.25rem;
   position: relative;
   display: flex;
-  align-self: center;
+  align-self: flex-start;
   width: min(34rem, 100%);
-  margin-top: auto;
-  margin-bottom: clamp(0.75rem, 2svh, 1.25rem);
   border-radius: 9999px;
   box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.55);
 }
@@ -386,8 +384,11 @@
 
 .advertise {
   display: block;
-  align-self: flex-start;
+  /* At the bottom of the picture, centered. */
+  align-self: center;
   max-width: 100%;
+  margin-top: auto;
+  margin-bottom: clamp(0.25rem, 1svh, 0.75rem);
   padding: 0.55rem 1.4rem;
   border-radius: 999px;
 }
