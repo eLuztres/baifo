@@ -43,7 +43,14 @@ jest.mock('@/components/marketplace/address-input', () => ({
   default: ({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) => <input id={id} value={value} onChange={(event) => onChange(event.target.value)} />,
 }));
 jest.mock('@/components/i18n-provider', () => ({ useI18n: () => ({ t: (key: string) => key, locale: 'en' }) }));
-jest.mock('@/components/shared/voice-input-button', () => () => null);
+// Speaking adds the same long sentence every time.
+jest.mock('@/components/shared/voice-input-button', () => function VoiceInputButton({ onText, className }: { onText: (text: string) => void; className?: string }) {
+  return (
+    <button type='button' className={className} onClick={() => onText('y'.repeat(60))}>
+      speak
+    </button>
+  );
+});
 jest.mock('@/components/ProductMedia', () => () => null);
 jest.mock('@/components/shared/product/moving-pictures', () => () => null);
 
@@ -309,6 +316,36 @@ describe('DescriptionStep', () => {
     jest.useRealTimers();
   });
 
+  it('counts the letters under the title and the description, up to their limits, in the selected language', () => {
+    renderStep(drafted);
+
+    expect(screen.getByLabelText('titleLabel')).toHaveAttribute('maxLength', '120');
+    expect(screen.getByLabelText('descriptionLabel')).toHaveAttribute('maxLength', '1000');
+    expect(screen.getByText('13/120')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici cómoda y ligera.' } });
+    expect(screen.getByText('21/1000')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'EN' }));
+    expect(screen.getByText('9/120')).toBeInTheDocument();
+    expect(screen.getByText('11/1000')).toBeInTheDocument();
+  });
+
+  it('cuts spoken words at the limit and turns the counter red there, but leaves a longer text saved before uncut', () => {
+    renderStep({ ...drafted, description: 'a'.repeat(980) } as AdminListing);
+    const description = screen.getByLabelText('descriptionLabel');
+
+    expect(screen.getByText('980/1000')).not.toHaveClass('text-destructive');
+    fireEvent.click(screen.getAllByRole('button', { name: 'speak' })[1]);
+    expect(description).toHaveValue(`${'a'.repeat(980)} ${'y'.repeat(19)}`);
+    expect(screen.getByText('1000/1000')).toHaveClass('text-destructive');
+    expect(screen.getAllByRole('button', { name: 'speak' })[1]).toHaveClass('invisible');
+
+    fireEvent.change(description, { target: { value: 'b'.repeat(1500) } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'speak' })[1]);
+    expect(description).toHaveValue('b'.repeat(1500));
+    expect(screen.getByText('1500/1000')).toHaveClass('text-destructive');
+  });
+
   it('sets the etiquetas under the texts, in Descripción, not in Más', () => {
     renderStep(drafted);
 
@@ -433,6 +470,16 @@ describe('DescriptionStep', () => {
       expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici azul', sellerPhone: '+34612345678' }));
       expect(updateAdminListing).not.toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: expect.anything() }));
       expect(hideAdminListing).toHaveBeenCalledWith('abc');
+    });
+
+    it('saves a description saved longer than the limit before, uncut', async () => {
+      (updateAdminListing as jest.Mock).mockResolvedValue({ success: true, message: 'Guardado' });
+      renderStep({ ...live, description: 'b'.repeat(1500) } as AdminListing);
+
+      expect(screen.getByText('1500/1000')).toHaveClass('text-destructive');
+      fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
+
+      await waitFor(() => expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ description: 'b'.repeat(1500) })));
     });
 
     it('shows the señalador in Más and saves the one picked', async () => {

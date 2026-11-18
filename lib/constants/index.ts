@@ -113,6 +113,10 @@ export const RESERVATION_HOURS = envNumber('RESERVATION_HOURS', 48);
 // How long a listing shows the "New" badge in the feed after it went live; set per shop in .env.
 export const NEW_LISTING_HOURS = envNumber('NEW_LISTING_HOURS', 48);
 export const MAX_LISTING_TAGS = envNumber('MAX_LISTING_TAGS', 5);
+// The longest title and description the listing editor lets anyone type; its counters show them. The server still
+// takes descriptions up to 3000, so the ones saved longer before keep saving, uncut.
+export const MAX_LISTING_TITLE_LENGTH = 120;
+export const MAX_LISTING_DESCRIPTION_LENGTH = 1000;
 // Where the explore view's price ranges split (in the shop's currency): "Hasta 10", "10 – 25" … "Más de 500".
 export const PRICE_FILTER_STEPS = (process.env.PRICE_FILTER_STEPS ?? '10,25,50,100,250,500')
   .split(',')

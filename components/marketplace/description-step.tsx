@@ -39,7 +39,7 @@ import { CLEAN_CONTACT, CONTACT_EXTRAS, webLabel, type ContactExtra, type Listin
 import { findPhoneInText } from '@/lib/marketplace/phone-in-text';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import type { ListingTexts, TextMode } from '@/lib/marketplace/text-versions';
-import { DEFAULT_PRICE_MODES, PRICE_MODES, type PriceMode } from '@/lib/constants';
+import { DEFAULT_PRICE_MODES, MAX_LISTING_DESCRIPTION_LENGTH, MAX_LISTING_TITLE_LENGTH, PRICE_MODES, type PriceMode } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, pictureOf } from '@/lib/video';
 import { PICTURE_MOTIONS, toPictureMotion, type PictureMotion } from '@/lib/picture-motion';
@@ -140,11 +140,13 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const shownText = draft[textLanguage] ?? { title: '', description: '' };
   const setShownText = (name: 'title' | 'description') => (value: string) =>
     setDraft((current) => ({ ...current, [textLanguage]: { ...(current[textLanguage] ?? { title: '', description: '' }), [name]: value } }));
-  // Spoken words land after what is there, where they can still be corrected.
+  // Spoken words land after what is there, where they can still be corrected; past the limit they're cut, like typing.
   const addSpokenText = (name: 'title' | 'description') => (text: string) =>
     setDraft((current) => {
       const shown = current[textLanguage] ?? { title: '', description: '' };
-      return { ...current, [textLanguage]: { ...shown, [name]: shown[name].trim() ? `${shown[name].trimEnd()} ${text}` : text } };
+      if (shown[name].length >= TEXT_LIMITS[name]) return current;
+      const added = shown[name].trim() ? `${shown[name].trimEnd()} ${text}` : text;
+      return { ...current, [textLanguage]: { ...shown, [name]: added.slice(0, TEXT_LIMITS[name]) } };
     });
   // The words the listing is made from: the selected tab's, the base for every other language.
   const notes = shownText.description;
@@ -506,26 +508,52 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               <Label htmlFor='draft-title' className='px-1 pb-1 text-xs text-muted-foreground'>
                 {texts.titleLabel}
               </Label>
-              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('title')} onTranscribing={setIsTranscribingTitle} className='h-9' />}
+              {/* Invisible once full: no paid transcription for words that can't be added. Kept in place so the field doesn't jump. */}
+              {!isWriting && (
+                <VoiceInputButton
+                  language={textLanguage}
+                  onText={addSpokenText('title')}
+                  onTranscribing={setIsTranscribingTitle}
+                  className={cn('h-9', shownText.title.length >= MAX_LISTING_TITLE_LENGTH && 'invisible')}
+                />
+              )}
             </div>
-            <Input id='draft-title' value={shownText.title} onChange={(event) => setShownText('title')(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
+            <Input
+              id='draft-title'
+              value={shownText.title}
+              maxLength={MAX_LISTING_TITLE_LENGTH}
+              aria-describedby='draft-title-count'
+              onChange={(event) => setShownText('title')(event.target.value)}
+              className='h-12 rounded-2xl bg-background text-base md:text-base'
+            />
+            <CharacterCount id='draft-title-count' length={shownText.title.length} max={MAX_LISTING_TITLE_LENGTH} />
           </div>
           <div className='space-y-1'>
             <div className='flex items-end justify-between gap-2'>
               <Label htmlFor='draft-description' className='px-1 pb-1 text-xs text-muted-foreground'>
                 {texts.descriptionLabel}
               </Label>
-              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('description')} onTranscribing={setIsTranscribingDescription} className='h-9' />}
+              {!isWriting && (
+                <VoiceInputButton
+                  language={textLanguage}
+                  onText={addSpokenText('description')}
+                  onTranscribing={setIsTranscribingDescription}
+                  className={cn('h-9', shownText.description.length >= MAX_LISTING_DESCRIPTION_LENGTH && 'invisible')}
+                />
+              )}
             </div>
             <Textarea
               ref={descriptionInput}
               id='draft-description'
               rows={4}
               value={shownText.description}
+              maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
+              aria-describedby='draft-description-count'
               onChange={(event) => setShownText('description')(event.target.value)}
               placeholder={placeholder}
               className='field-sizing-content max-h-[40svh] min-h-28 resize-none rounded-2xl bg-background text-base md:text-base'
             />
+            <CharacterCount id='draft-description-count' length={shownText.description.length} max={MAX_LISTING_DESCRIPTION_LENGTH} />
           </div>
           {/* In the selected tab's language: chosen or made in it, and translated from it. */}
           <div className='space-y-1'>
@@ -987,6 +1015,23 @@ interface FilledTexts {
   texts: ListingTexts;
   startsAt: string;
   price: string;
+}
+
+const TEXT_LIMITS = { title: MAX_LISTING_TITLE_LENGTH, description: MAX_LISTING_DESCRIPTION_LENGTH };
+
+interface CharacterCountProps {
+  id: string;
+  length: number;
+  max: number;
+}
+
+/** "234/1000" under a field, red once the limit is reached. A text saved longer before shows over it, uncut. */
+function CharacterCount({ id, length, max }: CharacterCountProps) {
+  return (
+    <p id={id} className={cn('px-1 text-right text-xs tabular-nums', length >= max ? 'font-medium text-destructive' : 'text-muted-foreground')}>
+      {length}/{max}
+    </p>
+  );
 }
 
 /** One part of the AI's work (pictures or text): busy, or done. */
