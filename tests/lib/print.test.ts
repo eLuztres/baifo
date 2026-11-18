@@ -1,4 +1,4 @@
-import { fitPhotoGrid, minPhotoWidth, parseCopies, printDescription, printParagraphs, selectionSheets } from '@/lib/print';
+import { parseCopies, parsePhoto, printDescription, printParagraphs, printPhotos, selectionSheets } from '@/lib/print';
 
 describe('parseCopies', () => {
   it('takes 1, 2 or 4 and makes anything else a whole sheet', () => {
@@ -36,25 +36,21 @@ describe('printParagraphs', () => {
   });
 });
 
-describe('fitPhotoGrid', () => {
-  it('puts five photos in two rows when the box is tall', () => {
-    const { columns, width } = fitPhotoGrid(700, 700, 5, 10);
-    expect(columns).toBe(3);
-    expect(width).toBeCloseTo((700 - 20) / 3);
+describe('printPhotos', () => {
+  it('prints photos through this site, a video as its still and without one not at all', () => {
+    const photo = 'https://rf1rilwah0.ufs.sh/f/photo-key';
+    expect(printPhotos([photo, 'https://example.com/clip.mp4'])).toEqual([{ src: '/file/photo-key', isVideo: false }]);
   });
+});
 
-  it('puts them in one row when the box is low, smaller', () => {
-    const { columns, width } = fitPhotoGrid(700, 200, 5, 10);
-    expect(columns).toBe(5);
-    expect(width).toBeCloseTo(132);
-  });
-
-  it('never gives more columns than photos', () => {
-    expect(fitPhotoGrid(700, 300, 2, 10).columns).toBe(2);
-  });
-
-  it('knows the smallest size: five across the sheet', () => {
-    expect(minPhotoWidth(700, 10)).toBe(132);
+describe('parsePhoto', () => {
+  it('takes one of the photos and makes anything else the first', () => {
+    expect(parsePhoto('2', 3)).toBe(2);
+    expect(parsePhoto('3', 3)).toBe(0);
+    expect(parsePhoto('-1', 3)).toBe(0);
+    expect(parsePhoto('1.5', 3)).toBe(0);
+    expect(parsePhoto(undefined, 3)).toBe(0);
+    expect(parsePhoto('0', 0)).toBe(0);
   });
 });
 

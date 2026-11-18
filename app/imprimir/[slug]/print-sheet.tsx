@@ -2,7 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Phone } from 'lucide-react';
-import { fitPhotoGrid, minPhotoWidth, type PrintCopies } from '@/lib/print';
+import type { PrintCopies } from '@/lib/print';
+import { cn } from '@/lib/utils';
 import styles from './print-sheet.module.css';
 
 export interface PrintPhoto {
@@ -13,19 +14,21 @@ export interface PrintPhoto {
 export interface PrintListing {
   logo: string;
   logoAlt: string;
-  domain: string;
+  /** Who offers it, at the top as on a social post; the shop's name for its own listings. */
+  seller: string;
+  onSite: string;
   title: string;
-  price?: string;
+  price?: { label?: string; amount: string };
   facts: ReactNode;
-  offeredBy?: string;
   phone?: string | null;
   scanLabel: string;
   qr: ReactNode;
-  photos: PrintPhoto[];
+  photo?: PrintPhoto;
   videoLabel: string;
   paragraphs: string[];
-  textLength: number;
-  moreLabel?: string;
+  moreLabel: string;
+  /** The text was cut short for a half or quarter sheet. */
+  isCut: boolean;
 }
 
 interface PrintSheetsProps {
@@ -33,160 +36,118 @@ interface PrintSheetsProps {
   copies: PrintCopies;
 }
 
-// Where each copy sits on the A4 sheet (mm) and how it is turned: halves lie sideways, one above the other.
-const PLACES: Record<PrintCopies, { x: number; y: number; isTurned?: boolean }[]> = {
+// Where each copy sits on the sheet (in its millimetres, --mm). Every copy lies across: two share an upright A4, one
+// above the other, and one or four fill an A4 lying down.
+const PLACES: Record<PrintCopies, { x: number; y: number }[]> = {
   1: [{ x: 0, y: 0 }],
-  2: [{ x: 0, y: 148.5, isTurned: true }, { x: 0, y: 297, isTurned: true }],
-  4: [{ x: 0, y: 0 }, { x: 105, y: 0 }, { x: 0, y: 148.5 }, { x: 105, y: 148.5 }],
+  2: [{ x: 0, y: 0 }, { x: 0, y: 148.5 }],
+  4: [{ x: 0, y: 0 }, { x: 148.5, y: 0 }, { x: 0, y: 105 }, { x: 148.5, y: 105 }],
 };
 const SCALE: Record<PrintCopies, number> = { 1: 1, 2: Math.SQRT1_2, 4: 0.5 };
 
 /** The listing on an A4 sheet, once or as 2 or 4 smaller copies to cut out. */
 export default function PrintSheets({ listing, copies }: PrintSheetsProps) {
   const paper = useRef<HTMLDivElement>(null);
+  const text = listing.paragraphs.join('\n');
 
   useLayoutEffect(() => {
-    const fitAll = () => paper.current?.querySelectorAll<HTMLElement>(`.${styles.listing}`).forEach((sheet) => fitSheet(sheet, listing.textLength));
+    const fitAll = () => paper.current?.querySelectorAll<HTMLElement>('[data-caption]').forEach(fitCaption);
     fitAll();
     document.fonts.ready.then(fitAll);
-  }, [listing.textLength, copies]);
+  }, [text, copies]);
 
   useAutoPrint(paper);
 
   return (
-    <div ref={paper} className={styles.sheet}>
-      {PLACES[copies].map(({ x, y, isTurned }, index) => (
-        <div
-          key={index}
-          className={styles.cell}
-          style={{ transform: `translate(${x}mm, ${y}mm)${isTurned ? ' rotate(-90deg)' : ''} scale(${SCALE[copies]})` }}
-        >
-          <ListingSheet listing={listing} />
-        </div>
-      ))}
-      {copies === 2 && <span className={styles.cutAcross} />}
-      {copies === 4 && (
-        <>
-          <span className={styles.cutAcross} />
-          <span className={styles.cutDown} />
-        </>
-      )}
+    <div className={styles.paper}>
+      <div ref={paper} className={styles.sheet}>
+        {PLACES[copies].map(({ x, y }, index) => (
+          <div key={index} className={styles.cell} style={{ transform: `translate(calc(${x} * var(--mm)), calc(${y} * var(--mm))) scale(${SCALE[copies]})` }}>
+            <ListingSheet listing={listing} />
+          </div>
+        ))}
+        {copies > 1 && <span className={styles.cutAcross} />}
+        {copies === 4 && <span className={styles.cutDown} />}
+      </div>
     </div>
   );
 }
 
 function ListingSheet({ listing }: { listing: PrintListing }) {
-  const { logo, logoAlt, domain, title, price, facts, offeredBy, phone, scanLabel, qr, photos, videoLabel, paragraphs, moreLabel } = listing;
+  const { logo, logoAlt, seller, onSite, title, price, facts, phone, scanLabel, qr, photo, videoLabel, paragraphs, moreLabel, isCut } = listing;
   return (
     <article className={styles.listing}>
-      <header className={styles.header}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- printed as is, no resizing needed */}
-        <img src={logo} alt={logoAlt} className={styles.logo} />
-        <span className={styles.domain}>{domain}</span>
-      </header>
-      <div className={styles.heading}>
-        <h1 className={styles.title}>{title}</h1>
-        {price && <span className={styles.price}>{price}</span>}
-      </div>
-      {facts}
-      <div className={styles.contact}>
-        <div className={styles.contactText}>
-          {offeredBy && <p className={styles.offeredBy}>{offeredBy}</p>}
-          {phone && (
-            <p className={styles.phone}>
-              <Phone aria-hidden /> {phone}
+      {photo && (
+        <div className={styles.photo}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- next/image would lazy-load and miss the print */}
+          <img src={photo.src} alt='' />
+          {photo.isVideo && <span className={styles.videoMark}>▶ {videoLabel}</span>}
+        </div>
+      )}
+      <div className={styles.side}>
+        <header className={styles.who}>
+          <span className={styles.avatar} aria-hidden>
+            <span>{firstLetter(seller)}</span>
+          </span>
+          <div className={styles.whoText}>
+            <p className={styles.seller}>{seller}</p>
+            <p className={styles.onSite}>{onSite}</p>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- printed as is, no resizing needed */}
+          <img src={logo} alt={logoAlt} className={styles.whoLogo} />
+        </header>
+        <div className={styles.rule} />
+        <div className={styles.heading}>
+          <h1 className={styles.title}>{title}</h1>
+          {price && (
+            <p className={styles.price}>
+              {/* Small, on its own line: "Presupuesto hasta" at the price's size left no room for the title. */}
+              {price.label && <span className={styles.priceLabel}>{price.label}</span>}
+              {price.amount}
             </p>
           )}
-          <p className={styles.scan}>{scanLabel}</p>
         </div>
-        <div className={styles.qr}>{qr}</div>
-      </div>
-      <div className={styles.photos} data-photos>
-        <div className={styles.photoGrid} data-grid>
-          {photos.map(({ src, isVideo }, index) => (
-            <div key={index} className={styles.photo}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- next/image would lazy-load and miss the print */}
-              <img src={src} alt='' />
-              {isVideo && <span className={styles.videoMark}>▶ {videoLabel}</span>}
-            </div>
+        {facts}
+        <div className={cn(styles.caption, isCut && styles.cut)} data-caption>
+          {paragraphs.map((paragraph, index) => (
+            <p key={index}>
+              {index === 0 && <strong>{seller} </strong>}
+              {paragraph}
+            </p>
           ))}
         </div>
-      </div>
-      <div className={styles.description} data-description>
-        {paragraphs.map((paragraph, index) => (
-          <p key={index}>{paragraph}</p>
-        ))}
-        {moreLabel && <p className={styles.more}>{moreLabel}</p>}
+        <p className={styles.more}>{moreLabel}</p>
+        <div className={styles.contact}>
+          <div className={styles.contactText}>
+            {phone && (
+              <p className={styles.phone}>
+                <Phone aria-hidden /> {phone}
+              </p>
+            )}
+            <p className={styles.scan}>{scanLabel}</p>
+          </div>
+          <div className={styles.qr}>{qr}</div>
+        </div>
       </div>
     </article>
   );
 }
 
-// Photos take what the text leaves. Room they can't use (they stay 3:4) makes the text bigger; a very long text gets
-// smaller instead, and the photos never shrink below five in a row.
-const BASE_PT = 10.5;
-const LONG_PT = 9.5;
-const LONG_TEXT = 2000;
-const GROW_PT = [11.5, 12.5, 13.5, 14.5];
-const SHRINK_PT = [10, 9.5, 9, 8.5, 8];
-const SMALLEST_PT = 7.5;
-const GAP_PX = 11;
+/** A name's first letter as one sees it: a flag or joined emoji stays whole. */
+const firstLetter = (name: string) => new Intl.Segmenter().segment(name)[Symbol.iterator]().next().value?.segment.toUpperCase();
 
-function fitSheet(sheet: HTMLElement, textLength: number) {
-  const box = sheet.querySelector<HTMLElement>('[data-photos]')!;
-  const grid = sheet.querySelector<HTMLElement>('[data-grid]')!;
-  const text = sheet.querySelector<HTMLElement>('[data-description]')!;
-  const count = grid.children.length;
-  sheet.classList.remove(styles.compact);
-  text.classList.remove(styles.columns);
-  box.style.minHeight = '';
+// The text beside the photo gets the biggest size that fits; one too long even at the smallest fades out and points to
+// the QR. Measured on screen, where the sheet is real size, and set in the sheet's own unit (--pt), so a print that
+// shrinks the sheet keeps the same layout.
+const CAPTION_PT = [14, 13, 12, 11, 10.5, 10, 9.5, 9];
 
-  const layout = (pt: number) => {
-    text.style.fontSize = `${pt}pt`;
-    const { width, columns } = fitPhotoGrid(box.clientWidth, box.clientHeight, count, GAP_PX);
-    grid.style.setProperty('--photo-width', `${width}px`);
-    grid.style.maxWidth = `${columns * width + (columns - 1) * GAP_PX}px`;
-    return width;
+function fitCaption(caption: HTMLElement) {
+  caption.classList.remove(styles.faded);
+  const fits = (pt: number) => {
+    caption.style.fontSize = `calc(${pt} * var(--pt))`;
+    return caption.scrollHeight <= caption.clientHeight + 1;
   };
-  if (count === 0) {
-    layout(textLength > LONG_TEXT ? LONG_PT : BASE_PT);
-    return;
-  }
-
-  const start = textLength > LONG_TEXT ? LONG_PT : BASE_PT;
-  let size = layout(start);
-  const smallest = minPhotoWidth(box.clientWidth, GAP_PX);
-  if (size < smallest) {
-    for (const pt of SHRINK_PT.filter((step) => step < start)) {
-      size = layout(pt);
-      if (size >= smallest) return;
-    }
-    keepSmallestPhotos(sheet, box, text, smallest, layout);
-    return;
-  }
-  if (start !== BASE_PT) return;
-  for (const pt of GROW_PT) {
-    const grown = layout(pt);
-    if (grown < size - 1) {
-      layout(pt - 1);
-      return;
-    }
-    size = grown;
-  }
-}
-
-/** Very long texts only, one step at a time: a tighter contact box, two text columns, then 7.5 pt. */
-function keepSmallestPhotos(sheet: HTMLElement, box: HTMLElement, text: HTMLElement, smallest: number, layout: (pt: number) => number) {
-  box.style.minHeight = `${(smallest * 4) / 3}px`;
-  const overflows = () => sheet.scrollHeight > sheet.clientHeight + 1;
-  let pt = SHRINK_PT.at(-1)!;
-  layout(pt);
-  const steps = [() => sheet.classList.add(styles.compact), () => text.classList.add(styles.columns), () => (pt = SMALLEST_PT)];
-  for (const step of steps) {
-    if (!overflows()) return;
-    step();
-    layout(pt);
-  }
+  if (!CAPTION_PT.some(fits)) caption.classList.add(styles.faded);
 }
 
 // The print choice links with ?imprimir=1.

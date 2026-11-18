@@ -9,23 +9,22 @@ import { BRAND, EMAIL_COLORS } from '@/lib/brand';
 import { conditionKey, CONTACT_LIMIT, SERVER_URL, SHOWS_PRICES } from '@/lib/constants';
 import { formatEventDate } from '@/lib/event-date';
 import { withLang } from '@/lib/i18n-core';
-import { getT } from '@/lib/i18n-server';
+import { getOwnLocale, getT } from '@/lib/i18n-server';
 import { priceLabelKey, serviceTypeKey } from '@/lib/listing-labels';
 import { localize, localizeProduct } from '@/lib/localize';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { isRateLimited } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
-import { formatPriceTag } from '@/lib/utils';
-import { MAX_PRINT_PHOTOS, parseCopies, printDescription, printParagraphs } from '@/lib/print';
-import { isVideoUrl, pictureOf, throughSite } from '@/lib/video';
+import { cn, formatPriceTag } from '@/lib/utils';
+import { parseCopies, parsePhoto, printDescription, printParagraphs, printPhotos } from '@/lib/print';
 import { PrintToolbar } from './print-controls';
 import PrintSheets from './print-sheet';
 import styles from './print-sheet.module.css';
 
 interface PrintPageProps {
   params: Promise<{ slug: string }>;
-  /** `copias` 1, 2 or 4 per sheet; `imprimir=1` (from the print choice) opens the print right away, see print-sheet.tsx. */
-  searchParams: Promise<{ copias?: string }>;
+  /** `copias` 1, 2 or 4 per sheet, `foto` which photo; `imprimir=1` (from the print choice) opens the print right away, see print-sheet.tsx. */
+  searchParams: Promise<{ copias?: string; foto?: string }>;
 }
 
 export async function generateMetadata({ params }: PrintPageProps): Promise<Metadata> {
@@ -45,21 +44,15 @@ async function sellerPhone(productId: string) {
   return product?.contactPhone ?? null;
 }
 
-/** A listing on an A4 page, or 2 or 4 copies of it, in the visitor's language, to print or save as a PDF. */
+/** A listing lying across an A4 page, or 2 or 4 copies of it, with one of its photos, to print or save as a PDF. */
 export default async function PrintListingPage({ params, searchParams }: PrintPageProps) {
-  const [{ slug }, { copias }] = await Promise.all([params, searchParams]);
+  const [{ slug }, { copias, foto }] = await Promise.all([params, searchParams]);
   const [product, { t, locale }] = await Promise.all([getProductBySlug(slug), getT()]);
   if (!product) notFound();
 
   const copies = parseCopies(copias);
   const { name, description } = localizeProduct(product, locale);
-  // A video prints as its still frame, marked; one without a still is left out. Through this site, as on the listing (#556).
-  const photos = product.images
-    .flatMap((url) => {
-      const picture = pictureOf(url);
-      return picture ? [{ src: throughSite(picture), isVideo: isVideoUrl(url) }] : [];
-    })
-    .slice(0, MAX_PRINT_PHOTOS);
+  const photos = printPhotos(product.images);
   const phone = product.contactPhone ? await sellerPhone(product.id) : BRAND.contact.phone;
   const seller = product.submission && sellerIdentity(product.submission);
   const listingUrl = `${SERVER_URL}${withLang(`/product/${slug}`, locale)}`;
@@ -71,18 +64,23 @@ export default async function PrintListingPage({ params, searchParams }: PrintPa
   const facts = [condition && t(condition), serviceKey && t(serviceKey), ...mercadilloNames].filter(Boolean);
   const text = printDescription(description ?? '', copies);
   const hasFacts = facts.length > 0 || (product.type === 'EVENT' && (product.startsAt || product.address));
+  // Printed in another language, the way back is still in the visitor's own.
+  const ownLocale = await getOwnLocale();
 
   return (
-    <main className={styles.page} style={{ '--print-accent': EMAIL_COLORS.primary } as React.CSSProperties}>
-      <PrintToolbar backHref={`/product/${slug}`} />
+    // Each copy lies across: one or four of them fill an A4 lying down, two an upright one.
+    <main className={cn(styles.page, copies !== 2 && styles.landscape)} style={{ '--print-accent': EMAIL_COLORS.primary } as React.CSSProperties}>
+      {copies !== 2 && <style>{'@page { size: A4 landscape; }'}</style>}
+      <PrintToolbar backHref={withLang(`/product/${slug}`, ownLocale)} isFullLoad={ownLocale !== locale} />
       <PrintSheets
         copies={copies}
         listing={{
           logo: BRAND.logo,
           logoAlt: BRAND.name,
-          domain: new URL(SERVER_URL).host,
+          seller: seller?.name || BRAND.name,
+          onSite: t('PRINT_ON_SITE', { domain: new URL(SERVER_URL).host.replace(/^www\./, '') }),
           title: name,
-          price: hasPrice ? `${priceLabel ? `${t(priceLabel)} ` : ''}${formatPriceTag(Number(product.price))}` : undefined,
+          price: hasPrice ? { label: priceLabel && t(priceLabel), amount: formatPriceTag(Number(product.price)) } : undefined,
           facts: hasFacts && (
             <div className={styles.facts}>
               {product.type === 'EVENT' && product.startsAt && (
@@ -102,15 +100,14 @@ export default async function PrintListingPage({ params, searchParams }: PrintPa
               ))}
             </div>
           ),
-          offeredBy: seller?.name ? t('SELLER_OFFERED_BY', { name: seller.name }) : undefined,
           phone,
           scanLabel: t('PRINT_SCAN'),
           qr: <WhatsAppQr url={listingUrl} label={t('PRINT_SCAN')} className={styles.qrCode} />,
-          photos,
+          photo: photos[parsePhoto(foto, photos.length)],
           videoLabel: t('PRINT_VIDEO'),
           paragraphs: printParagraphs(text.text),
-          textLength: text.text.length,
-          moreLabel: text.isCut ? t('PRINT_MORE_IN_QR') : undefined,
+          moreLabel: t('PRINT_MORE_IN_QR'),
+          isCut: text.isCut,
         }}
       />
     </main>

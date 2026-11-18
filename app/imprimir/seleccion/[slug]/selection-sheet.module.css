@@ -1,14 +1,10 @@
-/* A selección's A4 sheets; the page, toolbar, sheet, header and QR colors come from the listing's print-sheet.module.css. */
-.sheet + .sheet {
-  margin-top: 16px;
-}
-
+/* A selección's A4 sheets; the page, toolbar, sheet, header, QR colors and one sheet per page come from the listing's print-sheet.module.css. */
 .selection {
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
-  padding: 12mm 13mm 10mm;
+  padding: calc(12 * var(--mm)) calc(13 * var(--mm)) calc(10 * var(--mm));
   overflow: hidden;
 }
 
@@ -16,17 +12,17 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 7mm;
-  padding: 5mm 0 4mm;
+  gap: calc(7 * var(--mm));
+  padding: calc(5 * var(--mm)) 0 calc(4 * var(--mm));
 }
 
 /* As tall as the QR box beside it: a few mm taller and a full first sheet loses its footer. */
 .icon {
-  width: 52mm;
-  height: 52mm;
+  width: calc(52 * var(--mm));
+  height: calc(52 * var(--mm));
   flex: none;
   border-radius: 999px;
-  border: 0.4mm solid var(--line);
+  border: calc(0.4 * var(--mm)) solid var(--line);
   object-fit: cover;
 }
 
@@ -39,9 +35,9 @@
   display: -webkit-box;
   overflow: hidden;
   font-family: var(--font-display);
-  font-size: 30pt;
+  font-size: calc(30 * var(--pt));
   line-height: 1.05;
-  margin: 0 0 2mm;
+  margin: 0 0 calc(2 * var(--mm));
   overflow-wrap: break-word;
   /* The longest name and text would push the footer off the sheet. */
   -webkit-line-clamp: 2;
@@ -53,23 +49,23 @@
   overflow: hidden;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
-  font-size: 10pt;
+  font-size: calc(10 * var(--pt));
   line-height: 1.4;
   color: var(--ink-soft);
 }
 
 .selectionQr {
   flex: none;
-  width: 42mm;
-  padding: 3.5mm;
-  border: 0.4mm solid var(--print-accent);
-  border-radius: 4mm;
+  width: calc(42 * var(--mm));
+  padding: calc(3.5 * var(--mm));
+  border: calc(0.4 * var(--mm)) solid var(--print-accent);
+  border-radius: calc(4 * var(--mm));
   text-align: center;
 }
 
 .selectionQr p {
-  margin-top: 2mm;
-  font-size: 8pt;
+  margin-top: calc(2 * var(--mm));
+  font-size: calc(8 * var(--pt));
   line-height: 1.3;
   color: var(--ink-soft);
 }
@@ -78,11 +74,11 @@
   display: flex;
   flex: none;
   justify-content: space-between;
-  gap: 4mm;
-  margin-bottom: 3mm;
-  padding-top: 3mm;
-  border-top: 0.3mm solid var(--line);
-  font-size: 9pt;
+  gap: calc(4 * var(--mm));
+  margin-bottom: calc(3 * var(--mm));
+  padding-top: calc(3 * var(--mm));
+  border-top: calc(0.3 * var(--mm)) solid var(--line);
+  font-size: calc(9 * var(--pt));
   color: var(--ink-soft);
 }
 
@@ -90,8 +86,8 @@
   display: grid;
   /* minmax(0, …): a long word wraps instead of widening its column off the sheet. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4mm 5mm;
-  margin-top: 4mm;
+  gap: calc(4 * var(--mm)) calc(5 * var(--mm));
+  margin-top: calc(4 * var(--mm));
   list-style: none;
 }
 
@@ -101,21 +97,21 @@
 
 .item {
   display: flex;
-  gap: 3.5mm;
-  height: 41mm;
-  padding: 2.5mm;
-  border: 0.3mm solid var(--line);
-  border-radius: 3mm;
+  gap: calc(3.5 * var(--mm));
+  height: calc(41 * var(--mm));
+  padding: calc(2.5 * var(--mm));
+  border: calc(0.3 * var(--mm)) solid var(--line);
+  border-radius: calc(3 * var(--mm));
   break-inside: avoid;
 }
 
 /* Every Baifo picture is 3:4. */
 .photo {
   display: block;
-  width: 27mm;
-  height: 36mm;
+  width: calc(27 * var(--mm));
+  height: calc(36 * var(--mm));
   flex: none;
-  border-radius: 2mm;
+  border-radius: calc(2 * var(--mm));
   background: var(--line);
   object-fit: cover;
 }
@@ -125,13 +121,13 @@
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  padding: 1mm 0;
+  padding: var(--mm) 0;
 }
 
 .listingName {
   display: -webkit-box;
   overflow: hidden;
-  font-size: 10pt;
+  font-size: calc(10 * var(--pt));
   font-weight: 600;
   line-height: 1.25;
   overflow-wrap: break-word;
@@ -142,22 +138,22 @@
 .when {
   display: flex;
   align-items: center;
-  gap: 1.2mm;
-  margin-top: 1.5mm;
-  font-size: 8.5pt;
+  gap: calc(1.2 * var(--mm));
+  margin-top: calc(1.5 * var(--mm));
+  font-size: calc(8.5 * var(--pt));
   color: var(--ink-soft);
 }
 
 .when svg {
-  width: 3.5mm;
-  height: 3.5mm;
+  width: calc(3.5 * var(--mm));
+  height: calc(3.5 * var(--mm));
   flex: none;
 }
 
 .price {
   margin-top: auto;
   font-family: var(--font-display);
-  font-size: 17pt;
+  font-size: calc(17 * var(--pt));
   font-weight: 700;
   line-height: 1;
   color: var(--print-accent);
@@ -166,9 +162,9 @@
 
 .priceLabel {
   display: block;
-  margin-bottom: 1mm;
+  margin-bottom: var(--mm);
   font-family: var(--font-inter), sans-serif;
-  font-size: 8pt;
+  font-size: calc(8 * var(--pt));
   font-weight: 600;
 }
 
@@ -178,38 +174,23 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: 1mm;
-  width: 17mm;
-  font-size: 6.5pt;
+  gap: var(--mm);
+  width: calc(17 * var(--mm));
+  font-size: calc(6.5 * var(--pt));
   color: var(--ink-soft);
 }
 
 .listingQr svg {
-  width: 17mm;
-  height: 17mm;
+  width: calc(17 * var(--mm));
+  height: calc(17 * var(--mm));
 }
 
 .footer {
   display: flex;
   justify-content: space-between;
   margin-top: auto;
-  padding-top: 2.5mm;
-  border-top: 0.3mm solid var(--line);
-  font-size: 8pt;
+  padding-top: calc(2.5 * var(--mm));
+  border-top: calc(0.3 * var(--mm)) solid var(--line);
+  font-size: calc(8 * var(--pt));
   color: var(--ink-soft);
-}
-
-/* One sheet per page on paper. */
-@media print {
-  .sheet + .sheet {
-    margin-top: 0;
-  }
-
-  .sheet {
-    break-after: page;
-  }
-
-  .sheet:last-child {
-    break-after: auto;
-  }
 }

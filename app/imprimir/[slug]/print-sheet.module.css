@@ -4,6 +4,9 @@
   --ink: #1f2a2e;
   --ink-soft: #5b6b70;
   --line: #d5dcde;
+  /* The sheet's size in millimetres: upright A4 (a selección, two listings), or lying down (.landscape). */
+  --w: 210;
+  --h: 297;
   min-height: 100dvh;
   padding: 16px;
   background: var(--background);
@@ -11,22 +14,39 @@
   overflow-x: clip;
 }
 
+.landscape {
+  --w: 297;
+  --h: 210;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  max-width: 210mm;
+  max-width: calc(var(--w) * 1mm);
   margin: 0 auto 12px;
+}
+
+/* Around each sheet: the sheet is drawn in sheet millimetres, real ones on screen and smaller when printing (see @media print). */
+.paper {
+  --mm: 1mm;
+  --pt: calc(var(--mm) * 0.352778);
+  --px: calc(var(--mm) * 0.264583);
+}
+
+/* A selección's sheets, one under the other. */
+.paper + .paper {
+  margin-top: 16px;
 }
 
 /* A4 on screen too, so what you see is what prints; phones see it scaled down (useSheetZoom).
    Scaled, not CSS zoom: iPhones zoomed the boxes but kept the text big, so it overflowed. The bottom margin takes back the space it leaves. */
 .sheet {
   position: relative;
-  width: 210mm;
-  height: 297mm;
-  margin: 0 auto calc(297mm * (var(--sheet-zoom, 1) - 1));
+  width: calc(var(--w) * var(--mm));
+  height: calc(var(--h) * var(--mm));
+  margin: 0 auto calc(var(--h) * 1mm * (var(--sheet-zoom, 1) - 1));
   overflow: hidden;
   background: var(--paper);
   color: var(--ink);
@@ -35,151 +55,25 @@
   transform-origin: top left;
 }
 
-/* One copy: a whole A4 listing, made smaller (and turned for halves) by its transform. */
-.cell {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 210mm;
-  height: 297mm;
-  transform-origin: top left;
-}
-
-.listing {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  padding: 12mm 13mm;
-  overflow: hidden;
-}
-
+/* A selección's header: logo and domain over a line. */
 .header {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 3mm;
-  border-bottom: 0.6mm solid var(--print-accent);
+  padding-bottom: calc(3 * var(--mm));
+  border-bottom: calc(0.6 * var(--mm)) solid var(--print-accent);
 }
 
 .logo {
-  height: 10mm;
+  height: calc(10 * var(--mm));
   width: auto;
 }
 
 .domain {
-  font-size: 12pt;
+  font-size: calc(12 * var(--pt));
   font-weight: 700;
   color: var(--ink);
-}
-
-.heading {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 6mm;
-  margin: 5mm 0 4mm;
-}
-
-.title {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--font-display);
-  font-size: 25pt;
-  line-height: 1.08;
-  font-weight: 700;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.price {
-  font-family: var(--font-display);
-  font-size: 34pt;
-  line-height: 1;
-  font-weight: 700;
-  color: var(--print-accent);
-  white-space: nowrap;
-}
-
-.facts {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2mm;
-  margin: -1mm 0 4mm;
-}
-
-.fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.5mm;
-  padding: 1mm 3mm;
-  border: 0.3mm solid var(--line);
-  border-radius: 999px;
-  font-size: 10pt;
-}
-
-.fact svg {
-  width: 3.5mm;
-  height: 3.5mm;
-}
-
-.contact {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 6mm;
-  padding: 4mm 5mm;
-  border: 0.5mm solid var(--print-accent);
-  border-radius: 4mm;
-}
-
-.contactText {
-  flex: 1;
-  min-width: 0;
-}
-
-.contactText p {
-  margin: 0;
-}
-
-.offeredBy {
-  font-size: 12pt;
-  color: var(--ink-soft);
-}
-
-.contactText .phone {
-  display: flex;
-  align-items: center;
-  gap: 2mm;
-  margin: 1mm 0 1.5mm;
-  font-size: 30pt;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.phone svg {
-  flex: none;
-  width: 0.75em;
-  height: 0.75em;
-  color: var(--print-accent);
-}
-
-.scan {
-  font-size: 9.5pt;
-  color: var(--ink-soft);
-}
-
-.qr {
-  flex: none;
-  width: 40mm;
-  height: 40mm;
 }
 
 .qrCode {
@@ -189,45 +83,34 @@
   --foreground: var(--ink);
 }
 
-/* Very long texts: a tighter contact box gives the photos and the text a little more room. */
-.compact .contact {
-  padding: 3mm 4mm;
+/* One copy: a listing lying across an A4, made smaller by its transform for 2 or 4 per sheet. */
+.cell {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(297 * var(--mm));
+  height: calc(210 * var(--mm));
+  transform-origin: top left;
 }
 
-.compact .qr {
-  width: 32mm;
-  height: 32mm;
-}
-
-.compact .phone {
-  font-size: 26pt;
-}
-
-/* Takes what the text leaves; print-sheet.tsx sizes the photos to fill it. */
-.photos {
+/* Its photo on the left; who offers it, the title and the text beside it, like a post. */
+.listing {
   display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  margin: 5mm 0;
-}
-
-/* The gap matches GAP_PX in print-sheet.tsx. */
-.photoGrid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 11px;
+  gap: calc(10 * var(--mm));
+  width: 100%;
+  height: 100%;
+  padding: calc(12 * var(--mm));
+  overflow: hidden;
 }
 
 /* Every Baifo picture is 3:4. */
 .photo {
   position: relative;
-  width: var(--photo-width, 30mm);
-  aspect-ratio: 3 / 4;
+  flex: none;
+  width: calc(139.5 * var(--mm));
+  height: 100%;
   overflow: hidden;
-  border-radius: 2.5mm;
+  border-radius: calc(4 * var(--mm));
   background: var(--line);
 }
 
@@ -240,42 +123,241 @@
 
 .videoMark {
   position: absolute;
-  left: 2mm;
-  bottom: 2mm;
-  padding: 0.8mm 2.6mm;
+  left: calc(3 * var(--mm));
+  bottom: calc(3 * var(--mm));
+  padding: calc(1 * var(--mm)) calc(3 * var(--mm));
   border-radius: 999px;
   background: rgb(11 26 31 / 0.75);
   color: #ffffff;
-  font-size: 8pt;
+  font-size: calc(10 * var(--pt));
   font-weight: 700;
 }
 
-.description {
+.side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.who {
+  display: flex;
   flex: none;
-  font-size: 10.5pt;
+  align-items: center;
+  gap: calc(4 * var(--mm));
+}
+
+/* Their initial in a ring, where a social post shows the person's picture. */
+.avatar {
+  flex: none;
+  width: calc(15 * var(--mm));
+  height: calc(15 * var(--mm));
+  padding: calc(0.9 * var(--mm));
+  border-radius: 999px;
+  background: conic-gradient(var(--print-accent), color-mix(in srgb, var(--print-accent) 35%, var(--paper)), var(--print-accent));
+}
+
+.avatar span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: calc(0.8 * var(--mm)) solid var(--paper);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--print-accent) 10%, var(--paper));
+  color: var(--print-accent);
+  font-family: var(--font-display);
+  font-size: calc(20 * var(--pt));
+  font-weight: 700;
+  line-height: 1;
+}
+
+.whoText {
+  min-width: 0;
+}
+
+.seller {
+  overflow: hidden;
+  font-size: calc(15 * var(--pt));
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onSite {
+  font-size: calc(10 * var(--pt));
+  color: var(--ink-soft);
+}
+
+.whoLogo {
+  flex: none;
+  height: calc(9 * var(--mm));
+  width: auto;
+  margin-left: auto;
+}
+
+.rule {
+  flex: none;
+  height: calc(0.6 * var(--mm));
+  margin: calc(5 * var(--mm)) 0;
+  background: var(--print-accent);
+}
+
+.heading {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(5 * var(--mm));
+}
+
+.title {
+  display: -webkit-box;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: calc(23 * var(--pt));
+  line-height: 1.08;
+  font-weight: 700;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.price {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: calc(28 * var(--pt));
+  line-height: 1;
+  font-weight: 700;
+  color: var(--print-accent);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.priceLabel {
+  display: block;
+  margin-bottom: var(--mm);
+  font-family: var(--font-inter), sans-serif;
+  font-size: calc(10 * var(--pt));
+  font-weight: 600;
+}
+
+.facts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(2 * var(--mm));
+  margin-top: calc(4 * var(--mm));
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(1.5 * var(--mm));
+  padding: var(--mm) calc(3 * var(--mm));
+  border: calc(0.3 * var(--mm)) solid var(--line);
+  border-radius: 999px;
+  font-size: calc(9.5 * var(--pt));
+}
+
+.fact svg {
+  width: calc(3.5 * var(--mm));
+  height: calc(3.5 * var(--mm));
+}
+
+/* The text takes what is left; print-sheet.tsx picks its size. */
+.caption {
+  flex: 1;
+  min-height: 0;
+  margin: calc(5 * var(--mm)) 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: calc(10.5 * var(--pt));
   line-height: 1.45;
 }
 
 /* A blank line in the text is only a small gap on paper. */
-.description p {
+.caption p {
   margin: 0 0 0.45em;
   white-space: pre-line;
 }
 
-.description p:last-child {
-  margin-bottom: 0;
+.caption strong {
+  font-weight: 700;
 }
 
-.columns {
-  column-count: 2;
-  column-gap: 7mm;
+/* Too long even at the smallest size: it fades out, and the QR has the rest. */
+.faded {
+  -webkit-mask-image: linear-gradient(#000 75%, transparent);
+  mask-image: linear-gradient(#000 75%, transparent);
 }
 
 .more {
+  display: none;
+  flex: none;
+  margin: calc(-3 * var(--mm)) 0 calc(4 * var(--mm));
+  font-size: calc(10 * var(--pt));
   font-weight: 600;
   color: var(--print-accent);
 }
 
+.cut + .more,
+.faded + .more {
+  display: block;
+}
+
+.contact {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(5 * var(--mm));
+  padding: calc(4 * var(--mm)) calc(5 * var(--mm));
+  border: calc(0.5 * var(--mm)) solid var(--print-accent);
+  border-radius: calc(4 * var(--mm));
+}
+
+.contactText {
+  flex: 1;
+  min-width: 0;
+}
+
+.contactText p {
+  margin: 0;
+}
+
+.contactText .phone {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--mm));
+  font-size: calc(22 * var(--pt));
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.phone svg {
+  flex: none;
+  width: 0.75em;
+  height: 0.75em;
+  color: var(--print-accent);
+}
+
+.contactText .scan {
+  margin-top: var(--mm);
+  font-size: calc(9 * var(--pt));
+  color: var(--ink-soft);
+}
+
+.qr {
+  flex: none;
+  width: calc(33 * var(--mm));
+  height: calc(33 * var(--mm));
+}
+
+/* Where to cut 2 or 4 copies apart: halfway across, and for 4 halfway down too. */
 .cutAcross,
 .cutDown {
   position: absolute;
@@ -285,24 +367,35 @@
 .cutAcross {
   left: 0;
   right: 0;
-  top: 148.5mm;
-  border-top-width: 0.3mm;
+  top: 50%;
+  border-top-width: calc(0.3 * var(--mm));
 }
 
 .cutDown {
   top: 0;
   bottom: 0;
-  left: 105mm;
-  border-left-width: 0.3mm;
+  left: 50%;
+  border-left-width: calc(0.3 * var(--mm));
 }
 
+/* A sheet lying down sets its own page size (page.tsx). */
 @page {
   size: A4;
   margin: 0;
 }
 
 @media print {
+  /* The page's height reaches each sheet through html, body and .page; 100vh while printing is the phone's screen in Safari. */
+  :root:has(.page),
+  :root:has(.page) body {
+    height: 100%;
+    /* A selección's later pages lie below .page, where the site's dark background would print. */
+    background: none;
+  }
+
   .page {
+    height: 100%;
+    min-height: 0;
     padding: 0;
     background: var(--paper);
   }
@@ -311,9 +404,46 @@
     display: none;
   }
 
+  /* Safari keeps its own margins and footer whatever @page says, and prints a little bigger: each sheet takes the page it gets.
+     The half millimetre: a hair under the page, so rounding never pushes a sheet onto the next one. Without container units it stays A4. */
+  @supports (width: 1cqw) {
+    .paper {
+      --mm: min(100cqw / var(--w), 100cqh / (var(--h) + 0.5));
+      position: relative;
+      container-type: size;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* A sheet lying down on upright paper (Safari keeps it upright whatever @page says) is turned to fill the page. */
+    @container (orientation: portrait) {
+      .landscape .sheet {
+        --mm: min(100cqw / var(--h), 100cqh / (var(--w) + 0.5));
+        --pt: calc(var(--mm) * 0.352778);
+        --px: calc(var(--mm) * 0.264583);
+        position: absolute;
+        top: 0;
+        left: calc((100cqw - var(--h) * var(--mm)) / 2);
+        transform: translateX(calc(var(--h) * var(--mm))) rotate(90deg);
+      }
+    }
+  }
+
+  .paper {
+    break-after: page;
+  }
+
+  .paper + .paper {
+    margin-top: 0;
+  }
+
+  .paper:last-child {
+    break-after: auto;
+  }
+
   .sheet {
     box-shadow: none;
-    margin: 0;
+    margin: 0 auto;
     transform: none;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;

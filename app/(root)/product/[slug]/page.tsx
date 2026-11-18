@@ -38,6 +38,7 @@ import { isReservationActive } from '@/lib/reservation';
 import TagBadges from '@/components/shared/product/tag-badges';
 import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/localize';
+import { printableMedia } from '@/lib/print';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { repeatOf } from '@/lib/event-repeat';
@@ -236,7 +237,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
                 <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
-                {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} />}
+                {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.images)} />}
               </div>
             </div>
             <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
