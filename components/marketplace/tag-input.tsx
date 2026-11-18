@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type KeyboardEvent } from 'react';
+import { useEffect, useState, useTransition, type KeyboardEvent } from 'react';
 import { ChevronDown, Languages, Loader2, Plus, X } from 'lucide-react';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { translateTags } from '@/lib/actions/tag.actions';
@@ -25,6 +25,8 @@ interface TagInputProps {
   isDisabled?: boolean;
   texts: AdminTexts;
   onError: (message: string) => void;
+  /** Whether the AI is translating the names now: the listing can't be saved meanwhile. */
+  onTranslating?: (isTranslating: boolean) => void;
 }
 
 // Chosen ones are the same etiqueta as an option by id, or by a name in this language while still new.
@@ -32,10 +34,13 @@ const isSameTag = (language: Locale) => (a: EditorTag, b: EditorTag) =>
   a.id && b.id ? a.id === b.id : Boolean(a.names[language]) && tagNameKey(a.names[language] ?? '') === tagNameKey(b.names[language] ?? '');
 
 /** The listing's etiquetas in the selected tab's language: tick existing ones A to Z, "+" makes a new one, "Traducir" fills the other languages. */
-export default function TagInput({ id, value, onChange, options, language, languages, max, isDisabled, texts, onError }: TagInputProps) {
+export default function TagInput({ id, value, onChange, options, language, languages, max, isDisabled, texts, onError, onTranslating }: TagInputProps) {
   const [draft, setDraft] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isTranslating, startTranslating] = useTransition();
+  useEffect(() => onTranslating?.(isTranslating), [isTranslating, onTranslating]);
+  // The translation replaces the chosen etiquetas when it arrives, so they stay as they are until then.
+  const isLocked = isDisabled || isTranslating;
   const isFull = value.length >= max;
   const same = isSameTag(language);
   const isChosen = (option: TagOption) => value.some((chosen) => same(chosen, option));
@@ -104,7 +109,7 @@ export default function TagInput({ id, value, onChange, options, language, langu
             {isMissing && <span className='font-semibold not-italic text-primary'>?</span>}
             <button
               type='button'
-              disabled={isDisabled}
+              disabled={isLocked}
               aria-label={fillText(texts.tagRemove, { name })}
               onClick={() => onChange(value.filter((chosen) => chosen !== tag))}
               className='grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground'
@@ -118,7 +123,7 @@ export default function TagInput({ id, value, onChange, options, language, langu
         <DropdownMenu>
           <DropdownMenuTrigger
             id={id}
-            disabled={isDisabled}
+            disabled={isLocked}
             className='flex h-8 min-w-10 flex-1 items-center justify-between gap-2 rounded-full px-1 text-left text-base text-muted-foreground outline-none'
           >
             <span className='truncate'>{value.length === 0 ? texts.tagsChoose : ''}</span>
@@ -157,7 +162,7 @@ export default function TagInput({ id, value, onChange, options, language, langu
       {!isFull && !isTyping && (
         <button
           type='button'
-          disabled={isDisabled}
+          disabled={isLocked}
           aria-label={texts.tagNew}
           title={texts.tagNew}
           onClick={() => setIsTyping(true)}
@@ -174,7 +179,7 @@ export default function TagInput({ id, value, onChange, options, language, langu
           autoComplete='off'
           enterKeyHint='done'
           maxLength={MAX_TAG_LENGTH}
-          disabled={isDisabled}
+          disabled={isLocked}
           value={draft}
           placeholder={texts.tagsPlaceholder}
           onChange={(event) => setDraft(event.target.value)}

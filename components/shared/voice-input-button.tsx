@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,8 @@ interface VoiceInputButtonProps {
   /** The language spoken; missing: the page's. */
   language?: Locale;
   className?: string;
+  /** Whether the AI is turning the words into text now, so a form can wait for them before saving. */
+  onTranscribing?: (isTranscribing: boolean) => void;
 }
 
 const ERROR_KEYS = { NO_MIC: 'VOICE_NO_MIC', FAILED: 'VOICE_FAILED' } as const satisfies Record<VoiceError, string>;
@@ -22,7 +25,7 @@ const ERROR_KEYS = { NO_MIC: 'VOICE_NO_MIC', FAILED: 'VOICE_FAILED' } as const s
 const formatSeconds = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** Tap to speak, tap again to stop: the words come back as text. Admin fields only (/api/transcribe). */
-export default function VoiceInputButton({ onText, language, className }: VoiceInputButtonProps) {
+export default function VoiceInputButton({ onText, language, className, onTranscribing }: VoiceInputButtonProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { state, seconds, start, stop } = useVoiceRecorder({
@@ -31,6 +34,11 @@ export default function VoiceInputButton({ onText, language, className }: VoiceI
     onError: (error, aiCode) => toast({ variant: 'destructive', description: aiErrorText(t, aiCode) ?? t(ERROR_KEYS[error]) }),
   });
   const isRecording = state === 'recording';
+  const isTranscribing = state === 'transcribing';
+  useEffect(() => {
+    onTranscribing?.(isTranscribing);
+    return () => onTranscribing?.(false);
+  }, [isTranscribing, onTranscribing]);
 
   return (
     <Button

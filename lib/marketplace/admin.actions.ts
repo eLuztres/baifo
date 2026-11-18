@@ -85,6 +85,35 @@ export async function saveAdminListingPictures(id: string, input: z.input<typeof
   return { success: true, message: 'Fotos guardadas' };
 }
 
+// What "Crear descripción" writes at once, as the editor opened with it. Loose limits: it is the listing's own saved data.
+const editorTextSchema = z.object({ title: z.string().max(1000), description: z.string().max(20000), short: z.string().max(1000).nullish() });
+const openedTextSchema = z.object({
+  rawText: z.string().max(20000),
+  textMode: z.enum(TEXT_MODES),
+  originalTitle: z.string().max(1000).nullable(),
+  type: z.enum(LISTING_TYPES),
+  title: z.string().max(1000).nullable(),
+  shortTitle: z.string().max(1000).nullable(),
+  description: z.string().max(20000).nullable(),
+  translations: z.record(z.string(), editorTextSchema),
+  textVersions: z.record(z.string(), z.record(z.string(), editorTextSchema)),
+  price: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/).nullable(),
+  priceMode: z.enum(PRICE_MODES).nullable(),
+  startsAt: z.date().nullable(),
+  address: z.string().max(1000).nullable(),
+  placeId: z.string().uuid().nullable(),
+});
+
+/** "Cancelar" after "Crear descripción": its texts, type, price, date and place go back to how the editor opened them. */
+export async function restoreAdminListingText(id: string, input: unknown) {
+  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const parsed = openedTextSchema.safeParse(input);
+  if (!parsed.success) return { success: false, message: 'No se pudo deshacer el texto' };
+  const { count } = await prisma.submission.updateMany({ where: { id, status: { not: 'PROCESSING' } }, data: parsed.data });
+  if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
+  return { success: true, message: '' };
+}
+
 // An amount as typed ("12", "12,50"); empty: none.
 const amountSchema = z
   .union([z.string().regex(/^\d{1,6}([.,]\d{1,2})?$/), z.literal('')])

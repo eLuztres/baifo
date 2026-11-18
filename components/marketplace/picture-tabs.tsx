@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { Camera, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
@@ -26,6 +26,10 @@ interface PictureTabsProps {
   texts: AdminTexts;
   /** Every saved change, so the other steps show the same pictures. */
   onChange: (pictures: PictureSet) => void;
+  /** Whether the AI is making or changing a picture now: the listing can't be saved meanwhile. */
+  onAiWork: (isWorking: boolean) => void;
+  /** Whether photos or videos are still uploading: they are saved once there, so "Cancelar" waits. */
+  onUploading: (isUploading: boolean) => void;
 }
 
 // What editSchema takes, so the editor can save the listing later.
@@ -35,7 +39,7 @@ const NEW_TAB = 'new';
 
 /** One tab per picture: upload a photo or make one from words, change it with words, and keep the original or the AI version.
     Every change is saved at once; the AI only works when asked. */
-export default function PictureTabs({ listingId, initial, texts, onChange }: PictureTabsProps) {
+export default function PictureTabs({ listingId, initial, texts, onChange, onAiWork, onUploading }: PictureTabsProps) {
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pictures, setPictures] = useState(initial);
@@ -47,6 +51,19 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
   // Tabs the AI is working on, and new pictures still being made or uploaded.
   const [busy, setBusy] = useState<string[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  // Pictures made from words alone; pendingCount also counts uploads.
+  const [creatingCount, setCreatingCount] = useState(0);
+  const isAiWorking = busy.length > 0 || creatingCount > 0;
+  useEffect(() => {
+    onAiWork(isAiWorking);
+    // Gone (the listing is being written), the step can't keep Guardar off.
+    return () => onAiWork(false);
+  }, [isAiWorking, onAiWork]);
+  const isUploading = pendingCount > creatingCount;
+  useEffect(() => {
+    onUploading(isUploading);
+    return () => onUploading(false);
+  }, [isUploading, onUploading]);
   // The picture open full screen.
   const [viewedIndex, setViewedIndex] = useState<number | null>(null);
 
@@ -116,9 +133,13 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
     const words = prompt.trim();
     if (!words) return;
     setPendingCount((count) => count + 1);
+    setCreatingCount((count) => count + 1);
     setPrompts((current) => ({ ...current, [NEW_TAB]: '' }));
-    const result = await createAdminListingPicture(listingId, words);
-    setPendingCount((count) => count - 1);
+    // Also when the call fails, or saving would stay off.
+    const result = await createAdminListingPicture(listingId, words).finally(() => {
+      setPendingCount((count) => count - 1);
+      setCreatingCount((count) => count - 1);
+    });
     if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
     const url = result.url;
     update((current) => addCreated(current, url));
@@ -130,8 +151,9 @@ export default function PictureTabs({ listingId, initial, texts, onChange }: Pic
     if (!shown) return;
     const tab = shown;
     setBusy((current) => [...current, tab]);
-    const result = await createAdminListingPicture(listingId, prompt.trim() || undefined, photoBehind(latest.current, tab));
-    setBusy((current) => current.filter((url) => url !== tab));
+    const result = await createAdminListingPicture(listingId, prompt.trim() || undefined, photoBehind(latest.current, tab)).finally(() =>
+      setBusy((current) => current.filter((url) => url !== tab))
+    );
     if (!('url' in result && result.url)) return toast({ variant: 'destructive', description: result.message });
     const url = result.url;
     update((current) => setAiVersion(current, tab, url));

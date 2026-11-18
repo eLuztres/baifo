@@ -2,8 +2,20 @@
 import { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DescriptionStep from '@/components/marketplace/description-step';
-import { describeAdminListing, draftAdminListingText, translateListingText, extendAdminListing, getAdminListing, hideAdminListing, updateAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
+import {
+  describeAdminListing,
+  draftAdminListingText,
+  translateListingText,
+  extendAdminListing,
+  getAdminListing,
+  hideAdminListing,
+  restoreAdminListingText,
+  saveAdminListingPictures,
+  updateAdminListing,
+  type AdminListing,
+} from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
+import { translateTags } from '@/lib/actions/tag.actions';
 
 jest.mock('@/lib/actions/tag.actions', () => ({ translateTags: jest.fn() }));
 jest.mock('@/lib/marketplace/admin.actions', () => ({
@@ -20,6 +32,8 @@ jest.mock('@/lib/marketplace/admin.actions', () => ({
   setAdminListingEnd: jest.fn(),
   getAdminListing: jest.fn(),
   deleteAdminListing: jest.fn(),
+  saveAdminListingPictures: jest.fn(),
+  restoreAdminListingText: jest.fn(),
 }));
 jest.mock('@/lib/marketplace/payment.actions', () => ({ markListingPaid: jest.fn(), recordWhatsAppConsent: jest.fn() }));
 const mockPush = jest.fn();
@@ -63,7 +77,7 @@ const listing = {
 const drafted = { ...listing, rawText: 'Bici, 80€', title: 'Bici de paseo', description: 'Bici cómoda.', translations: { en: { title: 'City bike', description: 'Comfy bike.' } } } as AdminListing;
 
 // The workspace's step bar, as plain buttons.
-function Steps({ shown = listing }: { shown?: AdminListing }) {
+function Steps({ shown = listing, isAiOnPictures = false, isUploadingPictures = false }: { shown?: AdminListing; isAiOnPictures?: boolean; isUploadingPictures?: boolean }) {
   const [step, setStep] = useState(1);
   return (
     <>
@@ -80,6 +94,8 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
         tagOptions={[{ id: 'surf', names: { es: 'Surf', en: 'Surfing' }, count: 2 }]}
         maxTags={5}
         listingDays={90}
+        isAiOnPictures={isAiOnPictures}
+        isUploadingPictures={isUploadingPictures}
         texts={texts}
         onSent={jest.fn()}
         step={step}
@@ -89,7 +105,7 @@ function Steps({ shown = listing }: { shown?: AdminListing }) {
   );
 }
 
-const renderStep = (shown?: AdminListing) => render(<Steps shown={shown} />);
+const renderStep = (shown?: AdminListing, isAiOnPictures?: boolean) => render(<Steps shown={shown} isAiOnPictures={isAiOnPictures} />);
 const fillContact = () => {
   fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
   fireEvent.change(screen.getByLabelText('servicePhoneLabel'), { target: { value: ' 612345678 ' } });
@@ -141,6 +157,22 @@ describe('DescriptionStep', () => {
       'abc',
       expect.objectContaining({ texts: { es: { title: 'Mi bici', description: 'Bici cómoda.' }, en: { title: 'My bike', description: 'Comfy bike.' } } })
     );
+  });
+
+  it('shows the AI at work while it translates the missing languages on Publicar', async () => {
+    let finish: (result: unknown) => void = () => {};
+    (translateListingText as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    mockDescribe.mockResolvedValue({ success: true });
+    renderStep();
+
+    fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'Mi bici' } });
+    fireEvent.change(screen.getByLabelText('descriptionLabel'), { target: { value: 'Bici cómoda.' } });
+    fillContact();
+    fireEvent.click(screen.getByRole('button', { name: /publishButton/ }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /status_PROCESSING/ })).toBeDisabled());
+    finish({ success: true, translations: { en: { title: 'My bike', description: 'Comfy bike.' } } });
+    await waitFor(() => expect(mockDescribe).toHaveBeenCalled());
   });
 
   it('lets the AI write every language from the selected tab when the shop language has no text', async () => {
@@ -345,6 +377,14 @@ describe('DescriptionStep', () => {
     expect(screen.getByLabelText('servicePhoneLabel')).toHaveValue('');
   });
 
+  it('can\'t be published or sent while the AI makes a picture', () => {
+    renderStep(listing, true);
+
+    expect(screen.getByRole('button', { name: /status_PROCESSING/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
+    expect(screen.getByRole('button', { name: /sendWhatsApp/ })).toBeDisabled();
+  });
+
   describe('an existing listing', () => {
     const live = {
       ...drafted,
@@ -409,6 +449,31 @@ describe('DescriptionStep', () => {
       await waitFor(() => expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ scoutId: 'scout-marco' })));
     });
 
+    it('can\'t be saved while the AI writes the texts, and can again once they are in', async () => {
+      let finish: (result: unknown) => void = () => {};
+      mockDraft.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+      renderStep(live);
+
+      fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
+
+      expect(screen.getByRole('button', { name: /status_PROCESSING/ })).toBeDisabled();
+      finish({ success: true, texts: { es: { title: 'Bici', description: 'Bici cómoda.' }, en: { title: 'Bike', description: 'Comfy.' } } });
+      await waitFor(() => expect(screen.getByRole('button', { name: /saveChanges/ })).toBeEnabled());
+      expect(screen.getByLabelText('titleLabel')).toHaveValue('Bici');
+    });
+
+    it('can\'t be saved while the AI translates the etiquetas', async () => {
+      let finish: (result: unknown) => void = () => {};
+      (translateTags as jest.Mock).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+      renderStep({ ...live, tags: [{ id: 'bici', names: { es: 'Bici' } }] } as AdminListing);
+
+      fireEvent.click(screen.getByRole('button', { name: /tagsTranslate/ }));
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /status_PROCESSING/ })).toBeDisabled());
+      finish({ success: true, message: '', translations: [{ en: 'Bike' }] });
+      await waitFor(() => expect(screen.getByRole('button', { name: /saveChanges/ })).toBeEnabled());
+    });
+
     it('shows the name in use and saves it once changed', async () => {
       renderStep(live as AdminListing);
       fireEvent.click(screen.getByRole('button', { name: /stepContact/ }));
@@ -420,6 +485,58 @@ describe('DescriptionStep', () => {
       fireEvent.click(screen.getByRole('button', { name: /saveChanges/ }));
 
       await waitFor(() => expect(updateAdminListing).toHaveBeenCalledWith('abc', expect.objectContaining({ sellerName: 'Ana' })));
+    });
+
+    describe('Cancelar', () => {
+      const opened = { ...live, rawImages: ['https://x.ufs.sh/f/bike-photo.jpg'], aiImages: [''] } as AdminListing;
+      beforeEach(() => {
+        (saveAdminListingPictures as jest.Mock).mockResolvedValue({ success: true, message: '' });
+        (restoreAdminListingText as jest.Mock).mockResolvedValue({ success: true, message: '' });
+      });
+
+      it('saves nothing typed, puts back the pictures it opened with, and shows the listing as it was', async () => {
+        const { rerender } = renderStep(opened);
+        // Fotos saves at once and the workspace passes the new pictures on.
+        rerender(<Steps shown={{ ...opened, images: [] } as AdminListing} />);
+        fireEvent.change(screen.getByLabelText('titleLabel'), { target: { value: 'Otra bici' } });
+        fireEvent.click(screen.getByRole('button', { name: /cancelChanges/ }));
+
+        await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/product/bici-de-paseo-abc123'));
+        expect(saveAdminListingPictures).toHaveBeenCalledWith('abc', { images: opened.images, rawImages: opened.rawImages, aiImages: opened.aiImages });
+        expect(updateAdminListing).not.toHaveBeenCalled();
+        expect(restoreAdminListingText).not.toHaveBeenCalled();
+      });
+
+      it('puts back the text "Crear descripción" saved, as the editor opened it', async () => {
+        mockDraft.mockResolvedValue({ success: true, message: '', texts: { es: { title: 'Bici nueva', description: 'Otra.' } }, tag: null });
+        renderStep(opened);
+        fireEvent.click(screen.getByRole('button', { name: /createDescription/ }));
+        await waitFor(() => expect(screen.getByLabelText('titleLabel')).toHaveValue('Bici nueva'));
+        fireEvent.click(screen.getByRole('button', { name: /cancelChanges/ }));
+
+        await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/product/bici-de-paseo-abc123'));
+        expect(restoreAdminListingText).toHaveBeenCalledWith('abc', expect.objectContaining({ title: 'Bici de paseo', description: 'Bici cómoda.', rawText: 'Bici, 80€', translations: opened.translations }));
+      });
+
+      it('leaves the pictures alone when they are as they were', async () => {
+        renderStep(opened);
+        fireEvent.click(screen.getByRole('button', { name: /cancelChanges/ }));
+
+        await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/product/bici-de-paseo-abc123'));
+        expect(saveAdminListingPictures).not.toHaveBeenCalled();
+      });
+
+      it('waits while the AI makes a picture or a photo uploads, which would land over the ones put back', () => {
+        const { rerender } = renderStep(opened, true);
+        expect(screen.getByRole('button', { name: /cancelChanges/ })).toBeDisabled();
+        rerender(<Steps shown={opened} isUploadingPictures />);
+        expect(screen.getByRole('button', { name: /cancelChanges/ })).toBeDisabled();
+      });
+
+      it('is not there on a new listing, which has nothing to go back to', () => {
+        renderStep(listing);
+        expect(screen.queryByRole('button', { name: /cancelChanges/ })).not.toBeInTheDocument();
+      });
     });
   });
 });

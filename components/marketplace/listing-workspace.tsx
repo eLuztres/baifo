@@ -44,6 +44,9 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
   const [isForPerson, setIsForPerson] = useState(false);
   // 0 pictures, 1 description, 2 contact: free to move between them until the description is sent.
   const [step, setStep] = useState(0);
+  // The AI making or changing a picture: Publicar and Guardar wait for it.
+  const [isAiOnPictures, setIsAiOnPictures] = useState(false);
+  const [isUploadingPictures, setIsUploadingPictures] = useState(false);
   // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
   // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one.
@@ -121,6 +124,8 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
             initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages }}
             texts={texts}
             onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
+            onAiWork={setIsAiOnPictures}
+            onUploading={setIsUploadingPictures}
           />
         </div>
       )}
@@ -134,6 +139,8 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
         tagOptions={tagOptions}
         maxTags={maxTags}
         listingDays={listingDays}
+        isAiOnPictures={isAiOnPictures}
+        isUploadingPictures={isUploadingPictures}
         texts={texts}
         onSent={(next, forPerson = false) => {
           setListing(next);

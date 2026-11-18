@@ -51,7 +51,9 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   // Per etiqueta, the language whose name was touched last: "Traducir" starts from it.
   const [usedLanguages, setUsedLanguages] = useState<Record<string, Locale>>({});
-  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  // Etiquetas the AI is translating: their names can't be opened meanwhile, or leaving a cell opened on the old name
+  // would erase the new translation.
+  const [translatingIds, setTranslatingIds] = useState<string[]>([]);
   // Phones: the etiqueta whose names show in the pop-up.
   const [namesId, setNamesId] = useState<string | null>(null);
   const namesTag = tags.find((tag) => tag.id === namesId);
@@ -126,12 +128,11 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
   };
 
   const translate = (tag: TagRow, from: Locale) => {
-    setTranslatingId(tag.id);
+    setTranslatingIds((ids) => [...ids, tag.id]);
     startTransition(async () => {
-      const result = await translateTag(tag.id, from);
+      const result = await translateTag(tag.id, from).finally(() => setTranslatingIds((ids) => ids.filter((id) => id !== tag.id)));
       if (!result.success) toast({ variant: 'destructive', description: result.message });
       router.refresh();
-      setTranslatingId(null);
     });
   };
 
@@ -144,13 +145,13 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
       <Button
         variant='outline'
         size='sm'
-        disabled={translatingId === tag.id}
+        disabled={translatingIds.includes(tag.id)}
         onClick={() => translate(tag, from)}
         title={t('TAG_TRANSLATE_FROM', { language: fromName })}
         aria-label={t('TAG_TRANSLATE_FROM', { language: fromName })}
         className='h-8 shrink-0 gap-1 rounded-full border-primary px-2 text-primary hover:bg-primary/10 hover:text-primary'
       >
-        {translatingId === tag.id ? <Loader2 className='animate-spin' /> : <Languages />}
+        {translatingIds.includes(tag.id) ? <Loader2 className='animate-spin' /> : <Languages />}
         {!isCompact && <span className='text-xs font-semibold uppercase'>{from}</span>}
       </Button>
     );
@@ -219,7 +220,7 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
                     <tr className='border-b border-border last:border-0'>
                       {languages.map((language) => (
                         <td key={language.id} className='px-1.5 py-1'>
-                          <TagNameCell tag={tag} language={language} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: language.id }))} />
+                          <TagNameCell tag={tag} language={language} isLocked={translatingIds.includes(tag.id)} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: language.id }))} />
                         </td>
                       ))}
                       <td className='px-1.5 py-1'>{translateButton(tag)}</td>
@@ -248,7 +249,7 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
                 <li key={tag.id} className='p-1.5'>
                   <div className='flex items-center gap-1'>
                     <div className='min-w-0 flex-1 font-medium'>
-                      <TagNameCell tag={tag} language={languages[0]} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: languages[0].id }))} isWrapped />
+                      <TagNameCell tag={tag} language={languages[0]} isLocked={translatingIds.includes(tag.id)} onUse={() => setUsedLanguages((used) => ({ ...used, [tag.id]: languages[0].id }))} isWrapped />
                     </div>
                     {translateButton(tag, true)}
                     <Button
@@ -285,7 +286,7 @@ export default function TagAdmin({ tags, languages }: TagAdminProps) {
                 <Fragment key={language.id}>
                   <dt className='text-xs font-medium uppercase text-muted-foreground'>{language.id}</dt>
                   <dd>
-                    <TagNameCell tag={namesTag} language={language} onUse={() => setUsedLanguages((used) => ({ ...used, [namesTag.id]: language.id }))} />
+                    <TagNameCell tag={namesTag} language={language} isLocked={translatingIds.includes(namesTag.id)} onUse={() => setUsedLanguages((used) => ({ ...used, [namesTag.id]: language.id }))} />
                   </dd>
                 </Fragment>
               ))}
@@ -305,10 +306,12 @@ interface TagNameCellProps {
   onUse: () => void;
   /** A long name takes a second line instead of being cut (a phone's line). */
   isWrapped?: boolean;
+  /** The AI is translating this etiqueta: its names wait. */
+  isLocked?: boolean;
 }
 
 /** One name of an etiqueta: "—" until written; a tap turns it into a field, Enter or leaving it saves. */
-function TagNameCell({ tag, language, onUse, isWrapped }: TagNameCellProps) {
+function TagNameCell({ tag, language, onUse, isWrapped, isLocked }: TagNameCellProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const router = useRouter();
@@ -361,11 +364,12 @@ function TagNameCell({ tag, language, onUse, isWrapped }: TagNameCellProps) {
     <button
       type='button'
       aria-label={label}
+      disabled={isLocked}
       onClick={() => {
         onUse();
         setText(name);
       }}
-      className={cn('flex min-h-9 w-full items-center rounded-lg px-2 text-left hover:bg-muted', !isWrapped && 'truncate')}
+      className={cn('flex min-h-9 w-full items-center rounded-lg px-2 text-left enabled:hover:bg-muted disabled:opacity-50', !isWrapped && 'truncate')}
     >
       {name ? <span className={cn(isWrapped ? 'min-w-0 hyphens-auto leading-tight [overflow-wrap:anywhere]' : 'truncate')}>{name}</span> : <span className='text-muted-foreground'>—</span>}
     </button>

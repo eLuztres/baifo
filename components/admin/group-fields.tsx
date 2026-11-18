@@ -57,8 +57,8 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
     const key = JSON.stringify([name, text]);
     if (!name || otherLocales.length === 0 || (!isForced && key === lastTranslated.current)) return;
     setIsTranslating(true);
-    const result = await translateGroupTexts({ name, text });
-    setIsTranslating(false);
+    // Also when the call fails, or Guardar would stay off.
+    const result = await translateGroupTexts({ name, text }).finally(() => setIsTranslating(false));
     if (!result.success || !('texts' in result) || !result.texts) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
     lastTranslated.current = key;
     if (isForced) correctedLocales.current.clear();
@@ -81,8 +81,7 @@ export function useGroupFields<T extends GroupFormValues>(typedForm: UseFormRetu
       return translate(true);
     }
     setIsImproving(true);
-    const result = await improveGroupTexts({ name: shopName, text: ownText.current });
-    setIsImproving(false);
+    const result = await improveGroupTexts({ name: shopName, text: ownText.current }).finally(() => setIsImproving(false));
     if (!result.success || !('texts' in result) || !result.texts) return toast({ variant: 'destructive', description: translateMessage(t, result.message) });
     const improved = result.texts[shopLocale]?.text ?? '';
     form.setValue(`text.${shopLocale}`, improved, { shouldDirty: true });

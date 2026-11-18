@@ -10,6 +10,7 @@ import {
   hideAdminListing,
   markAdminListingSold,
   publishAdminListing,
+  restoreAdminListingText,
   retryAdminListing,
   saveAdminListingPictures,
   startAdminListing,
@@ -543,6 +544,40 @@ describe('a new listing as a draft', () => {
     expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'product-1' }, data: { images: tabs.images } });
     expect((await saveAdminListingPictures(ID, { ...tabs, images: ['https://evil.example/x.jpg'] })).success).toBe(false);
     expect((await saveAdminListingPictures(ID, { ...tabs, aiImages: [] })).success).toBe(false);
+  });
+});
+
+describe('restoreAdminListingText', () => {
+  const opened = {
+    rawText: 'Bici, 80€',
+    textMode: 'ai',
+    originalTitle: null,
+    type: 'PRODUCT',
+    title: 'Bici de paseo',
+    shortTitle: null,
+    description: 'Bici cómoda.',
+    translations: { en: { title: 'City bike', description: 'Comfy bike.' } },
+    textVersions: { ai: { es: { title: 'Bici de paseo', description: 'Bici cómoda.' } } },
+    price: '80.00',
+    priceMode: 'FIXED',
+    startsAt: null,
+    address: null,
+    placeId: '5a1b2c3d-1111-4222-8333-444455556663',
+  };
+
+  it('puts back what "Crear descripción" wrote, never while the AI writes, and refuses anything else', async () => {
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+    expect((await restoreAdminListingText(ID, opened)).success).toBe(true);
+    expect(db.submission.updateMany).toHaveBeenCalledWith({ where: { id: ID, status: { not: 'PROCESSING' } }, data: opened });
+
+    db.submission.updateMany.mockResolvedValue({ count: 0 });
+    expect((await restoreAdminListingText(ID, opened)).success).toBe(false);
+    db.submission.updateMany.mockResolvedValue({ count: 1 });
+    expect((await restoreAdminListingText(ID, { ...opened, type: 'CAR' })).success).toBe(false);
+    // Only the fields "Crear descripción" writes: anything else sent along stays out.
+    expect((await restoreAdminListingText(ID, { ...opened, status: 'LIVE', sellerId: 'x' })).success).toBe(true);
+    expect(db.submission.updateMany.mock.calls.at(-1)[0].data).not.toHaveProperty('status');
+    expect((await restoreAdminListingText('not-an-id', opened)).success).toBe(false);
   });
 });
 

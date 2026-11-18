@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { flushSync } from 'react-dom';
 import { useI18n } from '@/components/i18n-provider';
 import { aiErrorText } from '@/lib/ai-errors';
 import { CalendarPlus, Check, ChevronDown, Globe, Loader2, Mail, MessageCircle, RotateCw, Save, Send, Sparkles, Trash2, X } from 'lucide-react';
@@ -25,7 +26,9 @@ import {
   hideAdminListing,
   markAdminListingSold,
   publishAdminListing,
+  restoreAdminListingText,
   retryAdminListing,
+  saveAdminListingPictures,
   setAdminListingEnd,
   updateAdminListing,
   type AdminListing,
@@ -65,6 +68,10 @@ interface DescriptionStepProps {
   maxTags: number;
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
+  /** The AI is making or changing a picture: nothing is saved until it's done. */
+  isAiOnPictures: boolean;
+  /** Photos or videos still uploading in Fotos: they are saved once there. */
+  isUploadingPictures: boolean;
   texts: AdminTexts;
   /** The listing as it is after sending: the AI writes it now. */
   /** isForPerson: "Enviar a la persona", the listing waits for their OK instead of going online. */
@@ -76,7 +83,7 @@ interface DescriptionStepProps {
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, scouts, tagOptions, maxTags, listingDays, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, scouts, tagOptions, maxTags, listingDays, isAiOnPictures, isUploadingPictures, texts, onSent, step, onStep }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -197,6 +204,18 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const [isPending, startTransition] = useTransition();
   // Sent: the AI writes the text, and the pictures may still be on their way. The editor comes once both are there.
   const isWriting = listing.status === 'PROCESSING' && !listing.lastError;
+  // The AI at work in the editor (texts, etiquetas, pictures): saving now would keep half its work.
+  const [isTranslatingTags, setIsTranslatingTags] = useState(false);
+  const [isTranscribingTitle, setIsTranscribingTitle] = useState(false);
+  const [isTranscribingDescription, setIsTranscribingDescription] = useState(false);
+  const isAiWorking = isDrafting || isTranslatingTags || isTranscribingTitle || isTranscribingDescription || isAiOnPictures;
+  // The listing as editing began (a new one only once written): pictures are saved as they change, and "Cancelar" puts
+  // them back; so is the text of "Crear descripción", put back too.
+  const [opened, setOpened] = useState(isEditing ? listing : null);
+  useEffect(() => {
+    if (isEditing && !opened) setOpened(listing);
+  }, [isEditing, opened, listing]);
+  const [hasDraftedText, setHasDraftedText] = useState(false);
   // A video without a still doesn't count as a picture.
   const hasNoPhoto = listing.images.length === 0 && !listing.rawImages.some(pictureOf);
   // The person's OK to show their number, confirmed by the admin who creates the listing with them.
@@ -324,9 +343,29 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
     const changed = change && (await change(listing.id));
     if (changed && !changed.success) return setError(changed.message);
     if (targetStatus === 'LIVE' && !isEvent && onlineUntil !== savedOnlineUntil) await setAdminListingEnd(listing.id, onlineUntil);
-    const next = await getAdminListing(listing.id);
-    router.push(next?.status === 'LIVE' && next.product?.slug ? `/product/${next.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`);
+    router.push(listingPage(await getAdminListing(listing.id)));
   };
+
+  // Where the listing shows as visitors see it: its page once online, else the admin's preview.
+  const listingPage = (shown: AdminListing | null) =>
+    shown?.status === 'LIVE' && shown.product?.slug ? `/product/${shown.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`;
+
+  // "Cancelar": nothing typed is kept, what was saved on the way goes back, and the listing shows as it was.
+  const cancelChanges = () =>
+    startTransition(async () => {
+      if (!opened) return;
+      const picturesOf = ({ images, rawImages, aiImages }: AdminListing) => ({ images, rawImages, aiImages });
+      if (JSON.stringify(picturesOf(listing)) !== JSON.stringify(picturesOf(opened))) {
+        const restored = await saveAdminListingPictures(listing.id, picturesOf(opened));
+        if (!restored.success) return setError(restored.message);
+      }
+      if (hasDraftedText) {
+        const { rawText, textMode, originalTitle, type, title, shortTitle, description, translations, textVersions, price, priceMode, startsAt, address, placeId } = opened;
+        const restored = await restoreAdminListingText(listing.id, { rawText, textMode, originalTitle, type, title, shortTitle, description, translations, textVersions, price, priceMode, startsAt, address, placeId });
+        if (!restored.success) return setError(restored.message);
+      }
+      router.push(listingPage(listing));
+    });
 
   // "Prolongar 1 mes": an online listing's end moves a month on, saved at once.
   const extendMonth = () =>
@@ -352,7 +391,9 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       return null;
     }
     setError('');
-    setIsDrafting(true);
+    // Shown at once: inside Publicar's transition React would hold it until the whole save is done.
+    flushSync(() => setIsDrafting(true));
+    setHasDraftedText(true);
     const result = await draftAdminListingText(listing.id, {
       notes,
       title: shownText.title,
@@ -362,8 +403,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       priceMode,
       price,
       ...(isEvent && { startsAt, address }),
-    });
-    setIsDrafting(false);
+      // Also when the call fails, or saving would stay off.
+    }).finally(() => setIsDrafting(false));
     if (!('texts' in result && result.texts)) {
       setError(result.message);
       return null;
@@ -389,9 +430,10 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
     const current = { texts: draft, startsAt, price };
     if (isTextsComplete(draft)) return current;
     if (!hasOwnText) return createDescription();
-    setIsDrafting(true);
-    const result = await translateListingText(listing.id, { title: ownText!.title, description: ownText!.description, short: ownText!.short });
-    setIsDrafting(false);
+    flushSync(() => setIsDrafting(true));
+    const result = await translateListingText(listing.id, { title: ownText!.title, description: ownText!.description, short: ownText!.short }).finally(() =>
+      setIsDrafting(false)
+    );
     if (!('translations' in result && result.translations)) {
       setError(result.message);
       return null;
@@ -441,7 +483,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         )}
 
         {/* The only place for the text: one tab per language; the selected tab is the base "Crear descripción" works from. */}
-        <fieldset hidden={step !== 1} disabled={isDrafting || isWriting} className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'>
+        <fieldset hidden={step !== 1} disabled={isDrafting || isTranslatingTags || isWriting} className='space-y-3 rounded-3xl border border-border bg-card p-4 transition-opacity disabled:opacity-50 sm:p-5'>
           <div role='tablist' aria-label={texts.languagesLabel} className='flex flex-wrap gap-1'>
             {textLanguages.map(({ id, label }) => (
               <button
@@ -464,7 +506,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               <Label htmlFor='draft-title' className='px-1 pb-1 text-xs text-muted-foreground'>
                 {texts.titleLabel}
               </Label>
-              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('title')} className='h-9' />}
+              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('title')} onTranscribing={setIsTranscribingTitle} className='h-9' />}
             </div>
             <Input id='draft-title' value={shownText.title} onChange={(event) => setShownText('title')(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
           </div>
@@ -473,7 +515,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               <Label htmlFor='draft-description' className='px-1 pb-1 text-xs text-muted-foreground'>
                 {texts.descriptionLabel}
               </Label>
-              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('description')} className='h-9' />}
+              {!isWriting && <VoiceInputButton language={textLanguage} onText={addSpokenText('description')} onTranscribing={setIsTranscribingDescription} className='h-9' />}
             </div>
             <Textarea
               ref={descriptionInput}
@@ -506,6 +548,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               isDisabled={isWriting}
               texts={texts}
               onError={setError}
+              onTranslating={setIsTranslatingTags}
             />
           </div>
           <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
@@ -584,7 +627,16 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                 className='h-12 rounded-2xl bg-card text-base md:text-base'
               />
             </div>
-            <EventRepeatFields start={startsAt} isOn={isRepeating} onToggle={toggleRepeat} value={repeat} onChange={setRepeat} texts={texts} disabled={isWriting} />
+            <EventRepeatFields
+              start={startsAt}
+              isOn={isRepeating}
+              onToggle={toggleRepeat}
+              value={repeat}
+              onChange={setRepeat}
+              onStartChange={setStartsAt}
+              texts={texts}
+              disabled={isWriting}
+            />
           </div>
         )}
 
@@ -787,18 +839,25 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
 
         {/* The end of the setup on every step, so it can be finished from wherever the admin is. Not sticky: on phones a
             floating button jumped over the field with the keyboard open. */}
-        <div className='grid gap-3 sm:grid-cols-2'>
+        {/* Editing: Cancelar and Guardar on one line, Guardar below only where both labels don't fit. */}
+        <div className={cn('gap-3', isEditing ? 'flex flex-wrap' : 'grid sm:grid-cols-2')}>
           {/* Only on Contacto, next to the number it goes to: the person sees their listing first and gives their OK on
               their private page, instead of it going online. */}
           {isSendShown && (
-            <Button size='lg' variant='outline' className='w-full rounded-full' disabled={isPending} onClick={() => send(true)}>
+            <Button size='lg' variant='outline' className='w-full rounded-full' disabled={isPending || isAiWorking} onClick={() => send(true)}>
               <MessageCircle /> {texts.sendWhatsApp}
             </Button>
           )}
-          <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', !isSendShown && 'sm:col-span-2')} disabled={isPending || isWriting} onClick={() => send()}>
-              {isPending || isWriting ? <Loader2 className='animate-spin' /> : isEditing ? <Save /> : <Send />}{' '}
+          {/* What the AI is still making, or a photo still uploading, would be saved after leaving, over what was put back. */}
+          {isEditing && (
+            <Button size='lg' variant='outline' className='rounded-full px-5' disabled={isPending || isAiWorking || isUploadingPictures} onClick={cancelChanges}>
+              {texts.cancelChanges}
+            </Button>
+          )}
+          <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', isEditing ? 'flex-1 max-sm:px-4' : !isSendShown && 'sm:col-span-2')} disabled={isPending || isWriting || isAiWorking} onClick={() => send()}>
+              {isPending || isWriting || isAiWorking ? <Loader2 className='animate-spin' /> : isEditing ? <Save /> : <Send />}{' '}
             {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-            {isWriting ? texts.status_PROCESSING : isEditing ? texts.saveChanges : isHidden ? texts.saveHidden : texts.publishButton}
+            {isWriting || isAiWorking ? texts.status_PROCESSING : isEditing ? texts.saveChanges : isHidden ? texts.saveHidden : texts.publishButton}
           </Button>
         </div>
       </div>
