@@ -369,14 +369,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
             {chosenMercadillo && (
               <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
                 <PrepareSharePreview src={sharePicturePath(chosenMercadillo.slug)} />
-                {chosenMercadillo.image ? (
-                  <div aria-hidden className='absolute inset-0'>
-                    <ProductMedia src={chosenMercadillo.image} alt='' fill sizes='(min-width: 1280px) 80rem, 100vw' isStill />
-                    <div className='absolute inset-0 bg-gradient-to-b from-card/70 via-card/85 to-card' />
-                  </div>
-                ) : (
-                  <div aria-hidden className='absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-primary/20 to-transparent' />
-                )}
+                {/* The same for every selección: an older portada (before the icon) isn't shown, as it can't be changed. */}
+                <div aria-hidden className='absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-primary/20 to-transparent' />
                 <div className='absolute left-4 top-4 z-10'>{backToList}</div>
                 <div className='relative flex flex-col items-center gap-4 sm:gap-5'>
                   <MercadilloIcon

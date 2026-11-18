@@ -114,7 +114,7 @@ model Mercadillo {
   slug        String       @unique
   name        Json
   text        Json         @default("{}")
-  // Its page's picture; empty: one of its listings' pictures.
+  // Its portada from before the icon (#594): kept, no longer shown or edited.
   image       String?
   // The round picture next to its name, and what a shared link shows first.
   icon        String?

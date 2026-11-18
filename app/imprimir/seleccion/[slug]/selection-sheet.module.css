@@ -20,9 +20,10 @@
   padding: 5mm 0 4mm;
 }
 
+/* As tall as the QR box beside it: a few mm taller and a full first sheet loses its footer. */
 .icon {
-  width: 30mm;
-  height: 30mm;
+  width: 52mm;
+  height: 52mm;
   flex: none;
   border-radius: 999px;
   border: 0.4mm solid var(--line);

@@ -13,7 +13,7 @@ const SUN_BADGE = `<svg xmlns="http://www.w3.org/2000/svg" width="168" height="1
   </svg>
 </svg>`;
 
-/** What a shared Mercadillo shows: its icon, else its picture, else its first listing's. Hoy: its first listing's, with its sun. */
+/** What a shared Mercadillo shows: its icon, else its first listing's picture. Hoy: its first listing's, with its sun. */
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (slug === TODAY_SLUG) {
@@ -21,8 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     // A quiet day: the shop's own share picture, as on any other page.
     return sharePreviewResponse(first?.image ?? BRAND.ogImage ?? BRAND.logo, SUN_BADGE);
   }
-  const mercadillo = await prisma.mercadillo.findUnique({ where: { slug }, select: { id: true, image: true, icon: true } });
+  const mercadillo = await prisma.mercadillo.findUnique({ where: { slug }, select: { id: true, icon: true } });
   if (!mercadillo) return new Response(null, { status: 404 });
-  const picture = mercadillo.icon ?? mercadillo.image ?? (await getInStockRings({ mercadillos: { some: { id: mercadillo.id } } }))[0]?.image;
+  const picture = mercadillo.icon ?? (await getInStockRings({ mercadillos: { some: { id: mercadillo.id } } }))[0]?.image;
   return sharePreviewResponse(picture);
 }
