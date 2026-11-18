@@ -2,6 +2,13 @@ import sharp from 'sharp';
 import { absoluteUrl } from '@/lib/brand';
 import { SERVER_URL } from '@/lib/constants';
 
+/** A listing's link preview picture: its cover, or `picture` from its gallery. That one's file name in the address,
+    so a reordered or new photo isn't hidden behind the cached old one. */
+export const listingPreviewPath = (slug: string, images: string[], picture = 0) =>
+  picture > 0
+    ? `/product/${slug}/preview.jpg?foto=${picture}&v=${encodeURIComponent(images[picture].split('/').pop() ?? '')}`
+    : `/product/${slug}/preview.jpg`;
+
 const PREVIEW_SIZE = 800;
 const PREVIEW_QUALITY = 75;
 const BADGE_MARGIN = 32;

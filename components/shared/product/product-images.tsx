@@ -15,6 +15,7 @@ import AiPictureMark from './ai-picture-mark';
 import BrandStamp from './brand-stamp';
 import MovingPictures from './moving-pictures';
 import ringStyles from './product-ring.module.css';
+import { setShownPicture } from './shown-picture';
 import VideoSoundButton from './video-sound-button';
 
 // Long enough to look at each view, standing still, before it moves on to the next.
@@ -33,10 +34,12 @@ interface ProductImagesProps {
   phoneClassName?: string;
   /** How the pictures move from one to the next ('still': they wait for the visitor). */
   motion?: PictureMotion;
+  /** The picture shown first, e.g. the one a shared link chose (`?foto=`). */
+  startIndex?: number;
 }
 
-const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName, motion = 'mix' }: ProductImagesProps) => {
-  const [current, setCurrent] = useState(0);
+const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName, motion = 'mix', startIndex = 0 }: ProductImagesProps) => {
+  const [current, setCurrent] = useState(startIndex);
   const [isHovered, setIsHovered] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
@@ -69,6 +72,8 @@ const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName, motion = '
   useEffect(() => {
     setIsReducedMotion(prefersReducedMotion());
   }, []);
+
+  useEffect(() => setShownPicture(current), [current]);
 
   // The views follow each other quietly until the visitor takes over.
   useEffect(() => {

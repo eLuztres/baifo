@@ -4,6 +4,7 @@ import { Share2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { getShownPicture } from '@/components/shared/product/shown-picture';
 import { withLang } from '@/lib/i18n-core';
 import { cn } from '@/lib/utils';
 
@@ -14,18 +15,26 @@ interface ShareButtonProps {
   path?: string;
   /** A full button saying "Share", for where sharing is one of the main things to do. */
   isLabeled?: boolean;
+  /** A listing's link preview picture for each picture of its gallery: with them, the picture on screen is the one the link shows. */
+  previewPaths?: string[];
   className?: string;
 }
 
 /** Shares the page through the phone's share sheet (WhatsApp, …), or copies its link where there is none (most desktops). */
-export default function ShareButton({ title, path, isLabeled, className }: ShareButtonProps) {
+export default function ShareButton({ title, path, isLabeled, previewPaths, className }: ShareButtonProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
 
   const share = async () => {
+    const picture = previewPaths ? getShownPicture() : 0;
+    const pagePath = path ?? window.location.pathname;
     // Without the query (e.g. the filters someone came through): they mean nothing to the person it is sent to.
-    // The language stays: the link opens, and previews, in the language it was shared in.
-    const url = `${window.location.origin}${withLang(path ?? window.location.pathname, locale)}`;
+    // The language and the picture stay: the link opens, and previews, as it was shared.
+    const sharedPath = picture > 0 ? `${pagePath}?foto=${picture}` : pagePath;
+    const url = `${window.location.origin}${withLang(sharedPath, locale)}`;
+    // Made now, it is ready when WhatsApp asks for it (the first picture's already is, see PrepareSharePreview).
+    const preview = previewPaths?.[picture];
+    if (picture > 0 && preview) new Image().src = preview;
     if (navigator.share) {
       // Closing the share sheet rejects too; that is not an error.
       await navigator.share({ title, url }).catch(() => {});

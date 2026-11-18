@@ -38,7 +38,7 @@ import { isReservationActive } from '@/lib/reservation';
 import TagBadges from '@/components/shared/product/tag-badges';
 import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/localize';
-import { printableMedia } from '@/lib/print';
+import { parsePhoto, printableMedia } from '@/lib/print';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { repeatOf } from '@/lib/event-repeat';
@@ -49,6 +49,7 @@ import type { TranslationKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
 import { coverPicture } from '@/lib/video';
+import { listingPreviewPath } from '@/lib/share-preview';
 
 
 // generateMetadata and the page need the same row: one query per request. An admin also sees a listing that isn't
@@ -59,8 +60,8 @@ const getProduct = cache(
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
-  /** `from`: the filters of the listings page they came from, for the way back. */
-  searchParams: Promise<{ from?: string }>;
+  /** `from`: the filters of the listings page they came from, for the way back. `foto`: the picture a shared link shows. */
+  searchParams: Promise<{ from?: string; foto?: string }>;
 }
 
 // "Second hand" only where the seller's condition says so: a new or handmade item must not be called used.
@@ -72,13 +73,14 @@ function seoTitleKey({ type, condition }: { type: string; condition: string | nu
 }
 
 export async function generateMetadata(props: ProductPageProps) {
-  const { slug } = await props.params;
+  const [{ slug }, { foto }] = await Promise.all([props.params, props.searchParams]);
   const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
   if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
   const { name, description } = localizeProduct(product, locale);
   // An admin's look at a listing not online stays out of search engines.
   if (isAdminPreviewSlug(slug)) return { title: name, robots: { index: false } };
   const cover = coverPicture(product.images);
+  const picture = parsePhoto(foto, product.images.length);
   return {
     title: t(seoTitleKey(product), { name }),
     description: listingMetaDescription(description, t('PRODUCT_SEO_SUFFIX')) || undefined,
@@ -90,14 +92,14 @@ export async function generateMetadata(props: ProductPageProps) {
         title: name,
         description: metaDescription(description) || undefined,
         locale,
-        images: [{ url: absoluteUrl(`/product/${slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(listingPreviewPath(slug, product.images, picture), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     }),
   };
 }
 
 const ProductDetailsPage = async (props: ProductPageProps) => {
-  const [{ slug }, { from: fromFilters }] = await Promise.all([props.params, props.searchParams]);
+  const [{ slug }, { from: fromFilters, foto }] = await Promise.all([props.params, props.searchParams]);
 
   // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
   const [product, session, { t, locale }, summaries, [ownRing], placeIds] = await Promise.all([
@@ -162,6 +164,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const mapHref = product.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`;
 
   const path = `/product/${slug}`;
+  const previewPaths =
+    !isAdminPreviewSlug(slug) && coverPicture(product.images) ? product.images.map((_, index) => listingPreviewPath(slug, product.images, index)) : undefined;
   const price = SHOWS_PRICES ? product.price?.toString() : undefined;
   const pageSchema =
     isEvent && product.startsAt
@@ -195,7 +199,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           dangerouslySetInnerHTML={{ __html: jsonLd(schema) }}
         />
       ))}
-      {!isAdminPreviewSlug(slug) && coverPicture(product.images) && <PrepareSharePreview src={`/product/${slug}/preview.jpg`} />}
+      {previewPaths && <PrepareSharePreview src={previewPaths[0]} />}
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing}${fromFilters ? `?from=${encodeURIComponent(fromFilters)}` : ''}`} />}
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
@@ -221,6 +225,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
             phoneClassName={styles.phonePicture}
             motion={toPictureMotion(product.pictureMotion)}
+            startIndex={parsePhoto(foto, product.images.length)}
           />
         </div>
 
@@ -236,7 +241,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='line-clamp-2 text-xl leading-tight sm:line-clamp-none sm:text-3xl'>{name}</h1>
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
-                <ShareButton title={name} className={cn(phoneOnlyOnBig)} />
+                <ShareButton title={name} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
                 {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.images)} />}
               </div>
             </div>
@@ -339,7 +344,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       className='w-full'
                     />
                   )}
-                  <ShareButton title={name} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
+                  <ShareButton title={name} previewPaths={previewPaths} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
                 </div>
               </>
             ) : (
