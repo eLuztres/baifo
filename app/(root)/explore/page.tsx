@@ -24,7 +24,7 @@ import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
 import { getMercadillos, mercadilloIdsOf, pickRowSpots, spreadRowListings } from '@/lib/mercadillos';
-import { isInToday, TODAY_ID, todayListings, todaySelection } from '@/lib/today';
+import { isInToday, TODAY_ID, TODAY_SLUG, todayListings, todaySelection } from '@/lib/today';
 import { getTagOptions } from '@/lib/tags';
 import { getVisitorPlaceIds } from '@/lib/places';
 import { getScoutChoices } from '@/lib/scout-choices';
@@ -63,13 +63,18 @@ const SUGGESTION_TEXT_LENGTH = 400;
 // Without prices on show there is nothing to filter by.
 const PRICE_RANGES = SHOWS_PRICES ? priceRanges(PRICE_FILTER_STEPS) : [];
 
+const HOUR_MS = 60 * 60 * 1000;
+// Hoy's picture changes during the day: each hour gets its own link, so WhatsApp never shows an old one.
+const sharePicturePath = (slug: string) => `/seleccion/${slug}/preview.jpg${slug === TODAY_SLUG ? `?hora=${Math.floor(Date.now() / HOUR_MS)}` : ''}`;
+
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
   const [{ q, tipo, seleccion, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
   // A shared selección shows its own name, words and picture; an old Mercadillo link too.
   const chosenSlug = seleccion ?? mercadillo;
-  const shared = !q && !tipo && mercadillos.find((option) => option.slug === chosenSlug);
+  const isTodayShared = !q && !tipo && chosenSlug === TODAY_SLUG;
+  const shared = isTodayShared ? todaySelection(t('TODAY_NAME'), t('TODAY_TEXT'), 0, locale) : !q && !tipo && mercadillos.find((option) => option.slug === chosenSlug);
   if (shared) {
-    const title = t('MERCADILLO_NAMED', { name: localize(shared.name, locale) });
+    const title = isTodayShared ? t('TODAY_NAME') : t('MERCADILLO_NAMED', { name: localize(shared.name, locale) });
     const description = metaDescription(localize(shared.text, locale)) || undefined;
     return {
       title,
@@ -80,7 +85,7 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
         title,
         description,
         locale,
-        images: [{ url: absoluteUrl(`/seleccion/${shared.slug}/preview.jpg`, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(sharePicturePath(shared.slug), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     };
   }
@@ -363,8 +368,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
             {chosenMercadillo && (
               <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
-                {/* Hoy has no picture of its own to share. */}
-                {chosenMercadillo.id !== TODAY_ID && <PrepareSharePreview src={`/seleccion/${chosenMercadillo.slug}/preview.jpg`} />}
+                <PrepareSharePreview src={sharePicturePath(chosenMercadillo.slug)} />
                 {chosenMercadillo.image ? (
                   <div aria-hidden className='absolute inset-0'>
                     <ProductMedia src={chosenMercadillo.image} alt='' fill sizes='(min-width: 1280px) 80rem, 100vw' isStill />

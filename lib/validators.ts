@@ -3,6 +3,7 @@ import { LOCALES, type Locale, type TranslationKey } from './i18n-core';
 import { CLEAN_CONTACT, type ContactExtra } from './marketplace/contact-ways';
 import { fromShopDateTime } from './event-date';
 import { MONTHLY_BYS, REPEAT_FREQUENCIES } from './event-repeat';
+import { TODAY_SLUG } from './today';
 
 // Messages are translation keys (checked here at compile time); FormMessage and the Toaster
 // translate them. No env-based config is imported, because client forms use these schemas too.
@@ -21,7 +22,9 @@ export const mercadilloSchema = z.object({
   slug: z
     .string()
     .trim()
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, message('VALIDATION_SLUG_MIN')),
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, message('VALIDATION_SLUG_MIN'))
+    // Hoy's link: a selección with it could never be opened.
+    .refine((slug) => slug !== TODAY_SLUG, message('VALIDATION_SLUG_TODAY')),
   name: groupTextSchema('VALIDATION_GROUP_NAME', 60),
   // Optional: a Mercadillo can be just a name.
   text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_GROUP_TEXT'))),

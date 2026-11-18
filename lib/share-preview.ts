@@ -4,10 +4,11 @@ import { SERVER_URL } from '@/lib/constants';
 
 const PREVIEW_SIZE = 800;
 const PREVIEW_QUALITY = 75;
+const BADGE_MARGIN = 32;
 
 /** A picture made ready for link previews. Photos can be megabytes, too big for WhatsApp, which then shows the site's
-    icon instead; a preview also shows largest when it is square. */
-export async function sharePreviewResponse(picture?: string | null) {
+    icon instead; a preview also shows largest when it is square. `badge`: an SVG laid on its top left corner. */
+export async function sharePreviewResponse(picture?: string | null, badge?: string) {
   if (!picture) return new Response(null, { status: 404 });
   try {
     const photo = await fetch(absoluteUrl(picture, SERVER_URL));
@@ -15,6 +16,7 @@ export async function sharePreviewResponse(picture?: string | null) {
     const preview = await sharp(await photo.arrayBuffer())
       .rotate()
       .resize(PREVIEW_SIZE, PREVIEW_SIZE, { fit: 'cover', position: sharp.strategy.attention })
+      .composite(badge ? [{ input: Buffer.from(badge), top: BADGE_MARGIN, left: BADGE_MARGIN }] : [])
       .jpeg({ quality: PREVIEW_QUALITY, mozjpeg: true })
       .toBuffer();
     return new Response(new Uint8Array(preview), {

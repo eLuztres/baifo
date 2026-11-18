@@ -1,5 +1,6 @@
 import {
   insertReviewSchema,
+  mercadilloSchema,
   sellerLocaleSchema,
   sellerNameSchema,
   sellerPhoneSchema,
@@ -91,5 +92,16 @@ describe('sellerLocaleSchema', () => {
     expect(sellerLocaleSchema.parse('de')).toBe('de');
     expect(sellerLocaleSchema.parse('')).toBeNull();
     expect(sellerLocaleSchema.safeParse('xx').success).toBe(false);
+  });
+});
+
+describe('mercadilloSchema', () => {
+  const selection = { slug: 'magma', name: { es: 'Magma' }, text: {}, icon: null, contactPhone: '' };
+
+  it('refuses "hoy", the built-in Hoy\'s link', () => {
+    expect(mercadilloSchema.safeParse(selection).success).toBe(true);
+    const result = mercadilloSchema.safeParse({ ...selection, slug: 'hoy' });
+    expect(result.error?.issues[0]).toMatchObject({ path: ['slug'], message: 'VALIDATION_SLUG_TODAY' });
+    expect(mercadilloSchema.safeParse({ ...selection, slug: 'hoy-en-lajares' }).success).toBe(true);
   });
 });
