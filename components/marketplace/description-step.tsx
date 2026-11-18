@@ -833,7 +833,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                 {/* As it will look; a new choice shows from the next change on. */}
                 {motionPictures.length > 0 && (
                   <div className='aspect-[3/4] w-16 shrink-0 overflow-hidden rounded-xl bg-muted'>
-                    <MovingPictures images={motionPictures} alt='' motion={pictureMotion} sizes='4rem' turnMs={1800} hasCloseUps />
+                    <MovingPictures images={motionPictures} alt='' motion={pictureMotion} sizes='4rem' turnMs={1800} />
                   </div>
                 )}
               </div>

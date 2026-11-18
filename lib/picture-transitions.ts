@@ -26,13 +26,6 @@ const fadeAway = (from: HTMLElement, keyframes: Keyframe[], duration: number) =>
 export const PICTURE_TRANSITIONS: Record<PictureTransition, (scene: TransitionScene) => Promise<unknown>> = {
   soft: ({ to }) => to.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 1400, easing: EASE }).finished,
 
-  // The new picture settles from a little closer while the old one fades.
-  zoom: async ({ from, to }) => {
-    const away = fadeAway(from, [{ opacity: 1 }, { opacity: 0 }], 1400);
-    await to.animate([{ transform: 'scale(1.12)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }], { duration: 1400, easing: EASE }).finished;
-    away.cancel();
-  },
-
   // The new picture glides in from the side, the old one moves a little away.
   slide: async ({ from, to }) => {
     const away = fadeAway(from, [{ transform: 'translateX(0)', opacity: 1 }, { transform: 'translateX(-25%)', opacity: 0.4 }], 1300);

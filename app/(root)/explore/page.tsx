@@ -246,7 +246,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
           {isVideoUrl(listing.images[0]) ? (
             <ProductMedia src={listing.images[0]} alt={name} fill sizes={sizes} playsWhenVisible />
           ) : (
-            <MovingPictures images={listing.images.filter((image) => !isVideoUrl(image))} alt={name} motion={toPictureMotion(listing.pictureMotion)} sizes={sizes} turnMs={CARD_TURN_MS} hasCloseUps start={randomStart()} />
+            <MovingPictures images={listing.images.filter((image) => !isVideoUrl(image))} alt={name} motion={toPictureMotion(listing.pictureMotion)} sizes={sizes} turnMs={CARD_TURN_MS} start={randomStart()} />
           )}
           {pictureLabel && (
             <span className='absolute bottom-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-xl bg-background/90 px-2.5 py-1 text-xs font-medium shadow sm:bottom-3 sm:left-3'>

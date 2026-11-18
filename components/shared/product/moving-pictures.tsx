@@ -6,32 +6,9 @@ import { prefersReducedMotion } from '@/components/shared/home/one-page';
 import { transitionFor, type PictureMotion } from '@/lib/picture-motion';
 import { PICTURE_TRANSITIONS } from '@/lib/picture-transitions';
 import { cn } from '@/lib/utils';
-import { isVideoUrl } from '@/lib/video';
 
 // A picture that doesn't arrive in time is shown anyway, without waiting for it any longer.
 const LOAD_WAIT_MS = 3000;
-// A card with fewer photos also moves between close-ups of them: parts of the photo it already has, nothing new to load.
-const MIN_VIEWS = 3;
-const CLOSE_UPS = [
-  { x: 30, y: 35 },
-  { x: 70, y: 65 },
-];
-const CLOSE_UP_SCALE = 1.4;
-
-interface PictureView {
-  src: string;
-  /** A close-up: the point of the photo it zooms into, in %. */
-  focus?: { x: number; y: number };
-}
-
-/** The photos, plus close-ups of them while there are fewer than MIN_VIEWS; never of a video. */
-function viewsOf(images: string[], hasCloseUps: boolean): PictureView[] {
-  const views: PictureView[] = images.map((src) => ({ src }));
-  if (!hasCloseUps || images.length === 0 || images.some(isVideoUrl)) return views;
-  for (let k = 0; views.length < MIN_VIEWS; k++) views.push({ src: images[k % images.length], focus: CLOSE_UPS[k % CLOSE_UPS.length] });
-  return views;
-}
-
 interface MovingPicturesProps {
   images: string[];
   alt: string;
@@ -40,10 +17,8 @@ interface MovingPicturesProps {
   /** The picture to show; it changes with an animation. Missing: the pictures turn by themselves every `turnMs`. */
   index?: number;
   turnMs?: number;
-  /** Without `index`: any number, the view to begin with is this one modulo the views (e.g. a random one per card). */
+  /** Without `index`: any number, the picture to begin with is this one modulo the pictures (e.g. a random one per card). */
   start?: number;
-  /** The list: a listing with few photos moves between close-ups of them too. */
-  hasCloseUps?: boolean;
   priority?: boolean;
   /** E.g. `object-contain` for the whole picture. */
   imageClassName?: string;
@@ -67,11 +42,10 @@ async function whenReady(layer: HTMLElement) {
   await img.decode().catch(() => undefined);
 }
 
-/** A listing's pictures, one at a time, moving from one to the next as the listing chose. The browser does it with the
-    photos it already has: only the next one is loaded, while the one before it shows. */
-export default function MovingPictures({ images, alt, motion, sizes, index, turnMs, hasCloseUps = false, start = 0, priority, imageClassName, className, playsWhenVisible }: MovingPicturesProps) {
-  const views = viewsOf(images, hasCloseUps && motion !== 'still');
-  const [ownIndex, setOwnIndex] = useState(() => start % Math.max(views.length, 1));
+/** A listing's pictures, one at a time, moving from one to the next as the listing chose; between changes they stand
+    still. The browser does it with the photos it already has: only the next one is loaded, while the one before it shows. */
+export default function MovingPictures({ images, alt, motion, sizes, index, turnMs, start = 0, priority, imageClassName, className, playsWhenVisible }: MovingPicturesProps) {
+  const [ownIndex, setOwnIndex] = useState(() => start % Math.max(images.length, 1));
   const wanted = index ?? ownIndex;
   const [shown, setShown] = useState(wanted);
   const [mounted, setMounted] = useState(() => new Set([wanted]));
@@ -83,32 +57,16 @@ export default function MovingPictures({ images, alt, motion, sizes, index, turn
   const layers = useRef(new Map<number, HTMLDivElement>());
   const shownRef = useRef(wanted);
   const queue = useRef(Promise.resolve());
-  // Cards start at different changes of the mix, so neighbours don't all zoom at once.
+  // Cards start at different changes of the mix, so neighbours don't all change alike at once.
   const turns = useRef(Math.floor(Math.random() * 6));
   const isVisibleRef = useRef(false);
-  const count = views.length;
+  const count = images.length;
   const isMoving = motion !== 'still' && count > 1;
 
   const setLayer = useCallback((i: number) => (layer: HTMLDivElement | null) => {
     if (layer) layers.current.set(i, layer);
     else layers.current.delete(i);
   }, []);
-
-  // A slow drift on the picture that shows, so it never looks frozen.
-  const drift = useCallback(
-    (layer: HTMLElement | undefined, i: number) => {
-      const picture = layer?.querySelector('[data-drift]');
-      if (!picture || motion === 'still' || isVideoUrl(views[i]?.src ?? '') || prefersReducedMotion()) return;
-      const x = (Math.random() - 0.5) * 4;
-      const y = (Math.random() - 0.5) * 4;
-      picture.animate([{ transform: 'scale(1.02)' }, { transform: `scale(1.08) translate(${x}%, ${y}%)` }], {
-        duration: (turnMs ?? 6000) + 2000,
-        easing: 'linear',
-        fill: 'forwards',
-      });
-    },
-    [views, motion, turnMs]
-  );
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -120,10 +78,6 @@ export default function MovingPictures({ images, alt, motion, sizes, index, turn
     observer.observe(frame);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (isVisible) drift(layers.current.get(shownRef.current), shownRef.current);
-  }, [drift, isVisible]);
 
   // The next picture loads while this one shows, and only once it is on screen.
   useEffect(() => {
@@ -154,7 +108,6 @@ export default function MovingPictures({ images, alt, motion, sizes, index, turn
       if (!to || !frame || !fx || target === shownRef.current) return;
       await whenReady(to);
       const name = isVisibleRef.current && !prefersReducedMotion() ? transitionFor(motion, turns.current++) : null;
-      to.querySelector('[data-drift]')?.getAnimations().forEach((animation) => animation.cancel());
       if (from) from.style.zIndex = '1';
       to.style.zIndex = '2';
       to.style.opacity = '1';
@@ -162,38 +115,29 @@ export default function MovingPictures({ images, alt, motion, sizes, index, turn
       if (from) {
         from.style.opacity = '0';
         from.style.zIndex = '';
-        from.querySelector('[data-drift]')?.getAnimations().forEach((animation) => animation.cancel());
       }
       to.style.zIndex = '1';
       shownRef.current = target;
-      drift(to, target);
       setShown(target);
     });
-  }, [drift, motion, wanted]);
+  }, [motion, wanted]);
 
   return (
     <div ref={frameRef} className={cn('relative size-full overflow-hidden [perspective:1100px]', className)}>
-      {views.map(
-        ({ src, focus }, i) =>
+      {images.map(
+        (src, i) =>
           mounted.has(i) && (
             <div key={`${i}-${src}`} ref={setLayer(i)} data-index={i} className='absolute inset-0 overflow-hidden' style={{ opacity: i === firstIndex ? 1 : 0, zIndex: i === firstIndex ? 1 : 0 }}>
-              <div
-                className='absolute inset-0'
-                style={focus && { transform: `scale(${CLOSE_UP_SCALE})`, transformOrigin: `${focus.x}% ${focus.y}%` }}
-              >
-                <div data-drift className='absolute inset-0'>
-                  <ProductMedia
-                    src={src}
-                    alt={i === firstIndex ? alt : ''}
-                    fill
-                    sizes={sizes}
-                    priority={priority && i === firstIndex}
-                    loading={i === firstIndex ? undefined : 'eager'}
-                    className={imageClassName}
-                    playsWhenVisible={playsWhenVisible}
-                  />
-                </div>
-              </div>
+              <ProductMedia
+                src={src}
+                alt={i === firstIndex ? alt : ''}
+                fill
+                sizes={sizes}
+                priority={priority && i === firstIndex}
+                loading={i === firstIndex ? undefined : 'eager'}
+                className={imageClassName}
+                playsWhenVisible={playsWhenVisible}
+              />
             </div>
           )
       )}

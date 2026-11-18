@@ -17,7 +17,7 @@ import MovingPictures from './moving-pictures';
 import ringStyles from './product-ring.module.css';
 import VideoSoundButton from './video-sound-button';
 
-// Long enough to look at each view; it drifts slowly meanwhile, then moves on to the next.
+// Long enough to look at each view, standing still, before it moves on to the next.
 const TURN_MS = 4500;
 const TURN_BUTTON_CLASS =
   'size-14 rounded-full border-primary/40 text-primary hover:border-primary [&_svg]:size-6 max-sm:hidden';

@@ -5,8 +5,10 @@ describe('transitionFor', () => {
     expect([0, 1, 2].map((turn) => transitionFor('cube', turn))).toEqual(['cube', 'cube', 'cube']);
   });
 
-  it('takes a different change each turn in the mix', () => {
-    expect(new Set([0, 1, 2, 3, 4, 5].map((turn) => transitionFor('mix', turn))).size).toBe(6);
+  it('takes a different change each turn in the mix, never a zoom', () => {
+    const mix = [0, 1, 2, 3, 4].map((turn) => transitionFor('mix', turn));
+    expect(new Set(mix).size).toBe(5);
+    expect(mix).not.toContain('zoom');
   });
 
   it('makes no change for still pictures', () => {
@@ -19,5 +21,7 @@ describe('toPictureMotion', () => {
     expect(toPictureMotion('glitch')).toBe('mix');
     expect(toPictureMotion(null)).toBe('mix');
     expect(toPictureMotion('slices')).toBe('slices');
+    // Pictures no longer zoom: a listing saved with it gets the mix.
+    expect(toPictureMotion('zoom')).toBe('mix');
   });
 });
