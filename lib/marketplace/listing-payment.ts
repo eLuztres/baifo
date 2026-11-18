@@ -4,7 +4,7 @@ import { APP_NAME } from '@/lib/constants';
 import { HOUSE_SELLER, UNPAID_LISTING_HOURS } from './config';
 
 /** The consent text the person agreed to; change the date whenever its wording changes. */
-export const CONSENT_TEXT_VERSION = '2026-10-28';
+export const CONSENT_TEXT_VERSION = '2026-11-18';
 
 // 'admin-confirmed': the admin ticked that the person agreed, when creating the listing with them.
 export type ConsentSource = 'publish-page' | 'whatsapp-reply' | 'admin-confirmed';
