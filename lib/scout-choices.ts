@@ -9,10 +9,10 @@ type Translate = Awaited<ReturnType<typeof getT>>['t'];
 /** Their link preview picture. The photo's file name in the address: a new photo isn't hidden behind the cached old one. */
 export const scoutPreviewPath = (code: string, image: string) => `/s/${code}/preview.jpg?v=${encodeURIComponent(image.split('/').pop() ?? '')}`;
 
-/** The text a señalador's link, QR or choice writes in WhatsApp. Their link at the end makes WhatsApp show their photo;
-    without "https://" it reads shorter and still opens. */
+/** The text a señalador's link, QR or choice writes in WhatsApp. Their link at the end makes WhatsApp show their photo.
+    The whole address: without "https://" (and its redirects to the shop's host) an iPhone showed no photo (card 614). */
 export const scoutWhatsappMessage = (t: Translate, name: string, code: string) =>
-  t('SCOUT_WHATSAPP_MESSAGE', { shop: APP_NAME, name, code, url: `${SERVER_URL.replace(/^https?:\/\//, '')}/s/${code}` });
+  t('SCOUT_WHATSAPP_MESSAGE', { shop: APP_NAME, name, code, url: `${SERVER_URL}/s/${code}` });
 
 /** The señaladores to choose from before placing a listing. Their link in the message makes WhatsApp show their photo. */
 export async function getScoutChoices(t: Translate): Promise<ScoutChoice[]> {
