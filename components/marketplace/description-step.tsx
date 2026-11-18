@@ -839,8 +839,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
 
         {/* The end of the setup on every step, so it can be finished from wherever the admin is. Not sticky: on phones a
             floating button jumped over the field with the keyboard open. */}
-        {/* Editing: Cancelar and Guardar on one line, Guardar below only where both labels don't fit. */}
-        <div className={cn('gap-3', isEditing ? 'flex flex-wrap' : 'grid sm:grid-cols-2')}>
+        {/* Editing: Cancelar and Guardar half and half, so both fit one line on the narrowest phone. */}
+        <div className={cn('grid gap-3', isEditing ? 'grid-cols-2' : 'sm:grid-cols-2')}>
           {/* Only on Contacto, next to the number it goes to: the person sees their listing first and gives their OK on
               their private page, instead of it going online. */}
           {isSendShown && (
@@ -850,14 +850,21 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
           )}
           {/* What the AI is still making, or a photo still uploading, would be saved after leaving, over what was put back. */}
           {isEditing && (
-            <Button size='lg' variant='outline' className='rounded-full px-5' disabled={isPending || isAiWorking || isUploadingPictures} onClick={cancelChanges}>
-              {texts.cancelChanges}
+            <Button
+              size='lg'
+              variant='outline'
+              className='w-full min-w-0 rounded-full border-destructive/40 px-3 text-destructive hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive'
+              disabled={isPending || isAiWorking || isUploadingPictures}
+              onClick={cancelChanges}
+            >
+              <X /> {texts.cancelChanges}
             </Button>
           )}
-          <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', isEditing ? 'flex-1 max-sm:px-4' : !isSendShown && 'sm:col-span-2')} disabled={isPending || isWriting || isAiWorking} onClick={() => send()}>
+          <Button size='lg' className={cn('w-full rounded-full shadow-xl shadow-primary/20', isEditing ? 'min-w-0 px-3' : cn('max-sm:px-4', !isSendShown && 'sm:col-span-2'))} disabled={isPending || isWriting || isAiWorking} onClick={() => send()}>
               {isPending || isWriting || isAiWorking ? <Loader2 className='animate-spin' /> : isEditing ? <Save /> : <Send />}{' '}
             {/* While the AI works, the parts above say what it is doing; the button doesn't repeat them. */}
-            {isWriting || isAiWorking ? texts.status_PROCESSING : isEditing ? texts.saveChanges : isHidden ? texts.saveHidden : texts.publishButton}
+            {/* A long "La IA trabaja" in another language is cut, not spilled, in half a phone's row. */}
+            <span className='truncate'>{isWriting || isAiWorking ? texts.status_PROCESSING : isEditing ? texts.saveChanges : isHidden ? texts.saveHidden : texts.publishButton}</span>
           </Button>
         </div>
       </div>

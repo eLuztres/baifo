@@ -157,7 +157,7 @@ test.describe.serial('listing lifecycle', () => {
       await admin.goto(`/admin/listings/${id}?lang=es`);
       await admin.getByRole('button', { name: '2 Descripción' }).click();
       await admin.locator('#starts-at').fill(shopDateTime(5 * DAY));
-      await admin.getByRole('button', { name: 'Guardar cambios' }).click();
+      await admin.getByRole('button', { name: 'Guardar', exact: true }).click();
       await expect.poll(async () => (await findListing(id)).startsAt?.getTime()).toBeGreaterThan(before.startsAt!.getTime() + 2 * DAY);
       const listing = await findListing(id);
       expect(listing.expiresAt!.getTime()).toBeGreaterThan(before.expiresAt!.getTime() + 2 * DAY);
@@ -253,7 +253,7 @@ test.describe.serial('listing lifecycle', () => {
     await page.goto(`/admin/listings/${id}?lang=es`);
     await page.getByRole('button', { name: '4 Más' }).click();
     await page.locator('#listing-state').selectOption(status);
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(async () => (await findListing(id)).status).toBe(status);
   }
 
