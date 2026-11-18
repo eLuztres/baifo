@@ -725,7 +725,6 @@
   "PRINT_SELECTION_SCAN": "Scannen, um die Auswahl zu sehen, immer aktuell",
   "PRINT_SELECTION_EACH": "Jeder Code öffnet seine Anzeige",
   "PRINT_LISTING_SCAN": "Anzeige ansehen",
-  "PRINT_PAGE": "Seite {page} von {pages}",
   "MERCADILLO_LISTINGS": "Anzeigen · {count}",
   "MERCADILLO_LISTINGS_ADD": "Hinzufügen",
   "MERCADILLO_LISTINGS_EMPTY": "Noch keine Anzeigen.",

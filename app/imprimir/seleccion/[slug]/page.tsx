@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
+import { prisma } from '@/db/prisma';
 import WhatsAppQr from '@/components/shared/whatsapp-qr';
 import { type CollectionRing, getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { BRAND, EMAIL_COLORS } from '@/lib/brand';
@@ -10,7 +12,7 @@ import { withLang } from '@/lib/i18n-core';
 import { getT } from '@/lib/i18n-server';
 import { priceLabelKey } from '@/lib/listing-labels';
 import { localize, localizeProduct } from '@/lib/localize';
-import { getMercadillos, listingsOf } from '@/lib/mercadillos';
+import { listingsOf } from '@/lib/mercadillos';
 import { selectionSheets } from '@/lib/print';
 import { cn, formatPriceTag } from '@/lib/utils';
 import { pictureOf, throughSite } from '@/lib/video';
@@ -22,7 +24,8 @@ interface PrintSelectionPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const findSelection = async (slug: string) => (await getMercadillos()).find((selection) => selection.slug === slug);
+// Once per request, for the title and the page.
+const findSelection = cache((slug: string) => prisma.mercadillo.findUnique({ where: { slug }, include: { tags: { select: { id: true } } } }));
 
 export async function generateMetadata({ params }: PrintSelectionPageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -37,7 +40,7 @@ export default async function PrintSelectionPage({ params }: PrintSelectionPageP
   const [selection, { t, locale }] = await Promise.all([findSelection(slug), getT()]);
   if (!selection) notFound();
 
-  const listings = await getInStockRings(listingsOf(selection.id, selection.tagIds));
+  const listings = await getInStockRings(listingsOf(selection.id, selection.tags.map((tag) => tag.id)));
   const name = localize(selection.name, locale);
   const text = localize(selection.text, locale);
   const domain = new URL(SERVER_URL).host;
@@ -45,7 +48,7 @@ export default async function PrintSelectionPage({ params }: PrintSelectionPageP
   const priceOf = (listing: CollectionRing) => {
     if (!SHOWS_PRICES || !listing.price || listing.priceMode === 'NONE' || Number(listing.price) <= 0) return undefined;
     const label = priceLabelKey(listing.type, listing.priceMode);
-    return `${label ? `${t(label)} ` : ''}${formatPriceTag(Number(listing.price))}`;
+    return { label: label && t(label), amount: formatPriceTag(Number(listing.price)) };
   };
   const sheets = selectionSheets(listings);
 
@@ -95,7 +98,13 @@ export default async function PrintSelectionPage({ params }: PrintSelectionPageP
                           <CalendarDays aria-hidden /> {formatEventDate(listing.startsAt, locale, t('EVENT_TODAY'))}
                         </p>
                       )}
-                      {price && <p className={styles.price}>{price}</p>}
+                      {price && (
+                        <p className={styles.price}>
+                          {/* Small, on its own line: "Presupuesto hasta" at the price's size didn't fit beside the QR. */}
+                          {price.label && <span className={styles.priceLabel}>{price.label}</span>}
+                          {price.amount}
+                        </p>
+                      )}
                     </div>
                     <div className={styles.listingQr}>
                       <WhatsAppQr url={linkTo(`/product/${listing.slug}`)} label={t('PRINT_LISTING_SCAN')} className={printStyles.qrCode} />
@@ -109,7 +118,7 @@ export default async function PrintSelectionPage({ params }: PrintSelectionPageP
               <span>
                 {name} · {domain}
               </span>
-              {sheets.length > 1 && <span>{t('PRINT_PAGE', { page: index + 1, pages: sheets.length })}</span>}
+              {sheets.length > 1 && <span>{t('MERCADILLO_PAGE', { page: index + 1, pages: sheets.length })}</span>}
             </footer>
           </article>
         </div>

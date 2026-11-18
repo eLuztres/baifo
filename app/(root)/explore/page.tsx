@@ -389,7 +389,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                   {/* Print and share as two round icons, so "Contactar" (only with a phone) keeps the rest of the line. */}
                   <div className='flex w-full max-w-md items-center justify-center gap-3'>
                     {chosenMercadillo.id !== TODAY_ID && (
-                      <Button asChild variant='outline' size='icon' className='size-11 shrink-0 rounded-full' aria-label={t('PRINT_SELECTION')} title={t('PRINT_SELECTION')}>
+                      <Button asChild variant='outline' size='icon' className='size-11 shrink-0 rounded-full hover:text-primary' aria-label={t('PRINT_SELECTION')} title={t('PRINT_SELECTION')}>
                         <Link href={`/imprimir/seleccion/${chosenMercadillo.slug}`} prefetch={false}>
                           <Printer />
                         </Link>

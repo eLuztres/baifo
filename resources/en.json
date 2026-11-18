@@ -725,7 +725,6 @@
   "PRINT_SELECTION_SCAN": "Scan to see the selection, always up to date",
   "PRINT_SELECTION_EACH": "Each code opens its listing",
   "PRINT_LISTING_SCAN": "See listing",
-  "PRINT_PAGE": "Page {page} of {pages}",
   "MERCADILLO_LISTINGS": "Listings · {count}",
   "MERCADILLO_LISTINGS_ADD": "Add",
   "MERCADILLO_LISTINGS_EMPTY": "No listings yet.",
