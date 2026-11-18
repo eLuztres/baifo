@@ -36,27 +36,42 @@ describe('spreadRowListings', () => {
     const grid = spreadRowListings(listings, new Map([['surf', 36]]), 24);
     const others = grid.filter((listing) => listing.mercadilloIds.length === 0).map((listing) => listing.id);
     expect(others).toEqual(listings.filter((listing) => listing.mercadilloIds.length === 0).map((listing) => listing.id));
-    expect(grid.findIndex((listing) => listing.id === 'l30')).toBe(12);
+    expect(grid.findIndex((listing) => listing.id === 'l30')).toBe(11);
   });
 
-  it('leaves a listing to its row when the list is too short to put it far away', () => {
+  it('keeps a listing the list is too short to put far away, at the farthest place', () => {
     const grid = spreadRowListings(list(10, (index) => (index === 3 ? ['surf'] : [])), new Map([['surf', 5]]), 24);
-    expect(grid.map((listing) => listing.id)).not.toContain('l3');
-    expect(grid).toHaveLength(9);
+    expect(grid).toHaveLength(10);
+    expect(grid[0].id).toBe('l3');
+  });
+
+  it('keeps a listing in two selecciones away from both rows', () => {
+    const grid = spreadRowListings(list(60, (index) => (index === 0 ? ['a', 'b'] : [])), new Map([['a', 12], ['b', 48]]), 12);
+    expect(grid.findIndex((listing) => listing.id === 'l0')).toBe(24);
+  });
+
+  it('counts a row past the last card as at the end', () => {
+    const grid = spreadRowListings(list(30, (index) => (index === 29 ? ['surf'] : [])), new Map([['surf', 48]]), 12);
+    expect(grid.findIndex((listing) => listing.id === 'l29')).toBe(17);
   });
 });
 
-describe('spreadRowListings when some are left out', () => {
-  // As the page draws it: a row before the card at its spot, or after the last card.
-  const closest = (grid: { mercadilloIds: string[] }[], spots: Map<string, number>) =>
-    Math.min(...grid.flatMap((listing, slot) => listing.mercadilloIds.map((id) => Math.abs(slot - Math.min(spots.get(id)!, grid.length)))));
-
-  it('never leaves one close to its row after closing the gaps', () => {
+describe('spreadRowListings with more listings than far places', () => {
+  it('shows every listing once, however short the list', () => {
     for (const [count, spot, inRow] of [[60, 24, (index: number) => index % 2 === 0], [40, 12, (index: number) => index < 30], [30, 24, () => true]] as const) {
       const listings = Array.from({ length: count }, (_, index) => ({ id: `l${index}`, mercadilloIds: inRow(index) ? ['a'] : [] }));
-      const spots = new Map([['a', spot]]);
-      const grid = spreadRowListings(listings, spots, 24);
-      if (grid.some((listing) => listing.mercadilloIds.length > 0)) expect(closest(grid, spots)).toBeGreaterThanOrEqual(24);
+      const grid = spreadRowListings(listings, new Map([['a', spot]]), 24);
+      expect(grid.map((listing) => listing.id).sort()).toEqual(listings.map((listing) => listing.id).sort());
     }
+  });
+
+  it('gives the far places to the ones that fit there first, the closer ones to the rest', () => {
+    const listings = Array.from({ length: 40 }, (_, index) => ({ id: `l${index}`, mercadilloIds: index < 30 ? ['a'] : [] }));
+    const grid = spreadRowListings(listings, new Map([['a', 12]]), 24);
+    const distances = grid.flatMap((listing, slot) => (listing.mercadilloIds.length > 0 ? [Math.abs(slot - 12)] : []));
+    // Only slots 36–39 are 24 away; the others in the selección go as far as they can, the rest of the list closest to the row.
+    expect(distances.filter((distance) => distance >= 24)).toHaveLength(4);
+    expect(Math.min(...distances)).toBeGreaterThanOrEqual(5);
+    expect(grid.slice(10, 15).every((listing) => listing.mercadilloIds.length === 0)).toBe(true);
   });
 });
