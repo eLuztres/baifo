@@ -17,7 +17,7 @@ import { sellerIdentity } from '@/lib/marketplace/seller';
 import { isRateLimited } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/sign-in-limit';
 import { cn, formatPriceTag } from '@/lib/utils';
-import { parseCopies, photoPosition, printableMedia, printDescription, printParagraphs, printPhotos } from '@/lib/print';
+import { namedPhoto, parseCopies, printableMedia, printDescription, printParagraphs, printPhotos } from '@/lib/print';
 import { PrintToolbar } from './print-controls';
 import PrintSheets from './print-sheet';
 import styles from './print-sheet.module.css';
@@ -53,9 +53,9 @@ export default async function PrintListingPage({ params, searchParams }: PrintPa
 
   const copies = parseCopies(copias);
   const { name, description } = localizeProduct(product, locale);
-  // The pictures the listing showed this visitor, so `?foto=` is the one they chose.
-  const pictures = localizePictures(product.images, product.pictureLanguages, locale, getPictureFallbackLocales());
-  const photos = printPhotos(pictures);
+  // The photo chosen in the print pop-up, among all of them; else the first one this visitor's language shows.
+  const photo = namedPhoto(foto, printableMedia(product.images)) ?? printableMedia(localizePictures(product.images, product.pictureLanguages, locale, getPictureFallbackLocales()))[0];
+  const [printed] = printPhotos(photo ? [photo] : []);
   const phone = product.contactPhone ? await sellerPhone(product.id) : BRAND.contact.phone;
   const seller = product.submission && sellerIdentity(product.submission);
   const listingUrl = `${SERVER_URL}${withLang(`/product/${slug}`, locale)}`;
@@ -106,7 +106,7 @@ export default async function PrintListingPage({ params, searchParams }: PrintPa
           phone,
           scanLabel: t('PRINT_SCAN'),
           qr: <WhatsAppQr url={listingUrl} label={t('PRINT_SCAN')} className={styles.qrCode} />,
-          photo: photos[photoPosition(foto, printableMedia(pictures))],
+          photo: printed,
           videoLabel: t('PRINT_VIDEO'),
           paragraphs: printParagraphs(text.text),
           moreLabel: t('PRINT_MORE_IN_QR'),

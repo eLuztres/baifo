@@ -40,29 +40,31 @@ export default function ShareButton({ title, path, isLabeled, photos, previewPat
   const choosable = gallery.flatMap((src, index) => (pictureOf(src) ? [index] : []));
   const hasChoice = !!photos && (choosable.length > 1 || languages.length > 1);
 
-  // Made as soon as it is chosen, it is ready when WhatsApp asks for it (the first picture's already is, see PrepareSharePreview).
+  // Made as soon as it is chosen, it is ready when WhatsApp asks for it. The first one too: the page prepared its
+  // language's cover (PrepareSharePreview), which with pictures for some languages is another address.
   const choosePicture = (index: number) => {
     setPicture(index);
     const preview = previewPaths?.[index];
-    if (index > 0 && preview) new Image().src = preview;
+    if (preview) new Image().src = preview;
   };
 
   // Every opening starts from what is on screen: the picture shown and the page's language.
   const openChoice = (isOpen: boolean) => {
     setIsChoosing(isOpen);
     if (!isOpen) return;
-    const shown = getShownPicture();
+    const shown = gallery.indexOf(getShownPicture());
     choosePicture(choosable.includes(shown) ? shown : (choosable[0] ?? 0));
     setLang(locale);
   };
 
-  const share = async (sharedPicture: number, sharedLang: Locale) => {
+  const share = async (sharedPicture: number, sharedLang: Locale, isChosen = false) => {
     const pagePath = path ?? window.location.pathname;
     // Without the query (e.g. the filters someone came through): they mean nothing to the person it is sent to.
     // The picture and language stay: the link opens, and previews, as it was shared.
     // By its file name: each language can have pictures of its own, so a position could be another picture there.
+    // A chosen one always: the pop-up offers all the pictures, and the first of them may not be the link language's first.
     const photo = gallery[sharedPicture];
-    const isNamed = photo && (sharedPicture > 0 || sharedLang !== locale);
+    const isNamed = photo && (isChosen || sharedPicture > 0);
     const sharedPath = isNamed ? `${pagePath}?foto=${encodeURIComponent(photoName(photo))}` : pagePath;
     const url = `${window.location.origin}${withLang(sharedPath, sharedLang)}`;
     if (navigator.share) {
@@ -83,7 +85,7 @@ export default function ShareButton({ title, path, isLabeled, photos, previewPat
 
   const shareChoice = () => {
     setIsChoosing(false);
-    share(picture, lang);
+    share(picture, lang, true);
   };
 
   const button = isLabeled ? (

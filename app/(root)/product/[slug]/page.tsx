@@ -38,7 +38,7 @@ import { isReservationActive } from '@/lib/reservation';
 import TagBadges from '@/components/shared/product/tag-badges';
 import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/localize';
-import { photoPosition, printableMedia } from '@/lib/print';
+import { namedPhoto, printableMedia } from '@/lib/print';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { repeatOf } from '@/lib/event-repeat';
@@ -55,13 +55,20 @@ import { localizePictures, toPictureLanguages } from '@/lib/marketplace/pictures
 
 // generateMetadata and the page need the same row: one query per request. An admin also sees a listing that isn't
 // online (yet) here, at /product/vista-<id>, as visitors would.
-const getProduct = cache(async (slug: string) => {
+const getProduct = cache(async (slug: string, foto?: string) => {
   const product = (await getProductBySlug(slug)) ?? ((await getAdminProductPreview(slug)) as unknown as Awaited<ReturnType<typeof getProductBySlug>>);
   if (!product) return null;
-  // Only the pictures for the visitor's language; its shared previews name the language, to show the same ones.
+  // The pictures for the visitor's language, and a link's own photo (chosen among all on Share) first when it isn't one.
   const locale = await getLocale();
+  const shown = localizePictures(product.images, product.pictureLanguages, locale, getPictureFallbackLocales());
+  const named = namedPhoto(foto, product.images);
+  const images = named && !shown.includes(named) ? [named, ...shown] : shown;
   const hasPictureLanguages = Object.keys(toPictureLanguages(product.pictureLanguages)).length > 0;
-  return { ...product, images: localizePictures(product.images, product.pictureLanguages, locale, getPictureFallbackLocales()), previewLanguage: hasPictureLanguages ? locale : undefined };
+  // A named photo previews by its place among all, as Share prepared it; else this language's cover.
+  const previewPath = named
+    ? listingPreviewPath(slug, product.images, product.images.indexOf(named))
+    : listingPreviewPath(slug, images, 0, hasPictureLanguages ? locale : undefined);
+  return { ...product, images, allImages: product.images, startIndex: named ? images.indexOf(named) : 0, previewPath };
 });
 
 interface ProductPageProps {
@@ -80,13 +87,12 @@ function seoTitleKey({ type, condition }: { type: string; condition: string | nu
 
 export async function generateMetadata(props: ProductPageProps) {
   const [{ slug }, { foto }] = await Promise.all([props.params, props.searchParams]);
-  const [product, { t, locale }] = await Promise.all([getProduct(slug), getT()]);
+  const [product, { t, locale }] = await Promise.all([getProduct(slug, foto), getT()]);
   if (!product) return { title: t('PRODUCT_FALLBACK_TITLE') };
   const { name, description } = localizeProduct(product, locale);
   // An admin's look at a listing not online stays out of search engines.
   if (isAdminPreviewSlug(slug)) return { title: name, robots: { index: false } };
   const cover = coverPicture(product.images);
-  const picture = photoPosition(foto, product.images);
   return {
     title: t(seoTitleKey(product), { name }),
     description: listingMetaDescription(description, t('PRODUCT_SEO_SUFFIX')) || undefined,
@@ -98,7 +104,7 @@ export async function generateMetadata(props: ProductPageProps) {
         title: name,
         description: metaDescription(description) || undefined,
         locale,
-        images: [{ url: absoluteUrl(listingPreviewPath(slug, product.images, picture, product.previewLanguage), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(product.previewPath, SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     }),
   };
@@ -109,7 +115,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
   // Only the store's order (light) for the swipe to the next one, and this listing's own ring if it is in stock.
   const [product, session, { t, locale }, summaries, [ownRing], placeIds] = await Promise.all([
-    getProduct(slug),
+    getProduct(slug, foto),
     getSession(),
     getT(),
     getRingSummaries(),
@@ -170,8 +176,9 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   const mapHref = product.address && `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(product.address)}`;
 
   const path = `/product/${slug}`;
+  // Share offers every picture, whatever the language.
   const previewPaths =
-    !isAdminPreviewSlug(slug) && coverPicture(product.images) ? product.images.map((_, index) => listingPreviewPath(slug, product.images, index, product.previewLanguage)) : undefined;
+    !isAdminPreviewSlug(slug) && coverPicture(product.images) ? product.allImages.map((_, index) => listingPreviewPath(slug, product.allImages, index)) : undefined;
   const price = SHOWS_PRICES ? product.price?.toString() : undefined;
   const pageSchema =
     isEvent && product.startsAt
@@ -205,7 +212,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
           dangerouslySetInnerHTML={{ __html: jsonLd(schema) }}
         />
       ))}
-      {previewPaths && <PrepareSharePreview src={previewPaths[0]} />}
+      {previewPaths && <PrepareSharePreview src={product.previewPath} />}
       {nextRing && BRAND.hasSwipeToNext && <NextRingSwipe href={`/product/${nextRing}${fromFilters ? `?from=${encodeURIComponent(fromFilters)}` : ''}`} />}
       {/* Phones: one screen, the photo then title, price and buttons; the description opens in a pop-up. */}
       <div className='flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:gap-12'>
@@ -231,7 +238,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
             phoneClassName={styles.phonePicture}
             motion={toPictureMotion(product.pictureMotion)}
-            startIndex={photoPosition(foto, product.images)}
+            startIndex={product.startIndex}
           />
         </div>
 
@@ -247,8 +254,8 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='line-clamp-2 text-xl leading-tight sm:line-clamp-none sm:text-3xl'>{name}</h1>
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
-                <ShareButton title={name} photos={product.images} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
-                {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.images)} />}
+                <ShareButton title={name} photos={product.allImages} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
+                {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.allImages)} />}
               </div>
             </div>
             <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
@@ -350,7 +357,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       className='w-full'
                     />
                   )}
-                  <ShareButton title={name} photos={product.images} previewPaths={previewPaths} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
+                  <ShareButton title={name} photos={product.allImages} previewPaths={previewPaths} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
                 </div>
               </>
             ) : (

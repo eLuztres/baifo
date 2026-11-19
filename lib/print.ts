@@ -34,11 +34,9 @@ export function parsePhoto(param: string | undefined, count: number) {
 /** A photo's name in a link: its file name, the same whichever language's pictures it is among. */
 export const photoName = (url: string) => url.split('#')[0].split('/').pop() ?? '';
 
-/** ?foto=<file name> → that photo's place among `media`; older links' ?foto=2 → the third; else the first.
-    A photo not shown in the link's language opens the first. */
-export function photoPosition(param: string | undefined, media: string[]) {
-  const named = media.findIndex((url) => photoName(url) === param);
-  return named >= 0 ? named : parsePhoto(param, media.length);
+/** The photo a link's ?foto= names among `media`: by its file name, or by its place in older links (?foto=2, the third). */
+export function namedPhoto(param: string | undefined, media: string[]): string | undefined {
+  return media.find((url) => photoName(url) === param) ?? (param && /^\d+$/.test(param) ? media[Number(param)] : undefined);
 }
 
 // Half and quarter sheets print the text too small to read when it is long: they keep its start and send to the QR.

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { type Locale, type TranslationKey } from '@/lib/i18n-core';
 import { photoName, PRINT_COPIES, type PrintCopies } from '@/lib/print';
+import { getShownPicture } from './shown-picture';
 import { cn } from '@/lib/utils';
 import PhotoLanguageChoice, { CHOICE_TILE, choiceHint, useShopLanguages } from './photo-language-choice';
 
@@ -54,7 +55,8 @@ export default function PrintButton({ slug, label, photos, className }: PrintBut
   const startOver = (isOpen: boolean) => {
     if (!isOpen) return;
     setCopies(null);
-    setPhoto(0);
+    // The picture on screen, as on Share: the first of all the pictures may be another language's.
+    setPhoto(Math.max(0, photos.indexOf(getShownPicture())));
     setLang(locale);
   };
 

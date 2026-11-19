@@ -73,7 +73,7 @@ const ProductImages = ({ images, alt, stamp, aiLabel, phoneClassName, motion = '
     setIsReducedMotion(prefersReducedMotion());
   }, []);
 
-  useEffect(() => setShownPicture(current), [current]);
+  useEffect(() => setShownPicture(images[current] ?? ''), [current, images]);
 
   // The views follow each other quietly until the visitor takes over.
   useEffect(() => {
