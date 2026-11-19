@@ -1,8 +1,18 @@
 import { createUploadthing, type FileRouter } from 'uploadthing/next';
 import { UploadThingError } from 'uploadthing/server';
 import { auth } from '@/auth';
+import { getSignedInPartner } from '@/lib/partner-access';
 
 const f = createUploadthing();
+
+/** The admin, or a partner in its panel (its listing editor uploads photos and videos too). */
+async function uploaderOf() {
+  const session = await auth();
+  if (session?.user?.role === 'admin') return { userId: session.user.id };
+  const partner = await getSignedInPartner();
+  if (partner) return { userId: `partner:${partner.id}` };
+  throw new UploadThingError('Unauthorized');
+}
 
 export const ourFileRouter = {
   imageUploader: f({
@@ -12,10 +22,8 @@ export const ourFileRouter = {
   })
 
     .middleware(async () => {
-      // Only the admin product tools upload; customers could otherwise fill the shop's storage.
-      const session = await auth();
-      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
-      return { userId: session.user.id };
+      // Only the admin product tools and a partner's listing editor upload; customers could otherwise fill the shop's storage.
+      return uploaderOf();
     })
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };
@@ -25,11 +33,7 @@ export const ourFileRouter = {
     'image/jpeg': { maxFileSize: '4MB', maxFileCount: 8 },
     'image/png': { maxFileSize: '4MB', maxFileCount: 8 },
   })
-    .middleware(async () => {
-      const session = await auth();
-      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
-      return { userId: session.user.id };
-    })
+    .middleware(uploaderOf)
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };
     }),
@@ -39,11 +43,7 @@ export const ourFileRouter = {
     'video/quicktime': { maxFileSize: '64MB', maxFileCount: 2 },
     'video/webm': { maxFileSize: '64MB', maxFileCount: 2 },
   })
-    .middleware(async () => {
-      const session = await auth();
-      if (session?.user?.role !== 'admin') throw new UploadThingError('Unauthorized');
-      return { userId: session.user.id };
-    })
+    .middleware(uploaderOf)
     .onUploadComplete(async ({ metadata }) => {
       return { uploadedBy: metadata.userId };
     }),

@@ -48,6 +48,16 @@ export async function getMercadilloContact(mercadilloId: string) {
   return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
 }
 
+/** The WhatsApp link of a partner's mercadillo, under the same rules: fetched on a click and limited per IP. */
+export async function getPartnerContact(partnerId: string) {
+  const id = z.string().uuid().safeParse(partnerId);
+  if (!id.success) return null;
+  if (await isRateLimited(CONTACT_LIMIT, clientIp(await headers()))) return { isRateLimited: true } as const;
+  const partner = await prisma.partner.findUnique({ where: { id: id.data }, select: { contactPhone: true } });
+  const digits = partner?.contactPhone?.replace(/\D/g, '');
+  return digits ? { whatsappUrl: `https://wa.me/${digits}` } : null;
+}
+
 // Delete a product
 export async function deleteProduct(id: string) {
   try {

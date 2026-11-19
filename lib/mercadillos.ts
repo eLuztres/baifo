@@ -6,6 +6,16 @@ export const listingsOf = (id: string, tagIds: string[]): Prisma.ProductWhereInp
   OR: [{ mercadillos: { some: { id } } }, { submission: { tags: { some: { id: { in: tagIds } } } } }],
 });
 
+/** A listing in a "Solo aquí" selección, chosen by hand or through an etiqueta: it shows only there (and in Hoy). */
+export const apartListingsWhere: Prisma.ProductWhereInput = {
+  OR: [{ mercadillos: { some: { isApart: true } } }, { submission: { tags: { some: { mercadillos: { some: { isApart: true } } } } } }],
+};
+
+/** The same for a listing that isn't online yet. */
+export const apartSubmissionWhere: Prisma.SubmissionWhereInput = {
+  OR: [{ mercadillos: { some: { isApart: true } } }, { tags: { some: { mercadillos: { some: { isApart: true } } } } }],
+};
+
 /** Every selección (Mercadillo) in the shop's order, with its etiquetas and how many listings it holds. */
 export const getMercadillos = async () => {
   const mercadillos = await prisma.mercadillo.findMany({
@@ -16,16 +26,21 @@ export const getMercadillos = async () => {
   return mercadillos.map(({ tags, ...mercadillo }, index) => ({ ...mercadillo, tagIds: tags.map((tag) => tag.id), _count: { products: counts[index] } }));
 };
 
-/** The selecciones a listing is in: the ones it was chosen for by hand, and every one holding one of its etiquetas. */
-export const mercadilloIdsOf = (chosenIds: string[], tagIds: string[], mercadillos: { id: string; tagIds: string[] }[]) => [
-  ...new Set([...chosenIds, ...mercadillos.filter((mercadillo) => mercadillo.tagIds.some((id) => tagIds.includes(id))).map((mercadillo) => mercadillo.id)]),
-];
+/**
+ * The selecciones a listing is in: the ones it was chosen for by hand, and every one holding one of its etiquetas.
+ * One in a "Solo aquí" selección is only in those.
+ */
+export const mercadilloIdsOf = (chosenIds: string[], tagIds: string[], mercadillos: { id: string; tagIds: string[]; isApart: boolean }[]) => {
+  const ids = new Set([...chosenIds, ...mercadillos.filter((mercadillo) => mercadillo.tagIds.some((id) => tagIds.includes(id))).map((mercadillo) => mercadillo.id)]);
+  const apart = mercadillos.filter((mercadillo) => mercadillo.isApart && ids.has(mercadillo.id)).map((mercadillo) => mercadillo.id);
+  return apart.length > 0 ? apart : [...ids];
+};
 
 /** What a listing's page shows of its selecciones: `chosen` finds the ones chosen by hand, `tagIds` are its etiquetas. */
 export const getListingMercadillos = (chosen: Prisma.MercadilloWhereInput, tagIds: string[]) =>
   prisma.mercadillo.findMany({
     where: { OR: [chosen, { tags: { some: { id: { in: tagIds } } } }] },
-    select: { slug: true, name: true, icon: true },
+    select: { slug: true, name: true, icon: true, isApart: true },
     orderBy: { sortOrder: 'asc' },
   });
 

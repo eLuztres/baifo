@@ -64,9 +64,17 @@ describe('getInStockRings', () => {
     findMany.mockResolvedValue([]);
     await getInStockRings();
     const { where } = findMany.mock.calls[0][0];
-    const [bySubmission, byOwnEnd] = where.NOT.OR;
-    expect(bySubmission.submission.is.expiresAt.lte).toBeInstanceOf(Date);
-    expect(byOwnEnd).toMatchObject({ submission: { is: null }, expiresAt: { lte: expect.any(Date) } });
+    const [bySubmission, byOwnEnd] = where.AND;
+    expect(bySubmission.OR[1].submission.is.OR[1].expiresAt.gt).toBeInstanceOf(Date);
+    expect(byOwnEnd.NOT).toMatchObject({ submission: { is: null }, expiresAt: { lte: expect.any(Date) } });
+  });
+
+  it('keeps a listing without an end, e.g. one in a "Solo aquí" selección', async () => {
+    findMany.mockResolvedValue([]);
+    await getInStockRings();
+    const { where } = findMany.mock.calls[0][0];
+    // A NOT on its end would be NULL in SQL and drop it: the end may be missing or still ahead.
+    expect(where.AND[0].OR).toEqual([{ submission: { is: null } }, { submission: { is: { OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }] } } }]);
   });
 
   it('narrows the rings in stock without loosening them', async () => {

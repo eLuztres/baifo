@@ -22,8 +22,12 @@ import { APP_NAME, SERVER_URL, LISTING_TYPE_KEYS, PRICE_FILTER_STEPS, SHOWS_PRIC
 import { feedCardLabels } from '@/lib/listing-labels';
 import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
-import { getMercadilloContactMessage } from '@/lib/marketplace/contact-texts';
-import { getMercadillos, mercadilloIdsOf, pickRowSpots, spreadRowListings } from '@/lib/mercadillos';
+import { getMercadilloContactMessage, getPartnerContactMessage } from '@/lib/marketplace/contact-texts';
+import { getPartners, partnerPath } from '@/lib/partners';
+import PartnerCard from '@/components/shared/partner-card';
+import PartnerHero from '@/components/shared/partner-hero';
+import { getMercadillos, mercadilloIdsOf, pickRowSpots, spreadRowListings, type Mercadillo } from '@/lib/mercadillos';
+import { formatShortDay } from '@/lib/event-date';
 import { isInToday, TODAY_ID, TODAY_SLUG, todayListings, todaySelection } from '@/lib/today';
 import { getTagOptions } from '@/lib/tags';
 import { getVisitorPlaceIds } from '@/lib/places';
@@ -46,8 +50,9 @@ import { cn, formatNumber, formatPriceTag } from '@/lib/utils';
 import { freshMix, MIX_COOKIE, readMixSeed, seededRank } from '@/lib/fresh-mix';
 
 interface ExplorePageProps {
-  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `seleccion` one selección's listings, `etiqueta` one etiqueta's. `categoria`, `c` and `mercadillo` are older links; `desde=admin` sends the way back to the admin. */
-  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; seleccion?: string; mercadillo?: string; c?: string; etiqueta?: string; desde?: string }>;
+  /** `q` the typed search, `tipo` kinds of listing (comma separated), `precio` a price range, `seleccion` one selección's listings, `etiqueta` one etiqueta's. `categoria`, `c` and `mercadillo` are older links; `desde=admin` sends the way back to the admin.
+      `socio` is a partner's mercadillo, set by its own page (/mercadillo/<slug>). */
+  searchParams: Promise<{ q?: string; tipo?: string; precio?: string; categoria?: string; seleccion?: string; mercadillo?: string; c?: string; etiqueta?: string; desde?: string; socio?: string }>;
 }
 
 type Listing = Awaited<ReturnType<typeof getInStockRings>>[number];
@@ -64,11 +69,28 @@ const SUGGESTION_TEXT_LENGTH = 400;
 const PRICE_RANGES = SHOWS_PRICES ? priceRanges(PRICE_FILTER_STEPS) : [];
 
 const HOUR_MS = 60 * 60 * 1000;
-// Hoy's picture changes during the day: each hour gets its own link, so WhatsApp never shows an old one.
-const sharePicturePath = (slug: string) => `/seleccion/${slug}/preview.jpg${slug === TODAY_SLUG ? `?hora=${Math.floor(Date.now() / HOUR_MS)}` : ''}`;
+const DAY_MS = 24 * HOUR_MS;
+// Hoy's picture changes during the day, a "Solo aquí" selección's every day (its newest): each gets its own link, so WhatsApp never shows an old one.
+const sharePicturePath = ({ slug, isApart }: Pick<Mercadillo, 'slug' | 'isApart'>) =>
+  `/seleccion/${slug}/preview.jpg${slug === TODAY_SLUG ? `?hora=${Math.floor(Date.now() / HOUR_MS)}` : isApart ? `?dia=${Math.floor(Date.now() / DAY_MS)}` : ''}`;
+
+// A "Solo aquí" selección keeps no mix: its newest listing first.
+const newestFirst = <T extends { createdAt: Date }>(listings: T[]) => [...listings].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
 export async function generateMetadata({ searchParams }: ExplorePageProps): Promise<Metadata> {
-  const [{ q, tipo, seleccion, mercadillo, etiqueta }, { t, locale }, mercadillos, tags] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions()]);
+  const [{ q, tipo, seleccion, mercadillo, etiqueta, socio }, { t, locale }, mercadillos, tags, partners] = await Promise.all([searchParams, getT(), getMercadillos(), getTagOptions(), getPartners()]);
+  // A partner's mercadillo page shows its own name, words and sign when shared.
+  const sharedPartner = socio && partners.find((partner) => partner.slug === socio);
+  if (sharedPartner) {
+    const title = t('PARTNER_NAMED', { name: localize(sharedPartner.name, locale) });
+    const description = metaDescription(localize(sharedPartner.text, locale)) || undefined;
+    return {
+      title,
+      description,
+      alternates: await pageAlternates(partnerPath(sharedPartner.slug)),
+      openGraph: { siteName: BRAND.name, title, description, locale, ...(sharedPartner.icon && { images: [absoluteUrl(sharedPartner.icon, SERVER_URL)] }) },
+    };
+  }
   // A shared selección shows its own name, words and picture; an old Mercadillo link too.
   const chosenSlug = seleccion ?? mercadillo;
   const isTodayShared = !q && !tipo && chosenSlug === TODAY_SLUG;
@@ -85,7 +107,7 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
         title,
         description,
         locale,
-        images: [{ url: absoluteUrl(sharePicturePath(shared.slug), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(sharePicturePath(shared), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     };
   }
@@ -105,20 +127,25 @@ export async function generateMetadata({ searchParams }: ExplorePageProps): Prom
 
 /** The whole marketplace as one list: search and filters on one line, then each listing's picture, title and price. */
 export default async function ExplorePage({ searchParams }: ExplorePageProps) {
-  const [{ q = '', tipo, precio, categoria, seleccion, mercadillo, c, etiqueta, desde }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore] = await Promise.all([
+  const [{ q = '', tipo, precio, categoria, seleccion, mercadillo, c, etiqueta, desde, socio }, { t, locale }, storedListings, placeIds, mercadillos, cookieStore, partners] = await Promise.all([
     searchParams,
     getT(),
     getInStockRings(),
     getVisitorPlaceIds(),
     getMercadillos(),
     cookies(),
+    getPartners(),
   ]);
   // Not always the newest on top: each visitor's own order, new every few hours.
   const mixSeed = readMixSeed(cookieStore.get(MIX_COOKIE)?.value);
   // A listing is in a selección chosen by hand, or through one of its etiquetas; and in Hoy while it's new or its event is today.
   const allListings = freshMix(storedListings, mixSeed).map((listing) => ({
     ...listing,
-    mercadilloIds: [...mercadilloIdsOf(listing.mercadilloIds, listing.tags.map((tag) => tag.id), mercadillos), ...(isInToday(listing) ? [TODAY_ID] : [])],
+    // A partner's listing is in a selección only when the admin put it there by hand, never through the partner's etiquetas.
+    mercadilloIds: [
+      ...mercadilloIdsOf(listing.mercadilloIds, listing.partnerId ? [] : listing.tags.map((tag) => tag.id), mercadillos),
+      ...(isInToday(listing) && !listing.partnerId ? [TODAY_ID] : []),
+    ],
   }));
   const currentLink = currentExploreLink({ c, categoria, mercadillo });
   if (currentLink) redirect(currentLink);
@@ -126,6 +153,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const texts = adminTexts(locale);
   const now = new Date();
   const listings = inPlaces(allListings, placeIds);
+  // A "Solo aquí" selección's listings show only in it and in Hoy: never in the grid, the search or another selección.
+  const apartIds = new Set(mercadillos.filter((mercadillo) => mercadillo.isApart).map((mercadillo) => mercadillo.id));
+  const isApartListing = (listing: { mercadilloIds: string[] }) => listing.mercadilloIds.some((id) => apartIds.has(id));
+  // A partner's mercadillo shows its listings on its own page; the plain list has its card instead.
+  const feedListings = listings.filter((listing) => !isApartListing(listing) && !listing.partnerId);
   const sellerNames = await getSellerNames(listings.map((listing) => listing.id));
   const todayCount = listings.filter((listing) => listing.mercadilloIds.includes(TODAY_ID)).length;
   // Hoy goes first, and only while it has listings.
@@ -150,11 +182,14 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
   const words = queryWords(q);
   const chosenMercadillo = selecciones.find((option) => option.slug === seleccion);
+  const chosenPartner = !chosenMercadillo ? partners.find((partner) => partner.slug === socio) : undefined;
   // A chosen etiqueta shows exactly the listings that carry it.
-  const chosenTag = findTagByParam(listings.flatMap((listing) => listing.tags), etiqueta);
-  const inChosen = inScopeOf(listings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
+  const chosenTag = findTagByParam(feedListings.flatMap((listing) => listing.tags), etiqueta);
+  const inChosen = chosenPartner
+    ? listings.filter((listing) => listing.partnerId === chosenPartner.id)
+    : inScopeOf(chosenMercadillo ? listings : feedListings, { mercadilloId: chosenMercadillo?.id, tagId: chosenTag?.id });
   // Hoy keeps its own order: today's events first, then the newest.
-  const inScope = chosenMercadillo?.id === TODAY_ID ? todayListings(inChosen) : inChosen;
+  const inScope = chosenMercadillo?.id === TODAY_ID ? todayListings(inChosen) : chosenMercadillo?.isApart ? newestFirst(inChosen) : inChosen;
   const found = words.length > 0 ? mainMatches(inScope, searchTextOf, words) : inScope;
   const chosenFilters = chosenTypeFilters(tipo);
   const types = chosenFilters.flatMap((filter) => filter.types);
@@ -163,11 +198,13 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const shown = chosenRange ? ofType.filter((listing) => isInPriceRange(listing.price, chosenRange)) : ofType;
 
   // Only the plain list has rows: a search or filter shows every match in the grid.
-  const isPlainList = !chosenMercadillo && !chosenTag && words.length === 0 && types.length === 0 && !chosenRange;
+  const isPlainList = !chosenMercadillo && !chosenPartner && !chosenTag && words.length === 0 && types.length === 0 && !chosenRange;
   const rows = isPlainList
     ? selecciones
-        .map((option) => ({ mercadillo: option, listings: shown.filter((listing) => listing.mercadilloIds.includes(option.id)) }))
-        .map((row) => (row.mercadillo.id === TODAY_ID ? { ...row, listings: todayListings(row.listings) } : row))
+        .map((option) => ({ mercadillo: option, listings: listings.filter((listing) => listing.mercadilloIds.includes(option.id)) }))
+        .map((row) =>
+          row.mercadillo.id === TODAY_ID ? { ...row, listings: todayListings(row.listings) } : row.mercadillo.isApart ? { ...row, listings: newestFirst(row.listings) } : row
+        )
         .filter((row) => row.listings.length > 0)
     : [];
   // Hoy's row is always the first thing in the list; the others keep their random spots.
@@ -178,11 +215,19 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const gridListings = isPlainList ? spreadRowListings(shown, new Map(rows.map((row, index) => [row.mercadillo.id, rowSpots[index]]))) : shown;
   const rowsAt = (spot: number) => rows.filter((_, index) => rowSpots[index] === spot);
   const rowsAfterGrid = rows.filter((_, index) => rowSpots[index] >= gridListings.length);
+  // Each partner's mercadillo is one card in the plain list, at its own random spot, while it has listings to show.
+  const partnerCards = isPlainList
+    ? partners.map((partner) => ({ partner, listings: listings.filter((listing) => listing.partnerId === partner.id) })).filter((card) => card.listings.length > 0)
+    : [];
+  const partnerSpots = pickRowSpots(gridListings.length, partnerCards.length, seededRank(mixSeed), partnerCards.map((card) => `partner-${card.partner.id}`));
+  const partnerCardsAt = (spot: number) => partnerCards.filter((_, index) => partnerSpots[index] === spot);
+  const partnerCardsAfterGrid = partnerCards.filter((_, index) => partnerSpots[index] >= gridListings.length);
 
   // A listing's way back returns to these same filters.
-  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, seleccion, etiqueta }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
+  const activeFilters = new URLSearchParams(Object.entries({ q, tipo, precio, seleccion, etiqueta, socio: chosenPartner?.slug }).filter((entry): entry is [string, string] => Boolean(entry[1]))).toString();
   const hrefOf = (listing: Listing) => `/product/${listing.slug}${activeFilters ? `?from=${encodeURIComponent(activeFilters)}` : ''}`;
-  const searchListings: SearchListing[] = listings.map((listing) => {
+  // On a partner's page the search stays there and finds its listings; the kinds and etiquetas would lead away.
+  const searchListings: SearchListing[] = (chosenPartner ? inChosen : feedListings).map((listing) => {
     const text = searchTextOf(listing);
     return {
       href: hrefOf(listing),
@@ -191,7 +236,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       text: { names: text.names, rest: text.rest.slice(0, SUGGESTION_TEXT_LENGTH) },
     };
   });
-  const searchChoices: SearchChoice[] = TYPE_FILTERS.map((filter) => ({ filter, count: listings.filter((listing) => filter.types.includes(listing.type)).length }))
+  const searchChoices: SearchChoice[] = TYPE_FILTERS.map((filter) => ({ filter, count: feedListings.filter((listing) => filter.types.includes(listing.type)).length }))
     .filter(({ count }) => count > 0)
     .map(({ filter, count }) => ({
       href: `/explore?tipo=${filter.params[0]}`,
@@ -201,7 +246,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     }));
   // Every etiqueta on a listing, once, with how many listings carry it; found by its name in any language.
   const tagCounts = new Map<string, { tag: Listing['tags'][number]; count: number }>();
-  for (const tag of listings.flatMap((listing) => listing.tags)) tagCounts.set(tag.id, { tag, count: (tagCounts.get(tag.id)?.count ?? 0) + 1 });
+  for (const tag of feedListings.flatMap((listing) => listing.tags)) tagCounts.set(tag.id, { tag, count: (tagCounts.get(tag.id)?.count ?? 0) + 1 });
   const searchTags: SearchChoice[] = [...tagCounts.values()].map(({ tag, count }) => ({
     href: tagHref(tag.names, locale),
     label: tagNameIn(tag.names, locale),
@@ -234,8 +279,12 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
     const priceTag = listing.price && !hasNoAmount ? formatPriceTag(Number(listing.price)) : labels.priceText;
     const priceLabel = priceTag && (listing.type === 'WANTED' && labels.priceLabel ? t('PRICE_UP_TO') : labels.priceLabel);
     const sellerName = sellerNames.get(listing.id);
-    // Without these the card would mislead: when the event is, that it's taken, that the price is a budget.
-    const pictureLabel = listing.isReserved ? t('RESERVE_BADGE') : labels.dateBadge ?? (listing.type === 'WANTED' ? labels.badge : undefined);
+    // Without these the card would mislead: when the event is, that it's taken, that the price is a budget; a "Solo aquí" one's day.
+    const pictureLabel = listing.isReserved
+      ? t('RESERVE_BADGE')
+      : isApartListing(listing)
+        ? formatShortDay(listing.createdAt, locale, t('TODAY_NAME'), now)
+        : labels.dateBadge ?? (listing.type === 'WANTED' ? labels.badge : undefined);
     return (
       <Link
         href={hrefOf(listing)}
@@ -275,6 +324,20 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   };
 
   // A full-width line of the grid: the Mercadillo's heading, then its listings to swipe through.
+  const renderPartnerCard = ({ partner, listings: partnerListings }: (typeof partnerCards)[number]) => (
+    <li key={`partner-${partner.id}`} data-anchor={`partner-${partner.id}`}>
+      <PartnerCard
+        href={partnerPath(partner.slug)}
+        name={localize(partner.name, locale)}
+        text={localize(partner.text, locale)}
+        icon={partner.icon}
+        pictures={partnerListings.map((listing) => listing.image).filter(Boolean)}
+        badge={t('PARTNER_BADGE')}
+        countLabel={partnerListings.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: partnerListings.length })}
+      />
+    </li>
+  );
+
   const renderRow = (row: (typeof rows)[number]) => {
     const name = localize(row.mercadillo.name, locale);
     return (
@@ -315,6 +378,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
       <h1 className='sr-only'>
         {q.trim() ||
           (chosenMercadillo && localize(chosenMercadillo.name, locale)) ||
+          (chosenPartner && localize(chosenPartner.name, locale)) ||
           t('EXPLORE_SEO_TITLE')}
       </h1>
       <div className='sr-only'>{pullUpHome}</div>
@@ -331,10 +395,11 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               <ExploreSearch
                 key={q || shownTag}
                 listings={searchListings}
-                choices={searchChoices}
-                tags={searchTags}
+                choices={chosenPartner ? [] : searchChoices}
+                tags={chosenPartner ? [] : searchTags}
                 value={q || shownTag}
                 isFiltered={words.length > 0 || Boolean(chosenTag)}
+                searchPath={chosenPartner ? partnerPath(chosenPartner.slug) : undefined}
               />
               <div className='flex shrink-0 gap-2 max-sm:group-has-[input:focus]:hidden'>
                 <FilterDropdown
@@ -368,7 +433,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
 
             {chosenMercadillo && (
               <section className='relative overflow-hidden rounded-3xl border border-border bg-card px-5 pb-7 pt-10 text-center sm:px-8 sm:py-8'>
-                <PrepareSharePreview src={sharePicturePath(chosenMercadillo.slug)} />
+                <PrepareSharePreview src={sharePicturePath(chosenMercadillo)} />
                 {/* The same for every selección: an older portada (before the icon) isn't shown, as it can't be changed. */}
                 <div aria-hidden className='absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-primary/20 to-transparent' />
                 <div className='absolute left-4 top-4 z-10'>{backToList}</div>
@@ -406,17 +471,37 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
               </section>
             )}
 
-            {shown.length === 0 ? (
+            {chosenPartner && (
+              <PartnerHero
+                partnerId={chosenPartner.id}
+                name={localize(chosenPartner.name, locale)}
+                text={localize(chosenPartner.text, locale)}
+                icon={chosenPartner.icon}
+                badge={t('PARTNER_BADGE')}
+                countLabel={inScope.length === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: inScope.length })}
+                shareTitle={t('PARTNER_NAMED', { name: localize(chosenPartner.name, locale) })}
+                sharePath={partnerPath(chosenPartner.slug)}
+                contactMessage={chosenPartner.contactPhone ? getPartnerContactMessage(chosenPartner) : undefined}
+                back={backToList}
+              />
+            )}
+
+            {shown.length === 0 && partnerCards.length === 0 ? (
               <p className='rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground'>
                 {words.length > 0 ? t('EXPLORE_SEARCH_NONE', { query: q.trim() }) : texts.empty}
               </p>
             ) : (
               <ul className='grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4'>
-                {gridListings.map((listing, index) => [...rowsAt(index).map(renderRow), <li key={listing.id} data-anchor={listing.id}>{renderCard(listing)}</li>])}
+                {gridListings.map((listing, index) => [
+                  ...rowsAt(index).map(renderRow),
+                  ...partnerCardsAt(index).map(renderPartnerCard),
+                  <li key={listing.id} data-anchor={listing.id}>{renderCard(listing)}</li>,
+                ])}
                 {rowsAfterGrid.map(renderRow)}
+                {partnerCardsAfterGrid.map(renderPartnerCard)}
               </ul>
             )}
-            {chosenMercadillo && <div className='flex justify-center'>{backToList}</div>}
+            {(chosenMercadillo || chosenPartner) && <div className='flex justify-center'>{backToList}</div>}
           </div>
 
           {/* A clear end instead of a void, with an invitation to sell or offer something. */}

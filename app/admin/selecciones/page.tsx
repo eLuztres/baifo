@@ -75,7 +75,7 @@ const MercadillosPage = async () => {
       <MercadilloAdmin
         locale={locale}
         locales={[shopLocale, ...getEnabledLocales().filter((enabled) => enabled !== shopLocale)]}
-        mercadillos={mercadillos.map(({ id, slug, name, text, icon, contactPhone, tagIds, _count }) => ({
+        mercadillos={mercadillos.map(({ id, slug, name, text, icon, contactPhone, tagIds, isApart, _count }) => ({
           id,
           slug,
           name: name as LocalizedText,
@@ -85,6 +85,7 @@ const MercadillosPage = async () => {
           productCount: _count.products,
           productIds: listings.filter((listing) => listing.mercadilloIds.includes(id)).map((listing) => listing.id),
           tagIds,
+          isApart,
         }))}
         listings={listings}
         searchChoices={searchChoices}

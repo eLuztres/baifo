@@ -38,8 +38,37 @@ export const mercadilloSchema = z.object({
   productIds: z.array(z.string().uuid()).max(500).optional(),
   // Every listing with one of these etiquetas is in it too; missing: they stay as they are.
   tagIds: z.array(z.string().uuid()).max(100).optional(),
+  // "Solo aquí": its listings show only in it and in Hoy, newest first, and never end; missing: it stays as it is.
+  isApart: z.boolean().optional(),
 });
 export const updateMercadilloSchema = mercadilloSchema.extend({ id: idSchema });
+
+// A picture uploaded through UploadThing only, so a partner can't point its sign at any address.
+const uploadedPictureSchema = z
+  .string()
+  .refine((value) => URL.canParse(value) && new URL(value).protocol === 'https:' && /(^|\.)(utfs\.io|ufs\.sh)$/.test(new URL(value).hostname));
+
+// A partner's mercadillo as the partner itself changes it: name and text per language, its sign and its WhatsApp.
+export const ownPartnerSchema = z.object({
+  name: groupTextSchema('VALIDATION_GROUP_NAME', 60),
+  text: z.record(z.string(), z.string().trim().max(300, message('VALIDATION_GROUP_TEXT'))),
+  icon: uploadedPictureSchema.nullable(),
+  // Empty: no contact button.
+  contactPhone: z
+    .string()
+    .trim()
+    .regex(/^(\+?[\d\s]{9,20})?$/, message('VALIDATION_PHONE_INVALID')),
+});
+
+// The admin also sets its link name and how many listings it can have.
+export const partnerSchema = ownPartnerSchema.extend({
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, message('VALIDATION_SLUG_MIN')),
+  maxListings: z.coerce.number().int().min(1, message('VALIDATION_PARTNER_MAX')).max(500, message('VALIDATION_PARTNER_MAX')),
+});
+export const updatePartnerSchema = partnerSchema.extend({ id: idSchema });
 
 // A señalador: a name, a photo and, to send them their link, a WhatsApp.
 export const scoutSchema = z.object({

@@ -16,6 +16,7 @@ import DeleteDialog from '@/components/shared/delete-dialog';
 import LeaveGuard from '@/components/marketplace/leave-guard';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +51,8 @@ export interface EditableMercadillo {
   productIds: string[];
   /** Its etiquetas: every listing with one is in it too. */
   tagIds: string[];
+  /** "Solo aquí": its listings show only in it and in Hoy. */
+  isApart: boolean;
 }
 
 interface MercadilloEditorProps {
@@ -72,7 +75,7 @@ function MercadilloEditor({ locales, mercadillo, listings, searchChoices, search
   const { toast } = useToast();
   const form = useForm<z.infer<typeof mercadilloSchema>>({
     resolver: zodResolver(mercadilloSchema),
-    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, icon: mercadillo?.icon ?? null, contactPhone: mercadillo?.contactPhone ?? '', productIds: mercadillo?.productIds ?? [], tagIds: mercadillo?.tagIds ?? [] },
+    defaultValues: { slug: mercadillo?.slug ?? '', name: mercadillo?.name ?? {}, text: mercadillo?.text ?? {}, icon: mercadillo?.icon ?? null, contactPhone: mercadillo?.contactPhone ?? '', productIds: mercadillo?.productIds ?? [], tagIds: mercadillo?.tagIds ?? [], isApart: mercadillo?.isApart ?? false },
   });
   const fields = useGroupFields(form, { locales, group: mercadillo });
   const icon = form.watch('icon');
@@ -162,6 +165,21 @@ function MercadilloEditor({ locales, mercadillo, listings, searchChoices, search
               chosenIds={productIds}
               onChange={(ids) => form.setValue('productIds', ids, { shouldDirty: true })}
               tagNames={tagNames}
+            />
+            <FormField
+              control={form.control}
+              name='isApart'
+              render={({ field }) => (
+                <FormItem className='flex items-start gap-3 space-y-0 rounded-2xl border border-border p-3'>
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} className='mt-0.5' />
+                  </FormControl>
+                  <div className='space-y-1'>
+                    <FormLabel>{t('MERCADILLO_APART')}</FormLabel>
+                    <p className='text-xs text-muted-foreground'>{t('MERCADILLO_APART_HINT')}</p>
+                  </div>
+                </FormItem>
+              )}
             />
             <FormField
               control={form.control}

@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { isAdmin } from '@/lib/auth-guard';
+import { isAdminOrPartner } from '@/lib/partner-access';
 import type { Locale, TranslationKey } from '@/lib/i18n-core';
 import { aiErrorText } from '@/lib/ai-errors';
 import { formatError } from '@/lib/utils';
@@ -14,10 +14,10 @@ type GroupTexts = Partial<Record<Locale, { name: string; text: string }>>;
 
 const adminOnly = () => ({ success: false, message: 'ERROR_ADMIN_ONLY' satisfies TranslationKey });
 
-/** A Mercadillo's name and text from the shop's language, in every other language of the shop; never improved, only translated. */
+/** A selección's or a partner's mercadillo's name and text from the shop's language, in every other language of the shop; never improved, only translated. */
 export async function translateGroupTexts(data: z.infer<typeof groupTextsSchema>) {
   try {
-    if (!(await isAdmin())) return adminOnly();
+    if (!(await isAdminOrPartner())) return adminOnly();
     const { name, text } = groupTextsSchema.parse(data);
     const from = getShopLocale();
     const made = await translateText({ title: name, description: text }, from, getEnabledLocales().filter((locale) => locale !== from));
@@ -31,7 +31,7 @@ export async function translateGroupTexts(data: z.infer<typeof groupTextsSchema>
 /** The admin's notes as an inviting description, written by the AI, with the name, in every language of the shop. */
 export async function improveGroupTexts(data: z.infer<typeof groupTextsSchema>) {
   try {
-    if (!(await isAdmin())) return adminOnly();
+    if (!(await isAdminOrPartner())) return adminOnly();
     const { name, text } = groupTextsSchema.parse(data);
     const shopLocale = getShopLocale();
     const made = await writeGroupText({ title: name, description: text }, [shopLocale, ...getEnabledLocales().filter((locale) => locale !== shopLocale)]);

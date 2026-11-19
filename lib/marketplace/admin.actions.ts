@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
+import { getSignedInPartner, hasPartnerRoom, isAdminOrPartner, listingEditor } from '@/lib/partner-access';
 import { LISTING_TYPES, MAX_LISTING_TAGS, PRICE_MODES } from '@/lib/constants';
 import { MAX_TAG_LENGTH, type TagNames } from '@/lib/tag-names';
 import { saveEditorTag } from '@/lib/tags';
@@ -27,9 +28,10 @@ import { moveListingToNumber } from './seller-number';
 import { fetchImage, uploadImage } from './media';
 import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from './text-versions';
 import { makeListingPictures, processSubmission, writeDraftText } from './processing';
-import { lacksConsent, markSent, recordConsent } from './listing-payment';
+import { isReadyToPublish, lacksConsent, markSent, recordConsent } from './listing-payment';
 import { enableListing, publishByAdmin, repeatingEventEnd, takeDown } from './publish';
 import { pictureCounterpart, toPictureLanguages } from './pictures';
+import { publishAtOf } from './schedule';
 import { takeVideoStill } from './video-cleanup';
 import { PICTURE_MOTIONS } from '@/lib/picture-motion';
 
@@ -71,7 +73,7 @@ const picturesSchema = z
 
 /** Every change in the picture tabs is saved at once, so leaving for the description keeps it. */
 export async function saveAdminListingPictures(id: string, input: z.input<typeof picturesSchema>) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const parsed = picturesSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Revisa las fotos' };
   // A new listing or one being edited, never while the AI writes it; an online one shows the new pictures at once.
@@ -109,7 +111,7 @@ const openedTextSchema = z.object({
 
 /** "Cancelar" after "Crear descripción": its texts, type, price, date and place go back to how the editor opened them. */
 export async function restoreAdminListingText(id: string, input: unknown) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const parsed = openedTextSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'No se pudo deshacer el texto' };
   const { count } = await prisma.submission.updateMany({ where: { id, status: { not: 'PROCESSING' } }, data: parsed.data });
@@ -153,6 +155,13 @@ const tagsSchema = z
   .optional();
 const scoutExists = async (id: string) => Boolean(await prisma.scout.findUnique({ where: { id }, select: { id: true } }));
 const mercadillosExist = async (ids: string[]) => (await prisma.mercadillo.count({ where: { id: { in: ids } } })) === new Set(ids).size;
+// A "Solo aquí" selección's listing (e.g. the day's phrase) can be Baifo's own, with no person to reach and no OK to ask.
+const hasApartMercadillo = async (ids: string[] = [], tags: { id?: string }[] = []) => {
+  const tagIds = tags.flatMap((tag) => (tag.id ? [tag.id] : []));
+  if (ids.length === 0 && tagIds.length === 0) return false;
+  return (await prisma.mercadillo.count({ where: { isApart: true, OR: [{ id: { in: ids } }, { tags: { some: { id: { in: tagIds } } } }] } })) > 0;
+};
+const publishDaySchema = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal('')]).optional();
 // The whole set, replacing the ones before.
 const setMercadillos = (ids: string[]) => ({ set: ids.map((id) => ({ id })) });
 
@@ -180,7 +189,7 @@ const draftSchema = z.object({
     (improved, corrected or only translated) and reads one existing etiqueta and, unless the admin set one,
     the price. Nothing goes online. */
 export async function draftAdminListingText(id: string, input: z.input<typeof draftSchema>) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const parsed = draftSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: 'Escribe la descripción' };
   const { notes, title, language, textMode, isWanted, priceMode, price, startsAt, address } = parsed.data;
@@ -266,6 +275,8 @@ const descriptionSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  // "Online desde" (YYYY-MM-DD): a later day keeps it waiting until then; today or none: online once written.
+  publishOn: publishDaySchema,
 });
 
 export type ListingDescriptionInput = z.input<typeof descriptionSchema>;
@@ -319,18 +330,27 @@ const repeatedStart = (start: Date, repeat: RepeatInput | null | undefined) => (
 /** "Publicar": the AI writes the listing from the description (as the admin chose) and it goes online once it is done.
     A picture, the description, a way to reach the person (WhatsApp, email, web or Instagram) and their OK to show it are needed. */
 export async function describeAdminListing(id: string, input: ListingDescriptionInput) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const editor = idSchema.safeParse(id).success ? await listingEditor(id) : null;
+  if (!editor) return NOT_ALLOWED;
+  const isPartner = editor === 'partner';
   const parsed = descriptionSchema.safeParse(input);
   if (!parsed.success) {
     // Only where and why, never the values: the logs show which field stopped a listing.
     console.warn(`Listing ${id} not published:`, parsed.error.issues.map((issue) => `${issue.path.join('.')} ${issue.code}`).join(', '));
     return { success: false, message: describeIssueMessage(parsed.error.issues[0]) };
   }
-  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, hasConsent, isWanted, texts, priceMode, price, startsAt, repeat, address, isHidden, onlineUntil, mercadilloIds, scoutId, tags, pictureMotion } =
-    parsed.data;
+  const { notes, sellerPhone, sellerName, contacts, textMode, originalTitle, isWanted, texts, priceMode, price, startsAt, repeat, address, isHidden, tags, pictureMotion } = parsed.data;
+  // A partner's own listing: no selecciones, señalador, start or end of its own, and its contact is its own OK.
+  const { hasConsent, onlineUntil, publishOn, mercadilloIds, scoutId } = isPartner
+    ? { hasConsent: true, onlineUntil: undefined, publishOn: undefined, mercadilloIds: undefined, scoutId: undefined }
+    : parsed.data;
+  if (isPartner && !(await partnerHasRoomFor(id))) return { success: false, message: await partnerFullMessage() };
+  const hasContact = Boolean(sellerPhone) || hasContactExtra(contacts);
+  // A partner's listing is never Baifo's own: it always needs its contact, even with a "Solo aquí" etiqueta.
+  const isHouseOwn = !isPartner && !hasContact && (await hasApartMercadillo(mercadilloIds, tags));
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
-  if (!sellerPhone && !hasContactExtra(contacts)) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
-  if (!hasConsent) return { success: false, message: 'Falta su permiso para mostrar su contacto' };
+  if (!hasContact && !isHouseOwn) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
+  if (!hasConsent && !isHouseOwn) return { success: false, message: 'Falta su permiso para mostrar su contacto' };
   const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true } });
   // Published only with a title and description in every shop language: the AI's or the admin's own.
   const shopLocale = getShopLocale();
@@ -372,6 +392,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
       scoutId,
       pictureMotion,
       autoPublish: !isHidden,
+      publishAt: isHidden ? null : publishAtOf(publishOn),
       ...(endsAt && { expiresAt: endsAt }),
       sellerId: seller.id,
       sellerName,
@@ -385,7 +406,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   if (tags) await setListingTags(id, tags);
   // A link between tables can't go through updateMany: set here, before the run that publishes it.
   if (mercadilloIds) await prisma.submission.update({ where: { id }, data: { mercadillos: setMercadillos(mercadilloIds) } });
-  await recordConsent({ id }, 'admin-confirmed');
+  if (!isHouseOwn) await recordConsent({ id }, isPartner ? 'partner' : 'admin-confirmed');
   after(() => processSubmission(id));
   // Before the description only the pictures run, so an error then was theirs: they start again too.
   if (hasPhoto && listing?.lastError && listing.images.length === 0) after(() => makeListingPictures(id));
@@ -394,9 +415,20 @@ export async function describeAdminListing(id: string, input: ListingDescription
 
 const idSchema = z.string().uuid();
 
+/** One more listing fits in the signed-in partner's mercadillo; `id` is the one to count in. */
+const partnerHasRoomFor = async (id: string) => {
+  const partner = await getSignedInPartner();
+  return Boolean(partner && (await hasPartnerRoom(partner, id)));
+};
+
+const partnerFullMessage = async () => {
+  const [{ t }, partner] = await Promise.all([getT(), getSignedInPartner()]);
+  return t('PARTNER_FULL', { max: partner?.maxListings ?? 0 });
+};
+
 /** What the listing page polls while the AI works. */
 export async function getAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return null;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return null;
   const submission = await prisma.submission.findUnique({
     where: { id },
     include: { seller: { select: { waId: true, name: true } }, product: { select: { slug: true } }, tags: { select: { id: true, names: true } }, mercadillos: { select: { id: true } } },
@@ -459,12 +491,16 @@ const editSchema = z.object({
   contacts: listingContactsSchema.optional(),
   // The admin confirms the person's OK to show their number.
   hasConsent: z.boolean().optional(),
+  // "Online desde" of a listing not online yet: a later day schedules it, empty takes the day away; missing: it stays.
+  publishOn: publishDaySchema,
 });
 
 export type ListingEdit = z.input<typeof editSchema>;
 
 export async function updateAdminListing(id: string, input: ListingEdit) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const editor = idSchema.safeParse(id).success ? await listingEditor(id) : null;
+  if (!editor) return NOT_ALLOWED;
+  const isPartner = editor === 'partner';
   const parsed = editSchema.safeParse(input);
   const current = await prisma.submission.findUnique({
     where: { id },
@@ -489,7 +525,13 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   if (parsed.data.scoutId && !(await scoutExists(parsed.data.scoutId))) return { success: false, message: 'Elige uno de los señaladores' };
   // Merged, so a language the editor doesn't show (e.g. one switched off for now) keeps its text.
   const translations = { ...(current?.translations as ListingTranslations), ...parsed.data.translations };
-  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, hasConsent, tags, mercadilloIds, repeat, ...fields } = parsed.data;
+  const { textMode = current?.textMode as TextMode, sellerPhone, sellerName, contacts, tags, repeat, ...edited } = parsed.data;
+  // A partner's own number is its own OK; selecciones, señaladores and "Online desde" stay the admin's.
+  const { mercadilloIds, scoutId, hasConsent, publishOn, ...fields } = isPartner
+    ? { ...edited, mercadilloIds: undefined, scoutId: undefined, hasConsent: true, publishOn: undefined }
+    : edited;
+  // Only a listing that isn't online yet waits for a day; a later one makes it go online by itself then.
+  const publishAt = publishOn !== undefined && current?.status === 'IN_REVIEW' ? publishAtOf(publishOn) : undefined;
   // A repeating event shows its next date; the date it was given is the first one, where the rule starts.
   const eventDate = isEvent && fields.startsAt ? repeatedStart(fields.startsAt, repeat) : null;
   if (eventDate === NO_DATES_LEFT) return { success: false, message: NO_DATES_LEFT };
@@ -500,7 +542,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
   }
   if (current && newWaId && newWaId !== current.seller.waId) await moveListingToNumber({ id, ...current }, newWaId);
-  if (hasConsent) await recordConsent({ id }, 'admin-confirmed');
+  if (hasConsent) await recordConsent({ id }, isPartner ? 'partner' : 'admin-confirmed');
   if (tags) {
     await setListingTags(id, tags);
     revalidatePath('/admin/etiquetas');
@@ -508,6 +550,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
   // "No price" keeps no amount; an older service's kind of offer stays only while it is a service, an event's date and address only on an event.
   const edit = {
     ...fields,
+    scoutId,
     priceMode,
     price: priceMode === 'NONE' ? null : (fields.price ?? null),
     serviceType: isService ? undefined : null,
@@ -522,6 +565,9 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
       }),
     ...(sellerName !== undefined && { sellerName }),
     ...(contacts && contactFields(contacts)),
+    ...(publishAt !== undefined && { publishAt, ...(publishAt && { autoPublish: true }) }),
+    // Put in a "Solo aquí" selección, an online listing stays for good, like the ones that went online in it.
+    ...(!isEvent && current?.status === 'LIVE' && (await hasApartMercadillo(mercadilloIds, tags)) && { expiresAt: null }),
   };
   const versions = (current?.textVersions ?? {}) as TextVersions;
   const editedVersion: ListingTexts = { ...translations, [getShopLocale()]: { title: edit.title, description: edit.description, short: edit.shortTitle ?? '' } };
@@ -561,6 +607,11 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
     });
     revalidatePath('/');
   }
+  // Its "Online desde" moved to today (or its day came while the editor was open): online now, not left waiting.
+  if (publishAt === null && submission.autoPublish) {
+    const waiting = await prisma.submission.findUnique({ where: { id }, include: { seller: true } });
+    if (waiting?.status === 'IN_REVIEW' && isReadyToPublish(waiting)) await publishByAdmin(id, 'normal');
+  }
   return { success: true, message: 'Guardado' };
 }
 
@@ -576,7 +627,7 @@ const listingLocales = () => {
     missing one is written now (AI), corrected and translated now (corrected) or translated now (original), once. The
     editor saves what it gets back. */
 export async function chooseListingText(id: string, mode: TextMode) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !textModeSchema.safeParse(mode).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !textModeSchema.safeParse(mode).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
   const versions = submission.textVersions as TextVersions;
@@ -604,7 +655,7 @@ export async function chooseListingText(id: string, mode: TextMode) {
 
 /** The shop-language title and description translated again into every other language, after the admin changed them. */
 export async function translateListingText(id: string, text: { title: string; description: string; short?: string }) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const parsed = textSchema.safeParse(text);
   if (!parsed.success) return { success: false, message: 'Revisa el título y la descripción' };
   const [shopLocale, ...otherLocales] = listingLocales();
@@ -621,7 +672,7 @@ const picturePromptSchema = z.string().trim().max(500).optional();
 /** One more picture made by the AI: from the admin's idea, else their uploaded photo improved. Never from the description:
     with neither there is nothing to make it from. The editor adds it and saves. */
 export async function createAdminListingPicture(id: string, prompt?: string, photo?: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const parsed = picturePromptSchema.safeParse(prompt);
   if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
   // A picture tab's own photo, changed with the words on top; only an uploaded photo is ever fetched.
@@ -645,7 +696,7 @@ export async function createAdminListingPicture(id: string, prompt?: string, pho
 /** "Elegir imagen": a still frame for a video that came without one, so it can be the cover.
     Its other version (original or cleaned-up) gets the same still, so switching between them keeps it. */
 export async function addAdminVideoStill(id: string, url: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !photoUrlSchema.safeParse(url).success || !isVideoUrl(url)) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !photoUrlSchema.safeParse(url).success || !isVideoUrl(url) || !(await listingEditor(id))) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, aiImages: true, images: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
   try {
@@ -668,7 +719,7 @@ export async function addAdminVideoStill(id: string, url: string) {
 
 /** The addresses an event's address field suggests, loaded once when the editor opens: around the listing's corral town. */
 export async function findAddresses(placeId: string) {
-  if (!(await isAdmin())) return { ...NOT_ALLOWED, addresses: [] };
+  if (!(await isAdminOrPartner())) return { ...NOT_ALLOWED, addresses: [] };
   const place = idSchema.safeParse(placeId).success ? await prisma.place.findUnique({ where: { id: placeId }, select: { slug: true } }) : null;
   return { success: true, message: '', addresses: await loadAddresses(place?.slug) };
 }
@@ -677,13 +728,16 @@ const planSchema = z.enum(['normal', 'big']);
 
 /** "Publicar ahora": online at once, without payment. */
 export async function publishAdminListing(id: string, plan: 'normal' | 'big') {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success || !planSchema.safeParse(plan).success) return NOT_ALLOWED;
+  const editor = idSchema.safeParse(id).success && planSchema.safeParse(plan).success ? await listingEditor(id) : null;
+  if (!editor) return NOT_ALLOWED;
+  // The big plan (featured) is the admin's to give.
+  const shownPlan = editor === 'partner' ? 'normal' : plan;
   // An event goes online only with its date (a database rule too).
   const listing = await prisma.submission.findUnique({ where: { id }, select: { type: true, startsAt: true, consentAt: true, seller: { select: { waId: true } } } });
   if (listing?.type === 'EVENT' && !listing.startsAt) return { success: false, message: 'Elige la fecha y la hora del evento' };
   // The person's number only goes online with their recorded OK (on their page, or "SÍ" on WhatsApp).
   if (listing?.seller && lacksConsent(listing)) return { success: false, message: 'Falta su permiso para mostrar su número' };
-  const product = await publishByAdmin(id, plan);
+  const product = await publishByAdmin(id, shownPlan);
   return product
     ? { success: true, message: 'Anuncio online', slug: product.slug }
     : { success: false, message: 'Este anuncio ya no se puede publicar' };
@@ -711,7 +765,9 @@ export async function shareAdminListing(id: string) {
 
 /** "Activar de nuevo": an offline listing comes back with its pictures and texts. */
 export async function enableAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  const editor = idSchema.safeParse(id).success ? await listingEditor(id) : null;
+  if (!editor) return NOT_ALLOWED;
+  if (editor === 'partner' && !(await partnerHasRoomFor(id))) return { success: false, message: await partnerFullMessage() };
   const outcome = await enableListing(id);
   if (!outcome) return { success: false, message: 'Este anuncio ya está online' };
   return { success: true, message: outcome === 'live' ? 'Anuncio online de nuevo' : 'Esperando el OK de la persona de nuevo' };
@@ -751,7 +807,7 @@ export async function setAdminListingEnd(id: string, onlineUntil: string) {
 
 /** An event the admin marks as sold ends as cancelled, as when the person calls it off on their page. */
 export async function markAdminListingSold(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id }, select: { type: true, status: true } });
   if (submission?.status !== 'LIVE') return { success: false, message: 'Este anuncio ya no está online' };
   const isEvent = submission.type === 'EVENT';
@@ -761,7 +817,7 @@ export async function markAdminListingSold(id: string) {
 
 /** "Ocultar": out of the shop for a while, with everything kept for "Mostrar de nuevo". */
 export async function hideAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true } });
   if (submission?.status !== 'LIVE') return { success: false, message: 'Este anuncio ya no está online' };
   await takeDown(id, 'HIDDEN');
@@ -770,7 +826,7 @@ export async function hideAdminListing(id: string) {
 
 /** Removes a listing for good: its product leaves the shop and the listing leaves Anuncios. */
 export async function deleteAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
+  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
   const submission = await prisma.submission.findUnique({ where: { id }, select: { productId: true } });
   if (!submission) return { success: false, message: 'Este anuncio ya no existe' };
   try {
@@ -789,8 +845,11 @@ export async function deleteAdminListing(id: string) {
 
 /** The AI failed: start the work again from where it stopped. */
 export async function retryAdminListing(id: string) {
-  if (!(await isAdmin()) || !idSchema.safeParse(id).success) return NOT_ALLOWED;
-  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true, images: true, rawImages: true, usesAi: true, createdByAdmin: true } });
+  const editor = idSchema.safeParse(id).success ? await listingEditor(id) : null;
+  if (!editor) return NOT_ALLOWED;
+  const submission = await prisma.submission.findUnique({ where: { id }, select: { status: true, images: true, rawImages: true, usesAi: true, createdByAdmin: true, lastError: true } });
+  // Only a listing the AI failed on: retrying a sold or ended one would bring it back past the mercadillo's limit.
+  if (editor === 'partner' && !submission?.lastError) return NOT_ALLOWED;
   // Still on the photos step: only the pictures are tried again.
   if (submission?.status === 'COLLECTING') {
     await prisma.submission.update({ where: { id }, data: { attempts: 0, lastError: null } });

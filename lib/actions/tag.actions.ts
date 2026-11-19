@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { aiErrorText } from '@/lib/ai-errors';
 import { isAdmin } from '@/lib/auth-guard';
+import { isAdminOrPartner } from '@/lib/partner-access';
 import { LOCALES, type Locale } from '@/lib/i18n-core';
 import { getEnabledLocales, getT } from '@/lib/i18n-server';
 import { translateTagNames } from '@/lib/marketplace/ai';
@@ -103,7 +104,8 @@ const translateSchema = z.object({
     the message is already in the admin's language. */
 export async function translateTags(from: Locale, names: string[]) {
   const { t } = await getT();
-  if (!(await isAdmin())) return { success: false, message: t('ERROR_ADMIN_ONLY'), translations: [] };
+  // A partner's listing editor translates new etiquetas too.
+  if (!(await isAdminOrPartner())) return { success: false, message: t('ERROR_ADMIN_ONLY'), translations: [] };
   const parsed = translateSchema.safeParse({ from, names });
   if (!parsed.success) return { success: false, message: t('TAG_INVALID'), translations: [] };
   try {

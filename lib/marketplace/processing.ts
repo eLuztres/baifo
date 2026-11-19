@@ -13,6 +13,7 @@ import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { cleanUpVideo } from './video-cleanup';
 import { parsePrice } from './price';
 import { toPictureLanguages } from './pictures';
+import { isReadyToPublish } from './listing-payment';
 import { publishByAdmin } from './publish';
 import { sendForReview } from './review';
 
@@ -193,8 +194,9 @@ async function finishSubmission(submission: FoundSubmission) {
     include: { seller: true },
   });
   if (!submission.createdByAdmin) return sendForReview(finished);
-  // "Publicar" with Estado Online: online as soon as it is written; Oculto waits ready in the editor, so does an event without a date.
-  if (finished.autoPublish && finished.consentAt && !(finished.type === 'EVENT' && !finished.startsAt)) await publishByAdmin(finished.id, 'normal');
+  // "Publicar" with Estado Online: online as soon as it is written; Oculto waits ready in the editor, so does an event without a
+  // date. One with a later "Online desde" waits for the nightly run.
+  if (isReadyToPublish(finished)) await publishByAdmin(finished.id, 'normal');
 }
 
 /** The pictures of a listing the admin creates, started with the upload: the admin writes the description meanwhile and

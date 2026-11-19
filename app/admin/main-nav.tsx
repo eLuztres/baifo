@@ -10,6 +10,7 @@ import {
   List,
   MapPin,
   Plus,
+  ShoppingBag,
   SlidersHorizontal,
   Sparkles,
   Store,
@@ -56,7 +57,7 @@ const links: { title: TranslationKey; hint?: TranslationKey; href: string; icon:
 ];
 
 // The icons a shop's own admin page can name in brand/admin-links.json.
-const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, history: History, list: List, 'map-pin': MapPin, store: Store, tag: Tag, users: Users };
+const EXTRA_ICONS: Record<string, LucideIcon> = { grid: LayoutGrid, history: History, list: List, 'map-pin': MapPin, 'shopping-bag': ShoppingBag, store: Store, tag: Tag, users: Users };
 
 interface NavLink {
   key: string;

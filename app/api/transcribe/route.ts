@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isAdmin } from '@/lib/auth-guard';
+import { isAdminOrPartner } from '@/lib/partner-access';
 import { transcribeAudio } from '@/lib/ai-usage';
 import { aiErrorCode } from '@/lib/ai-errors';
 
@@ -11,9 +11,9 @@ const voiceNoteSchema = z.object({
   language: z.string().regex(/^[a-z]{2}$/).optional(),
 });
 
-/** An admin's voice note as text. */
+/** An admin's or a partner's voice note as text. */
 export async function POST(request: Request) {
-  if (!(await isAdmin())) return Response.json({ error: 'ADMIN_ONLY' }, { status: 403 });
+  if (!(await isAdminOrPartner())) return Response.json({ error: 'ADMIN_ONLY' }, { status: 403 });
   const form = await request.formData().catch(() => null);
   const parsed = voiceNoteSchema.safeParse({ audio: form?.get('audio'), language: form?.get('language') ?? undefined });
   if (!parsed.success) return Response.json({ error: 'BAD_AUDIO' }, { status: 400 });

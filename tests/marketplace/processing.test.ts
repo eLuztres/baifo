@@ -88,9 +88,27 @@ describe('a new listing after "Publicar"', () => {
     db.findUnique.mockResolvedValue(written);
     db.update.mockResolvedValue({ ...written, type: 'EVENT', startsAt: null, consentAt: new Date(), seller: {} });
     await processSubmission('sub-1');
-    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: null, seller: {} });
+    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: null, seller: { waId: '34600111222' } });
     await processSubmission('sub-1');
     db.update.mockResolvedValue({ ...written, autoPublish: false, consentAt: new Date(), seller: {} });
+    await processSubmission('sub-1');
+
+    expect(publishByAdmin).not.toHaveBeenCalled();
+  });
+
+  it("publishes Baifo's own listing without anyone's OK, e.g. the day's phrase", async () => {
+    db.findUnique.mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: null, seller: { waId: 'baifo' } });
+
+    await processSubmission('sub-1');
+
+    expect(publishByAdmin).toHaveBeenCalledWith('sub-1', 'normal');
+  });
+
+  it('leaves a listing with a later "Online desde" for the nightly run', async () => {
+    db.findUnique.mockResolvedValue(written);
+    db.update.mockResolvedValue({ ...written, autoPublish: true, consentAt: new Date(), publishAt: new Date(Date.now() + 86_400_000), seller: {} });
+
     await processSubmission('sub-1');
 
     expect(publishByAdmin).not.toHaveBeenCalled();

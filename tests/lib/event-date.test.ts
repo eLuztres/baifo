@@ -1,4 +1,4 @@
-import { formatEventDate, fromShopDateTime, isEventOver, isShopToday, startOfShopDay, toShopDateTime } from '@/lib/event-date';
+import { formatEventDate, formatShortDay, fromShopDateTime, isEventOver, isShopToday, startOfShopDay, toShopDateTime } from '@/lib/event-date';
 
 const ZONE = 'Atlantic/Canary';
 
@@ -32,5 +32,18 @@ describe('event dates on the island', () => {
 
   it('starts the island day at local midnight', () => {
     expect(startOfShopDay(new Date('2026-07-10T12:00:00Z'), ZONE).toISOString()).toBe('2026-07-09T23:00:00.000Z');
+  });
+});
+
+describe('formatShortDay', () => {
+  const NOW = new Date('2026-11-20T10:00:00Z');
+
+  it('says today on the day itself, on the island', () => {
+    expect(formatShortDay(new Date('2026-11-20T00:05:00Z'), 'es', 'Hoy', NOW)).toBe('Hoy');
+  });
+
+  it('gives an earlier day as day and short month, day first in English too', () => {
+    expect(formatShortDay(new Date('2026-11-18T00:05:00Z'), 'es', 'Hoy', NOW)).toBe('18 nov');
+    expect(formatShortDay(new Date('2026-11-18T00:05:00Z'), 'en', 'Today', NOW)).toBe('18 Nov');
   });
 });

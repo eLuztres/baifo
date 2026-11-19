@@ -45,12 +45,14 @@ import { isVideoUrl, pictureOf } from '@/lib/video';
 import { PICTURE_MOTIONS, toPictureMotion, type PictureMotion } from '@/lib/picture-motion';
 import MovingPictures from '@/components/shared/product/moving-pictures';
 import { fromShopDateTime, toShopDateTime } from '@/lib/event-date';
+import { isScheduled } from '@/lib/marketplace/schedule';
 import type { Locale } from '@/lib/i18n-core';
 import { nextEventStart, repeatOf, toRepeat, type RepeatInput } from '@/lib/event-repeat';
 import AddressInput from './address-input';
 import EventRepeatFields from './event-repeat-fields';
 import TagInput from './tag-input';
-import type { EditorLanguage, EditorTag, MercadilloOption, ScoutOption, TagOption } from './editor-types';
+import type { EditorLanguage, EditorTag, MercadilloOption, PartnerEditor, ScoutOption, TagOption } from './editor-types';
+import { PARTNER_PANEL_PATH } from '@/lib/partner-paths';
 
 interface DescriptionStepProps {
   listing: AdminListing;
@@ -80,10 +82,12 @@ interface DescriptionStepProps {
   step: number;
   /** Opens the step where something is missing. */
   onStep: (step: number) => void;
+  /** A partner in its panel: its own contact to start from and no OK to confirm, no selecciones, dates or sending. */
+  partner?: PartnerEditor;
 }
 
 /** Steps 2 and 3: everything the admin knows about the item in one text, then the person's contact; the AI turns it into the listing. */
-export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, scouts, tagOptions, maxTags, listingDays, isAiOnPictures, isUploadingPictures, texts, onSent, step, onStep }: DescriptionStepProps) {
+export default function DescriptionStep({ listing, languages, shopLanguage, mercadillos, scouts, tagOptions, maxTags, listingDays, isAiOnPictures, isUploadingPictures, texts, onSent, step, onStep, partner }: DescriptionStepProps) {
   const isOnContact = step === 2;
   const isService = listing.type === 'SERVICE';
   const isEvent = listing.type === 'EVENT';
@@ -97,15 +101,18 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   // An existing listing (online, hidden, sold, waiting …) is edited with the same steps and saved, not published.
   const isEditing = listing.status !== 'COLLECTING' && listing.status !== 'PROCESSING';
   const router = useRouter();
-  const [sellerPhone, setSellerPhone] = useState(isEditing && /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : '');
+  const [sellerPhone, setSellerPhone] = useState(
+    isEditing && /^\d+$/.test(listing.seller.waId) ? `+${listing.seller.waId}` : !isEditing && partner?.contactPhone ? `+${partner.contactPhone}` : ''
+  );
   // WhatsApp is one way of several: a new listing starts with it, an existing one keeps it only if it has a number.
   const [hasWhatsapp, setHasWhatsapp] = useState(!isEditing || Boolean(sellerPhone));
   const sentPhone = hasWhatsapp ? sellerPhone.trim() : '';
   // "Enviar por WhatsApp" belongs to the contact: only there, with a number, and not while the AI writes.
-  const isSendShown = isOnContact && listing.status === 'COLLECTING' && hasWhatsapp;
+  const isSendShown = isOnContact && listing.status === 'COLLECTING' && hasWhatsapp && !partner;
   // The name visitors see now: only a changed name is saved on the listing.
   const shownSellerName = isEditing ? (sellerIdentity(listing).name ?? '') : '';
-  const [sellerName, setSellerName] = useState(shownSellerName);
+  // A partner's new listing carries its mercadillo's name.
+  const [sellerName, setSellerName] = useState(shownSellerName || (!isEditing && partner?.name.slice(0, 30)) || '');
   // Email, web and Instagram besides the WhatsApp: the ones chosen in "Cómo contactar" get a field.
   const [contacts, setContacts] = useState<ListingContacts>({
     email: listing.contactEmail ?? '',
@@ -186,15 +193,33 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   const [onlineUntil, setOnlineUntil] = useState(() => savedOnlineUntil ?? toShopDateTime(new Date(Date.now() + listingDays * 86_400_000)).slice(0, 10));
   // Editing: the state it should end in, from the ones that fit where it is now.
   const [targetStatus, setTargetStatus] = useState(listing.status);
+  // "Online desde": a later day keeps a listing that isn't online yet waiting for the nightly run; today: online at once.
+  const today = toShopDateTime(new Date()).slice(0, 10);
+  const [publishOn, setPublishOn] = useState(() => (isScheduled(listing) ? toShopDateTime(new Date(listing.publishAt!)).slice(0, 10) : today));
+  const canSchedule = isEditing ? listing.status === 'IN_REVIEW' && targetStatus === 'IN_REVIEW' : !isHidden;
+  const isLater = publishOn > today;
   const [mercadilloIds, setMercadilloIds] = useState(listing.mercadilloIds);
-  const toggleMercadillo = (id: string) => setMercadilloIds((current) => (current.includes(id) ? current.filter((chosen) => chosen !== id) : [...current, id]));
+  // A "Solo aquí" selección (e.g. the day's phrase) takes one a day: choosing it fills in its next free day, if none is set.
+  const toggleMercadillo = (id: string) => {
+    const nextFreeDay = mercadillos.find((mercadillo) => mercadillo.id === id)?.nextFreeDay;
+    if (!mercadilloIds.includes(id) && nextFreeDay && canSchedule && !isLater) setPublishOn(nextFreeDay);
+    setMercadilloIds((current) => (current.includes(id) ? current.filter((chosen) => chosen !== id) : [...current, id]));
+  };
   const [scoutId, setScoutId] = useState(listing.scoutId ?? '');
   const [pictureMotion, setPictureMotion] = useState<PictureMotion>(toPictureMotion(listing.pictureMotion));
   const motionPictures = (listing.images.length > 0 ? listing.images : listing.rawImages).filter((image) => !isVideoUrl(image));
   const [tags, setTags] = useState<EditorTag[]>(() => listing.tags);
+  // In a "Solo aquí" selección, chosen or through an etiqueta: it never ends, and may be the shop's own, with no person to reach.
+  const isApartChosen = mercadillos.some(
+    (mercadillo) => mercadillo.isApart && (mercadilloIds.includes(mercadillo.id) || tags.some((tag) => tag.id && mercadillo.tagIds?.includes(tag.id)))
+  );
   const statusChoices: AdminListing['status'][] = listing.status === 'LIVE' ? ['LIVE', 'HIDDEN', 'SOLD'] : [listing.status, 'LIVE'];
   const statusName = (status: AdminListing['status']) =>
-    status === 'SOLD' && listing.type !== 'PRODUCT' ? texts[`status_SOLD_${listing.type}`] : texts[`status_${status}`];
+    status === 'SOLD' && listing.type !== 'PRODUCT'
+      ? texts[`status_SOLD_${listing.type}`]
+      : status === 'IN_REVIEW' && canSchedule && isLater
+        ? texts.status_SCHEDULED
+        : texts[`status_${status}`];
   const willBeLive = isEditing ? targetStatus === 'LIVE' : !isHidden;
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
@@ -221,7 +246,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   // A video without a still doesn't count as a picture.
   const hasNoPhoto = listing.images.length === 0 && !listing.rawImages.some(pictureOf);
   // The person's OK to show their number, confirmed by the admin who creates the listing with them.
-  const [hasConsent, setHasConsent] = useState(isEditing && Boolean(listing.consentAt));
+  // A partner gives its own number: no one else's OK to confirm.
+  const [hasConsent, setHasConsent] = useState(Boolean(partner) || (isEditing && Boolean(listing.consentAt)));
   // A "missing" message is old news as soon as something is filled in.
   useEffect(() => setError(''), [notes, sellerPhone, hasConsent, startsAt, contacts, chosenContacts]);
   const hasText = Boolean(listing.title);
@@ -248,6 +274,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       // An existing listing has its texts already; the shop's own listings may stay without a WhatsApp (and so need no OK).
       const isHouseListing = isEditing && !/^\d+$/.test(listing.seller.waId);
       const hasPhone = Boolean(sentPhone);
+      const isHouseOwn = isApartChosen && !hasPhone && chosenContacts.length === 0;
       // Texts: every language set, or the AI fills what's missing from the shop language or from the selected tab.
       const hasSomeText = hasOwnText || Boolean(notes.trim());
       const tellMissing = (missing: ({ step: number; text: string } | false)[]) => {
@@ -263,10 +290,10 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         tellMissing([
           hasNoPhoto && { step: 0, text: texts.missingPicture },
           !isTextsComplete(draft) && !hasSomeText && { step: 1, text: texts.missingText },
-          hasWhatsapp && !hasPhone && !isHouseListing && { step: 2, text: texts.missingPhone },
-          !hasWhatsapp && chosenContacts.length === 0 && !isHouseListing && { step: 2, text: texts.missingContactWay },
+          hasWhatsapp && !hasPhone && !isHouseListing && !isHouseOwn && { step: 2, text: texts.missingPhone },
+          !hasWhatsapp && chosenContacts.length === 0 && !isHouseListing && !isHouseOwn && { step: 2, text: texts.missingContactWay },
           chosenContacts.some(isContactWrong) && { step: 2, text: texts.missingContacts },
-          !hasConsent && willBeLive && (hasPhone || !isHouseListing) && { step: 2, text: texts.missingConsent },
+          !hasConsent && willBeLive && (hasPhone || !isHouseListing) && !isHouseOwn && { step: 2, text: texts.missingConsent },
         ])
       )
         return;
@@ -293,7 +320,8 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
         ...(isEvent && { startsAt: filled.startsAt, address, repeat: sentRepeat }),
         // Sent to the person, it stays ready, not shown, until they give their OK on their page.
         isHidden: isHidden || isForPerson,
-        ...(!isEvent && { onlineUntil }),
+        ...(!isEvent && !isApartChosen && { onlineUntil }),
+        publishOn,
         mercadilloIds,
         scoutId,
         tags,
@@ -329,6 +357,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
       ...(sellerName.trim() !== shownSellerName && { sellerName }),
       contacts: sentContacts(),
       hasConsent: hasConsent && !listing.consentAt,
+      ...(listing.status === 'IN_REVIEW' && targetStatus === 'IN_REVIEW' && { publishOn }),
     });
     if (!saved.success) return setError(saved.message);
     const from = listing.status;
@@ -344,13 +373,13 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               : enableAdminListing;
     const changed = change && (await change(listing.id));
     if (changed && !changed.success) return setError(changed.message);
-    if (targetStatus === 'LIVE' && !isEvent && onlineUntil !== savedOnlineUntil) await setAdminListingEnd(listing.id, onlineUntil);
+    if (targetStatus === 'LIVE' && !isEvent && !isApartChosen && onlineUntil !== savedOnlineUntil) await setAdminListingEnd(listing.id, onlineUntil);
     router.push(listingPage(await getAdminListing(listing.id)));
   };
 
   // Where the listing shows as visitors see it: its page once online, else the admin's preview.
   const listingPage = (shown: AdminListing | null) =>
-    shown?.status === 'LIVE' && shown.product?.slug ? `/product/${shown.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`;
+    partner ? PARTNER_PANEL_PATH : shown?.status === 'LIVE' && shown.product?.slug ? `/product/${shown.product.slug}` : `/product/${adminPreviewSlug(listing.id)}`;
 
   // "Cancelar": nothing typed is kept, what was saved on the way goes back, and the listing shows as it was.
   const cancelChanges = () =>
@@ -381,7 +410,7 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
   // No save first: the listing is gone anyway; the dialog shows how it went.
   const deleteAndLeave = async (id: string) => {
     const result = await deleteAdminListing(id);
-    if (result.success) router.push('/admin/listings');
+    if (result.success) router.push(partner ? PARTNER_PANEL_PATH : '/admin/listings');
     return result;
   };
 
@@ -723,10 +752,12 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               />
               <p className='text-xs text-muted-foreground'>{texts.sellerNameHint}</p>
             </div>
-            <Label className='flex items-start gap-3 rounded-2xl border border-border bg-background p-3 text-sm font-normal leading-5'>
-              <Checkbox checked={hasConsent} disabled={isWriting} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
-              {texts.consentConfirm}
-            </Label>
+            {!partner && (
+              <Label className='flex items-start gap-3 rounded-2xl border border-border bg-background p-3 text-sm font-normal leading-5'>
+                <Checkbox checked={hasConsent} disabled={isWriting} onCheckedChange={(value) => setHasConsent(value === true)} className='mt-0.5' />
+                {texts.consentConfirm}
+              </Label>
+            )}
           </div>
         )}
 
@@ -751,12 +782,27 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
                 </select>
               )}
             </div>
-            <div className='space-y-1'>
+            {/* From and until on one line: two short dates fit even a 320px phone. A partner's listing has neither. */}
+            {!partner && (
+            <div className='flex gap-2'>
+            {canSchedule && (
+              <div className='min-w-0 flex-1 space-y-1'>
+                <Label htmlFor='online-from' className='px-1 text-xs text-muted-foreground'>
+                  {texts.onlineFromLabel}
+                </Label>
+                <Input id='online-from' type='date' min={today} value={publishOn} readOnly={isWriting} onChange={(event) => setPublishOn(event.target.value || today)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
+              </div>
+            )}
+            <div className='min-w-0 flex-1 space-y-1'>
               <Label htmlFor='online-until' className='px-1 text-xs text-muted-foreground'>
                 {texts.onlineUntilLabel}
               </Label>
               {/* An event stays until its day is over: the date set in Descripción, shown here but changed only there. */}
-              {isEvent ? (
+              {isApartChosen && !isEvent ? (
+                <p id='online-until' className='flex h-12 items-center rounded-2xl border border-input bg-muted px-3 text-sm text-muted-foreground'>
+                  {texts.apartNoEnd}
+                </p>
+              ) : isEvent ? (
                 <>
                   <Input id='online-until' type='date' value={isRepeating ? repeatingOnlineUntil : startsAt.slice(0, 10)} disabled className='h-12 rounded-2xl bg-background text-base md:text-base' />
                   <p className='px-1 text-xs text-muted-foreground'>{isRepeating ? texts.repeatOnlineUntil : texts.eventDateFromDescription}</p>
@@ -764,12 +810,14 @@ export default function DescriptionStep({ listing, languages, shopLanguage, merc
               ) : (
                 <Input id='online-until' type='date' value={onlineUntil} readOnly={isWriting} onChange={(event) => setOnlineUntil(event.target.value)} className='h-12 rounded-2xl bg-background text-base md:text-base' />
               )}
-              {isEditing && listing.status === 'LIVE' && !isEvent && (
+              {isEditing && listing.status === 'LIVE' && !isEvent && !isApartChosen && (
                 <Button variant='outline' className='mt-2 w-full rounded-full' disabled={isPending} onClick={extendMonth}>
                   <CalendarPlus /> {texts.extendMonth}
                 </Button>
               )}
             </div>
+            </div>
+            )}
             {mercadillos.length > 0 && (
               <div className='space-y-1'>
                 <p className='px-1 text-xs text-muted-foreground'>{texts.mercadilloLabel}</p>

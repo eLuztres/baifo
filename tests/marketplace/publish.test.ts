@@ -1,11 +1,11 @@
 import { prisma } from '@/db/prisma';
 import { sendText } from '@/lib/whatsapp-cloud/client';
-import { enableListing, publishByAdmin, publishPaidByAdmin, renewPaidByAdmin } from '@/lib/marketplace/publish';
+import { enableListing, publishByAdmin, publishPaidByAdmin, publishScheduledListings, renewPaidByAdmin } from '@/lib/marketplace/publish';
 import { expireListings, moveRepeatingEvents } from '@/lib/marketplace/expiry';
 import { RELISTABLE } from '@/lib/marketplace/config';
 
 jest.mock('@/db/prisma', () => {
-  const submission = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn() };
+  const submission = { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), count: jest.fn(async () => 0) };
   const product = { create: jest.fn(), delete: jest.fn(async () => ({})), deleteMany: jest.fn(async () => ({ count: 0 })), updateMany: jest.fn(async () => ({ count: 1 })) };
   const listingFee = { create: jest.fn() };
   const mercadillo = { findMany: jest.fn(async () => []) };
@@ -24,7 +24,7 @@ jest.mock('next/cache', () => ({ revalidatePath: jest.fn() }));
 jest.mock('@/lib/places', () => ({ getDefaultPlaceId: jest.fn(async () => 'place-corralejo') }));
 
 const db = prisma as unknown as {
-  submission: Record<'findUnique' | 'findFirst' | 'findMany' | 'update' | 'updateMany', jest.Mock>;
+  submission: Record<'findUnique' | 'findFirst' | 'findMany' | 'update' | 'updateMany' | 'count', jest.Mock>;
   product: Record<'create' | 'delete' | 'deleteMany' | 'updateMany', jest.Mock>;
   listingFee: Record<'create', jest.Mock>;
 };
@@ -124,6 +124,37 @@ describe('publishByAdmin', () => {
     await publishByAdmin(SUBMISSION.id, 'normal');
     // 14 August ends at midnight on the island (UTC+1 in summer).
     expect(db.submission.updateMany.mock.calls.at(-1)[0].data.expiresAt).toEqual(new Date('2027-08-14T23:00:00Z'));
+  });
+
+  it('gives a listing of a "Solo aquí" selección no end, whatever "Online hasta" said', async () => {
+    db.submission.count.mockResolvedValueOnce(1);
+    db.submission.update.mockResolvedValue({ ...SUBMISSION, status: 'IN_REVIEW', plan: 'normal', createdByAdmin: true, paidAt: null, expiresAt: new Date(Date.now() + 86_400_000) });
+    await publishByAdmin(SUBMISSION.id, 'normal');
+    expect(db.submission.updateMany.mock.calls.at(-1)[0].data.expiresAt).toBeNull();
+    expect(db.product.create.mock.calls.at(-1)[0].data.expiresAt).toBeNull();
+  });
+});
+
+describe('publishScheduledListings', () => {
+  const NOW = new Date('2026-11-21T00:05:00Z');
+  const waiting = { ...SUBMISSION, status: 'IN_REVIEW', plan: 'normal', createdByAdmin: true, autoPublish: true, consentAt: null, type: 'PRODUCT', startsAt: null, seller: { waId: 'baifo' } };
+
+  it('asks only for listings waiting for a day that has come', async () => {
+    db.submission.findMany.mockResolvedValue([]);
+    await publishScheduledListings(NOW);
+    expect(db.submission.findMany.mock.calls.at(-1)[0].where).toEqual({ status: 'IN_REVIEW', autoPublish: true, publishAt: { lte: NOW } });
+  });
+
+  it("puts each one online, also a missed night's, and leaves one still lacking the person's OK", async () => {
+    const missed = { ...waiting, id: 'missed', publishAt: new Date('2026-11-20T00:00:00Z') };
+    const today = { ...waiting, id: 'today', publishAt: new Date('2026-11-21T00:00:00Z') };
+    const noOk = { ...waiting, id: 'no-ok', publishAt: new Date('2026-11-21T00:00:00Z'), seller: { waId: '34600111222' } };
+    db.submission.findMany.mockResolvedValue([missed, today, noOk]);
+    db.submission.update.mockImplementation(async ({ where }: { where: { id: string } }) => ({ ...waiting, id: where.id }));
+
+    expect(await publishScheduledListings(NOW)).toEqual({ published: 2 });
+    // publishByAdmin's own update, the one that sets the plan; going live updates the listing once more.
+    expect(db.submission.update.mock.calls.filter(([call]) => call.data.plan).map(([call]) => call.where.id)).toEqual(['missed', 'today']);
   });
 });
 

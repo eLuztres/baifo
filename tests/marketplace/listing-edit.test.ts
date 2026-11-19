@@ -89,6 +89,38 @@ beforeEach(() => {
 });
 
 describe('updateAdminListing', () => {
+  const shopDay = (offsetDays: number) => new Date(Date.now() + offsetDays * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Atlantic/Canary' });
+  const scheduled = (waiting: object) =>
+    db.submission.findUnique.mockImplementation(async (args: { include?: object }) =>
+      args.include ? { status: 'IN_REVIEW', autoPublish: true, consentAt: null, type: 'PRODUCT', startsAt: null, publishAt: null, seller: { waId: 'baifo' }, ...waiting } : { status: 'IN_REVIEW', translations: {}, type: 'PRODUCT' }
+    );
+
+  it('keeps a listing waiting for a later "Online desde", to go online by itself then', async () => {
+    scheduled({});
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT', autoPublish: true });
+    await updateAdminListing(ID, { ...EDIT, publishOn: shopDay(2) });
+    expect(db.submission.update.mock.calls.at(-1)[0].data).toMatchObject({ publishAt: expect.any(Date), autoPublish: true });
+    expect(publishByAdmin).not.toHaveBeenCalled();
+  });
+
+  it('puts a waiting listing online on save once its "Online desde" is today, not left waiting for nothing', async () => {
+    scheduled({});
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT', autoPublish: true });
+    await updateAdminListing(ID, { ...EDIT, publishOn: shopDay(0) });
+    expect(db.submission.update.mock.calls.at(-1)[0].data.publishAt).toBeNull();
+    expect(publishByAdmin).toHaveBeenCalledWith(ID, 'normal');
+  });
+
+  it("leaves one still lacking the person's OK, or kept Oculto, waiting", async () => {
+    scheduled({ seller: { waId: '34600111222' } });
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT', autoPublish: true });
+    await updateAdminListing(ID, { ...EDIT, publishOn: shopDay(0) });
+    scheduled({});
+    db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT', autoPublish: false });
+    await updateAdminListing(ID, { ...EDIT, publishOn: shopDay(0) });
+    expect(publishByAdmin).not.toHaveBeenCalled();
+  });
+
   it('sets the etiquetas as the admin left them: new ones made, a typed name that exists joins it, translations added', async () => {
     db.submission.update.mockResolvedValue({ productId: null, type: 'PRODUCT' });
     const tags = [{ id: MOCK_TAG_ART, names: { es: 'Arte', en: 'Art' } }, { names: { en: 'Looper pedal' } }, { names: { es: 'surf' } }];

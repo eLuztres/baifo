@@ -4,14 +4,15 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { Loader2, MessageCircle } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
-import { getMercadilloContact, getProductContact } from '@/lib/actions/product.actions';
+import { getMercadilloContact, getPartnerContact, getProductContact } from '@/lib/actions/product.actions';
 import { cn } from '@/lib/utils';
 import { whatsappAppUrl, whatsappLinkUrl, whatsappWebUrl } from '@/lib/whatsapp-chat';
 
 interface ContactSellerButtonProps {
-  /** The listing to contact; or `mercadilloId`, a Mercadillo. */
+  /** The listing to contact; or `mercadilloId`, a Mercadillo; or `partnerId`, a partner's mercadillo. */
   productId?: string;
   mercadilloId?: string;
+  partnerId?: string;
   /** The prefilled WhatsApp message, in the listing's language. */
   message: string;
   className?: string;
@@ -38,7 +39,7 @@ function openInApp(phone: string, message: string) {
 
 /** Classifieds: one tap opens WhatsApp with the message written.
     The seller's number is fetched on the tap, so it isn't in the page for scrapers. */
-export default function ContactSellerButton({ productId, mercadilloId, message, className, buttonClassName, children }: ContactSellerButtonProps) {
+export default function ContactSellerButton({ productId, mercadilloId, partnerId, message, className, buttonClassName, children }: ContactSellerButtonProps) {
   const { t } = useI18n();
   const [problem, setProblem] = useState<ContactProblem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -48,7 +49,13 @@ export default function ContactSellerButton({ productId, mercadilloId, message, 
     // Computers: opened inside the tap, because after waiting for the number browsers would block it as a pop-up.
     const chat = isOnPhone ? null : window.open('', WHATSAPP_TAB);
     startTransition(async () => {
-      const contact = mercadilloId ? await getMercadilloContact(mercadilloId) : productId ? await getProductContact(productId) : null;
+      const contact = mercadilloId
+        ? await getMercadilloContact(mercadilloId)
+        : partnerId
+          ? await getPartnerContact(partnerId)
+          : productId
+            ? await getProductContact(productId)
+            : null;
       if (!contact || 'isRateLimited' in contact) {
         chat?.close();
         setProblem(contact ? 'tooMany' : 'unavailable');

@@ -4,6 +4,7 @@ import { prisma } from '@/db/prisma';
 import { DEFAULT_PRICE_MODES } from '@/lib/constants';
 import { eventEndsAt, fromShopDateTime } from '@/lib/event-date';
 import { nextEventStart, repeatOf } from '@/lib/event-repeat';
+import { apartSubmissionWhere } from '@/lib/mercadillos';
 import { getDefaultPlaceId } from '@/lib/places';
 import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
@@ -11,7 +12,7 @@ import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, productUrl, RELISTABLE, type Listi
 import { toProductTranslations } from './catalog';
 import { toPictureLanguages } from './pictures';
 import { botText, localeOf } from './messages';
-import { lacksConsent } from './listing-payment';
+import { isReadyToPublish, lacksConsent } from './listing-payment';
 import { sendWithTemplateFallback } from './templates';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +51,11 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const startsAt = nextStart || submission.startsAt;
   const eventEnd = repeat ? repeatingEventEnd(new Date(now + LISTING_DAYS * DAY_MS), repeat.until) : submission.type === 'EVENT' && startsAt ? eventEndsAt(startsAt) : null;
   const chosenEnd = !submission.paidAt && submission.expiresAt && submission.expiresAt.getTime() > now ? submission.expiresAt : null;
-  const expiresAt = eventEnd ?? chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS);
+  // A "Solo aquí" selección keeps its listings: they never end.
+  const isApart = (await prisma.submission.count({ where: { id: submission.id, ...apartSubmissionWhere } })) > 0;
+  // A partner's mercadillo keeps its listings too, until the partner takes them down.
+  const isKept = isApart || Boolean(submission.partnerId);
+  const expiresAt = eventEnd ?? (isKept ? null : (chosenEnd ?? new Date(now + LISTING_DAYS * DAY_MS)));
   const title = submission.title ?? 'Anuncio';
   // Listings from before places, or made while none was live, go to the first live place.
   const placeId = submission.placeId ?? (await getDefaultPlaceId());
@@ -109,9 +114,10 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
   const crossPosts = [submission.crossPostFacebook && 'Facebook', submission.crossPostWallapop && 'Wallapop'].filter(Boolean).join(', ');
   // Telling people is best effort: the listing is live either way.
   await Promise.allSettled([
-    // An OK the admin confirmed means the person already knows: no message for it.
+    // An OK the admin confirmed means the person already knows: no message for it. A partner published it itself.
     isPhoneNumber(sellerWaId) &&
       submission.consentSource !== 'admin-confirmed' &&
+      !submission.partnerId &&
       sendWithTemplateFallback(sellerWaId, () => sendText(sellerWaId, botText(sellerLocale, 'live', { days: LISTING_DAYS, url })), {
         key: 'listingLive',
         locale: sellerLocale,
@@ -165,6 +171,25 @@ export async function publishByAdmin(submissionId: string, plan: ListingPlan) {
     include: { seller: true },
   });
   return goLive(submission, ['IN_REVIEW', 'AWAITING_PAYMENT'], 'Admin');
+}
+
+/** Every listing whose "Online desde" day has come goes online, as Publicar would have put it; a missed night catches up. */
+export async function publishScheduledListings(now = new Date()) {
+  const due = await prisma.submission.findMany({
+    where: { status: 'IN_REVIEW', autoPublish: true, publishAt: { lte: now } },
+    orderBy: { publishAt: 'asc' },
+    include: { seller: true },
+  });
+  let published = 0;
+  for (const listing of due) {
+    try {
+      if (isReadyToPublish(listing, now) && (await publishByAdmin(listing.id, 'normal'))) published++;
+    } catch (error) {
+      // The others still go out tonight; this one is tried again on the next run.
+      console.error(`Scheduled listing ${listing.id} not published:`, error);
+    }
+  }
+  return { published };
 }
 
 /**

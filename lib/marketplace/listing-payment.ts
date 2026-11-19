@@ -2,12 +2,13 @@ import { Prisma, type SubmissionStatus } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import { APP_NAME } from '@/lib/constants';
 import { HOUSE_SELLER, UNPAID_LISTING_HOURS } from './config';
+import { isScheduled } from './schedule';
 
 /** The consent text the person agreed to; change the date whenever its wording changes. */
 export const CONSENT_TEXT_VERSION = '2026-11-18';
 
 // 'admin-confirmed': the admin ticked that the person agreed, when creating the listing with them.
-export type ConsentSource = 'publish-page' | 'whatsapp-reply' | 'admin-confirmed';
+export type ConsentSource = 'publish-page' | 'whatsapp-reply' | 'admin-confirmed' | 'partner';
 
 // Read off a phone and typed into Bizum: no 0/O, 1/I/L that people mix up.
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -25,6 +26,12 @@ export const hasPersonNumber = (waId: string) => waId !== HOUSE_SELLER && /^\d+$
 /** A listing with the person's number goes online only with their recorded OK. */
 export const lacksConsent = (listing: { consentAt: Date | null; seller: { waId: string } }) =>
   hasPersonNumber(listing.seller.waId) && !listing.consentAt;
+
+/** "Publicar" with Estado Online, once written: online unless it lacks the person's OK, an event's date or its "Online desde" day. */
+export const isReadyToPublish = (
+  listing: { autoPublish: boolean; consentAt: Date | null; seller: { waId: string }; type: string; startsAt: Date | null; publishAt: Date | null },
+  now = new Date()
+) => listing.autoPublish && !lacksConsent(listing) && !(listing.type === 'EVENT' && !listing.startsAt) && !isScheduled(listing, now);
 
 const UNPAID_LISTING_MS = UNPAID_LISTING_HOURS * 60 * 60 * 1000;
 

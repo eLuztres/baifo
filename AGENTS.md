@@ -79,6 +79,12 @@ Every feature, text, flow and AI prompt in this shop must follow these values. I
 - Products from a shop carry that shop's badge at the bottom right of every picture (Magma: "Se puede ver en persona en la tienda Magma, en Lajares." in the text too).
 - A shop's or one seller's set of products goes in its selección ("Más" in the listing editor, or an etiqueta the selección holds).
 
+## La frase del día
+
+- Each phrase is a listing in the selección "La frase del día" (switch "Solo aquí" on), with its day in "Online desde". The nightly cron puts it online, and choosing the selección fills in its next free day.
+- Pictures go up exactly as given: no Higgsfield, no AI, "Sin IA" in the editor. A picture in another shape than 3:4 is padded to 3:4 in its own background colour, never cropped. One picture per language is marked with "Fotos por idioma".
+- The title and description say only what the picture says. Check the text against the picture, and add no author name and no contact.
+
 ## Creating shops
 
 - `npm run create-shop` (`scripts/create-shop.mjs`) creates customer repos, and the `/new-shop` skill (`.claude/skills/new-shop/`) guides through it and the online setup in `docs/SETUP.md`.

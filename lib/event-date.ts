@@ -32,6 +32,10 @@ export const eventEndsAt = (startsAt: Date) => new Date(startOfShopDay(startsAt)
 
 export const isShopToday = (date: Date | string, now = new Date(), timeZone = SHOP_TIME_ZONE) => shopDay(date, timeZone) === shopDay(now, timeZone);
 
+/** The day something came out: the today label on the day itself, else "19 nov" on the shop's clock. */
+export const formatShortDay = (date: Date | string, locale: string, todayLabel: string, now = new Date(), timeZone = SHOP_TIME_ZONE) =>
+  isShopToday(date, now, timeZone) ? todayLabel : new Date(date).toLocaleDateString(locale === 'en' ? 'en-GB' : locale, { day: 'numeric', month: 'short', timeZone });
+
 /** An event counts as over once its day is over, as only its start is known. */
 export const isEventOver = (startsAt: Date | string, now = new Date(), timeZone = SHOP_TIME_ZONE) => shopDay(startsAt, timeZone) < shopDay(now, timeZone);
 

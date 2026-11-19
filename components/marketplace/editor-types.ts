@@ -11,6 +11,12 @@ export interface EditorLanguage {
 export interface MercadilloOption {
   id: string;
   name: string;
+  /** "Solo aquí": its listings show only in it, never end and may have no person to reach. */
+  isApart?: boolean;
+  /** A "Solo aquí" selección's next day without a listing (YYYY-MM-DD), for "Online desde". */
+  nextFreeDay?: string;
+  /** Its etiquetas: a listing with one is in it too. */
+  tagIds?: string[];
 }
 
 /** A señalador who can have sent the person, by name. */
@@ -31,3 +37,10 @@ export interface TagOption extends EditorTag {
   count: number;
 }
 
+
+/** A partner editing its own listing in its panel: a new listing's contact starts from its mercadillo's. */
+export interface PartnerEditor {
+  name: string;
+  /** Its WhatsApp, digits with the country code; empty: none. */
+  contactPhone: string | null;
+}

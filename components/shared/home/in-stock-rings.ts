@@ -59,6 +59,8 @@ export interface CollectionRing {
   pictureMotion: string;
   /** Server only: its etiquetas, for the feed's search and its cards. */
   tags: { id: string; names: TagNames }[];
+  /** Server only: the partner's mercadillo it belongs to; the plain list shows that mercadillo's card instead. */
+  partnerId: string | null;
 }
 
 /** Only the rings in the visitor's places; one without a place stays, so nothing disappears unnoticed. */
@@ -71,8 +73,12 @@ const inStockWhere = (): Prisma.ProductWhereInput => ({
   images: { isEmpty: false },
   // An event leaves the shop once its day is over; no cron needed.
   OR: [{ startsAt: null }, { startsAt: { gte: startOfShopDay() } }],
-  // Past its end it leaves at once, by the same end the daily run uses: the listing's own, or an admin service's.
-  NOT: { OR: [{ submission: { is: { expiresAt: { lte: new Date() } } } }, { submission: { is: null }, expiresAt: { lte: new Date() } }] },
+  // Past its end it leaves at once, by the same end the daily run uses: the listing's own, or an admin service's. One without
+  // an end stays (a "Solo aquí" selección's): spelled out without NOT, which would also drop it (NULL).
+  AND: [
+    { OR: [{ submission: { is: null } }, { submission: { is: { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } } }] },
+    { NOT: { submission: { is: null }, expiresAt: { lte: new Date() } } },
+  ],
 });
 
 const RING_SELECT = {
@@ -96,7 +102,7 @@ const RING_SELECT = {
   mercadillos: { select: { id: true } },
   pictureMotion: true,
   expiresAt: true,
-  submission: { select: { rawImages: true, expiresAt: true, repeatFrequency: true, tags: { select: { id: true, names: true } } } },
+  submission: { select: { rawImages: true, expiresAt: true, repeatFrequency: true, partnerId: true, tags: { select: { id: true, names: true } } } },
 } satisfies Prisma.ProductSelect;
 
 // From the extended client, which hands prices over as strings.
@@ -118,6 +124,7 @@ const toCollectionRing = (locale: Locale, fallbacks: Locale[]) => ({ images: all
     mercadilloIds: mercadillos.map((mercadillo) => mercadillo.id),
     isReserved: isReservationActive({ reservedUntil }),
     tags: submission?.tags.map(({ id, names }) => ({ id, names: names as TagNames })) ?? [],
+    partnerId: submission?.partnerId ?? null,
     // A seller's listing ends with its submission; an admin's service has its own end.
     endsAt: submission?.expiresAt ?? expiresAt,
   };
@@ -176,10 +183,10 @@ export interface RingSummary {
   placeId: string | null;
 }
 
-/** Every ring in stock in the store's order, light: for the swipe to the next one. */
-export async function getRingSummaries(): Promise<RingSummary[]> {
+/** Every ring in stock in the store's order, light: for the swipe to the next one; `where` narrows them. */
+export async function getRingSummaries(where?: Prisma.ProductWhereInput): Promise<RingSummary[]> {
   return prisma.product.findMany({
-    where: inStockWhere(),
+    where: where ? { AND: [inStockWhere(), where] } : inStockWhere(),
     orderBy: PAGE_ORDER,
     select: { id: true, slug: true, createdAt: true, placeId: true },
   });

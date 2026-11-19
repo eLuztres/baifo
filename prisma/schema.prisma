@@ -128,6 +128,26 @@ model Mercadillo {
   submissions Submission[]
   // Every listing with one of these etiquetas is in it too, next to the ones chosen by hand.
   tags        Tag[]
+  // "Solo aquí": its listings show only in it (and in Hoy on their first day), newest first, and never end.
+  isApart     Boolean      @default(false)
+}
+
+// A partner's mercadillo (a shop or business): its own page, one card in Explore, and listings it makes itself in its
+// panel, opened with a private link instead of an account. Name and text are per language.
+model Partner {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug         String       @unique
+  name         Json
+  text         Json         @default("{}")
+  icon         String?
+  // Who visitors write to on WhatsApp, with the partner's OK; empty: no contact button.
+  contactPhone String?
+  // The secret part of its panel link (/gestionar/<token>); a new one makes the old link stop working.
+  token        String       @unique
+  // How many listings it can have at once (online, hidden or being written); events count too.
+  maxListings  Int          @default(20)
+  createdAt    DateTime     @default(now()) @db.Timestamp(6)
+  submissions  Submission[]
 }
 
 // An etiqueta: one thing with a name per language ({ "es": "Música", "en": "Music" }); a missing language isn't translated yet.
@@ -378,6 +398,8 @@ model Submission {
   createdByAdmin    Boolean          @default(false)
   // "Publicar" with Estado Online: it goes online by itself once written; Oculto keeps it ready, not shown.
   autoPublish       Boolean          @default(false)
+  // "Online desde": with autoPublish it waits until then; the nightly run puts it online.
+  publishAt         DateTime?        @db.Timestamp(6)
   // The product it becomes takes it over.
   type              ListingType      @default(PRODUCT)
   // Its place; the product it becomes takes it over.
@@ -385,6 +407,9 @@ model Submission {
   place             Place?           @relation(fields: [placeId], references: [id], onDelete: SetNull)
   // Its Mercadillos; the product it becomes takes them over.
   mercadillos       Mercadillo[]
+  // The partner's mercadillo that made it in its panel; it shows on that mercadillo's page, not in the plain list.
+  partnerId         String?          @db.Uuid
+  partner           Partner?         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   // How its pictures move; the product it becomes takes it over.
   pictureMotion     String           @default("mix")
   // Shown at the end of the description, and found by the search.
@@ -441,6 +466,7 @@ model Submission {
   updatedAt         DateTime         @updatedAt
 
   @@index([sellerId, status])
+  @@index([partnerId])
 }
 
 // A señalador: someone who meets people and sends them to Baifo with their own link (/s/<code>).

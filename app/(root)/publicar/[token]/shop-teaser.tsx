@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import FeedCard from '@/components/shared/product/feed-card';
 import { getInStockRings, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { apartListingsWhere } from '@/lib/mercadillos';
+import { partnerListingsWhere } from '@/lib/partners';
 import { Button } from '@/components/ui/button';
 import { BRAND } from '@/lib/brand';
 import { localizeProduct } from '@/lib/localize';
@@ -22,7 +24,7 @@ interface ShopTeaserProps {
 
 /** The end of the private page: the newest listings around the person and a way into the shop, so it isn't a dead end. */
 export default async function ShopTeaser({ texts, ownSlug }: ShopTeaserProps) {
-  const [{ t, locale }, rings, placeIds] = await Promise.all([getT(), getInStockRings(), getVisitorPlaceIds()]);
+  const [{ t, locale }, rings, placeIds] = await Promise.all([getT(), getInStockRings({ NOT: { OR: [apartListingsWhere, partnerListingsWhere] } }), getVisitorPlaceIds()]);
   const listings = inPlaces(rings, placeIds)
     .filter((ring) => ring.slug !== ownSlug)
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())

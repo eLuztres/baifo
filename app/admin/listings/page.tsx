@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
-import type { SubmissionStatus } from '@prisma/client';
+import type { Prisma, SubmissionStatus } from '@prisma/client';
 import { LISTING_TYPE_PARAMS, LISTING_TYPES, listingTypeOf, type ListingType } from '@/lib/constants';
 import FilterDropdown from '@/components/admin/filter-dropdown';
 import { prisma } from '@/db/prisma';
@@ -16,6 +16,8 @@ import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { adminTexts, fillText, statusText } from '@/lib/marketplace/admin-texts';
 import { formatCurrency } from '@/lib/utils';
+import { SHOP_TIME_ZONE } from '@/lib/constants/currency';
+import { isScheduled } from '@/lib/marketplace/schedule';
 import { coverPicture } from '@/lib/video';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,6 +26,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // The order of the filter tabs: what needs the admin first.
 const STATUSES: SubmissionStatus[] = ['IN_REVIEW', 'PROCESSING', 'AWAITING_PAYMENT', 'LIVE', 'COLLECTING', 'SOLD', 'CANCELLED', 'FINISHED', 'EXPIRED', 'HIDDEN', 'REJECTED'];
+// "Programado": ready, waiting for its "Online desde" day. Its own tab, after Online, and no longer "Por revisar".
+const SCHEDULED = 'SCHEDULED';
+const scheduledWhere = (now: Date) => ({ status: 'IN_REVIEW', autoPublish: true, publishAt: { gt: now } }) satisfies Prisma.SubmissionWhereInput;
+// Spelled out without NOT, which would also leave out every listing without a day (NULL).
+const notScheduledWhere = (now: Date): Prisma.SubmissionWhereInput => ({ OR: [{ status: { not: 'IN_REVIEW' } }, { autoPublish: false }, { publishAt: null }, { publishAt: { lte: now } }] });
 
 
 interface ListingsPageProps {
@@ -38,20 +45,28 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
   const [{ estado, tipo, senalador }, locale] = await Promise.all([searchParams, getLocale()]);
   const texts = adminTexts(locale);
   const statuses = STATUSES.filter((value) => listParam(estado).includes(value));
+  const isScheduledChosen = listParam(estado).includes(SCHEDULED);
+  const now = new Date();
+  const statusWhere: Prisma.SubmissionWhereInput =
+    statuses.length || isScheduledChosen
+      ? { OR: [...(statuses.length ? [{ status: { in: statuses }, ...notScheduledWhere(now) }] : []), ...(isScheduledChosen ? [scheduledWhere(now)] : [])] }
+      : { status: { not: 'COLLECTING' } };
   const types = listParam(tipo).map(listingTypeOf).filter((value): value is ListingType => !!value);
   // From a señalador's row: only the listings they sent.
   const scoutWhere = senalador && /^[0-9a-f-]{36}$/.test(senalador) ? { scoutId: senalador } : {};
   const typeWhere = types.length ? { type: { in: types } } : {};
   const showsLive = statuses.length === 0 || statuses.includes('LIVE');
 
-  const [listings, counts, unlisted] = await Promise.all([
+  const [listings, counts, scheduledCount, unlisted] = await Promise.all([
     prisma.submission.findMany({
-      where: { status: statuses.length ? { in: statuses } : { not: 'COLLECTING' }, ...typeWhere, ...scoutWhere },
-      orderBy: { updatedAt: 'desc' },
+      where: { AND: [statusWhere, typeWhere, scoutWhere] },
+      // Only waiting ones: in the order they will come out, so a missing day shows.
+      orderBy: isScheduledChosen && statuses.length === 0 ? { publishAt: 'asc' } : { updatedAt: 'desc' },
       take: 120,
       include: { seller: { select: { waId: true, name: true } } },
     }),
     prisma.submission.groupBy({ by: ['status'], where: typeWhere, _count: true }),
+    prisma.submission.count({ where: { ...scheduledWhere(now), ...typeWhere } }),
     // Products made without a listing (e.g. services from the first services form) are online too and need managing here.
     prisma.product.findMany({
       where: { submission: null, ...typeWhere },
@@ -61,7 +76,8 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
     }),
   ]);
   const countOf = (value: SubmissionStatus) =>
-    (counts.find((count) => count.status === value)?._count ?? 0) + (value === 'LIVE' ? unlisted.length : 0);
+    (counts.find((count) => count.status === value)?._count ?? 0) + (value === 'LIVE' ? unlisted.length : 0) - (value === 'IN_REVIEW' ? scheduledCount : 0);
+  const shortDay = (date: Date) => date.toLocaleDateString(locale === 'en' ? 'en-GB' : locale, { day: 'numeric', month: 'short', timeZone: SHOP_TIME_ZONE });
 
   const cards = [
     ...listings.map((listing) => ({
@@ -70,6 +86,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
       image: coverPicture(listing.images) ?? coverPicture(listing.rawImages),
       title: listing.title,
       status: listing.status,
+      scheduledFor: listing.status === 'IN_REVIEW' && listing.autoPublish && isScheduled(listing, now) ? shortDay(listing.publishAt!) : undefined,
       type: listing.type,
       price: Number(listing.price) > 0 ? listing.price?.toString() : undefined,
       seller: listing.seller.waId === HOUSE_SELLER ? texts.houseSeller : (sellerIdentity(listing).name ?? `+${listing.seller.waId}`),
@@ -83,6 +100,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           image: coverPicture(product.images),
           title: product.name,
           status: 'LIVE' as const,
+          scheduledFor: undefined,
           type: product.type,
           price: Number(product.price) > 0 ? product.price.toString() : undefined,
           seller: product.contactPhone ?? texts.houseSeller,
@@ -108,12 +126,11 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           label={texts.statusFilter}
           allLabel={texts.all}
           param='estado'
-          options={STATUSES.filter((value) => countOf(value) > 0 || statuses.includes(value)).map((value) => ({
-            value,
-            label: statusText(texts, value, types.length === 1 ? types[0] : undefined),
-            count: countOf(value),
-          }))}
-          selected={statuses}
+          options={STATUSES.filter((value) => countOf(value) > 0 || statuses.includes(value)).flatMap((value) => [
+            { value, label: statusText(texts, value, types.length === 1 ? types[0] : undefined), count: countOf(value) },
+            ...(value === 'LIVE' && (scheduledCount > 0 || isScheduledChosen) ? [{ value: SCHEDULED, label: texts.status_SCHEDULED, count: scheduledCount }] : []),
+          ])}
+          selected={[...statuses, ...(isScheduledChosen ? [SCHEDULED] : [])]}
         />
       </div>
 
@@ -133,7 +150,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
                     {image && <ProductMedia src={image} alt={listing.title ?? ''} fill />}
                     {/* Bottom left, away from the delete button, so a long status never runs under it on phones. */}
                     <span className='absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] rounded-xl bg-background/90 px-3 py-1 text-xs font-medium shadow'>
-                      {statusText(texts, listing.status, listing.type)}
+                      {listing.scheduledFor ? `${texts.status_SCHEDULED} · ${listing.scheduledFor}` : statusText(texts, listing.status, listing.type)}
                     </span>
                   </div>
                   <div className='space-y-1 p-4'>

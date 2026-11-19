@@ -10,7 +10,7 @@ export async function getProductBySlug(slug: string) {
     // Showcase mode: the price is never read, so no page can send it.
     omit: { price: !SHOWS_PRICES },
     // Baifo: the seller's name and language for "Offered by" and the message to them; the page sends only what it shows.
-    include: { submission: { select: { id: true, sellerName: true, sellerLocale: true, contactEmail: true, contactWeb: true, contactInstagram: true, seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } }, ...REPEAT_SELECT } } },
+    include: { submission: { select: { id: true, sellerName: true, sellerLocale: true, contactEmail: true, contactWeb: true, contactInstagram: true, seller: { select: { waId: true, name: true } }, tags: { select: { id: true, names: true } }, partnerId: true, partner: { select: { slug: true, name: true, icon: true } }, ...REPEAT_SELECT } } },
   });
   if (!product) return null;
   const mercadillos = await getListingMercadillos({ products: { some: { id: product.id } } }, product.submission?.tags.map((tag) => tag.id) ?? []);

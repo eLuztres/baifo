@@ -34,3 +34,9 @@ export function getMercadilloContactMessage(mercadillo: { name: unknown; slug: s
   const locale = getShopLocale();
   return getTranslator(locale)('MERCADILLO_CONTACT_MESSAGE', { name: localize(mercadillo.name, locale), shop: APP_NAME, url: `${SERVER_URL}/explore?seleccion=${mercadillo.slug}` });
 }
+
+/** The prefilled message to a partner's mercadillo, in the shop's language. */
+export function getPartnerContactMessage(partner: { name: unknown; slug: string }): string {
+  const locale = getShopLocale();
+  return getTranslator(locale)('PARTNER_CONTACT_MESSAGE', { name: localize(partner.name, locale), shop: APP_NAME, url: `${SERVER_URL}/mercadillo/${partner.slug}` });
+}

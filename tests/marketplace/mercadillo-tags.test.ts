@@ -2,8 +2,9 @@ import { mercadilloIdsOf, spreadRowListings } from '@/lib/mercadillos';
 
 jest.mock('@/db/prisma', () => ({ prisma: {} }));
 
-const SURF = { id: 'surf', tagIds: ['tablas', 'foil'] };
-const MAGMA = { id: 'magma', tagIds: [] };
+const SURF = { id: 'surf', tagIds: ['tablas', 'foil'], isApart: false };
+const MAGMA = { id: 'magma', tagIds: [], isApart: false };
+const PHRASE = { id: 'frase', tagIds: ['frase'], isApart: true };
 
 describe('mercadilloIdsOf', () => {
   it('puts a listing in every selección holding one of its etiquetas', () => {
@@ -16,6 +17,11 @@ describe('mercadilloIdsOf', () => {
 
   it('leaves a listing without those etiquetas out', () => {
     expect(mercadilloIdsOf([], ['musica'], [SURF, MAGMA])).toEqual([]);
+  });
+
+  it('keeps a listing of a "Solo aquí" selección only there, by hand or by etiqueta', () => {
+    expect(mercadilloIdsOf(['frase', 'magma'], ['foil'], [SURF, MAGMA, PHRASE])).toEqual(['frase']);
+    expect(mercadilloIdsOf(['magma'], ['frase', 'foil'], [SURF, MAGMA, PHRASE])).toEqual(['frase']);
   });
 });
 

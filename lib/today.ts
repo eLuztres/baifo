@@ -43,5 +43,6 @@ export const todaySelection = (name: string, text: string, count: number, locale
   sortOrder: 0,
   createdAt: new Date(),
   tagIds: [],
+  isApart: false,
   _count: { products: count },
 });

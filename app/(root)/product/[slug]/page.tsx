@@ -14,6 +14,7 @@ import ContactWaysButton from '@/components/shared/product/contact-ways-button';
 import ShareButton from '@/components/shared/product/share-button';
 import PrintButton from '@/components/shared/product/print-button';
 import { MercadilloIcon } from '@/components/shared/mercadillo-row';
+import { partnerListingsWhere, partnerPath } from '@/lib/partners';
 import PrepareSharePreview from '@/components/shared/product/prepare-share-preview';
 import ListingInfoButton from '@/components/shared/product/listing-info-button';
 import AdminEditButton from '@/components/shared/admin-edit-button';
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import NextRingSwipe from '@/components/shared/product/next-ring-swipe';
 import ScrollText from '@/components/shared/product/scroll-text';
 import { getInStockRings, getRingSummaries, inPlaces } from '@/components/shared/home/in-stock-rings';
+import { apartListingsWhere } from '@/lib/mercadillos';
 import { findNextRing } from '@/components/shared/home/materials';
 import {
   CancelReservationButton,
@@ -118,13 +120,18 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
     getProduct(slug, foto),
     getSession(),
     getT(),
-    getRingSummaries(),
+    getRingSummaries({ NOT: { OR: [apartListingsWhere, partnerListingsWhere] } }),
     getInStockRings({ slug }),
     getVisitorPlaceIds(),
   ]);
   if (!product) notFound();
+  // A listing of a "Solo aquí" selección leads on to the next one of those, never into the feed.
+  const isApart = product.mercadillos.some((mercadillo) => mercadillo.isApart);
+  // A partner's listing leads on to the next one of its mercadillo; the feed's never lead into one.
+  const partnerId = product.submission?.partnerId;
+  const nextRings = partnerId ? await getRingSummaries({ submission: { is: { partnerId } } }) : isApart ? await getRingSummaries(apartListingsWhere) : summaries;
   // The page itself always opens (a shared link); what it suggests next stays in the visitor's places.
-  const visibleRings = inPlaces(summaries, placeIds);
+  const visibleRings = inPlaces(nextRings, placeIds);
 
   const inStock = product.stock > 0;
   const isReserved = inStock && isReservationActive(product);
@@ -160,6 +167,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
   // Who buyers write to, and their message already in the seller's language.
   const seller = product.submission && sellerIdentity(product.submission);
   const mercadillos = product.mercadillos.map((mercadillo) => ({ ...mercadillo, name: localize(mercadillo.name, locale) }));
+  const partner = product.submission?.partner;
   const sellerMessage = hasSellerContact ? getContactMessage(product, seller?.name) : undefined;
   // Email, web and Instagram besides the WhatsApp; only whether there is an email goes to the browser.
   const contactWays = product.submission && {
@@ -259,8 +267,17 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               </div>
             </div>
             <TagBadges tags={(product.submission?.tags ?? []).map((tag) => ({ id: tag.id, names: tag.names as TagNames }))} locale={locale} isLinked className='shrink-0' />
-            {(condition || serviceKey || isEvent || mercadillos.length > 0) && (
+            {(condition || serviceKey || isEvent || mercadillos.length > 0 || partner) && (
               <div className='flex shrink-0 flex-wrap gap-2'>
+                {/* A partner's listing leads back to its mercadillo, where its other listings are. */}
+                {partner && (
+                  <Link
+                    href={partnerPath(partner.slug)}
+                    className='inline-flex w-fit min-w-0 max-w-full items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 py-1 pl-1.5 pr-3 text-sm transition hover:border-primary'
+                  >
+                    <MercadilloIcon src={partner.icon} className='size-5' /> <span className='truncate'>{t('PARTNER_NAMED', { name: localize(partner.name, locale) })}</span>
+                  </Link>
+                )}
                 {/* With several, only their names: the chips stay on one line on phones. */}
                 {mercadillos.map((mercadillo) => (
                   <Link
@@ -341,7 +358,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       message={sellerMessage}
                       className='flex-1 shrink-0'
                     />
-                  ) : shopChatUrl ? (
+                  ) : isApart ? null : shopChatUrl ? (
                     <Button asChild className='h-11 flex-1 shrink-0 rounded-full'>
                       <a href={shopChatUrl} target='_blank' rel='noopener noreferrer'>
                         <MessageCircle /> {t('CONTACT_SELLER')}

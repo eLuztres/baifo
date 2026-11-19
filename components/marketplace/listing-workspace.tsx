@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { toPictureLanguages } from '@/lib/marketplace/pictures';
 import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
+import { isScheduled } from '@/lib/marketplace/schedule';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
 import { coverPicture, pictureOf } from '@/lib/video';
 import DescriptionStep from './description-step';
-import type { EditorLanguage, MercadilloOption, ScoutOption, TagOption } from './editor-types';
+import type { EditorLanguage, MercadilloOption, PartnerEditor, ScoutOption, TagOption } from './editor-types';
+import { PARTNER_PANEL_PATH } from '@/lib/partner-paths';
 import LeaveGuard from './leave-guard';
 import ListingSteps from './listing-steps';
 import PictureTabs from './picture-tabs';
@@ -32,12 +34,14 @@ interface ListingWorkspaceProps {
   /** How many days a listing stays online by default (LISTING_DAYS). */
   listingDays: number;
   texts: AdminTexts;
+  /** A partner in its panel: its own contact to start from, and back to the panel when done. */
+  partner?: PartnerEditor;
 }
 
 const POLL_MS = 2500;
 
 /** A new listing's three steps (pictures, description, contact) in any order, then the listing to check and publish; or any listing to edit. */
-export default function ListingWorkspace({ initial, mercadillos, scouts, tagOptions, maxTags, languages, shopLanguage, listingDays, texts }: ListingWorkspaceProps) {
+export default function ListingWorkspace({ initial, mercadillos, scouts, tagOptions, maxTags, languages, shopLanguage, listingDays, texts, partner }: ListingWorkspaceProps) {
   const router = useRouter();
   const [listing, setListing] = useState(initial);
   const [isJustPublished, setIsJustPublished] = useState(false);
@@ -50,8 +54,10 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
   const [isUploadingPictures, setIsUploadingPictures] = useState(false);
   // Still collecting with photos (or video stills) but no pictures yet: an older listing whose AI is making them.
   const isMakingPictures = listing.status === 'COLLECTING' && listing.usesAi && listing.images.length === 0 && listing.rawImages.some(pictureOf);
-  // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one.
-  const isGoingLive = isJustPublished && !isForPerson && listing.status === 'IN_REVIEW' && listing.autoPublish && !(listing.type === 'EVENT' && !listing.startsAt);
+  // After "Publicar" it goes online by itself once written; an event without a date stays in the editor for one, and one with
+  // a later "Online desde" waits for its day.
+  const isGoingLive =
+    isJustPublished && !isForPerson && listing.status === 'IN_REVIEW' && listing.autoPublish && !(listing.type === 'EVENT' && !listing.startsAt) && !isScheduled(listing);
   // The AI is busy: on the pictures (still collecting) or on the text, or the listing is on its way online.
   const isWaiting = !listing.lastError && (listing.status === 'PROCESSING' || isMakingPictures || isGoingLive);
 
@@ -68,14 +74,19 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
   }, [isWaiting, listing.id]);
 
   // After "Publicar" the admin sees the listing as visitors do: online on its page, Oculto on its admin-only preview.
+  // A partner goes back to its panel, where the listing shows with the others.
   const doneHref =
     !isJustPublished || isForPerson
       ? null
-      : listing.status === 'LIVE' && listing.product?.slug
-        ? `/product/${listing.product.slug}`
-        : listing.status === 'IN_REVIEW' && !listing.autoPublish
-          ? `/product/${adminPreviewSlug(listing.id)}`
-          : null;
+      : partner
+        ? listing.status === 'LIVE' || (listing.status === 'IN_REVIEW' && !isGoingLive)
+          ? PARTNER_PANEL_PATH
+          : null
+        : listing.status === 'LIVE' && listing.product?.slug
+          ? `/product/${listing.product.slug}`
+          : listing.status === 'IN_REVIEW' && (!listing.autoPublish || isScheduled(listing))
+            ? `/product/${adminPreviewSlug(listing.id)}`
+            : null;
   useEffect(() => {
     if (doneHref) router.push(doneHref);
   }, [doneHref, router]);
@@ -144,6 +155,7 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
         isAiOnPictures={isAiOnPictures}
         isUploadingPictures={isUploadingPictures}
         texts={texts}
+        partner={partner}
         onSent={(next, forPerson = false) => {
           setListing(next);
           setIsForPerson(forPerson);
