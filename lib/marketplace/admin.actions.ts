@@ -29,7 +29,7 @@ import { TEXT_MODES, type ListingTexts, type TextMode, type TextVersions } from 
 import { makeListingPictures, processSubmission, writeDraftText } from './processing';
 import { lacksConsent, markSent, recordConsent } from './listing-payment';
 import { enableListing, publishByAdmin, repeatingEventEnd, takeDown } from './publish';
-import { pictureCounterpart } from './pictures';
+import { pictureCounterpart, toPictureLanguages } from './pictures';
 import { takeVideoStill } from './video-cleanup';
 import { PICTURE_MOTIONS } from '@/lib/picture-motion';
 
@@ -63,8 +63,11 @@ const picturesSchema = z
     images: z.array(photoUrlSchema).max(12),
     rawImages: z.array(photoUrlSchema).max(12),
     aiImages: z.array(z.union([photoUrlSchema, z.literal('')])).max(12),
+    pictureLanguages: z.record(z.string(), z.array(z.enum(LOCALES.map((option) => option.id) as [Locale, ...Locale[]])).min(1).max(LOCALES.length)).default({}),
   })
-  .refine(({ rawImages, aiImages }) => rawImages.length === aiImages.length);
+  .refine(({ rawImages, aiImages }) => rawImages.length === aiImages.length)
+  // Only the pictures in use keep a language.
+  .transform((pictures) => ({ ...pictures, pictureLanguages: Object.fromEntries(Object.entries(pictures.pictureLanguages).filter(([url]) => pictures.images.includes(url))) }));
 
 /** Every change in the picture tabs is saved at once, so leaving for the description keeps it. */
 export async function saveAdminListingPictures(id: string, input: z.input<typeof picturesSchema>) {
@@ -79,7 +82,7 @@ export async function saveAdminListingPictures(id: string, input: z.input<typeof
   if (count === 0) return { success: false, message: 'La IA ya está escribiendo este anuncio' };
   const { productId } = (await prisma.submission.findUnique({ where: { id }, select: { productId: true } })) ?? {};
   if (productId && parsed.data.images.length > 0) {
-    await prisma.product.update({ where: { id: productId }, data: { images: parsed.data.images } });
+    await prisma.product.update({ where: { id: productId }, data: { images: parsed.data.images, pictureLanguages: parsed.data.pictureLanguages } });
     revalidatePath('/');
   }
   return { success: true, message: 'Fotos guardadas' };
@@ -550,6 +553,7 @@ export async function updateAdminListing(id: string, input: ListingEdit) {
         expiresAt,
         priceMode,
         images,
+        pictureLanguages: toPictureLanguages(submission.pictureLanguages),
         placeId,
         ...(mercadilloIds && { mercadillos: setMercadillos(mercadilloIds) }),
         pictureMotion,

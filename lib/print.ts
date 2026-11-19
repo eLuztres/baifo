@@ -31,6 +31,16 @@ export function parsePhoto(param: string | undefined, count: number) {
   return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
 }
 
+/** A photo's name in a link: its file name, the same whichever language's pictures it is among. */
+export const photoName = (url: string) => url.split('#')[0].split('/').pop() ?? '';
+
+/** ?foto=<file name> → that photo's place among `media`; older links' ?foto=2 → the third; else the first.
+    A photo not shown in the link's language opens the first. */
+export function photoPosition(param: string | undefined, media: string[]) {
+  const named = media.findIndex((url) => photoName(url) === param);
+  return named >= 0 ? named : parsePhoto(param, media.length);
+}
+
 // Half and quarter sheets print the text too small to read when it is long: they keep its start and send to the QR.
 const TEXT_LIMITS: Record<PrintCopies, number> = { 1: Infinity, 2: 900, 4: 450 };
 

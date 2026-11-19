@@ -4,6 +4,9 @@ import { SHOWCASE_MODE, SHOWS_PRICES, type ListingType, type PriceMode } from '@
 import { isReservationActive } from '@/lib/reservation';
 import { RING_ORDER } from '@/lib/localize';
 import { coverPicture } from '@/lib/video';
+import { getLocale, getPictureFallbackLocales } from '@/lib/i18n-server';
+import type { Locale } from '@/lib/i18n-core';
+import { localizePictures } from '@/lib/marketplace/pictures';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { startOfShopDay } from '@/lib/event-date';
 import type { TagNames } from '@/lib/tag-names';
@@ -78,6 +81,7 @@ const RING_SELECT = {
   name: true,
   shortName: true,
   images: true,
+  pictureLanguages: true,
   price: SHOWS_PRICES,
   priceMode: SHOWS_PRICES,
   reservedUntil: !SHOWCASE_MODE,
@@ -98,8 +102,10 @@ const RING_SELECT = {
 // From the extended client, which hands prices over as strings.
 type RingRow = Prisma.Result<typeof prisma.product, { select: typeof RING_SELECT }, 'findFirstOrThrow'>;
 
-const toCollectionRing = ({ images, reservedUntil, price, submission, expiresAt, mercadillos, ...product }: RingRow): CollectionRing => {
+/** A ring with only the pictures for the visitor's language (`locale`, else the first of `fallbacks` with some). */
+const toCollectionRing = (locale: Locale, fallbacks: Locale[]) => ({ images: allImages, pictureLanguages, reservedUntil, price, submission, expiresAt, mercadillos, ...product }: RingRow): CollectionRing => {
   const { type } = product;
+  const images = localizePictures(allImages, pictureLanguages, locale, fallbacks);
   return {
     ...product,
     // A listing without a price, and a free event (0): no amount to show.
@@ -133,7 +139,7 @@ async function findInStockRings({ where, take, cursor }: RingQuery = {}): Promis
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     select: RING_SELECT,
   });
-  return products.map(toCollectionRing);
+  return products.map(toCollectionRing(await getLocale(), getPictureFallbackLocales()));
 }
 
 /** The name each listing's page shows ("Ofrecido por …"), for lists of listings; a listing without one has none. */

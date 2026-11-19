@@ -30,7 +30,7 @@ import {
 import { getSession } from '@/lib/auth-guard';
 import { absoluteUrl, BRAND } from '@/lib/brand';
 import { ANY_CONDITION, APP_NAME, conditionKey, RESERVATION_HOURS, SERVER_URL, SHOWCASE_MODE, SHOWS_PRICES } from '@/lib/constants';
-import { getT } from '@/lib/i18n-server';
+import { getLocale, getPictureFallbackLocales, getT } from '@/lib/i18n-server';
 import { withLang } from '@/lib/i18n-core';
 import { sellerIdentity } from '@/lib/marketplace/seller';
 import { getVisitorPlaceIds } from '@/lib/places';
@@ -38,7 +38,7 @@ import { isReservationActive } from '@/lib/reservation';
 import TagBadges from '@/components/shared/product/tag-badges';
 import type { TagNames } from '@/lib/tag-names';
 import { localize, localizeProduct } from '@/lib/localize';
-import { parsePhoto, printableMedia } from '@/lib/print';
+import { photoPosition, printableMedia } from '@/lib/print';
 import { getContactMessage } from '@/lib/marketplace/contact-texts';
 import { formatEventDate, isEventOver } from '@/lib/event-date';
 import { repeatOf } from '@/lib/event-repeat';
@@ -50,13 +50,19 @@ import { cn } from '@/lib/utils';
 import styles from './product-view.module.css';
 import { coverPicture } from '@/lib/video';
 import { listingPreviewPath } from '@/lib/share-preview';
+import { localizePictures, toPictureLanguages } from '@/lib/marketplace/pictures';
 
 
 // generateMetadata and the page need the same row: one query per request. An admin also sees a listing that isn't
 // online (yet) here, at /product/vista-<id>, as visitors would.
-const getProduct = cache(
-  async (slug: string) => (await getProductBySlug(slug)) ?? ((await getAdminProductPreview(slug)) as unknown as Awaited<ReturnType<typeof getProductBySlug>>)
-);
+const getProduct = cache(async (slug: string) => {
+  const product = (await getProductBySlug(slug)) ?? ((await getAdminProductPreview(slug)) as unknown as Awaited<ReturnType<typeof getProductBySlug>>);
+  if (!product) return null;
+  // Only the pictures for the visitor's language; its shared previews name the language, to show the same ones.
+  const locale = await getLocale();
+  const hasPictureLanguages = Object.keys(toPictureLanguages(product.pictureLanguages)).length > 0;
+  return { ...product, images: localizePictures(product.images, product.pictureLanguages, locale, getPictureFallbackLocales()), previewLanguage: hasPictureLanguages ? locale : undefined };
+});
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -80,7 +86,7 @@ export async function generateMetadata(props: ProductPageProps) {
   // An admin's look at a listing not online stays out of search engines.
   if (isAdminPreviewSlug(slug)) return { title: name, robots: { index: false } };
   const cover = coverPicture(product.images);
-  const picture = parsePhoto(foto, product.images.length);
+  const picture = photoPosition(foto, product.images);
   return {
     title: t(seoTitleKey(product), { name }),
     description: listingMetaDescription(description, t('PRODUCT_SEO_SUFFIX')) || undefined,
@@ -92,7 +98,7 @@ export async function generateMetadata(props: ProductPageProps) {
         title: name,
         description: metaDescription(description) || undefined,
         locale,
-        images: [{ url: absoluteUrl(listingPreviewPath(slug, product.images, picture), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
+        images: [{ url: absoluteUrl(listingPreviewPath(slug, product.images, picture, product.previewLanguage), SERVER_URL), width: 800, height: 800, type: 'image/jpeg' }],
       },
     }),
   };
@@ -165,7 +171,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
 
   const path = `/product/${slug}`;
   const previewPaths =
-    !isAdminPreviewSlug(slug) && coverPicture(product.images) ? product.images.map((_, index) => listingPreviewPath(slug, product.images, index)) : undefined;
+    !isAdminPreviewSlug(slug) && coverPicture(product.images) ? product.images.map((_, index) => listingPreviewPath(slug, product.images, index, product.previewLanguage)) : undefined;
   const price = SHOWS_PRICES ? product.price?.toString() : undefined;
   const pageSchema =
     isEvent && product.startsAt
@@ -225,7 +231,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             aiLabel={isIllustrative ? t('PRODUCT_ILLUSTRATIVE') : undefined}
             phoneClassName={styles.phonePicture}
             motion={toPictureMotion(product.pictureMotion)}
-            startIndex={parsePhoto(foto, product.images.length)}
+            startIndex={photoPosition(foto, product.images)}
           />
         </div>
 

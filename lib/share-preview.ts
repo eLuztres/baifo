@@ -1,13 +1,16 @@
 import sharp from 'sharp';
 import { absoluteUrl } from '@/lib/brand';
 import { SERVER_URL } from '@/lib/constants';
+import { photoName } from '@/lib/print';
 
 /** A listing's link preview picture: its cover, or `picture` from its gallery. That one's file name in the address,
-    so a reordered or new photo isn't hidden behind the cached old one. */
-export const listingPreviewPath = (slug: string, images: string[], picture = 0) =>
-  picture > 0
-    ? `/product/${slug}/preview.jpg?foto=${picture}&v=${encodeURIComponent(images[picture].split('/').pop() ?? '')}`
-    : `/product/${slug}/preview.jpg`;
+    so a reordered or new photo isn't hidden behind the cached old one. `lang`: the gallery is that language's pictures. */
+export function listingPreviewPath(slug: string, images: string[], picture = 0, lang?: string) {
+  const params = new URLSearchParams(picture > 0 ? { foto: String(picture), v: photoName(images[picture]) } : {});
+  if (lang) params.set('lang', lang);
+  const query = params.toString();
+  return `/product/${slug}/preview.jpg${query ? `?${query}` : ''}`;
+}
 
 const PREVIEW_SIZE = 800;
 const PREVIEW_QUALITY = 75;

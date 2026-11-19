@@ -12,6 +12,7 @@ import { ADMIN_WHATSAPP_NUMBER, MAX_PROCESSING_ATTEMPTS } from './config';
 import { fetchImage, storeWhatsappPhoto, uploadImage } from './media';
 import { cleanUpVideo } from './video-cleanup';
 import { parsePrice } from './price';
+import { toPictureLanguages } from './pictures';
 import { publishByAdmin } from './publish';
 import { sendForReview } from './review';
 
@@ -76,10 +77,10 @@ async function makeTextPicture(submissionId: string, text: { title: string; desc
   });
 }
 
-type SubmissionMedia = { rawImages: string[]; images: string[]; aiImages: string[] };
+type SubmissionMedia = { rawImages: string[]; images: string[]; aiImages: string[]; pictureLanguages: unknown };
 
 /** Each video in use gets its clean-up, kept next to the original in aiImages, so the admin can switch back like with a picture. */
-async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages }: SubmissionMedia) {
+async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages, pictureLanguages }: SubmissionMedia) {
   const pending = rawImages.filter((url, index) => isVideoUrl(url) && !aiImages[index] && images.includes(url));
   if (pending.length === 0) return;
   const cleaned = new Map(
@@ -102,6 +103,8 @@ async function cleanUpVideos(submissionId: string, { rawImages, images, aiImages
     data: {
       images: images.map((url) => cleaned.get(url) || url),
       aiImages: rawImages.map((url, index) => cleaned.get(url) || aiImages[index] || ''),
+      // A cleaned-up video keeps the language of the original it replaces.
+      pictureLanguages: Object.fromEntries(Object.entries(toPictureLanguages(pictureLanguages)).map(([url, language]) => [cleaned.get(url) || url, language])),
     },
   });
 }

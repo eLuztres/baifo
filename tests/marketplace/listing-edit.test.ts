@@ -535,13 +535,16 @@ describe('a new listing as a draft', () => {
 
   it('saves the picture tabs as they are, only uploaded pictures and never while the AI writes, a live product too', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
-    const tabs = { images: ['https://x.ufs.sh/f/ai.jpg', 'https://x.ufs.sh/f/made.jpg'], rawImages: ['https://utfs.io/f/raw.jpg'], aiImages: ['https://x.ufs.sh/f/ai.jpg'] };
+    // The original behind the AI picture isn't in use: its language goes.
+    const languages = { 'https://x.ufs.sh/f/made.jpg': ['es', 'fr'] as ('es' | 'fr')[] };
+    const tabs = { images: ['https://x.ufs.sh/f/ai.jpg', 'https://x.ufs.sh/f/made.jpg'], rawImages: ['https://utfs.io/f/raw.jpg'], aiImages: ['https://x.ufs.sh/f/ai.jpg'], pictureLanguages: { ...languages, 'https://utfs.io/f/raw.jpg': ['en' as const] } };
 
     expect((await saveAdminListingPictures(ID, tabs)).success).toBe(true);
-    expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: { not: 'PROCESSING' } }, data: { ...tabs, lastError: null } });
+    expect(db.submission.updateMany.mock.calls[0][0]).toEqual({ where: { id: ID, status: { not: 'PROCESSING' } }, data: { ...tabs, pictureLanguages: languages, lastError: null } });
     db.submission.findUnique.mockResolvedValueOnce({ productId: 'product-1' });
     await saveAdminListingPictures(ID, tabs);
-    expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'product-1' }, data: { images: tabs.images } });
+    expect(db.product.update).toHaveBeenCalledWith({ where: { id: 'product-1' }, data: { images: tabs.images, pictureLanguages: languages } });
+    expect((await saveAdminListingPictures(ID, { ...tabs, pictureLanguages: { 'https://x.ufs.sh/f/made.jpg': ['xx' as 'es'] } })).success).toBe(false);
     expect((await saveAdminListingPictures(ID, { ...tabs, images: ['https://evil.example/x.jpg'] })).success).toBe(false);
     expect((await saveAdminListingPictures(ID, { ...tabs, aiImages: [] })).success).toBe(false);
   });

@@ -83,7 +83,7 @@ describe('ListingWorkspace steps', () => {
 
     await userEvent.click(screen.getByRole('radio', { name: texts.original }));
 
-    expect(mockSavePictures).toHaveBeenCalledWith('listing-1', { images: [PHOTO], rawImages: [PHOTO], aiImages: ['https://x.ufs.sh/f/bike-ai.jpg'] });
+    expect(mockSavePictures).toHaveBeenCalledWith('listing-1', { images: [PHOTO], rawImages: [PHOTO], aiImages: ['https://x.ufs.sh/f/bike-ai.jpg'], pictureLanguages: {} });
     expect(screen.getByRole('radio', { name: texts.original })).toHaveAttribute('aria-checked', 'true');
   });
 });

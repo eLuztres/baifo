@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { Camera, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Camera, Languages, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import ProductMedia from '@/components/ProductMedia';
 import ImageLightbox from '@/components/shared/image-lightbox';
 import VoiceInputButton from '@/components/shared/voice-input-button';
@@ -12,17 +12,20 @@ import { useDragOrder } from '@/hooks/use-drag-order';
 import { useToast } from '@/hooks/use-toast';
 import { createAdminListingPicture, saveAdminListingPictures } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
-import { addCreated, addUpload, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, switchVersion, type PictureSet } from '@/lib/marketplace/pictures';
+import { addCreated, addUpload, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, showInEveryLanguage, switchVersion, togglePictureLanguage, type PictureSet } from '@/lib/marketplace/pictures';
 import { preparePhotos } from '@/lib/prepare-photos';
 import { useUploadThing } from '@/lib/uploadthing';
 import { cn } from '@/lib/utils';
 import { isVideoUrl, pictureOf } from '@/lib/video';
 import { uploadVideos } from '@/lib/video-upload';
+import type { EditorLanguage } from './editor-types';
 import ListingStage from './listing-stage';
 
 interface PictureTabsProps {
   listingId: string;
   initial: PictureSet;
+  /** The shop's languages, its own first: a picture can be meant for one of them only. */
+  languages: EditorLanguage[];
   texts: AdminTexts;
   /** Every saved change, so the other steps show the same pictures. */
   onChange: (pictures: PictureSet) => void;
@@ -39,7 +42,7 @@ const NEW_TAB = 'new';
 
 /** One tab per picture: upload a photo or make one from words, change it with words, and keep the original or the AI version.
     Every change is saved at once; the AI only works when asked. */
-export default function PictureTabs({ listingId, initial, texts, onChange, onAiWork, onUploading }: PictureTabsProps) {
+export default function PictureTabs({ listingId, initial, languages, texts, onChange, onAiWork, onUploading }: PictureTabsProps) {
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pictures, setPictures] = useState(initial);
@@ -194,6 +197,7 @@ export default function PictureTabs({ listingId, initial, texts, onChange, onAiW
         <ul ref={drag.listRef} role='tablist' aria-label={texts.photosLabel} className='flex gap-2 overflow-x-auto p-1'>
           {pictures.images.map((url, index) => {
             const isAi = Boolean(pictureCounterpart(pictures, url)?.isAi);
+            const languageBadge = badgeOf(languages.filter(({ id }) => pictures.pictureLanguages[url]?.includes(id)).map(({ label }) => label));
             return (
               // The key has the place: a moved tab is a new element, so it doesn't slide back from where it was.
               <li key={`${index}-${url}`} role='presentation' className='shrink-0 transition-transform' {...drag.itemProps(index)}>
@@ -212,6 +216,7 @@ export default function PictureTabs({ listingId, initial, texts, onChange, onAiW
                 >
                   <ProductMedia src={pictureOf(url) ?? url} alt='' fill sizes='3.5rem' />
                   {isAi && <span className='absolute bottom-1 right-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground'>{texts.aiPicture}</span>}
+                  {languageBadge && <span className='absolute left-1 top-1 whitespace-nowrap rounded-full bg-background/85 px-1.5 text-[10px] font-semibold'>{languageBadge}</span>}
                   {busy.includes(url) && (
                     <span className='absolute inset-0 flex items-center justify-center bg-background/60'>
                       <Loader2 className='size-4 animate-spin text-primary' aria-hidden />
@@ -293,6 +298,36 @@ export default function PictureTabs({ listingId, initial, texts, onChange, onAiW
               </div>
             )}
           </ListingStage>
+          {/* A shop with one language has nothing to choose. */}
+          {languages.length > 1 && (
+            <div role='group' aria-label={texts.pictureLanguageLabel} className='flex flex-wrap items-center justify-center gap-1'>
+              <Languages className='mr-1 size-4 text-muted-foreground' aria-hidden />
+              {/* "Todos" alone, or any languages together. */}
+              {[{ id: undefined, label: texts.pictureLanguageAll }, ...languages].map(({ id, label }) => {
+                const chosen = pictures.pictureLanguages[shown];
+                const isChosen = id ? Boolean(chosen?.includes(id)) : !chosen;
+                return (
+                  <button
+                    key={id ?? 'all'}
+                    type='button'
+                    aria-pressed={isChosen}
+                    onClick={() =>
+                      id
+                        ? update((current) => togglePictureLanguage(current, shown, id, languages.map((language) => language.id)))
+                        : !isChosen && update((current) => showInEveryLanguage(current, shown))
+                    }
+                    className={cn(
+                      // Narrower on small phones, so the shop's five languages stay on one line.
+                      'rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors sm:px-3',
+                      isChosen ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {/* A video can't be changed by the AI. */}
           {!isVideoUrl(shown) && (
             <PromptBox
@@ -337,6 +372,9 @@ export default function PictureTabs({ listingId, initial, texts, onChange, onAiW
     </div>
   );
 }
+
+/** A tab's language badge: one or two languages in full ("ES·FR"), more as the first and how many follow ("ES+2"). */
+const badgeOf = (labels: string[]) => (labels.length > 2 ? `${labels[0]}+${labels.length - 1}` : labels.join('·'));
 
 interface PromptBoxProps {
   id: string;

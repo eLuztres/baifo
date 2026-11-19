@@ -9,6 +9,7 @@ import { sendText } from '@/lib/whatsapp-cloud/client';
 import type { Seller, Submission, SubmissionStatus } from '@prisma/client';
 import { ADMIN_WHATSAPP_NUMBER, LISTING_DAYS, productUrl, RELISTABLE, type ListingPlan } from './config';
 import { toProductTranslations } from './catalog';
+import { toPictureLanguages } from './pictures';
 import { botText, localeOf } from './messages';
 import { lacksConsent } from './listing-payment';
 import { sendWithTemplateFallback } from './templates';
@@ -68,6 +69,7 @@ async function goLive(submission: SubmissionWithSeller, from: SubmissionStatus[]
         slug: `${slugify(title, { lower: true, strict: true })}-${submission.id.slice(0, 6)}`,
         condition: submission.condition,
         images: submission.images.length > 0 ? submission.images : submission.rawImages,
+        pictureLanguages: toPictureLanguages(submission.pictureLanguages),
         brand: submission.sellerName || 'Particular',
         description: submission.description ?? '',
         translations: toProductTranslations(submission.translations),

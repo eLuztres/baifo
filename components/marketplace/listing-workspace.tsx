@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { toPictureLanguages } from '@/lib/marketplace/pictures';
 import { adminPreviewSlug } from '@/lib/marketplace/preview-slug';
 import { getAdminListing, type AdminListing } from '@/lib/marketplace/admin.actions';
 import type { AdminTexts } from '@/lib/marketplace/admin-texts';
@@ -121,7 +122,8 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
         <div hidden={shownStep !== 0} className='space-y-4'>
           <PictureTabs
             listingId={listing.id}
-            initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages }}
+            initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages, pictureLanguages: toPictureLanguages(listing.pictureLanguages) }}
+            languages={[shopLanguage, ...languages]}
             texts={texts}
             onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
             onAiWork={setIsAiOnPictures}

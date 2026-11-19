@@ -1,4 +1,4 @@
-import { parseCopies, parsePhoto, printDescription, printParagraphs, printPhotos, selectionSheets } from '@/lib/print';
+import { parseCopies, parsePhoto, photoName, photoPosition, printDescription, printParagraphs, printPhotos, selectionSheets } from '@/lib/print';
 
 describe('parseCopies', () => {
   it('takes 1, 2 or 4 and makes anything else a whole sheet', () => {
@@ -40,6 +40,24 @@ describe('printPhotos', () => {
   it('prints photos through this site, a video as its still and without one not at all', () => {
     const photo = 'https://rf1rilwah0.ufs.sh/f/photo-key';
     expect(printPhotos([photo, 'https://example.com/clip.mp4'])).toEqual([{ src: '/file/photo-key', isVideo: false }]);
+  });
+});
+
+describe('photoPosition', () => {
+  const flyer = 'https://x.ufs.sh/f/flyer-key';
+  const shown = ['https://x.ufs.sh/f/cover-key', flyer];
+
+  it('finds a photo by its file name, the same in every language', () => {
+    expect(photoName(flyer)).toBe('flyer-key');
+    expect(photoName('https://x.ufs.sh/f/clip-key#video=https://x.ufs.sh/f/still-key')).toBe('clip-key');
+    expect(photoPosition('flyer-key', shown)).toBe(1);
+    expect(photoPosition('flyer-key', [flyer])).toBe(0);
+  });
+
+  it('opens the first photo for one not shown in this language, and still reads older links by place', () => {
+    expect(photoPosition('other-key', shown)).toBe(0);
+    expect(photoPosition('1', shown)).toBe(1);
+    expect(photoPosition(undefined, shown)).toBe(0);
   });
 });
 

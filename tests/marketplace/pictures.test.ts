@@ -1,4 +1,4 @@
-import { addCreated, addUpload, canBeMain, isAiPicture, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, switchVersion } from '@/lib/marketplace/pictures';
+import { addCreated, addUpload, canBeMain, isAiPicture, localizePictures, movePicture, photoBehind, pictureCounterpart, removePicture, setAiVersion, showInEveryLanguage, switchVersion, toPictureLanguages, togglePictureLanguage } from '@/lib/marketplace/pictures';
 
 const listing = { rawImages: ['raw-0', 'raw-1', 'raw-2'], aiImages: ['ai-0', '', 'ai-2'] };
 
@@ -72,35 +72,94 @@ describe('picture tabs', () => {
   const RAW = 'https://utfs.io/f/raw.jpg';
   const AI = 'https://x.ufs.sh/f/ai.jpg';
   const MADE = 'https://x.ufs.sh/f/made.jpg';
-  const empty = { images: [], rawImages: [], aiImages: [] };
+  const empty = { images: [], rawImages: [], aiImages: [], pictureLanguages: {} };
 
   it('adds an upload as it is and a made picture without an original', () => {
-    expect(addCreated(addUpload(empty, RAW), MADE)).toEqual({ images: [RAW, MADE], rawImages: [RAW], aiImages: [''] });
+    expect(addCreated(addUpload(empty, RAW), MADE)).toEqual({ images: [RAW, MADE], rawImages: [RAW], aiImages: [''], pictureLanguages: {} });
   });
 
   it("uses a new AI version right away and keeps the original to switch back to", () => {
     const changed = setAiVersion(addUpload(empty, RAW), RAW, AI);
-    expect(changed).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI] });
+    expect(changed).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI], pictureLanguages: {} });
     expect(switchVersion(changed, AI).images).toEqual([RAW]);
     // Changed again from its original: the newer AI version replaces the older one.
-    expect(setAiVersion(switchVersion(changed, AI), RAW, MADE)).toEqual({ images: [MADE], rawImages: [RAW], aiImages: [MADE] });
+    expect(setAiVersion(switchVersion(changed, AI), RAW, MADE)).toEqual({ images: [MADE], rawImages: [RAW], aiImages: [MADE], pictureLanguages: {} });
   });
 
   it('changes a made picture into a new one, with nothing to switch to', () => {
     const changed = setAiVersion(addCreated(empty, MADE), MADE, AI);
-    expect(changed).toEqual({ images: [AI], rawImages: [], aiImages: [] });
+    expect(changed).toEqual({ images: [AI], rawImages: [], aiImages: [], pictureLanguages: {} });
     expect(switchVersion(changed, AI)).toBe(changed);
   });
 
   it('removes a tab with its original and AI version', () => {
     const set = addCreated(setAiVersion(addUpload(empty, RAW), RAW, AI), MADE);
-    expect(removePicture(set, AI)).toEqual({ images: [MADE], rawImages: [], aiImages: [] });
-    expect(removePicture(set, MADE)).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI] });
+    expect(removePicture(set, AI)).toEqual({ images: [MADE], rawImages: [], aiImages: [], pictureLanguages: {} });
+    expect(removePicture(set, MADE)).toEqual({ images: [AI], rawImages: [RAW], aiImages: [AI], pictureLanguages: {} });
+  });
+
+  const SHOP_LANGUAGES = ['es', 'en', 'it', 'fr', 'de'] as const;
+  const toggle = (set: Parameters<typeof togglePictureLanguage>[0], language: (typeof SHOP_LANGUAGES)[number]) => togglePictureLanguage(set, RAW, language, [...SHOP_LANGUAGES]);
+
+  it('keeps a tab\'s languages when it switches between its original and AI version, and drops them with the tab', () => {
+    const spanish = toggle(addUpload(empty, RAW), 'es');
+    expect(spanish.pictureLanguages).toEqual({ [RAW]: ['es'] });
+    const changed = setAiVersion(spanish, RAW, AI);
+    expect(changed.pictureLanguages).toEqual({ [AI]: ['es'] });
+    expect(switchVersion(changed, AI).pictureLanguages).toEqual({ [RAW]: ['es'] });
+    expect(removePicture(changed, AI).pictureLanguages).toEqual({});
+  });
+
+  it('adds and takes away languages one by one, in the shop\'s order', () => {
+    const french = toggle(addUpload(empty, RAW), 'fr');
+    expect(toggle(french, 'es').pictureLanguages).toEqual({ [RAW]: ['es', 'fr'] });
+    expect(toggle(toggle(french, 'es'), 'fr').pictureLanguages).toEqual({ [RAW]: ['es'] });
+  });
+
+  it('shows a picture in every language with none left, all of them chosen, or "Todos"', () => {
+    const french = toggle(addUpload(empty, RAW), 'fr');
+    expect(toggle(french, 'fr').pictureLanguages).toEqual({});
+    expect(['es', 'en', 'it', 'de'].reduce((set, language) => toggle(set, language as 'es'), french).pictureLanguages).toEqual({});
+    expect(showInEveryLanguage(toggle(french, 'es'), RAW).pictureLanguages).toEqual({});
+  });
+
+  it('keeps only real languages from the stored column', () => {
+    expect(toPictureLanguages({ [RAW]: ['es', 'xx'], [AI]: ['xx'], [MADE]: 'es' })).toEqual({ [RAW]: ['es'] });
+    expect(toPictureLanguages(null)).toEqual({});
   });
 
   it('changes the original behind an AI version, else the picture itself', () => {
     const set = setAiVersion(addUpload(empty, RAW), RAW, AI);
     expect(photoBehind(set, AI)).toBe(RAW);
     expect(photoBehind(set, MADE)).toBe(MADE);
+  });
+});
+
+describe('localizePictures', () => {
+  const ORDER = ['es', 'en', 'it', 'de', 'fr'] as const;
+  const PHOTO = 'photo';
+  const shown = (languages: Record<string, string[]>, locale: (typeof ORDER)[number], images = [PHOTO, 'es-flyer', 'en-flyer', 'fr-flyer']) =>
+    localizePictures(images, languages, locale, [...ORDER]);
+  const flyers = { 'es-flyer': ['es'], 'en-flyer': ['en'], 'fr-flyer': ['fr'] };
+
+  it('shows the pictures for every language and those for the visitor\'s own', () => {
+    expect(shown(flyers, 'en')).toEqual([PHOTO, 'en-flyer']);
+    expect(shown(flyers, 'fr')).toEqual([PHOTO, 'fr-flyer']);
+  });
+
+  it('shows a picture meant for several languages in each of them', () => {
+    expect(shown({ 'es-flyer': ['es', 'fr'] }, 'fr', [PHOTO, 'es-flyer'])).toEqual([PHOTO, 'es-flyer']);
+    expect(shown({ 'es-flyer': ['es', 'fr'] }, 'en', [PHOTO, 'es-flyer'])).toEqual([PHOTO, 'es-flyer']);
+  });
+
+  it('falls back to Spanish, then English, Italian, German and French, for a language without pictures of its own', () => {
+    expect(shown(flyers, 'de')).toEqual([PHOTO, 'es-flyer']);
+    expect(shown({ 'en-flyer': ['en'], 'fr-flyer': ['fr'] }, 'de', [PHOTO, 'en-flyer', 'fr-flyer'])).toEqual([PHOTO, 'en-flyer']);
+    expect(shown({ 'fr-flyer': ['fr'] }, 'it', [PHOTO, 'fr-flyer'])).toEqual([PHOTO, 'fr-flyer']);
+  });
+
+  it('keeps every picture without languages, and never shows none at all', () => {
+    expect(shown({}, 'de')).toEqual([PHOTO, 'es-flyer', 'en-flyer', 'fr-flyer']);
+    expect(localizePictures(['de-flyer'], { 'de-flyer': ['de'] }, 'en', ['es'])).toEqual(['de-flyer']);
   });
 });

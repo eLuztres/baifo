@@ -8,6 +8,7 @@ import {
 import { findNextRing } from '@/components/shared/home/materials';
 
 jest.mock('@/db/prisma', () => ({ prisma: { product: { findMany: jest.fn() } } }));
+jest.mock('@/lib/i18n-server', () => ({ getLocale: async () => 'es', getPictureFallbackLocales: () => ['es', 'en', 'it', 'de', 'fr'] }));
 
 const findMany = prisma.product.findMany as unknown as jest.Mock;
 

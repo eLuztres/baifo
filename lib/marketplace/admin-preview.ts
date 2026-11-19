@@ -19,6 +19,7 @@ export async function getAdminProductPreview(slug: string) {
     description: description ?? '',
     translations: toProductTranslations(submission.translations),
     images: images.length > 0 ? images : rawImages,
+    pictureLanguages: submission.pictureLanguages,
     price: price?.toString() ?? '0',
     priceMode: priceMode ?? 'NONE',
     type,

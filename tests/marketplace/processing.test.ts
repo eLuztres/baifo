@@ -265,8 +265,8 @@ describe('processSubmission with a service video', () => {
     });
   });
 
-  it('cleans up each video in use after the pictures, keeping the original to switch back to', async () => {
-    const pictured = { ...SERVICE, usesAi: true, rawImages: [VIDEO], images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: [], title: 'Clases de surf' };
+  it('cleans up each video in use after the pictures, keeping the original to switch back to and its languages', async () => {
+    const pictured = { ...SERVICE, usesAi: true, rawImages: [VIDEO], images: ['https://x.ufs.sh/f/made.jpg', VIDEO], aiImages: [], title: 'Clases de surf', pictureLanguages: { [VIDEO]: ['en'] } };
     db.findUnique.mockResolvedValue(pictured);
     db.update.mockResolvedValue({ ...pictured, seller: {} });
     (fetchImage as jest.Mock).mockResolvedValue(Buffer.from('video'));
@@ -278,7 +278,7 @@ describe('processSubmission with a service video', () => {
     expect(uploadImage).toHaveBeenCalledWith(Buffer.from('clean'), expect.stringContaining('video'), 'video/mp4');
     expect(db.update).toHaveBeenCalledWith({
       where: { id: 'sub-1' },
-      data: { images: ['https://x.ufs.sh/f/made.jpg', 'https://x.ufs.sh/f/clean#video'], aiImages: ['https://x.ufs.sh/f/clean#video'] },
+      data: { images: ['https://x.ufs.sh/f/made.jpg', 'https://x.ufs.sh/f/clean#video'], aiImages: ['https://x.ufs.sh/f/clean#video'], pictureLanguages: { 'https://x.ufs.sh/f/clean#video': ['en'] } },
     });
   });
 
@@ -291,7 +291,7 @@ describe('processSubmission with a service video', () => {
 
     await processSubmission('sub-1');
 
-    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: pictured.images, aiImages: [''] } });
+    expect(db.update).toHaveBeenCalledWith({ where: { id: 'sub-1' }, data: { images: pictured.images, aiImages: [''], pictureLanguages: {} } });
     expect(db.update).toHaveBeenLastCalledWith(expect.objectContaining({ data: { status: 'IN_REVIEW', lastError: null } }));
   });
 

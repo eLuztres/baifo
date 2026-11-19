@@ -18,6 +18,19 @@ export function getEnabledLocales(): Locale[] {
   return configured.length > 0 ? configured : LOCALES.map((l) => l.id);
 }
 
+// Baifo's order: Spanish, then English, Italian, German and French.
+const PICTURE_FALLBACK_ORDER: Locale[] = ['es', 'en', 'it', 'de', 'fr'];
+
+/** Whose pictures a visitor sees when none are meant for their language: the first of these that has some
+    (`PICTURE_FALLBACK_LANGUAGES=es,en,it,de,fr`). */
+export function getPictureFallbackLocales(): Locale[] {
+  const configured = (process.env.PICTURE_FALLBACK_LANGUAGES ?? '')
+    .split(',')
+    .map((locale) => locale.trim())
+    .filter(isLocale);
+  return configured.length > 0 ? configured : PICTURE_FALLBACK_ORDER;
+}
+
 function getDefaultLocale(enabled: Locale[]): Locale {
   const configured = process.env.DEFAULT_LOCALE;
   if (isLocale(configured) && enabled.includes(configured)) return configured;

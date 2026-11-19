@@ -60,6 +60,8 @@ model Product {
   mercadillos    Mercadillo[]
   // How its pictures move from one to the next (PICTURE_MOTIONS); 'still' keeps them still.
   pictureMotion  String      @default("mix")
+  // Pictures meant for some languages only: { "<picture url>": ["es", "fr"] }; a picture not in it shows in every language.
+  pictureLanguages Json      @default("{}")
   // A service's kind of offer: class, service or support (SERVICE_TYPES).
   serviceType    String?
   // An event: when it starts (it leaves the shop after that day) and where it is.
@@ -411,6 +413,8 @@ model Submission {
   textVersions      Json             @default("{}")
   // The AI picture of each original photo, at the same index as rawImages ('' where the AI made none).
   aiImages          String[]         @default([])
+  // Pictures meant for some languages only, as on Product; the product it becomes takes it over.
+  pictureLanguages  Json             @default("{}")
   // False when the admin went on without AI: photos and videos stay exactly as uploaded.
   usesAi            Boolean          @default(true)
   // The admin's own words for the AI pictures, added to the shop's picture prompt; null: the usual pictures.
