@@ -1,7 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LOCALE_COOKIE, LOCALES, type Locale, withLang } from '@/lib/i18n-core';
@@ -18,17 +17,16 @@ import { ThemeMenuItems } from './mode-toggle';
 
 function useChooseLocale() {
   const { locale } = useI18n();
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   const choose = (next: Locale) => {
     if (next === locale) return;
     document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-    // The URL's language wins over the saved one, so the address takes the new one too. A refresh then redraws
-    // everything in it, the header included: a navigation to the new address would keep the layout as it was.
+    // The URL's language wins over the saved one, so the address takes the new one too. A new page load draws
+    // everything in it, the header included: rewriting the address and refreshing kept the old language (card 625).
     const { pathname, search, hash } = window.location;
-    window.history.replaceState(window.history.state, '', withLang(`${pathname}${search}${hash}`, next));
-    startTransition(() => router.refresh());
+    setIsPending(true);
+    window.location.replace(withLang(`${pathname}${search}${hash}`, next));
   };
 
   return { locale, choose, isPending };
