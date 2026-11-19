@@ -3,14 +3,14 @@
 import { useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Check, Printer } from 'lucide-react';
+import { ArrowLeft, Printer } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
-import ProductMedia from '@/components/ProductMedia';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { LOCALES, type Locale, type TranslationKey } from '@/lib/i18n-core';
+import { type Locale, type TranslationKey } from '@/lib/i18n-core';
 import { PRINT_COPIES, type PrintCopies } from '@/lib/print';
 import { cn } from '@/lib/utils';
+import PhotoLanguageChoice, { CHOICE_TILE, choiceHint, useShopLanguages } from './photo-language-choice';
 
 interface PrintButtonProps {
   slug: string;
@@ -26,17 +26,13 @@ const COPY_LABELS: Record<PrintCopies, TranslationKey> = {
   4: 'PRINT_COPIES_4',
 };
 
-const TILE = 'rounded-2xl border-2 border-transparent bg-muted/40 transition hover:border-primary hover:bg-primary/10 focus-visible:border-primary focus-visible:outline-none';
-const CHOSEN = 'border-primary bg-primary/10';
-
 /** Asks how many copies go on a sheet, then which photo and language (only when there is a choice), then opens the listing ready to print. */
 export default function PrintButton({ slug, label, photos, className }: PrintButtonProps) {
-  const { t, locale, locales } = useI18n();
+  const { t, locale } = useI18n();
   const [copies, setCopies] = useState<PrintCopies | null>(null);
   const [photo, setPhoto] = useState(0);
   const [lang, setLang] = useState<Locale>(locale);
-  // In the shop's own order, as in its language menu.
-  const languages = locales.flatMap((id) => LOCALES.filter((option) => option.id === id));
+  const languages = useShopLanguages();
   const hasPhotoChoice = photos.length > 1;
   const hasLangChoice = languages.length > 1;
   const hasSecondStep = hasPhotoChoice || hasLangChoice;
@@ -52,7 +48,7 @@ export default function PrintButton({ slug, label, photos, className }: PrintBut
         {content}
       </a>
     );
-  const hint: TranslationKey = !copies ? 'PRINT_CHOOSE_HINT' : !hasLangChoice ? 'PRINT_CHOOSE_PHOTO' : hasPhotoChoice ? 'PRINT_CHOOSE_PHOTO_LANG' : 'PRINT_CHOOSE_LANG';
+  const hint: TranslationKey = !copies ? 'PRINT_CHOOSE_HINT' : choiceHint(hasPhotoChoice, hasLangChoice);
 
   // Every opening starts over, in the language the site is shown in.
   const startOver = (isOpen: boolean) => {
@@ -89,7 +85,7 @@ export default function PrintButton({ slug, label, photos, className }: PrintBut
                   <span className='flex min-h-[2lh] items-start text-[11px] leading-tight text-muted-foreground text-balance sm:min-h-0 sm:text-xs'>{t(COPY_LABELS[count])}</span>
                 </>
               );
-              const tile = cn(TILE, 'flex flex-col items-center p-1 pb-2 text-center sm:p-1.5 sm:pb-2.5');
+              const tile = cn(CHOICE_TILE, 'flex flex-col items-center p-1 pb-2 text-center sm:p-1.5 sm:pb-2.5');
               // Nothing left to choose: straight to the print, no second step.
               return hasSecondStep ? (
                 // Coming back from the second step, focus starts here again.
@@ -105,53 +101,7 @@ export default function PrintButton({ slug, label, photos, className }: PrintBut
           </div>
         ) : (
           <div key='photo-and-language' className='flex flex-col gap-4 duration-200 animate-in fade-in slide-in-from-right-6'>
-            {hasPhotoChoice && (
-              <section>
-                <h3 className='mb-2 px-0.5 font-sans text-xs font-bold uppercase tracking-wider text-muted-foreground'>{t('PRINT_PHOTO')}</h3>
-                <div className='grid grid-cols-4 gap-2'>
-                  {photos.map((src, index) => (
-                    <button
-                      key={index}
-                      type='button'
-                      onClick={() => setPhoto(index)}
-                      aria-pressed={index === photo}
-                      aria-label={`${t('PRINT_PHOTO')} ${index + 1}`}
-                      className={cn(
-                        'relative aspect-[3/4] overflow-hidden rounded-xl outline-none ring-offset-2 ring-offset-background transition focus-visible:ring-2 focus-visible:ring-primary',
-                        index === photo && 'ring-[3px] ring-primary focus-visible:ring-[3px]'
-                      )}
-                    >
-                      {/* The gallery's own small thumbnails, already loaded on the listing. */}
-                      <ProductMedia src={src} alt='' fill sizes='5rem' isStill />
-                      {index === photo && (
-                        <span className='absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground'>
-                          <Check className='size-3.5' strokeWidth={3} />
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
-            {hasLangChoice && (
-              <section>
-                <h3 className='mb-2 px-0.5 font-sans text-xs font-bold uppercase tracking-wider text-muted-foreground'>{t('PRINT_LANGUAGE')}</h3>
-                <div className='grid gap-1 sm:gap-1.5' style={{ gridTemplateColumns: `repeat(${languages.length}, minmax(0, 1fr))` }}>
-                  {languages.map((option) => (
-                    <button
-                      key={option.id}
-                      type='button'
-                      onClick={() => setLang(option.id)}
-                      aria-pressed={option.id === lang}
-                      className={cn(TILE, 'flex min-w-0 flex-col items-center px-0 py-2', option.id === lang && CHOSEN)}
-                    >
-                      <span className='font-bold'>{option.label}</span>
-                      <span className='w-full truncate text-center text-[10px] text-muted-foreground sm:text-[10.5px]'>{option.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            <PhotoLanguageChoice photos={photos} photo={photo} onPhotoChange={setPhoto} lang={lang} onLangChange={setLang} />
             <DialogClose asChild>
               <Button asChild size='lg' autoFocus className='h-12 w-full rounded-full text-base font-bold'>
                 {printLink(

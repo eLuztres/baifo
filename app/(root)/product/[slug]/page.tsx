@@ -241,7 +241,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
               <h1 className='line-clamp-2 text-xl leading-tight sm:line-clamp-none sm:text-3xl'>{name}</h1>
               <div className='-mr-2 -mt-1 flex shrink-0'>
                 <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
-                <ShareButton title={name} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
+                <ShareButton title={name} photos={product.images} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
                 {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.images)} />}
               </div>
             </div>
@@ -344,7 +344,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
                       className='w-full'
                     />
                   )}
-                  <ShareButton title={name} previewPaths={previewPaths} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
+                  <ShareButton title={name} photos={product.images} previewPaths={previewPaths} className='size-12 border border-border bg-card text-foreground sm:hidden [&_svg]:size-5' />
                 </div>
               </>
             ) : (

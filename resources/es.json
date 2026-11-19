@@ -451,6 +451,7 @@
   "ADMIN_EDIT_LISTING": "Editar anuncio",
   "SHARE": "Compartir",
   "SHARE_COPIED": "Enlace copiado: pégalo donde quieras",
+  "SHARE_CHOOSE_TITLE": "Compartir el anuncio",
   "SHARE_FAILED": "No se pudo copiar el enlace",
   "HOME_SEO_TITLE": "{shop}",
   "PRODUCT_SEO_TITLE": "{name}",

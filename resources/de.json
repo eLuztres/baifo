@@ -451,6 +451,7 @@
   "ADMIN_EDIT_LISTING": "Anzeige bearbeiten",
   "SHARE": "Teilen",
   "SHARE_COPIED": "Link kopiert – füge ihn ein, wo du möchtest",
+  "SHARE_CHOOSE_TITLE": "Anzeige teilen",
   "SHARE_FAILED": "Der Link konnte nicht kopiert werden",
   "HOME_SEO_TITLE": "{shop}",
   "PRODUCT_SEO_TITLE": "{name}",

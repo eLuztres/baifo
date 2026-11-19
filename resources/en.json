@@ -451,6 +451,7 @@
   "ADMIN_EDIT_LISTING": "Edit listing",
   "SHARE": "Share",
   "SHARE_COPIED": "Link copied – paste it wherever you like",
+  "SHARE_CHOOSE_TITLE": "Share the listing",
   "SHARE_FAILED": "The link could not be copied",
   "HOME_SEO_TITLE": "{shop}",
   "PRODUCT_SEO_TITLE": "{name}",

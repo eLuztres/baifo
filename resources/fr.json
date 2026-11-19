@@ -451,6 +451,7 @@
   "ADMIN_EDIT_LISTING": "Modifier l'annonce",
   "SHARE": "Partager",
   "SHARE_COPIED": "Lien copié – colle-le où tu veux",
+  "SHARE_CHOOSE_TITLE": "Partager l'annonce",
   "SHARE_FAILED": "Le lien n'a pas pu être copié",
   "HOME_SEO_TITLE": "{shop}",
   "PRODUCT_SEO_TITLE": "{name}",
