@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from '@/hooks/use-toast';
 import { getShownPicture } from '@/components/shared/product/shown-picture';
 import { withLang, type Locale } from '@/lib/i18n-core';
+import { photoName } from '@/lib/print';
 import { cn } from '@/lib/utils';
 import { pictureOf } from '@/lib/video';
 import PhotoLanguageChoice, { choiceHint, useShopLanguages } from './photo-language-choice';
@@ -59,7 +60,10 @@ export default function ShareButton({ title, path, isLabeled, photos, previewPat
     const pagePath = path ?? window.location.pathname;
     // Without the query (e.g. the filters someone came through): they mean nothing to the person it is sent to.
     // The picture and language stay: the link opens, and previews, as it was shared.
-    const sharedPath = sharedPicture > 0 ? `${pagePath}?foto=${sharedPicture}` : pagePath;
+    // By its file name: each language can have pictures of its own, so a position could be another picture there.
+    const photo = gallery[sharedPicture];
+    const isNamed = photo && (sharedPicture > 0 || sharedLang !== locale);
+    const sharedPath = isNamed ? `${pagePath}?foto=${encodeURIComponent(photoName(photo))}` : pagePath;
     const url = `${window.location.origin}${withLang(sharedPath, sharedLang)}`;
     if (navigator.share) {
       // Closing the share sheet rejects too; that is not an error.

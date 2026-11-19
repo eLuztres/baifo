@@ -8,7 +8,7 @@ import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { type Locale, type TranslationKey } from '@/lib/i18n-core';
-import { PRINT_COPIES, type PrintCopies } from '@/lib/print';
+import { photoName, PRINT_COPIES, type PrintCopies } from '@/lib/print';
 import { cn } from '@/lib/utils';
 import PhotoLanguageChoice, { CHOICE_TILE, choiceHint, useShopLanguages } from './photo-language-choice';
 
@@ -36,7 +36,7 @@ export default function PrintButton({ slug, label, photos, className }: PrintBut
   const hasPhotoChoice = photos.length > 1;
   const hasLangChoice = languages.length > 1;
   const hasSecondStep = hasPhotoChoice || hasLangChoice;
-  const printHref = (count: PrintCopies) => `/imprimir/${slug}?copias=${count}${hasPhotoChoice ? `&foto=${photo}` : ''}&lang=${lang}&imprimir=1`;
+  const printHref = (count: PrintCopies) => `/imprimir/${slug}?copias=${count}${hasPhotoChoice ? `&foto=${encodeURIComponent(photoName(photos[photo]))}` : ''}&lang=${lang}&imprimir=1`;
   // Another language needs a full page load: the texts around the sheet come from the root layout, which a client navigation keeps.
   const printLink = (count: PrintCopies, content: ReactNode, className?: string) =>
     lang === locale ? (
