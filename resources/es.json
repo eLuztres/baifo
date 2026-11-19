@@ -787,5 +787,7 @@
   "PARTNER_RENEW_TEXT": "El enlace de ahora deja de funcionar, también en los móviles donde ya se abrió. Luego le mandas el nuevo.",
   "PARTNER_RENEW_CONFIRM": "Hacer enlace nuevo",
   "PARTNER_OPEN_PANEL": "Abrir su panel",
-  "PARTNER_LISTINGS_USED": "{count} / {max} anuncios"
+  "PARTNER_LISTINGS_USED": "{count} / {max} anuncios",
+  "PARTNER_LINK_TITLE": "Tu mercadillo {name} en {shop}",
+  "PARTNER_MANAGE": "Gestionar mi mercadillo"
 }

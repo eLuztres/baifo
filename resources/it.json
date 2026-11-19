@@ -787,5 +787,7 @@
   "PARTNER_RENEW_TEXT": "Il link di adesso smette di funzionare, anche sui telefoni dove è già stato aperto. Poi gli mandi quello nuovo.",
   "PARTNER_RENEW_CONFIRM": "Crea nuovo link",
   "PARTNER_OPEN_PANEL": "Apri il suo pannello",
-  "PARTNER_LISTINGS_USED": "{count} / {max} annunci"
+  "PARTNER_LISTINGS_USED": "{count} / {max} annunci",
+  "PARTNER_LINK_TITLE": "Il tuo mercatino {name} su {shop}",
+  "PARTNER_MANAGE": "Gestisci il mio mercatino"
 }

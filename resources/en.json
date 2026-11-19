@@ -787,5 +787,7 @@
   "PARTNER_RENEW_TEXT": "The current link stops working, also on the phones where it was already opened. Then you send them the new one.",
   "PARTNER_RENEW_CONFIRM": "Make new link",
   "PARTNER_OPEN_PANEL": "Open their panel",
-  "PARTNER_LISTINGS_USED": "{count} / {max} listings"
+  "PARTNER_LISTINGS_USED": "{count} / {max} listings",
+  "PARTNER_LINK_TITLE": "Your market {name} on {shop}",
+  "PARTNER_MANAGE": "Manage my market"
 }

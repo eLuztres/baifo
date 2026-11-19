@@ -787,5 +787,7 @@
   "PARTNER_RENEW_TEXT": "Le lien actuel ne fonctionne plus, même sur les téléphones où il a déjà été ouvert. Ensuite tu lui envoies le nouveau.",
   "PARTNER_RENEW_CONFIRM": "Créer le lien",
   "PARTNER_OPEN_PANEL": "Ouvrir son espace",
-  "PARTNER_LISTINGS_USED": "{count} / {max} annonces"
+  "PARTNER_LISTINGS_USED": "{count} / {max} annonces",
+  "PARTNER_LINK_TITLE": "Ton marché {name} sur {shop}",
+  "PARTNER_MANAGE": "Gérer mon marché"
 }

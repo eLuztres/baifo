@@ -24,6 +24,8 @@ import { getT } from '@/lib/i18n-server';
 import { adminTexts } from '@/lib/marketplace/admin-texts';
 import { getMercadilloContactMessage, getPartnerContactMessage } from '@/lib/marketplace/contact-texts';
 import { getPartners, partnerPath } from '@/lib/partners';
+import { getSignedInPartner } from '@/lib/partner-access';
+import { PARTNER_PANEL_PATH } from '@/lib/partner-paths';
 import PartnerCard from '@/components/shared/partner-card';
 import PartnerHero from '@/components/shared/partner-hero';
 import { getMercadillos, mercadilloIdsOf, pickRowSpots, spreadRowListings, type Mercadillo } from '@/lib/mercadillos';
@@ -183,6 +185,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
   const words = queryWords(q);
   const chosenMercadillo = selecciones.find((option) => option.slug === seleccion);
   const chosenPartner = !chosenMercadillo ? partners.find((partner) => partner.slug === socio) : undefined;
+  // The partner looking at its own page gets its way back into its panel.
+  const isOwnMercadillo = Boolean(chosenPartner) && (await getSignedInPartner())?.id === chosenPartner?.id;
   // A chosen etiqueta shows exactly the listings that carry it.
   const chosenTag = findTagByParam(feedListings.flatMap((listing) => listing.tags), etiqueta);
   const inChosen = chosenPartner
@@ -483,6 +487,7 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
                 sharePath={partnerPath(chosenPartner.slug)}
                 contactMessage={chosenPartner.contactPhone ? getPartnerContactMessage(chosenPartner) : undefined}
                 back={backToList}
+                panel={isOwnMercadillo ? { href: PARTNER_PANEL_PATH, label: t('PARTNER_MANAGE') } : undefined}
               />
             )}
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { prisma } from '@/db/prisma';
 import { isAdmin } from '@/lib/auth-guard';
@@ -10,7 +11,7 @@ import { getShopLocale, getT } from '@/lib/i18n-server';
 import { localize } from '@/lib/localize';
 import { HOUSE_SELLER } from '@/lib/marketplace/config';
 import { toWaId } from '@/lib/marketplace/seller';
-import { getSignedInPartner, hasPartnerRoom, newPartnerToken } from '@/lib/partner-access';
+import { getSignedInPartner, hasPartnerRoom, newPartnerToken, PARTNER_COOKIE, PARTNER_COOKIE_DAYS } from '@/lib/partner-access';
 import { getDefaultPlaceId } from '@/lib/places';
 import { formatError } from '@/lib/utils';
 import { idSchema, ownPartnerSchema, partnerSchema, updatePartnerSchema } from '@/lib/validators';
@@ -81,6 +82,25 @@ export async function renewPartnerLink(id: string) {
   } catch (error) {
     return { success: false, message: formatError(error), url: '' };
   }
+}
+
+/** The private link was opened: this browser gets the partner's panel. An old link (renewed since) signs it out instead. */
+export async function openPartnerPanel(token: string) {
+  const cookieStore = await cookies();
+  const parsed = z.string().min(1).max(100).safeParse(token);
+  const partner = parsed.success ? await prisma.partner.findUnique({ where: { token: parsed.data }, select: { id: true } }) : null;
+  if (!parsed.success || !partner) {
+    cookieStore.delete(PARTNER_COOKIE);
+    return { success: false };
+  }
+  cookieStore.set(PARTNER_COOKIE, parsed.data, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: PARTNER_COOKIE_DAYS * 24 * 60 * 60,
+  });
+  return { success: true };
 }
 
 /** The partner changes its own name, words, sign and WhatsApp in its panel. */

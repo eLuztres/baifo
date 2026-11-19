@@ -787,5 +787,7 @@
   "PARTNER_RENEW_TEXT": "Der jetzige Link funktioniert nicht mehr, auch auf den Handys, wo er schon geöffnet wurde. Dann schickst du ihm den neuen.",
   "PARTNER_RENEW_CONFIRM": "Neuen Link machen",
   "PARTNER_OPEN_PANEL": "Sein Panel öffnen",
-  "PARTNER_LISTINGS_USED": "{count} / {max} Anzeigen"
+  "PARTNER_LISTINGS_USED": "{count} / {max} Anzeigen",
+  "PARTNER_LINK_TITLE": "Dein Markt {name} auf {shop}",
+  "PARTNER_MANAGE": "Meinen Markt verwalten"
 }

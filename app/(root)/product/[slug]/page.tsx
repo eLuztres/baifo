@@ -261,7 +261,7 @@ const ProductDetailsPage = async (props: ProductPageProps) => {
             <div className='flex shrink-0 items-start justify-between gap-2'>
               <h1 className='line-clamp-2 text-xl leading-tight sm:line-clamp-none sm:text-3xl'>{name}</h1>
               <div className='-mr-2 -mt-1 flex shrink-0'>
-                <AdminEditButton productId={product.id} submissionId={product.submission?.id} />
+                <AdminEditButton productId={product.id} submissionId={product.submission?.id} partnerId={product.submission?.partnerId} />
                 <ShareButton title={name} photos={product.allImages} previewPaths={previewPaths} className={cn(phoneOnlyOnBig)} />
                 {!isAdminPreviewSlug(slug) && <PrintButton slug={slug} label={t('PRINT')} photos={printableMedia(product.allImages)} />}
               </div>

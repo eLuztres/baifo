@@ -13,7 +13,7 @@ import { getEnabledLocales, getLocale } from '@/lib/i18n-server';
 import TurnUpright from '@/components/shared/turn-upright';
 import NoPinchZoom from '@/components/shared/no-pinch-zoom';
 import LangInUrl from '@/components/shared/lang-in-url';
-import { Analytics } from '@vercel/analytics/next';
+import PrivateLinkAnalytics from '@/components/shared/private-link-analytics';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -95,7 +95,7 @@ export default async function RootLayout({
             </Suspense>
           </I18nProvider>
         </ThemeProvider>
-        <Analytics />
+        <PrivateLinkAnalytics />
       </body>
     </html>
   );
