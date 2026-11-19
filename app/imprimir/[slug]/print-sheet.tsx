@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Phone } from 'lucide-react';
 import type { PrintCopies } from '@/lib/print';
 import { cn } from '@/lib/utils';
+import { isApplePhone } from './phone-pdf';
 import styles from './print-sheet.module.css';
 
 export interface PrintPhoto {
@@ -158,6 +159,8 @@ function useAutoPrint(paper: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     // The live address, not the server's props: Next keeps those for back and forward, which would print again.
     if (new URL(window.location.href).searchParams.get(PRINT_NOW) !== '1') return;
+    // An iPhone's print can't save a PDF: there the page waits for "Descargar PDF" and its share menu, Print included.
+    if (isApplePhone()) return;
     const images = Array.from(paper.current?.querySelectorAll('img') ?? []);
     const loaded = images.map((image) =>
       image.complete

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { useI18n } from '@/components/i18n-provider';
 import { Button } from '@/components/ui/button';
+import { handOverPdf, isApplePhone, sheetsPdf } from './phone-pdf';
 import styles from './print-sheet.module.css';
 
 interface PrintToolbarProps {
@@ -19,6 +20,7 @@ interface PrintToolbarProps {
 export function PrintToolbar({ backHref, backLabel, isFullLoad }: PrintToolbarProps) {
   const { t } = useI18n();
   const back = backLabel ?? t('PRINT_BACK');
+  const pdf = usePdfDownload();
   useSheetZoom();
   return (
     <div className={styles.toolbar}>
@@ -33,11 +35,40 @@ export function PrintToolbar({ backHref, backLabel, isFullLoad }: PrintToolbarPr
           </Link>
         )}
       </Button>
-      <Button className='rounded-full' onClick={() => window.print()}>
-        <Download /> {t('PRINT_DOWNLOAD_PDF')}
+      <Button className='rounded-full' onClick={pdf.download} disabled={pdf.isPreparing} aria-busy={pdf.isPreparing}>
+        {pdf.isPreparing ? <Loader2 className='animate-spin' /> : <Download />} {t('PRINT_DOWNLOAD_PDF')}
       </Button>
     </div>
   );
+}
+
+/** "Descargar PDF": the browser's print, or on an iPhone the PDF it made of the sheets (phone-pdf.ts). */
+function usePdfDownload() {
+  const pdf = useRef<File>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
+
+  // Made beforehand, once the text is fitted: the share menu only opens right on the tap, so the button waits until then.
+  useEffect(() => {
+    if (!isApplePhone()) return;
+    let isGone = false;
+    setIsPreparing(true);
+    document.fonts.ready
+      .then(() => new Promise<number>((done) => requestAnimationFrame(done)))
+      .then(() => (isGone ? null : sheetsPdf(Array.from(document.querySelectorAll<HTMLElement>(`.${styles.sheet}`)))))
+      .then((file) => {
+        if (!isGone) pdf.current = file;
+      })
+      .catch(() => {}) // without a PDF, the tap prints
+      .finally(() => {
+        if (!isGone) setIsPreparing(false);
+      });
+    return () => {
+      isGone = true;
+    };
+  }, []);
+
+  const download = () => (pdf.current ? handOverPdf(pdf.current) : window.print());
+  return { download, isPreparing };
 }
 
 // The page's 16px gutters.
