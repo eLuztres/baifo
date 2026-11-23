@@ -653,7 +653,7 @@
   "SCOUT_PICTURE": "Photo",
   "SCOUT_PICTURE_REMOVE": "Retirer la photo",
   "SCOUT_LINK_TITLE": "{name} t'invite sur {shop}",
-  "SCOUT_LINK_DESCRIPTION": "Écris-nous sur WhatsApp de la part de {name} et publie ton annonce.",
+  "SCOUT_LINK_DESCRIPTION": "Écris-nous sur WhatsApp de la part de {name} et raconte-nous.",
   "WHO_SENT_YOU_TITLE": "Qui t'a parlé de {shop} ?",
   "WHO_SENT_YOU_TEXT": "Écris-nous de sa part.",
   "WHO_SENT_YOU_NOBODY": "Personne, je l'ai trouvé moi-même",

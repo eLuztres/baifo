@@ -653,7 +653,7 @@
   "SCOUT_PICTURE": "Foto",
   "SCOUT_PICTURE_REMOVE": "Foto entfernen",
   "SCOUT_LINK_TITLE": "{name} lädt dich zu {shop} ein",
-  "SCOUT_LINK_DESCRIPTION": "Schreib uns auf WhatsApp im Namen von {name} und veröffentliche deine Anzeige.",
+  "SCOUT_LINK_DESCRIPTION": "Schreib uns auf WhatsApp im Namen von {name} und erzähl uns davon.",
   "WHO_SENT_YOU_TITLE": "Wer hat dir von {shop} erzählt?",
   "WHO_SENT_YOU_TEXT": "Schreib uns in seinem oder ihrem Namen.",
   "WHO_SENT_YOU_NOBODY": "Niemand, ich habe es selbst gefunden",
