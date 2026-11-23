@@ -20,8 +20,10 @@ import { correctText, createPicture, enhancePhoto, translateText, writeListing }
 import { makeListingPictures, processSubmission, writeDraftText } from '@/lib/marketplace/processing';
 import { publishByAdmin, takeDown } from '@/lib/marketplace/publish';
 import { takeVideoStill } from '@/lib/marketplace/video-cleanup';
+import { listingEditor } from '@/lib/partner-access';
 
 jest.mock('@/lib/auth-guard', () => ({ isAdmin: jest.fn(async () => true) }));
+jest.mock('@/lib/partner-access', () => ({ ...jest.requireActual('@/lib/partner-access'), listingEditor: jest.fn(async () => 'admin') }));
 jest.mock('@/lib/i18n-server', () => ({ getShopLocale: () => 'es', getEnabledLocales: () => ['es', 'en'] }));
 jest.mock('@/lib/marketplace/ai', () => ({
   correctText: jest.fn(),
@@ -384,6 +386,14 @@ describe('describeAdminListing', () => {
     expect((await describeAdminListing(ID, { notes: 'Ana, clases de surf', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).success).toBe(true);
   });
 
+  it("needs a picture of its own in use on a mercadillo's listing, as no AI picture is made for it", async () => {
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', title: 'Bici', rawImages: ['https://utfs.io/f/bike.jpg'], images: [], partnerId: 'partner-1' });
+
+    expect(await describeAdminListing(ID, { notes: 'Bici, 80€', hasConsent: true, texts: DRAFT, sellerPhone: '612345678' })).toEqual({ success: false, message: 'Sube al menos una foto' });
+    expect(db.submission.updateMany).not.toHaveBeenCalled();
+    expect(processSubmission).not.toHaveBeenCalled();
+  });
+
   it('makes it a wanted ad with Busco and an offer with Ofrezco, and never changes an event', async () => {
     db.submission.updateMany.mockResolvedValue({ count: 1 });
     const send = (isWanted: boolean) => describeAdminListing(ID, { notes: 'Tabla', hasConsent: true, texts: DRAFT, sellerPhone: '612345678', isWanted });
@@ -639,6 +649,15 @@ describe('createAdminListingPicture', () => {
     expect(enhancePhoto).toHaveBeenCalledWith(expect.any(Buffer), 'PRODUCT', 'sobre una mesa');
     expect(createPicture).not.toHaveBeenCalled();
     expect(await createAdminListingPicture(ID, 'x', 'https://evil.example/x.jpg')).toEqual({ success: false, message: 'Revisa las fotos' });
+  });
+
+  it("is the admin's only: a mercadillo's owner can't run up the AI costs", async () => {
+    (listingEditor as jest.Mock).mockResolvedValueOnce('partner');
+    db.submission.findUnique.mockResolvedValue({ type: 'PRODUCT', rawImages: ['https://utfs.io/f/raw.jpg'] });
+
+    expect(await createAdminListingPicture(ID, 'sobre una mesa')).toEqual({ success: false, message: 'Solo para administradores' });
+    expect(createPicture).not.toHaveBeenCalled();
+    expect(enhancePhoto).not.toHaveBeenCalled();
   });
 
   it('makes no picture without an idea and without a photo, never from the description', async () => {

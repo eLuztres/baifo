@@ -175,7 +175,8 @@ export async function writeDraftText(submissionId: string, options: DraftOptions
 
 /** The shop pictures: from the photos (or video stills), else drawn from the admin's idea or the listing's words. */
 async function makePictures(submission: FoundSubmission, firstPhoto: Buffer | null) {
-  if (submission.images.length > 0 || isUploadRunAlive(submission)) return;
+  // A mercadillo's listing never gets AI pictures: its owner could run up the shop's AI costs.
+  if (submission.images.length > 0 || submission.partnerId || isUploadRunAlive(submission)) return;
   if (hasPictureSource(submission.rawImages)) return makeShopPictures(submission.id, submission.rawImages, submission.type, submission.picturePrompt, firstPhoto ?? undefined);
   // The AI's text once it is there (a retry), else the seller's own words, so the picture needn't wait for the text.
   const words = submission.title
@@ -203,7 +204,8 @@ async function finishSubmission(submission: FoundSubmission) {
     its text is made at the same time. Whichever of the two is done last finishes the listing. */
 export async function makeListingPictures(submissionId: string) {
   const submission = await findSubmission(submissionId);
-  if (!submission || !['COLLECTING', 'PROCESSING'].includes(submission.status) || submission.images.length > 0) return;
+  // A mercadillo's listing never gets AI pictures, as in makePictures.
+  if (!submission || submission.partnerId || !['COLLECTING', 'PROCESSING'].includes(submission.status) || submission.images.length > 0) return;
   try {
     const { rawImages, type, picturePrompt } = submission;
     if (hasPictureSource(rawImages)) {

@@ -136,6 +136,7 @@ export default function ListingWorkspace({ initial, mercadillos, scouts, tagOpti
             initial={{ images: listing.images, rawImages: listing.rawImages, aiImages: listing.aiImages, pictureLanguages: toPictureLanguages(listing.pictureLanguages) }}
             languages={[shopLanguage, ...languages]}
             texts={texts}
+            canUseAi={!partner}
             onChange={(pictures) => setListing((current) => ({ ...current, ...pictures }))}
             onAiWork={setIsAiOnPictures}
             onUploading={setIsUploadingPictures}

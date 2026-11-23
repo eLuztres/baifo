@@ -351,7 +351,7 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // Buyers write to the person directly: "through the Corral" is parked for now (#131). WhatsApp is one way of several.
   if (!hasContact && !isHouseOwn) return { success: false, message: 'Escribe su WhatsApp u otra forma de contacto' };
   if (!hasConsent && !isHouseOwn) return { success: false, message: 'Falta su permiso para mostrar su contacto' };
-  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true } });
+  const listing = await prisma.submission.findUnique({ where: { id }, select: { rawImages: true, images: true, lastError: true, type: true, partnerId: true } });
   // Published only with a title and description in every shop language: the AI's or the admin's own.
   const shopLocale = getShopLocale();
   const own = texts?.[shopLocale];
@@ -368,6 +368,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   // Through the whole last day on the island's clock.
   const endsAt = !isEvent && onlineUntil ? fromShopDateTime(`${onlineUntil}T23:59`) : null;
   if (endsAt && endsAt.getTime() <= Date.now()) return { success: false, message: 'Elige un día de hoy en adelante' };
+  // The AI makes no pictures for a mercadillo's listing, so it needs one of its own in use.
+  if (listing.partnerId && listing.images.length === 0) return { success: false, message: 'Sube al menos una foto' };
   // A video without a still counts as no photo; a picture made from words counts.
   const hasPhoto = Boolean(listing?.rawImages.some(pictureOf));
   if (!hasPhoto && !listing?.images?.length) return { success: false, message: 'Sube o crea al menos una foto' };
@@ -376,7 +378,8 @@ export async function describeAdminListing(id: string, input: ListingDescription
   const seller = await prisma.seller.upsert({ where: { waId }, update: {}, create: { waId } });
   // Also while the AI still makes the pictures: the text is written at the same time.
   const { count } = await prisma.submission.updateMany({
-    where: { id, status: 'COLLECTING', createdByAdmin: true },
+    // A mercadillo's pictures emptied meanwhile would leave it waiting for AI pictures that never come.
+    where: { id, status: 'COLLECTING', createdByAdmin: true, ...(listing.partnerId ? { images: { isEmpty: false } } : {}) },
     data: {
       status: 'PROCESSING',
       rawText: notes,
@@ -672,7 +675,8 @@ const picturePromptSchema = z.string().trim().max(500).optional();
 /** One more picture made by the AI: from the admin's idea, else their uploaded photo improved. Never from the description:
     with neither there is nothing to make it from. The editor adds it and saves. */
 export async function createAdminListingPicture(id: string, prompt?: string, photo?: string) {
-  if (!idSchema.safeParse(id).success || !(await listingEditor(id))) return NOT_ALLOWED;
+  // The admin's only: a mercadillo's owner could run up the shop's AI costs.
+  if (!idSchema.safeParse(id).success || (await listingEditor(id)) !== 'admin') return NOT_ALLOWED;
   const parsed = picturePromptSchema.safeParse(prompt);
   if (!parsed.success) return { success: false, message: 'Describe la foto en menos palabras' };
   // A picture tab's own photo, changed with the words on top; only an uploaded photo is ever fetched.

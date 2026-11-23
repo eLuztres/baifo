@@ -456,6 +456,22 @@ describe('makeListingPictures without a photo', () => {
   });
 });
 
+describe("a mercadillo's listing", () => {
+  const PHOTO = 'https://x.ufs.sh/f/bike.jpg';
+  const PARTNERS = { ...WANTED, type: 'PRODUCT', status: 'COLLECTING', partnerId: 'partner-1', rawImages: [PHOTO], aiImages: [], images: [], picturePrompt: 'a red bike' };
+
+  it('never gets AI pictures, so its owner runs up no AI costs', async () => {
+    db.findUnique.mockResolvedValue(PARTNERS);
+
+    await makeListingPictures('sub-1');
+    db.findUnique.mockResolvedValue({ ...PARTNERS, status: 'PROCESSING', title: 'Bici' });
+    await processSubmission('sub-1');
+
+    expect(enhancePhoto).not.toHaveBeenCalled();
+    expect(createPicture).not.toHaveBeenCalled();
+  });
+});
+
 describe('makeListingPictures with only a video', () => {
   const still = 'https://x.ufs.sh/f/still.jpg';
   const video = `https://x.ufs.sh/f/clip#video=${encodeURIComponent(still)}`;

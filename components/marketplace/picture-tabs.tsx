@@ -27,6 +27,8 @@ interface PictureTabsProps {
   /** The shop's languages, its own first: a picture can be meant for one of them only. */
   languages: EditorLanguage[];
   texts: AdminTexts;
+  /** Whether the AI may make or change pictures: not for a mercadillo's owner, as it costs the shop money. */
+  canUseAi: boolean;
   /** Every saved change, so the other steps show the same pictures. */
   onChange: (pictures: PictureSet) => void;
   /** Whether the AI is making or changing a picture now: the listing can't be saved meanwhile. */
@@ -42,7 +44,7 @@ const NEW_TAB = 'new';
 
 /** One tab per picture: upload a photo or make one from words, change it with words, and keep the original or the AI version.
     Every change is saved at once; the AI only works when asked. */
-export default function PictureTabs({ listingId, initial, languages, texts, onChange, onAiWork, onUploading }: PictureTabsProps) {
+export default function PictureTabs({ listingId, initial, languages, texts, canUseAi, onChange, onAiWork, onUploading }: PictureTabsProps) {
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pictures, setPictures] = useState(initial);
@@ -329,7 +331,7 @@ export default function PictureTabs({ listingId, initial, languages, texts, onCh
             </div>
           )}
           {/* A video can't be changed by the AI. */}
-          {!isVideoUrl(shown) && (
+          {canUseAi && !isVideoUrl(shown) && (
             <PromptBox
               id='change-prompt'
               label={texts.changePictureLabel}
@@ -355,18 +357,22 @@ export default function PictureTabs({ listingId, initial, languages, texts, onCh
             </span>
             <span className='font-display text-xl'>{texts.takePhotoOrVideo}</span>
           </button>
-          <p className='flex items-center gap-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border'>{texts.orLabel}</p>
-          <PromptBox
-            id='create-prompt'
-            label={texts.newPicture}
-            placeholder={texts.createPicturePlaceholder}
-            button={texts.createPictureButton}
-            value={prompt}
-            onChange={setPrompt}
-            onSubmit={createPicture}
-            isBusy={false}
-            isDisabled={!prompt.trim() || !canAdd}
-          />
+          {canUseAi && (
+            <>
+              <p className='flex items-center gap-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border'>{texts.orLabel}</p>
+              <PromptBox
+                id='create-prompt'
+                label={texts.newPicture}
+                placeholder={texts.createPicturePlaceholder}
+                button={texts.createPictureButton}
+                value={prompt}
+                onChange={setPrompt}
+                onSubmit={createPicture}
+                isBusy={false}
+                isDisabled={!prompt.trim() || !canAdd}
+              />
+            </>
+          )}
         </>
       )}
     </div>

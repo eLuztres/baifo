@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: adminTexts(await getLocale()).editListing };
 }
 
-// "Crear foto" and "Cambiar esta foto" wait for the AI inside the action's time.
+// "Crear descripción" waits for the AI inside the action's time.
 export const maxDuration = 300;
 
 interface PartnerListingPageProps {
