@@ -165,15 +165,27 @@
     0 2px 18px rgb(0 0 0 / 0.35);
 }
 
-/* One split button right under the title: two equal halves, the shop's seal on the seam. */
+/* One split button right under the title: two equal halves, the shop's seal on the seam. Plain: paper and the shop's green. */
 .buttons {
   --seal: 3.25rem;
+  --split-paper: var(--card);
+  --split-ink: var(--card-foreground);
+  --split-green: var(--primary);
+  --split-green-ink: var(--primary-foreground);
   position: relative;
   display: flex;
   align-self: flex-start;
   width: min(34rem, 100%);
   border-radius: 9999px;
-  box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.55);
+  box-shadow: 0 14px 30px -10px rgb(0 0 0 / 0.55);
+}
+
+/* On the picture it stays light in dark mode too: the dark theme's light and dark tokens swap, the green deepens. */
+:global(.dark) .buttons {
+  --split-paper: var(--card-foreground);
+  --split-ink: var(--card);
+  --split-green: color-mix(in oklab, var(--primary) 50%, var(--card));
+  --split-green-ink: var(--card-foreground);
 }
 
 .buttons > a,
@@ -192,35 +204,31 @@
 /* The listings are the right half; alone (no selections) the whole pill. */
 .buttons > .cta:not(:first-child) {
   padding-inline: calc(var(--seal) / 2 + 0.6rem) 0.75rem;
-  border-left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
 
-/* The selections: the left half in frosted glass, as tall as the listings. */
+/* The selections: the left half on paper, as tall as the listings. */
 .secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 3.85rem;
   padding-inline: 0.75rem calc(var(--seal) / 2 + 0.6rem);
-  border: 1px solid rgb(255 255 255 / 0.6);
-  border-right-color: rgb(255 255 255 / 0.35);
+  border: 0;
   border-radius: 9999px 0 0 9999px;
-  background: rgb(0 0 0 / 0.3);
-  backdrop-filter: blur(14px);
-  color: white;
+  background: var(--split-paper);
+  color: var(--split-ink);
   font-family: var(--font-display);
   font-size: 1.3rem;
   font-weight: 600;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
   cursor: pointer;
   transition: background 250ms ease;
 }
 
 .secondary:hover,
 .secondary:focus-visible {
-  background: rgb(0 0 0 / 0.42);
+  background: color-mix(in oklab, var(--split-paper) 92%, var(--split-ink));
 }
 
 .secondary:focus-visible {
@@ -238,12 +246,11 @@
   place-items: center;
   width: var(--seal);
   height: var(--seal);
-  border: 2px solid rgb(255 255 255 / 0.85);
   border-radius: 9999px;
-  background: var(--background);
+  background: var(--split-paper);
   box-shadow:
-    0 0 0 4px rgb(0 0 0 / 0.15),
-    0 8px 18px -6px rgb(0 0 0 / 0.55);
+    0 0 0 3px var(--split-green),
+    0 6px 14px -4px rgb(0 0 0 / 0.4);
   transform: translate(-50%, -50%);
   /* Tap or swipe it: no page scroll, text selection or picture drag gets in the way. */
   cursor: grab;
@@ -262,15 +269,15 @@
   pointer-events: none;
 }
 
-/* ‹ › beside the seal, only while it moves. */
+/* ‹ › beside the seal, only while it moves; ink with a paper halo, so they show on both halves. */
 .chevron {
   position: absolute;
   top: 50%;
-  color: white;
+  color: var(--split-ink);
   font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  text-shadow: 0 0 3px var(--split-paper), 0 0 6px var(--split-paper);
   opacity: 0;
   transform: translateY(-55%);
   transition: opacity 300ms ease;
@@ -309,72 +316,35 @@
   }
 }
 
-/* A see-through glass pill in the island's terracotta, lit from above like a sunset; a shine sweeps across on hover. */
+/* The listings: a plain pill in the shop's green. */
 .cta {
-  position: relative;
-  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   height: 3.85rem;
   padding: 0 2rem;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 0.6);
+  border: 0;
   border-radius: 9999px;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 50%),
-    linear-gradient(
-      135deg,
-      color-mix(in oklab, color-mix(in oklab, var(--chart-3) 45%, var(--chart-2)) 75%, transparent),
-      color-mix(in oklab, var(--chart-2) 70%, transparent) 55%,
-      color-mix(in oklab, color-mix(in oklab, var(--chart-2) 78%, black) 80%, transparent)
-    );
-  backdrop-filter: blur(14px) saturate(1.6);
-  color: white;
+  background: var(--split-green);
+  color: var(--split-green-ink);
   font-family: var(--font-display);
   font-size: 1.3rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    inset 0 -2px 6px rgb(0 0 0 / 0.15),
-    0 10px 30px -8px color-mix(in oklab, var(--chart-2) 75%, transparent),
-    0 4px 12px -4px rgb(0 0 0 / 0.35);
   transition:
     transform 250ms ease,
-    box-shadow 250ms ease;
-}
-
-.cta::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
-  transform: translateX(-120%);
+    background 250ms ease;
 }
 
 .cta:hover,
 .cta:focus-visible {
   transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.6),
-    inset 0 -2px 6px rgb(0 0 0 / 0.15),
-    0 16px 40px -8px color-mix(in oklab, var(--chart-2) 90%, transparent),
-    0 6px 16px -4px rgb(0 0 0 / 0.35);
+  background: color-mix(in oklab, var(--split-green) 88%, var(--split-ink));
 }
 
 .cta:focus-visible {
   outline: 2px solid white;
   outline-offset: 3px;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .cta:hover::after {
-    transform: translateX(120%);
-    transition: transform 900ms ease;
-  }
 }
 
 @media (min-width: 640px) {

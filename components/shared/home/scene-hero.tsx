@@ -40,11 +40,8 @@ export default async function SceneHero({ pictures }: SceneHeroProps) {
     icon,
     ...(id === TODAY_ID && { isToday: true, note: _count.products === 1 ? t('MERCADILLO_COUNT_ONE') : t('MERCADILLO_COUNT', { count: _count.products }) }),
   }));
-  // The shop's mark sits on the seam of the split button, the dark one in dark mode; without a mark, no seal.
-  const sealMarks = [
-    { src: BRAND.logoAnimated, className: BRAND.logoAnimatedDark ? 'dark:hidden' : undefined },
-    { src: BRAND.logoAnimatedDark, className: BRAND.logoAnimated ? 'hidden dark:block' : undefined },
-  ].filter((mark): mark is { src: string; className: string | undefined } => Boolean(mark.src));
+  // The shop's mark sits on the seam of the split button; its coin stays light in dark mode too, so the light-mode mark. Without it, no seal.
+  const sealMarks = BRAND.logoAnimated ? [{ src: BRAND.logoAnimated }] : [];
   // The alt keys follow the file names, so a picture without its own text stays decorative instead of reading out the key.
   const scenes = startAtRandom(pictures).map(({ name, tall, wide, figure }) => {
     const key = heroAltKey(name);
