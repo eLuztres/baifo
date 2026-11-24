@@ -1,4 +1,4 @@
-import { prisma } from '@/db/prisma';
+import { getProductBySlug } from '@/lib/product';
 import { isLocale } from '@/lib/i18n-core';
 import { getPictureFallbackLocales } from '@/lib/i18n-server';
 import { localizePictures } from '@/lib/marketplace/pictures';
@@ -12,7 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   const query = new URL(request.url).searchParams;
   const foto = query.get('foto') ?? undefined;
   const lang = query.get('lang');
-  const product = await prisma.product.findFirst({ where: { slug }, select: { images: true, pictureLanguages: true } });
+  const product = await getProductBySlug(slug);
   if (!product) return sharePreviewResponse(null);
   const images = isLocale(lang) ? localizePictures(product.images, product.pictureLanguages, lang, getPictureFallbackLocales()) : product.images;
   // The file name (`v`) names the picture the person chose, whatever its place among this language's.

@@ -1,4 +1,4 @@
-import { prisma } from '@/db/prisma';
+import { getMercadillos } from '@/lib/mercadillos';
 import { getInStockRings } from '@/components/shared/home/in-stock-rings';
 import { BRAND, EMAIL_COLORS } from '@/lib/brand';
 import { sharePreviewResponse } from '@/lib/share-preview';
@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     // A quiet day: the shop's own share picture, as on any other page.
     return sharePreviewResponse(first?.image ?? BRAND.ogImage ?? BRAND.logo, SUN_BADGE);
   }
-  const mercadillo = await prisma.mercadillo.findUnique({ where: { slug }, select: { id: true, icon: true, isApart: true } });
+  const mercadillo = (await getMercadillos()).find((one) => one.slug === slug);
   if (!mercadillo) return new Response(null, { status: 404 });
   const firstPicture = async () => (await getInStockRings({ mercadillos: { some: { id: mercadillo.id } } }))[0]?.image;
   const picture = mercadillo.isApart ? ((await firstPicture()) ?? mercadillo.icon) : (mercadillo.icon ?? (await firstPicture()));

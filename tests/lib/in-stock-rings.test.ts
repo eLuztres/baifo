@@ -3,6 +3,8 @@ import {
   getInStockRings,
   getInStockRingsPage,
   getRingSummaries,
+  getTodayCandidates,
+  isStillInShop,
   type RingSummary,
 } from '@/components/shared/home/in-stock-rings';
 import { findNextRing } from '@/components/shared/home/materials';
@@ -49,8 +51,8 @@ describe('getInStockRings', () => {
   });
 
   it("ends a seller's listing with its submission and an admin's with its own end", async () => {
-    const submissionEnd = new Date('2026-11-01T00:00:00Z');
-    const productEnd = new Date('2026-12-01T00:00:00Z');
+    const submissionEnd = new Date('2099-11-01T00:00:00Z');
+    const productEnd = new Date('2099-12-01T00:00:00Z');
     findMany.mockResolvedValue([
       { ...row('seller'), expiresAt: productEnd, submission: { rawImages: [], expiresAt: submissionEnd, tags: [] } },
       { ...row('admin'), expiresAt: productEnd },
@@ -116,6 +118,55 @@ describe('getRingSummaries', () => {
     findMany.mockResolvedValue([{ id: '1', slug: 'a', createdAt: new Date(0), placeId: null }]);
     expect(await getRingSummaries()).toEqual([{ ...summary('a'), id: '1' }]);
     expect(Object.keys(findMany.mock.calls[0][0].select)).not.toContain('images');
+  });
+});
+
+describe('isStillInShop', () => {
+  const now = new Date('2026-11-24T12:00:00Z');
+  const past = new Date('2026-11-24T11:59:00Z');
+  const ahead = new Date('2026-11-24T12:01:00Z');
+
+  it('keeps a listing without an end or a date', () => {
+    expect(isStillInShop({ startsAt: null, expiresAt: null, submission: null }, now)).toBe(true);
+    expect(isStillInShop({ startsAt: null, expiresAt: null, submission: { expiresAt: null } }, now)).toBe(true);
+  });
+
+  it("takes out a seller's listing once its submission's end has passed, as the database would", () => {
+    expect(isStillInShop({ expiresAt: ahead, submission: { expiresAt: past } }, now)).toBe(false);
+    expect(isStillInShop({ expiresAt: past, submission: { expiresAt: ahead } }, now)).toBe(true);
+    expect(isStillInShop({ submission: { expiresAt: now } }, now)).toBe(false);
+  });
+
+  it("takes out an admin's service once its own end has passed", () => {
+    expect(isStillInShop({ expiresAt: past, submission: null }, now)).toBe(false);
+    expect(isStillInShop({ expiresAt: ahead, submission: null }, now)).toBe(true);
+  });
+
+  it('keeps an event all its day and takes it out the day after', () => {
+    expect(isStillInShop({ startsAt: new Date('2026-11-24T08:00:00Z') }, now)).toBe(true);
+    expect(isStillInShop({ startsAt: new Date('2026-11-23T20:00:00Z') }, now)).toBe(false);
+  });
+});
+
+describe('rows cached before an end passed', () => {
+  const ended = new Date(Date.now() - 60_000);
+  const ahead = new Date(Date.now() + 60_000);
+
+  it('leave the lists of listings at once', async () => {
+    findMany.mockResolvedValue([
+      { ...row('ended'), submission: { rawImages: [], expiresAt: ended, tags: [] } },
+      { ...row('running'), submission: { rawImages: [], expiresAt: ahead, tags: [] } },
+    ]);
+    expect((await getInStockRings()).map((ring) => ring.slug)).toEqual(['running']);
+  });
+
+  it('leave the swipe to the next one and Hoy at once, with nothing extra handed on', async () => {
+    findMany.mockResolvedValue([
+      { id: '1', slug: 'ended', createdAt: new Date(0), placeId: null, type: 'PRODUCT', startsAt: null, expiresAt: ended, submission: null },
+      { id: '2', slug: 'running', createdAt: new Date(0), placeId: null, type: 'PRODUCT', startsAt: null, expiresAt: null, submission: null },
+    ]);
+    expect(await getRingSummaries()).toEqual([{ id: '2', slug: 'running', createdAt: new Date(0), placeId: null }]);
+    expect(await getTodayCandidates()).toEqual([{ createdAt: new Date(0), type: 'PRODUCT', startsAt: null, placeId: null }]);
   });
 });
 

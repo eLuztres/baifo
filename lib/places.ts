@@ -3,9 +3,12 @@ import { prisma } from '@/db/prisma';
 import { localize } from '@/lib/localize';
 import type { Locale } from '@/lib/i18n-core';
 import { chosenPlaces, type ShopPlace } from '@/lib/places-core';
+import { cachePublicRead, STABLE_DATA_SECONDS } from '@/lib/public-cache';
 
 /** Every place on the island, live or not, in the admin's order (once per request). */
-export const getPlaces = cache(() => prisma.place.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }));
+export const getPlaces = cache(
+  cachePublicRead('places', () => prisma.place.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] }), STABLE_DATA_SECONDS)
+);
 
 /** The places in the visitor's language, for the picker and the listing pages. */
 export async function getShopPlaces(locale: Locale): Promise<ShopPlace[]> {

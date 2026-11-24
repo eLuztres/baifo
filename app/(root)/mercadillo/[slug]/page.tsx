@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ExplorePage, { generateMetadata as exploreMetadata } from '@/app/(root)/explore/page';
-import { prisma } from '@/db/prisma';
+import { getPartners } from '@/lib/partners';
 
 interface MercadilloPageProps {
   params: Promise<{ slug: string }>;
@@ -23,6 +23,6 @@ export async function generateMetadata(props: MercadilloPageProps): Promise<Meta
 /** A partner's own mercadillo page, which its card in Explore leads to. */
 export default async function MercadilloPage(props: MercadilloPageProps) {
   const { slug } = await props.params;
-  if (!(await prisma.partner.findUnique({ where: { slug }, select: { id: true } }))) notFound();
+  if (!(await getPartners()).some((partner) => partner.slug === slug)) notFound();
   return <ExplorePage searchParams={withPartner(props)} />;
 }

@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
+import { cachePublicRead, STABLE_DATA_SECONDS } from '@/lib/public-cache';
 
 /** A selección's listings: the ones chosen by hand and every one with one of its etiquetas. */
 export const listingsOf = (id: string, tagIds: string[]): Prisma.ProductWhereInput => ({
@@ -17,14 +18,14 @@ export const apartSubmissionWhere: Prisma.SubmissionWhereInput = {
 };
 
 /** Every selección (Mercadillo) in the shop's order, with its etiquetas and how many listings it holds. */
-export const getMercadillos = async () => {
+export const getMercadillos = cachePublicRead('mercadillos', async () => {
   const mercadillos = await prisma.mercadillo.findMany({
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: { tags: { select: { id: true } } },
   });
   const counts = await Promise.all(mercadillos.map(({ id, tags }) => prisma.product.count({ where: listingsOf(id, tags.map((tag) => tag.id)) })));
   return mercadillos.map(({ tags, ...mercadillo }, index) => ({ ...mercadillo, tagIds: tags.map((tag) => tag.id), _count: { products: counts[index] } }));
-};
+}, STABLE_DATA_SECONDS);
 
 /**
  * The selecciones a listing is in: the ones it was chosen for by hand, and every one holding one of its etiquetas.

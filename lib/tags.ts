@@ -1,12 +1,17 @@
 import { prisma } from '@/db/prisma';
 import type { Locale } from '@/lib/i18n-core';
+import { cachePublicRead, STABLE_DATA_SECONDS } from '@/lib/public-cache';
 import { tagNameKey, withMissingNames, type TagNames } from '@/lib/tag-names';
 
 /** Every etiqueta to offer in the editor, with how many listings use it. */
-export const getTagOptions = async () => {
-  const tags = await prisma.tag.findMany({ select: { id: true, names: true, _count: { select: { submissions: true } } } });
-  return tags.map(({ id, names, _count }) => ({ id, names: names as TagNames, count: _count.submissions }));
-};
+export const getTagOptions = cachePublicRead(
+  'tag-options',
+  async () => {
+    const tags = await prisma.tag.findMany({ select: { id: true, names: true, _count: { select: { submissions: true } } } });
+    return tags.map(({ id, names, _count }) => ({ id, names: names as TagNames, count: _count.submissions }));
+  },
+  STABLE_DATA_SECONDS
+);
 
 /** Every etiqueta with the listings that use it, in any state, for the admin's table. */
 export const getTagsWithListings = async () => {

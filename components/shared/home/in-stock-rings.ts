@@ -7,9 +7,9 @@ import { coverPicture } from '@/lib/video';
 import { getLocale, getPictureFallbackLocales } from '@/lib/i18n-server';
 import type { Locale } from '@/lib/i18n-core';
 import { localizePictures } from '@/lib/marketplace/pictures';
-import { sellerIdentity } from '@/lib/marketplace/seller';
 import { startOfShopDay } from '@/lib/event-date';
 import type { TagNames } from '@/lib/tag-names';
+import { cachePublicRead, STABLE_DATA_SECONDS } from '@/lib/public-cache';
 
 // How many listings a page of the feed brings when it asks for none in particular.
 const PAGE_SIZE = 24;
@@ -81,6 +81,24 @@ const inStockWhere = (): Prisma.ProductWhereInput => ({
   ],
 });
 
+/** What time can change about a listing in the shop. */
+interface ShopTimes {
+  startsAt?: Date | null;
+  expiresAt?: Date | null;
+  submission?: { expiresAt: Date | null } | null;
+}
+
+const TIMES_SELECT = { startsAt: true, expiresAt: true, submission: { select: { expiresAt: true } } } satisfies Prisma.ProductSelect;
+
+/**
+ * Whether a listing that was in the shop when its row was cached still is. Time only takes listings out (an end passed,
+ * an event's day over), by the same rules as inStockWhere, so cached rows stay right without a clock.
+ */
+export function isStillInShop({ startsAt, expiresAt, submission }: ShopTimes, now = new Date()) {
+  const end = submission ? submission.expiresAt : expiresAt;
+  return !(startsAt && startsAt < startOfShopDay(now)) && !(end && end <= now);
+}
+
 const RING_SELECT = {
   id: true,
   slug: true,
@@ -138,24 +156,37 @@ interface RingQuery {
   cursor?: string;
 }
 
-async function findInStockRings({ where, take, cursor }: RingQuery = {}): Promise<CollectionRing[]> {
-  const products = await prisma.product.findMany({
+const queryInStockRows = ({ where, take, cursor }: RingQuery) =>
+  prisma.product.findMany({
     where: where ? { AND: [inStockWhere(), where] } : inStockWhere(),
     orderBy: PAGE_ORDER,
     take,
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     select: RING_SELECT,
   });
+
+// The same rows for every visitor: the language's pictures, and what time took out since, are applied after the cache.
+const findCachedInStockRows = cachePublicRead('in-stock-rings', queryInStockRows, STABLE_DATA_SECONDS);
+
+async function findInStockRings(query: RingQuery = {}): Promise<CollectionRing[]> {
+  // A page is read fresh: taking rows out of it afterwards would leave it short.
+  const isPage = query.take !== undefined || Boolean(query.cursor);
+  const products = isPage ? await queryInStockRows(query) : (await findCachedInStockRows(query)).filter((row) => isStillInShop(row));
   return products.map(toCollectionRing(await getLocale(), getPictureFallbackLocales()));
 }
 
+// Every listing's, so one cache entry serves every filter of the list; only the name, so no seller's number is copied.
+const findSellerRows = cachePublicRead(
+  'seller-names',
+  () => prisma.product.findMany({ select: { id: true, submission: { select: { sellerName: true } } } }),
+  STABLE_DATA_SECONDS
+);
+
 /** The name each listing's page shows ("Ofrecido por …"), for lists of listings; a listing without one has none. */
 export async function getSellerNames(ids: string[]) {
-  const rows = await prisma.product.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, submission: { select: { sellerName: true, sellerLocale: true, seller: { select: { waId: true, name: true } } } } },
-  });
-  return new Map(rows.map(({ id, submission }) => [id, submission && sellerIdentity(submission).name]));
+  const wanted = new Set(ids);
+  const rows = (await findSellerRows()).filter(({ id }) => wanted.has(id));
+  return new Map(rows.map(({ id, submission }) => [id, submission && (submission.sellerName || null)]));
 }
 
 /** The rings in stock that have a photo, in the admin's order; `where` narrows them (e.g. to a few ids), no cap.
@@ -183,18 +214,33 @@ export interface RingSummary {
   placeId: string | null;
 }
 
+const findSummaryRows = cachePublicRead(
+  'ring-summaries',
+  (where?: Prisma.ProductWhereInput) =>
+    prisma.product.findMany({
+      where: where ? { AND: [inStockWhere(), where] } : inStockWhere(),
+      orderBy: PAGE_ORDER,
+      select: { id: true, slug: true, createdAt: true, placeId: true, ...TIMES_SELECT },
+    }),
+  STABLE_DATA_SECONDS
+);
+
 /** Every ring in stock in the store's order, light: for the swipe to the next one; `where` narrows them. */
 export async function getRingSummaries(where?: Prisma.ProductWhereInput): Promise<RingSummary[]> {
-  return prisma.product.findMany({
-    where: where ? { AND: [inStockWhere(), where] } : inStockWhere(),
-    orderBy: PAGE_ORDER,
-    select: { id: true, slug: true, createdAt: true, placeId: true },
-  });
+  const rows = (await findSummaryRows(where)).filter((row) => isStillInShop(row));
+  return rows.map(({ id, slug, createdAt, placeId }) => ({ id, slug, createdAt, placeId }));
 }
 
+const findTodayRows = cachePublicRead(
+  'today-candidates',
+  () => prisma.product.findMany({ where: inStockWhere(), select: { createdAt: true, type: true, placeId: true, ...TIMES_SELECT } }),
+  STABLE_DATA_SECONDS
+);
+
 /** Every ring in stock, light: enough to say which are in Hoy and in the visitor's places. */
-export function getTodayCandidates() {
-  return prisma.product.findMany({ where: inStockWhere(), select: { createdAt: true, type: true, startsAt: true, placeId: true } });
+export async function getTodayCandidates() {
+  const rows = (await findTodayRows()).filter((row) => isStillInShop(row));
+  return rows.map(({ createdAt, type, startsAt, placeId }) => ({ createdAt, type, startsAt, placeId }));
 }
 
 /** Slug and date of every ring in stock, for the sitemap. */

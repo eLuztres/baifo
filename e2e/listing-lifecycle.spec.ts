@@ -241,7 +241,7 @@ test.describe.serial('listing lifecycle', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('textbox', { name: 'Email' }).fill('e2e-test@example.com');
     await page.getByRole('textbox', { name: 'Nombre (opcional)' }).fill('Prueba E2E');
-    await page.getByRole('checkbox', { name: /está de acuerdo/ }).check();
+    await page.getByRole('checkbox', { name: /solicita publicar su número/ }).check();
 
     await page.getByRole('button', { name: 'Publicar' }).click();
     await page.waitForURL(/\/product\//, { timeout: 180_000 });

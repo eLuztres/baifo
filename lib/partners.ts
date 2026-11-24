@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import type { LocalizedText } from '@/lib/localize';
+import { cachePublicRead, STABLE_DATA_SECONDS } from '@/lib/public-cache';
 
 export { partnerPath } from '@/lib/partner-paths';
 
@@ -18,10 +19,14 @@ export interface PublicPartner {
 export const partnerListingsWhere: Prisma.ProductWhereInput = { submission: { is: { partnerId: { not: null } } } };
 
 /** Every partner's mercadillo, oldest first; never the panel link's secret. */
-export const getPartners = async (): Promise<PublicPartner[]> =>
-  (
-    await prisma.partner.findMany({
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, slug: true, name: true, text: true, icon: true, contactPhone: true },
-    })
-  ).map((partner) => ({ ...partner, name: partner.name as LocalizedText, text: partner.text as LocalizedText }));
+export const getPartners = cachePublicRead(
+  'partners',
+  async (): Promise<PublicPartner[]> =>
+    (
+      await prisma.partner.findMany({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, slug: true, name: true, text: true, icon: true, contactPhone: true },
+      })
+    ).map((partner) => ({ ...partner, name: partner.name as LocalizedText, text: partner.text as LocalizedText })),
+  STABLE_DATA_SECONDS
+);
